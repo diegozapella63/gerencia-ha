@@ -17,7 +17,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6 ou 12 à frente.
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
 - **Adicionar**: escolha despesa, recebimento, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
-- **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com aporte mensal, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
+- **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com aporte mensal nos seus investimentos, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
 - **Mais**: aparência (tema e cor), bancos e contas, categorias, fixos, dicas de economia, leitura por IA, índices de mercado, cálculos, sensores e dados (exportar, relatório, backup, importar, versões).
 
 ## Caixa
@@ -39,6 +39,15 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 Em **Mais > Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Nubank, Diego com cartão (fecha dia 3, vence dia 10) e Dessa com cartão (fecha dia 28, vence dia 5).
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
+
+### Aporte mensal
+
+Em **Invest > Evolução**, o **Aporte por mês nos seus investimentos** é a sua intenção de investir todo mês. Esse valor entra no fluxo de caixa como uma saída fixa, a "Aporte nos investimentos", na categoria Investimentos, todo mês a partir de agora. No gráfico de fluxo, os aportes aparecem em azul, separados das saídas.
+
+- Vale só para o seu dinheiro: com o filtro *De terceiros*, o aporte não entra na projeção nem no caixa.
+- O dia e a conta de saída começam no dia seguinte ao do seu salário fixo, na mesma conta. Para mudar, toque em **Mudar dia ou conta**.
+- No mês em que aplicar, toque em **Apliquei** e confirme quanto foi. Se um mês for diferente, o padrão continua o da aba Invest.
+- Apagar o valor do campo tira o aporte do caixa dali para frente.
 
 ### Dia a dia
 

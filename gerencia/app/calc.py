@@ -185,6 +185,7 @@ CATEGORIAS_PADRAO = [
     ("c-pets", "Pets", "despesa", "#4CD3A5"),
     ("c-impostos", "Impostos e taxas", "despesa", "#FFA23A"),
     ("c-outros-gastos", "Outros gastos", "despesa", "#B8B0B0"),
+    ("c-investimentos", "Investimentos", "despesa", "#2A78D6"),
     ("c-salario", "Salário", "receita", "#4CD3A5"),
     ("c-freelance", "Freelance", "receita", "#56AEFF"),
     ("c-rendimentos", "Rendimentos", "receita", "#B79BFF"),

@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import calc  # noqa: E402
 import assinaturas  # noqa: E402
 
-VERSAO = "1.2.0"
+VERSAO = "1.3.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -314,12 +314,14 @@ def gerar_csv_lancamentos(d):
     w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
     w.writerow(["Data", "Data no caixa", "Tipo", "Descrição", "Categoria", "Conta", "Cartão", "Valor",
                 "Situação", "Parcela", "Fixo", "Observação"])
+    aportes = {r.get("id") for r in d["recorrencias"] if r.get("aporte")}
     for l in sorted(d["lancamentos"], key=lambda x: str(x.get("data") or "")):
         if l.get("pulado"):
             continue
         rec = l.get("tipo") == "receita"
+        aporte = l.get("aporte") or l.get("recorrencia") in aportes
         dc = calc.data_caixa(l, contas)
-        w.writerow([l.get("data") or "", dc.isoformat() if dc else "", "Recebimento" if rec else "Despesa",
+        w.writerow([l.get("data") or "", dc.isoformat() if dc else "", "Recebimento" if rec else "Aporte" if aporte else "Despesa",
                     l.get("descricao", ""), cats.get(l.get("categoria"), "Ajuste de saldo" if l.get("ajuste") else ""),
                     calc.nome_conta(contas.get(l.get("conta"))), "Sim" if l.get("cartao") else "",
                     calc.fmt_num(calc.num(l.get("valor"))),
@@ -328,7 +330,7 @@ def gerar_csv_lancamentos(d):
     for r in d["recorrencias"]:
         anual = r.get("freq") == "anual"
         quando = f"todo ano, dia {r.get('dia')}/{str(r.get('inicio') or '')[5:7]}" if anual else f"todo dia {r.get('dia')}"
-        w.writerow([quando, "", "Recebimento fixo" if r.get("tipo") == "receita" else "Despesa fixa",
+        w.writerow([quando, "", "Recebimento fixo" if r.get("tipo") == "receita" else "Aporte mensal" if r.get("aporte") else "Despesa fixa",
                     r.get("descricao", ""), cats.get(r.get("categoria"), ""), calc.nome_conta(contas.get(r.get("conta"))),
                     "Sim" if r.get("cartao") else "", calc.fmt_num(calc.num(r.get("valor"))),
                     f"desde {r.get('inicio')}" + (f" até {r['fim']}" if r.get("fim") else ""), "", "Anual" if anual else "Sim", r.get("obs", "")])

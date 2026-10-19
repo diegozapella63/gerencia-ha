@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.2.0';
+const VERSAO = '1.3.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -76,6 +76,7 @@ const OC = '•••••';
 const brl = (v, c = 2) => S.oculto ? `R$ ${OC}` : 'R$ ' + (c ? NF2 : NF0).format(v);
 const numf = (v, c = 2) => S.oculto ? OC : (c ? NF2 : NF0).format(v);
 const pct = v => NFP.format(v);
+const brlS = (v, c = 2) => (v < -0.005 ? '−' : '') + brl(Math.abs(v), c);
 const compacto = v => S.oculto ? '•••' : NFC.format(v);
 const parseNum = t => { const s = String(t ?? '').trim().replace(/\s/g, ''); if (!s) return NaN; return parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s); };
 const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
@@ -134,6 +135,7 @@ const S = {
   }, store.get('ui', {})),
   ia: null,
   dicas: null,
+  aporteDig: null,
 };
 const salvarUI = () => {
   const { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, cxEstimar } = S.ui;
@@ -578,10 +580,11 @@ function telaInicio() {
   }
   const meus = porEscopo('meu');
   const alvo = meus.length ? meus : d.investimentos;
-  const pr = projetar(alvo, 1, 0, false).pts;
+  const apM = aporteMensal();
+  const pr = projetar(alvo, 1, apM, false).pts;
   const ganho = pr[12].valor - pr[0].valor;
   rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${meus.length ? 'Seu dinheiro em 1 ano' : 'Em 1 ano'}</div>
-    <div class="hl-v">Sem novos aportes</div></div><div class="hl-n">${brl(pr[12].valor, 0)}<small>+${brl(ganho, 0)}</small></div></button>`);
+    <div class="hl-v">${apM ? `Com aporte de ${brl(apM, 0)} por mês` : 'Sem novos aportes'}</div></div><div class="hl-n">${brl(pr[12].valor, 0)}<small>+${brl(ganho, 0)}</small></div></button>`);
   html += `<div class="hl">${rows.join('')}</div>`;
 
   // terceiros
@@ -765,7 +768,8 @@ function invGraficos() {
 let CACHE = {};
 function grafEvolucao(lista) {
   const u = S.ui;
-  const pj = projetar(lista, u.gAnos, +u.gAporte || 0, u.gIR);
+  const ap = u.gEscopo === 'terc' ? 0 : (S.aporteDig != null ? S.aporteDig : aporteMensal());
+  const pj = projetar(lista, u.gAnos, ap, u.gIR);
   CACHE.proj = pj;
   const fim = pj.pts[pj.pts.length - 1];
   const campo = u.gEscopo === 'meu' ? 'meu' : u.gEscopo === 'terc' ? 'terceiros' : 'total';
@@ -778,13 +782,12 @@ function grafEvolucao(lista) {
     <div class="leg">
       ${CACHE.hist.length ? `<span><i class="k" style="--kc:var(--accent)"></i>Registrado</span>` : ''}
       <span><i class="k tr" style="--kc:var(--accent)"></i>Projetado</span>
-      <span><i class="k" style="--kc:var(--c0)"></i>${+u.gAporte ? 'Investido + aportes' : 'Valor investido'}</span>
+      <span><i class="k" style="--kc:var(--c0)"></i>${ap ? 'Investido + aportes' : 'Valor investido'}</span>
       <span><i class="k" style="--kc:var(--c2)"></i>Em dinheiro de hoje</span>
     </div></div>`;
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips">${[1, 2, 5, 10].map(a =>
     `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}</div>
-    <div class="lbl">Aporte por mês</div>
-    <div class="pref" style="max-width:260px"><span>R$</span><input id="aporte" data-ui="gAporte" inputmode="numeric" value="${+u.gAporte ? NF2.format(+u.gAporte) : ''}" placeholder="0,00"></div>
+    ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteCampo(ap)}
     <div class="sep" style="margin:18px 0"></div>
     <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
       <button class="sw${u.gIR ? ' on' : ''}" data-a="g" data-k="gIR" data-v="${u.gIR ? '' : '1'}" aria-label="Descontar IR"></button></div>
@@ -796,6 +799,14 @@ function grafEvolucao(lista) {
     `<tr><td>${fMesAno(new Date(p.t))}</td><td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td></tr>`).join('')}
   </tbody></table></details>`;
   return html;
+}
+
+function aporteCampo(ap) {
+  const r = aporteRec(), conta = r && r.conta ? contaDe(r.conta) : null;
+  return `<div class="lbl"><label for="aporte">Aporte por mês nos seus investimentos</label></div>
+    <div class="pref" style="max-width:260px"><span>R$</span><input id="aporte" data-ui="aporte" inputmode="numeric" value="${ap ? NF2.format(ap) : ''}" placeholder="0,00"></div>
+    <div class="ajuda">${r ? `Entra no fluxo de caixa todo dia ${r.dia}${conta ? `, saindo de ${esc(nomeConta(conta))}` : ''}. <button class="link-in" data-a="aporte-ajustar">Mudar dia ou conta</button>`
+      : 'Quando tiver valor, ele entra no fluxo de caixa todo mês, como saída do seu caixa para os seus investimentos.'}</div>`;
 }
 
 function niceStep(x) {
@@ -953,7 +964,7 @@ const CATEGORIAS_PADRAO = [
   ['c-educacao', 'Educação', 'despesa', '#FF8A65'], ['c-lazer', 'Lazer', 'despesa', '#E04B8A'],
   ['c-assinaturas', 'Assinaturas', 'despesa', '#FF5A4E'], ['c-compras', 'Compras', 'despesa', '#B8B0B0'],
   ['c-pets', 'Pets', 'despesa', '#4CD3A5'], ['c-impostos', 'Impostos e taxas', 'despesa', '#FFA23A'],
-  ['c-outros-gastos', 'Outros gastos', 'despesa', '#B8B0B0'],
+  ['c-outros-gastos', 'Outros gastos', 'despesa', '#B8B0B0'], ['c-investimentos', 'Investimentos', 'despesa', '#2A78D6'],
   ['c-salario', 'Salário', 'receita', '#4CD3A5'], ['c-freelance', 'Freelance', 'receita', '#56AEFF'],
   ['c-rendimentos', 'Rendimentos', 'receita', '#B79BFF'], ['c-vendas', 'Vendas', 'receita', '#FFA23A'],
   ['c-reembolso', 'Reembolso', 'receita', '#F2C14E'], ['c-outros-receb', 'Outros recebimentos', 'receita', '#B8B0B0'],
@@ -1018,6 +1029,36 @@ function proximaYm(r) {
   for (let k = 0; k < 12 && !ativaEm(r, ym); k++) ym = addYm(ym, 1);
   return ym;
 }
+// Aporte mensal: a intenção da aba Invest vira um fixo de saída no caixa (só para os seus investimentos)
+const recPorId = () => memo('recId', () => new Map(S.d.recorrencias.map(r => [r.id, r])));
+const ehAporte = l => !!(l.aporte || (l.recorrencia && recPorId().get(l.recorrencia)?.aporte));
+const aporteRec = (d = S.d) => d.recorrencias.find(r => r.aporte && !r.fim);
+const aporteMensal = () => +(aporteRec()?.valor) || 0;
+function padraoAporte() {
+  const sal = S.d.recorrencias.filter(r => r.tipo === 'receita' && !r.fim).sort((a, b) => (+b.valor || 0) - (+a.valor || 0))[0];
+  return { dia: sal ? Math.min(28, (+sal.dia || 5) + 1) : 5, conta: sal?.conta || (contas().find(c => !c.cartao) || contas()[0])?.id || '' };
+}
+let aporteT = null;
+function salvarAporte(v, msg) {
+  clearTimeout(aporteT);
+  return persistir(d => {
+    if (!d.categorias.some(c => c.id === 'c-investimentos')) d.categorias.push(clone(CATEGORIAS_PADRAO.find(c => c.id === 'c-investimentos')));
+    const ym = ymHoje(), r = aporteRec(d);
+    if (v > 0) {
+      if (r) { r.valor = round2(v); return; }
+      const { dia, conta } = padraoAporte();
+      let inicio = dataNoMes(ym, dia) >= iso(hoje()) ? ym : addYm(ym, 1);
+      for (const x of d.recorrencias) if (x.aporte && x.fim && addYm(x.fim, 1) > inicio) inicio = addYm(x.fim, 1);
+      d.recorrencias.push({ id: 'r-' + uid(), tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: round2(v), categoria: 'c-investimentos',
+        conta, cartao: false, obs: '', dia, inicio, fim: null, aporte: true });
+    } else if (r) {
+      const feito = d.lancamentos.some(l => l.recorrencia === r.id && l.competencia === ym && (l.pago || l.pulado));
+      const desde = feito ? addYm(ym, 1) : ym;
+      if (desde <= r.inicio) d.recorrencias = d.recorrencias.filter(x => x.id !== r.id); else r.fim = addYm(desde, -1);
+      d.lancamentos = d.lancamentos.filter(l => !(l.recorrencia === r.id && l.competencia >= desde && !l.pago));
+    }
+  }, msg || (v > 0 ? 'Aporte no fluxo de caixa' : 'Aporte tirado do fluxo de caixa'));
+}
 function feitos() { return memo('feitos', () => new Set(S.d.lancamentos.filter(l => l.recorrencia).map(l => l.recorrencia + '|' + l.competencia))); }
 
 // Tudo o que entra ou sai do caixa entre dois meses (pela data do caixa: no cartão, o vencimento da fatura)
@@ -1064,6 +1105,7 @@ function acharLanc(id) {
 function materializar(l, extra) {
   const o = { id: uid(), tipo: l.tipo, descricao: l.descricao, valor: +l.valor || 0, categoria: l.categoria || '', conta: l.conta || '',
     cartao: !!l.cartao, data: l.data, pago: !!l.pago, obs: l.obs || '', recorrencia: l.recorrencia || null, competencia: l.competencia || null };
+  if (l.aporte) o.aporte = true;
   return Object.assign(o, extra || {});
 }
 
@@ -1142,6 +1184,7 @@ function caixaExemplo() {
     R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
     R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-dessa', cartao: true }),
     R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
+    R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-itau-diego', aporte: true }),
     R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-inter-diego', cartao: true }),
   ];
   // meses passados (e o atual até hoje): ocorrências confirmadas, com variação nos valores que mudam
@@ -1278,12 +1321,13 @@ function linhaLanc(l, dentroFatura) {
   const rec = ehRec(l);
   const conta = !dentroFatura && l.conta ? nomeConta(contaDe(l.conta)) + (l.cartao ? ' · cartão' : '') : '';
   const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : ''].filter(Boolean);
-  const estado = l.pago || dentroFatura ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : 'A pagar')}</span>`;
+  const apo = ehAporte(l);
+  const estado = l.pago || dentroFatura ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
   return `<div class="lanc${dentroFatura ? ' sub' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
-    <span class="ini" style="--c:${corCat(l)}">${esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
+    <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
     <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}
-      ${!l.pago && !dentroFatura ? `<button class="pagar" data-a="lanc-pagar" data-id="${esc(l.id)}">${rec ? 'Recebi' : 'Paguei'}</button>` : ''}</span>
+      ${!l.pago && !dentroFatura ? `<button class="pagar" data-a="lanc-pagar" data-id="${esc(l.id)}">${rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei'}</button>` : ''}</span>
   </div>`;
 }
 
@@ -1318,12 +1362,12 @@ function serieFluxo() {
   const atual = ymHoje(), estimar = S.ui.cxEstimar !== false, media = mediaVariaveis();
   let acum = 0;
   return meses.map(ym => {
-    let ent = 0, sai = 0;
-    for (const l of lancamentosEntre(ym, ym)) { if (l.ajuste) continue; if (ehRec(l)) ent += +l.valor || 0; else sai += +l.valor || 0; }
+    let ent = 0, sai = 0, apo = 0;
+    for (const l of lancamentosEntre(ym, ym)) { if (l.ajuste) continue; if (ehRec(l)) ent += +l.valor || 0; else if (ehAporte(l)) apo += +l.valor || 0; else sai += +l.valor || 0; }
     const est = estimar && ym >= atual ? Math.max(0, media - variaveisDoMes(ym)) : 0;
     acum += est;
     const saldo = ym < atual ? saldoCaixa(dataNoMes(ym, 31)) : saldoPrevisto(ym) - acum;
-    return { ym, ent, sai, est, net: ent - sai - est, prev: ym > atual, atual: ym === atual, saldo };
+    return { ym, ent, sai, apo, est, net: ent - sai - apo - est, prev: ym > atual, atual: ym === atual, saldo };
   });
 }
 function caixaFluxo() {
@@ -1335,10 +1379,11 @@ function caixaFluxo() {
   let html = `<div class="chips">${[['passado', '12 meses atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente']].map(([k, n]) =>
     `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}">${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card"><h3 class="g-tit">Fluxo de caixa mensal</h3>
-    <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brl(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
-      ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brl(soma(futuro, 'net'), 0)}</b><small>${u.cxEstimar !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
+    <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
+      ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${u.cxEstimar !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
     <div class="chart" id="ch-fluxo" role="img" aria-label="Entradas e saídas por mês"></div>
     <div class="leg"><span><i class="sw-q" style="--kc:var(--entra)"></i>Entradas</span><span><i class="sw-q" style="--kc:var(--sai)"></i>Saídas</span>
+      ${serie.some(m => m.apo > 0) ? '<span><i class="sw-q" style="--kc:var(--apo)"></i>Aportes</span>' : ''}
       ${u.cxEstimar !== false ? '<span><i class="sw-q est"></i>Dia a dia (média)</span>' : ''}<span><i class="pt-q"></i>Sobrou</span><span><i class="sw-q prev"></i>Previsto</span></div>
     <div class="sep" style="margin:14px 6px"></div>
     <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Soma nos próximos meses a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.</span></div>
@@ -1361,7 +1406,7 @@ function desenharFluxo() {
   const serie = CACHE.fluxo;
   if (!el || !serie) return;
   const W = Math.max(280, el.clientWidth), H = 230, pl = 46, pr = 6, pt = 10, pb = 24;
-  const max = Math.max(1, ...serie.map(m => Math.max(m.ent, m.sai + m.est)));
+  const max = Math.max(1, ...serie.map(m => Math.max(m.ent, m.sai + m.apo + m.est)));
   const step = niceStep(max / 2), top = Math.ceil(max / step) * step;
   const zero = pt + (H - pt - pb) / 2;
   const Y = v => zero - v / top * ((H - pt - pb) / 2);
@@ -1375,15 +1420,16 @@ function desenharFluxo() {
   serie.forEach((m, i) => {
     const x = pl + i * banda + (banda - bw) / 2, cls = m.prev ? ' prev' : '';
     if (m.ent > 0) { const h = zero - Y(m.ent); g += `<path class="b-ent${cls}" d="M${x},${zero - 1}v${-(h - r - 1)}q0,-${r} ${r},-${r}h${bw - 2 * r}q${r},0 ${r},${r}v${h - r - 1}z"/>`; }
-    if (m.sai > 0) {
-      const h = Y(-m.sai) - zero;
-      if (m.est > 0) g += `<rect class="b-sai${cls}" x="${x}" y="${zero + 1}" width="${bw}" height="${Math.max(0, h - 1)}"/>`;
-      else g += `<path class="b-sai${cls}" d="M${x},${zero + 1}v${h - r - 1}q0,${r} ${r},${r}h${bw - 2 * r}q${r},0 ${r},-${r}v${-(h - r - 1)}z"/>`;
-    }
-    if (m.est > 0) {
-      const y0 = Y(-m.sai) + (m.sai > 0 ? 2 : 1), h = Y(-(m.sai + m.est)) - y0;
-      if (h > r + 1) g += `<path class="b-est" d="M${x},${y0}v${h - r}q0,${r} ${r},${r}h${bw - 2 * r}q${r},0 ${r},-${r}v${-(h - r)}z"/>`;
-    }
+    // barra de baixo empilhada: saídas, aportes e dia a dia (o último segmento tem a ponta arredondada)
+    const segs = [[m.sai, 'b-sai' + cls], [m.apo, 'b-apo' + cls], [m.est, 'b-est']].filter(sg => sg[0] > 0);
+    let acc = 0;
+    segs.forEach(([v, c], k) => {
+      const y0 = Y(-acc) + (k ? 2 : 1), h = Y(-(acc + v)) - y0;
+      acc += v;
+      if (h <= 0.5) return;
+      if (k === segs.length - 1 && h > r + 1) g += `<path class="${c}" d="M${x},${y0}v${h - r}q0,${r} ${r},${r}h${bw - 2 * r}q${r},0 ${r},-${r}v${-(h - r)}z"/>`;
+      else g += `<rect class="${c}" x="${x}" y="${y0}" width="${bw}" height="${h}"/>`;
+    });
     const cx = pl + i * banda + banda / 2;
     g += `<circle class="pt-net" cx="${cx.toFixed(1)}" cy="${Y(m.net).toFixed(1)}" r="4"/>`;
     if (serie.length <= 7 || i % 2 === 0 || m.atual) g += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle"${m.atual ? ' class="hoje-t"' : ''}>${MESES[+m.ym.slice(5) - 1]}</text>`;
@@ -1400,6 +1446,7 @@ function desenharFluxo() {
     const cab = document.createElement('div'); cab.className = 't-d'; cab.textContent = nomeMes(m.ym) + (m.prev ? ' · previsto' : m.atual ? ' · até agora e previsto' : '');
     tip.appendChild(cab);
     const linhas = [[m.ent, 'Entradas', 'var(--entra)'], [m.sai, m.est ? 'Saídas lançadas' : 'Saídas', 'var(--sai)']];
+    if (m.apo) linhas.push([m.apo, 'Aportes', 'var(--apo)']);
     if (m.est) linhas.push([m.est, 'Dia a dia (média)', 'var(--muted)']);
     linhas.push([m.net, 'Sobrou', 'var(--text)']);
     for (const [v, n, c] of linhas) {
@@ -1578,7 +1625,8 @@ function montarFormLanc() {
       <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button></div>`;
   }
   const anualR = r && r.freq === 'anual';
-  if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}. ${f.virtual ? (anualR ? 'Este ano ainda não foi confirmado.' : 'Este mês ainda não foi confirmado.') : ''}</span></div>`;
+  if (r && r.aporte) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Aporte nos seus investimentos, todo dia ${r.dia}. Valor padrão ${brl(r.valor)}, o mesmo da aba Invest.</span></div>`;
+  else if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}. ${f.virtual ? (anualR ? 'Este ano ainda não foi confirmado.' : 'Este mês ainda não foi confirmado.') : ''}</span></div>`;
   if (f.parcela) c += `<div class="aviso-fixo">${ic('calendar', 'ic-s')}<span>Parcela ${esc(f.parcela)}</span></div>`;
   const rotValor = f.repete === 'parcelado' ? 'Valor total' : r ? (anualR ? 'Valor deste ano' : 'Valor deste mês') : 'Valor';
   c += `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
@@ -1730,11 +1778,11 @@ function abrirPagar(id) {
   const r = l.recorrencia ? S.d.recorrencias.find(x => x.id === l.recorrencia) : null;
   PG = { l, valor: +l.valor || 0 };
   abrirFolha(() => ({
-    titulo: ehRec(l) ? 'Confirmar recebimento' : 'Confirmar pagamento',
+    titulo: ehRec(l) ? 'Confirmar recebimento' : ehAporte(l) ? 'Confirmar aporte' : 'Confirmar pagamento',
     corpo: `<p style="margin:0 0 16px;color:var(--text-2)"><b style="color:var(--text)">${esc(l.descricao)}</b> · ${fData(pData(l.dc || l.data))}${r ? ` · fixo, padrão ${brl(r.valor)}` : ''}</p>
-      <div class="campo"><label for="pg-v">Quanto ${ehRec(l) ? 'entrou' : 'saiu'}</label><div class="pref grande"><span>R$</span><input id="pg-v" data-pg="valor" inputmode="numeric" value="${NF2.format(PG.valor)}"></div>
+      <div class="campo"><label for="pg-v">Quanto ${ehRec(l) ? 'entrou' : ehAporte(l) ? 'você aplicou' : 'saiu'}</label><div class="pref grande"><span>R$</span><input id="pg-v" data-pg="valor" inputmode="numeric" value="${NF2.format(PG.valor)}"></div>
       ${r ? `<div class="ajuda">Foi diferente este mês? Corrija aqui. O valor padrão continua ${brl(r.valor)} nos próximos meses.</div>` : ''}</div>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : 'Paguei'}</button>`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
   }));
 }
 function confirmarPagar() {
@@ -2086,7 +2134,7 @@ function dicaCategoria() {
     const ym = addYm(ymHoje(), -1), ant = [1, 2, 3].map(k => addYm(ym, -k));
     const tot = m => {
       const o = {};
-      for (const l of lancamentosCompetencia(m)) if (!l.ajuste && !ehRec(l) && l.categoria) o[l.categoria] = (o[l.categoria] || 0) + (+l.valor || 0);
+      for (const l of lancamentosCompetencia(m)) if (!l.ajuste && !ehRec(l) && !ehAporte(l) && l.categoria) o[l.categoria] = (o[l.categoria] || 0) + (+l.valor || 0);
       return o;
     };
     const atual = tot(ym), antes = ant.map(tot);
@@ -2676,6 +2724,7 @@ document.addEventListener('click', ev => {
     case 'escolha': { const o = FOLHA && FOLHA.opcoes && FOLHA.opcoes[+v]; fecharFolha(); if (o) o.acao(); break; }
     case 'fixo': { const r = S.d.recorrencias.find(x => x.id === id); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
     case 'dica-anual': abrirDicaAnual(v); break;
+    case 'aporte-ajustar': { const r = aporteRec(); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
     case 'dica-fora': persistir(d => { d.ajustes.dicas_fora = [...new Set([...(d.ajustes.dicas_fora || []), v])].slice(-200); }, 'Dica dispensada'); break;
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
@@ -2938,6 +2987,14 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.ui === 'busca') { S.ui.busca = el.value; render(); return; }
+  if (el.dataset.ui === 'aporte') {
+    const dig = el.value.replace(/\D/g, '').slice(0, 11);
+    S.aporteDig = dig ? parseInt(dig, 10) / 100 : 0;
+    el.value = dig ? NF2.format(S.aporteDig) : '';
+    clearTimeout(aporteT);
+    aporteT = setTimeout(() => { const v = S.aporteDig; salvarAporte(v).then(() => { S.aporteDig = null; render(); }); }, 900);
+    return;
+  }
   if (el.dataset.ui === 'gAporte') {
     const dig = el.value.replace(/\D/g, '').slice(0, 11);
     S.ui.gAporte = dig ? parseInt(dig, 10) / 100 : 0;
@@ -2999,6 +3056,11 @@ async function iniciar() {
   S.ui.busca = ''; S.ui.buscaAberta = false; S.ui.gSel = null;
   render();
   carregarDicas();
+  if (+S.ui.gAporte > 0) {
+    const v = +S.ui.gAporte;
+    S.ui.gAporte = 0; salvarUI();
+    if (!aporteRec() && porEscopo('meu').length) salvarAporte(v, `Seu aporte de ${brl(v, 0)} por mês agora aparece no fluxo de caixa`);
+  }
 }
 iniciar();
 })();

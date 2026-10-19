@@ -36,6 +36,7 @@
   --good: #4CD3A5;
   --entra: var(--good);
   --sai: var(--danger);
+  --apo: #4b95ec;
   --accent-text: var(--accent);
   --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
   --shadow: 0 10px 30px rgba(0, 0, 0, .35);
@@ -47,7 +48,7 @@
   color-scheme: light;
   --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
   --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
-  --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f;
+  --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f; --apo: #2a78d6;
   --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
   --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
   --placar-brilho: rgba(255, 255, 255, .9); --placar-sombra: rgba(20, 30, 45, .2);
@@ -61,7 +62,7 @@
     color-scheme: light;
     --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
     --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
-    --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f;
+    --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f; --apo: #2a78d6;
     --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
     --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
     --placar-brilho: rgba(255, 255, 255, .9); --placar-sombra: rgba(20, 30, 45, .2);
@@ -522,6 +523,7 @@ code { background: var(--card-2); padding: 2px 6px; border-radius: 6px; font-siz
 .chart .b-ent { fill: var(--entra); }
 .chart .b-sai { fill: var(--sai); }
 .chart .b-est { fill: var(--sai); opacity: .28; }
+.chart .b-apo { fill: var(--apo); }
 .sw-q.est { background: var(--sai); opacity: .35; }
 .chart .prev { opacity: .45; }
 .chart .pt-net { fill: var(--text); stroke: var(--card); stroke-width: 2; }
@@ -622,3 +624,7 @@ details summary { list-style-position: inside; }
 .eco-linha { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--text); font-size: 15px; }
 .eco-linha b { color: var(--good); }
 @media (max-width: 380px) { .dica-fonte, .dica-acoes { margin-left: 0; } }
+
+/* ---------- aporte mensal */
+.ini.apo .ic { width: 21px; height: 21px; }
+.link-in { color: var(--accent-text); font: inherit; text-decoration: underline; text-underline-offset: 2px; padding: 0; background: none; border: 0; cursor: pointer; }

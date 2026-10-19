@@ -1,5 +1,14 @@
 # Mudanças
 
+## 1.3.0
+
+- O **aporte por mês** da aba Invest agora entra no fluxo de caixa como saída fixa, todo mês, só para os seus investimentos (com o filtro De terceiros ele não conta).
+- No gráfico de fluxo, os aportes aparecem em azul, separados das saídas, e o "Sobrou" já desconta o aporte.
+- Botão **Apliquei** para confirmar o aporte do mês e **Mudar dia ou conta** na aba Invest.
+- Nova categoria **Investimentos**.
+- No Início, "Seu dinheiro em 1 ano" já conta o aporte mensal.
+- O aporte que estava guardado só no navegador vai para o fluxo de caixa na primeira vez que o app abrir.
+
 ## 1.2.0
 
 - **Dicas de economia** no Início: quando uma assinatura sua (Nabu Casa, Claude, Spotify, Microsoft 365 ou Deezer) tem plano anual mais barato, o app mostra quanto você economiza por ano. O preço é conferido na página oficial do serviço pela IA do Home Assistant, e a dica só aparece se o preço estiver escrito na página e o valor que você paga bater com um plano.
