@@ -68,7 +68,7 @@ A dica só aparece quando dá para confirmar na origem:
 3. O app só aceita um preço se o trecho citado pela IA estiver escrito na página, com aquele número.
 4. O valor que você paga precisa bater com o preço mensal de um único plano. Em planos em dólar, o app compara com o dólar do Banco Central, com folga para o IOF e o câmbio do cartão.
 
-No Início, a dica mostra quanto você economiza por ano, a fonte e a data em que o preço foi conferido. Em planos em dólar, a economia em reais é estimada pelo que você paga hoje. Toque em **Mudar para anual** depois de trocar o plano no site do serviço: o fixo mensal para e entra um fixo anual no seu fluxo. **Agora não** esconde a dica.
+No Início, a dica mostra a **economia real** por ano: o desconto do plano anual menos o que o dinheiro das mensalidades renderia se ficasse investido. Para isso o app usa os seus investimentos e as taxas cadastradas: o que você tem com liquidez diária e rende mais, já com IR (o dinheiro sai mês a mês, então precisa poder ser resgatado). Sem nenhum com liquidez diária, usa a média dos seus investimentos; sem investimentos, 100% do CDI. Se o rendimento empatar com o desconto, a dica não aparece. A dica também mostra a fonte e a data em que o preço foi conferido. Em planos em dólar, a economia em reais é estimada pelo que você paga hoje. Toque em **Mudar para anual** depois de trocar o plano no site do serviço: o fixo mensal para e entra um fixo anual no seu fluxo. **Agora não** esconde a dica.
 
 O app também avisa quando uma categoria fica bem acima da sua média dos 3 meses anteriores, pelos seus próprios lançamentos.
 

@@ -603,7 +603,9 @@ details summary { list-style-position: inside; }
 .dica-v i { display: block; font: 400 12px/1.2 var(--font); font-style: normal; color: var(--muted); }
 .dica-v small { display: block; font: 400 13px/1.3 var(--font); color: var(--muted); margin-top: 2px; }
 .dica-v.alerta { color: var(--danger); }
-.dica-fonte { display: flex; align-items: center; gap: 6px; margin: 10px 0 0 55px; font-size: 13px; color: var(--muted); }
+.dica-calc { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0 55px; font-size: 13px; color: var(--text-2); }
+.dica-calc .ic-s { color: var(--apo); flex: none; margin-top: 2px; }
+.dica-fonte { display: flex; align-items: center; gap: 6px; margin: 6px 0 0 55px; font-size: 13px; color: var(--muted); }
 .dica-fonte .ic-s { color: var(--good); flex: none; }
 .dica-fonte a { color: var(--accent-text); }
 .dica-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0 55px; }
@@ -623,7 +625,7 @@ details summary { list-style-position: inside; }
 .cmp-anual small { display: block; font-size: 13px; color: var(--muted); }
 .eco-linha { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--text); font-size: 15px; }
 .eco-linha b { color: var(--good); }
-@media (max-width: 380px) { .dica-fonte, .dica-acoes { margin-left: 0; } }
+@media (max-width: 380px) { .dica-calc, .dica-fonte, .dica-acoes { margin-left: 0; } }
 
 /* ---------- aporte mensal */
 .ini.apo .ic { width: 21px; height: 21px; }

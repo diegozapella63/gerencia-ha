@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.3.0';
+const VERSAO = '1.3.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2129,6 +2129,34 @@ function mesesGratis(x) {
   return r >= 1 && Math.abs(m - r) < 0.12 ? r : 0;
 }
 
+// Economia real do plano anual: o desconto menos o que o dinheiro das mensalidades renderia nos seus investimentos.
+// O dinheiro sai mês a mês, então vale o investimento seu com liquidez diária que rende mais (líquido de IR);
+// sem nenhum com liquidez diária, a média dos seus investimentos; sem investimentos, 100% do CDI.
+function rendaReserva() {
+  return memo('reserva', () => {
+    const meus = porEscopo('meu').filter(i => !['estimado', 'parado'].includes(i.indexador) && taxaAnual(i) > 0);
+    const liquida = i => taxaAnual(i) * (1 - aliquota(tipoDe(i.tipo).ir, 200));
+    const liq = meus.filter(i => i.liquidez === 'diaria');
+    if (liq.length) {
+      const i = liq.reduce((a, b) => liquida(b) > liquida(a) ? b : a);
+      return { r: taxaAnual(i), ir: tipoDe(i.tipo).ir, onde: `em ${i.nome} (${rotuloTaxa(i)})`, curto: i.nome };
+    }
+    if (meus.length) {
+      const V = meus.reduce((s, i) => s + valorHoje(i), 0);
+      const r = V > 0 ? meus.reduce((s, i) => s + valorHoje(i) * taxaAnual(i), 0) / V : 0;
+      return { r, ir: 'reg', onde: `na média dos seus investimentos (${pct(r * 100)}% a.a.)`, curto: 'seus investimentos' };
+    }
+    return { r: (+S.d.indices.cdi || 0) / 100, ir: 'reg', onde: `a 100% do CDI (${pct(+S.d.indices.cdi || 0)}% a.a.)`, curto: '100% do CDI' };
+  });
+}
+function economiaReal(mensal, anual) {
+  const rs = rendaReserva(), rm = Math.pow(1 + rs.r, 1 / 12) - 1;
+  let pv = 0; // quanto precisa estar investido hoje para pagar as 12 mensalidades
+  for (let k = 0; k < 12; k++) pv += mensal / (1 + (Math.pow(1 + rm, k) - 1) * (1 - aliquota(rs.ir, k * 30.44)));
+  return { real: pv - anual, rende: 12 * mensal - pv, desconto: 12 * mensal - anual, rs };
+}
+const realDe = x => memo('real:' + x.id + ':' + x.valor + ':' + x.preco_anual, () => economiaReal(x.valor, x.preco_anual));
+
 function dicaCategoria() {
   return memo('dicaCat', () => {
     const ym = addYm(ymHoje(), -1), ant = [1, 2, 3].map(k => addYm(ym, -k));
@@ -2151,7 +2179,8 @@ function dicaCategoria() {
 
 function dicasVisiveis() {
   const fora = new Set(S.d.ajustes.dicas_fora || []);
-  const subs = ((S.dicas && S.dicas.dicas) || []).filter(x => !fora.has(x.id));
+  const subs = ((S.dicas && S.dicas.dicas) || []).filter(x => !fora.has(x.id) && realDe(x).real >= 10)
+    .sort((a, b) => realDe(b).real - realDe(a).real);
   const cat = dicaCategoria();
   return { subs, cat: cat && !fora.has(cat.id) ? cat : null };
 }
@@ -2163,7 +2192,8 @@ function linhaDicaAssinatura(x) {
     <div class="dica-cab"><span class="dica-ic">${ic('percent')}</span>
       <div class="dica-t"><b>${esc(x.nome)} no plano anual</b>
         <span>${fmtPreco(x.anual, x.moeda)} por ano em vez de ${fmtPreco(x.mensal, x.moeda)} por mês, ${mg ? (mg === 1 ? '1 mês grátis' : mg + ' meses grátis') : pct(x.pct) + '% a menos'}.</span></div>
-      <div class="dica-v">${x.estimado ? '<i>cerca de</i>' : ''}${brl(x.economia_ano, 0)}<small>por ano</small></div></div>
+      <div class="dica-v">${x.estimado ? '<i>cerca de</i>' : ''}${brl(realDe(x).real, 0)}<small>por ano</small></div></div>
+    <div class="dica-calc">${ic('wallet', 'ic-s')}<span>Desconto de ${brl(realDe(x).desconto, 0)} menos ${brl(realDe(x).rende, 0)} que o dinheiro das mensalidades renderia ${esc(realDe(x).rs.onde)}, já com IR.</span></div>
     <div class="dica-fonte">${ic('check', 'ic-s')}<span>Preço conferido em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a>${quando ? ' em ' + quando : ''}${x.origem === 'fixo' ? '' : ' · cobrança das suas faturas'}</span></div>
     <div class="dica-acoes"><button class="btn peq pri" data-a="dica-anual" data-v="${esc(x.id)}">Mudar para anual</button><button class="btn peq" data-a="dica-fora" data-v="${esc(x.id)}">Agora não</button></div>
   </div>`;
@@ -2190,7 +2220,7 @@ function cardDicas() {
     return conferindo ? `<div class="card dicas"><div class="rot">Dicas de economia</div>
       <div class="dica-conf"><span class="giro"></span>Conferindo os preços das suas assinaturas nas páginas oficiais…</div></div>` : '';
   }
-  const total = subs.reduce((s, x) => s + x.economia_ano, 0);
+  const total = subs.reduce((s, x) => s + realDe(x).real, 0);
   return `<div class="card dicas"><div class="rot">Dicas de economia${total ? ` <b>${subs.length > 1 ? 'até ' : ''}${brl(total, 0)} por ano</b>` : ''}</div>
     ${subs.slice(0, 3).map(linhaDicaAssinatura).join('')}${cat ? linhaDicaCategoria(cat) : ''}
     ${subs.length > 3 ? `<button class="link" data-a="tab" data-v="mais" data-ancora="dicas">Ver as ${subs.length} dicas</button>` : ''}</div>`;
@@ -2207,7 +2237,10 @@ function cardDicasMais() {
   else if (!subs.length) h += `<div class="status manual">Nenhuma dessas assinaturas nos seus fixos ou faturas.</div>`;
   else {
     h += subs.map(a => {
-      const txt = a.status === 'ok' ? `No plano anual você economiza ${a.estimado ? 'cerca de ' : ''}${brl(a.economia_ano, 0)} por ano.` : a.texto;
+      const er = a.status === 'ok' ? economiaReal(a.valor, a.preco_anual) : null;
+      const txt = !er ? a.texto : er.real >= 10
+        ? `No plano anual você economiza ${a.estimado ? 'cerca de ' : ''}${brl(er.real, 0)} por ano, já descontando o que o dinheiro renderia ${er.rs.onde}.`
+        : `O anual tem ${brl(er.desconto, 0)} de desconto, mas o dinheiro rendendo ${er.rs.onde} daria quase o mesmo. Não vale trocar.`;
       const quando = a.conferido && !['conferindo', 'ja_anual'].includes(a.status) ? ` Conferido em ${fData(pData(a.conferido))}.` : '';
       const mesmoNome = semAcento(a.descricao) === semAcento(a.nome);
       return `<div class="ass-row"><span class="ini" style="--c:${corCat(a)}">${esc((a.nome || '?').slice(0, 1))}</span>
@@ -2232,8 +2265,10 @@ function abrirDicaAnual(id) {
   abrirFolha(montarDicaAnual);
 }
 function ecoDA() {
-  const eco = 12 * DA.x.valor - (+DA.valor || 0);
-  return eco > 0.005 ? `Você economiza <b>${brl(eco)}</b> por ano.` : 'Com esse valor, o anual não sai mais barato.';
+  const e = economiaReal(DA.x.valor, +DA.valor || 0);
+  if (e.desconto <= 0.005) return 'Com esse valor, o anual não sai mais barato.';
+  if (e.real <= 0.005) return `O desconto é de ${brl(e.desconto)}, mas deixar o dinheiro rendendo ${esc(e.rs.onde)} e pagar por mês sai melhor.`;
+  return `Você economiza <b>${brl(e.real)}</b> por ano: ${brl(e.desconto)} de desconto menos ${brl(e.rende)} que o dinheiro renderia ${esc(e.rs.onde)}, já com IR.`;
 }
 function montarDicaAnual() {
   const { x } = DA, mes = MESES_LONGOS[+DA.data.slice(5, 7) - 1];
