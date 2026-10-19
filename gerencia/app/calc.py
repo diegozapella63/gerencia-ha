@@ -2,6 +2,7 @@
 
 Taxas são guardadas em porcentagem (13.65 = 13,65% a.a.) e convertidas aqui.
 """
+import math
 from datetime import date, datetime
 
 INDEXADORES = {
@@ -236,6 +237,32 @@ def data_caixa(l, contas):
     return _data_mes(d.year, m, venc)
 
 
+def _r2(v):
+    """Arredonda como o app (Math.round)."""
+    return math.floor(v * 100 + 0.5) / 100 if v >= 0 else -math.floor(-v * 100 + 0.5) / 100
+
+
+def descontos_de(l):
+    """Descontos na fonte de um recebimento (impostos, plano...): saídas no mesmo dia, ligadas ao bruto."""
+    if l.get("tipo") != "receita" or l.get("desconto") or not isinstance(l.get("descontos"), list):
+        return []
+    partes = {p.get("id"): num(p.get("valor")) for p in (l.get("partes") or []) if isinstance(p, dict)}
+    out = []
+    for x in l["descontos"]:
+        if not isinstance(x, dict):
+            continue
+        if x.get("modo") == "pct":
+            base = partes.get(x.get("base"), num(l.get("valor"))) if x.get("base") else num(l.get("valor"))
+            v = _r2(base * num(x.get("valor")) / 100)
+        else:
+            v = _r2(num(x.get("valor")))
+        if v > 0:
+            out.append({"tipo": "despesa", "descricao": x.get("descricao") or "Desconto", "valor": v,
+                        "categoria": x.get("categoria", ""), "conta": l.get("conta", ""), "cartao": False,
+                        "data": l.get("data"), "pago": bool(l.get("pago")), "desconto": True, "pai": l.get("descricao", "")})
+    return out
+
+
 def ativa_em(r, ym):
     """A recorrência acontece na competência `ym`? Mensal: todo mês; anual: no mês do início, todo ano."""
     ini = str(r.get("inicio") or "9999-99")
@@ -256,7 +283,8 @@ def ocorrencias_mes(data, ym):
         o = dict(r)
         o.update({"data": _data_mes(a, m, r.get("dia")).isoformat(), "pago": False, "recorrencia": r.get("id"), "competencia": ym})
         out.append(o)
-    return [l for l in out if not l.get("pulado")]
+    vivos = [l for l in out if not l.get("pulado")]
+    return vivos + [d for l in vivos for d in descontos_de(l)]
 
 
 def caixa(data, hoje=None):
@@ -272,6 +300,7 @@ def caixa(data, hoje=None):
         dc = data_caixa(l, cartoes)
         if l.get("pago") and dc and dc.isoformat() <= hi:
             r["saldo"] += num(l.get("valor")) * (1 if l.get("tipo") == "receita" else -1)
+            r["saldo"] -= sum(d["valor"] for d in descontos_de(l))
     # movimento do mês: competências deste mês e dos dois anteriores (o cartão empurra a saída para frente)
     a, m = hoje.year, hoje.month
     vistos = []

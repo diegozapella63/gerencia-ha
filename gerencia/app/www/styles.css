@@ -630,3 +630,52 @@ details summary { list-style-position: inside; }
 /* ---------- aporte mensal */
 .ini.apo .ic { width: 21px; height: 21px; }
 .link-in { color: var(--accent-text); font: inherit; text-decoration: underline; text-underline-offset: 2px; padding: 0; background: none; border: 0; cursor: pointer; }
+
+/* ---------- recebimento: créditos e descontos na fonte */
+.desc-sec { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: color-mix(in srgb, var(--card-2) 45%, transparent); }
+.desc-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.desc-cab .lbl { margin: 0; }
+.sub-lbl { font: 600 12px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px; }
+.parte-l { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.parte-l .pref { margin: 0; }
+.desc-ed { padding: 10px 12px; margin-bottom: 8px; }
+.desc-l { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 8px; }
+.desc-l .seg { margin: 0; }
+.desc-l .seg button { min-width: 42px; }
+.desc-l .pref { margin: 0; }
+.desc-v { font: 600 17px/1 var(--font-d); color: var(--sai); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.desc-sel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.desc-sel.um { grid-template-columns: minmax(0, 1fr); }
+.desc-sel select.inp { min-width: 0; }
+.desc-res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.desc-res > div span { display: block; font-size: 13px; color: var(--muted); }
+.desc-res > div b { display: block; font: 600 18px/1.15 var(--font-d); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.desc-res > div b.sai { color: var(--sai); }
+.desc-res .liq b { color: var(--entra); }
+.desc-res .liq small { display: block; font-size: 12px; color: var(--muted); }
+.desc-conf { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; font-size: 14px; }
+.desc-conf.ok { color: var(--good); }
+.desc-conf.erro { color: var(--danger); }
+.desc-conf .ic-s { flex: none; margin-top: 2px; }
+.pref.lido { background: var(--card-2); }
+.pref.lido b { font: 600 22px/1 var(--font-d); padding: 14px 4px; font-variant-numeric: tabular-nums; }
+.giro.mini { width: 14px; height: 14px; border-width: 2px; display: inline-block; vertical-align: -2px; margin-right: 6px; }
+.desc-tog { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 4px 10px 58px; font-size: 14px; color: var(--muted); text-align: left; }
+.desc-tog .ic-s { transition: transform .15s; flex: none; }
+.desc-tog.on .ic-s { transform: rotate(90deg); }
+.desc-tog span { flex: 1; }
+.desc-tog b { font: 600 15px/1 var(--font-d); color: var(--sai); white-space: nowrap; }
+.desc-itens { margin: -4px 0 8px 44px; border-left: 2px solid var(--line); }
+.desc-ed .conta-l { margin-bottom: 0; }
+.desc-ed2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; grid-template-areas: "n p x" "v v v"; gap: 6px 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.desc-ed2 > .inp { grid-area: n; }
+.desc-ed2 > .pref { grid-area: p; margin: 0; }
+.desc-ed2 > .icbtn { grid-area: x; }
+.desc-ed2 > .desc-v { grid-area: v; justify-self: end; font-size: 15px; }
+.lig-l { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.lig-l span { flex: 1; min-width: 0; }
+.lig-l b { font: 600 16px/1 var(--font-d); color: var(--sai); white-space: nowrap; }
+.lig-l .ic-s { color: var(--muted); flex: none; }
+.lig-l input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.vinc-st { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 50px; color: var(--text-2); font-size: 15px; }
+.vinc-st .ic-s { color: var(--accent-text); flex: none; }

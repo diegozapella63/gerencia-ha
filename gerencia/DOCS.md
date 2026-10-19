@@ -30,6 +30,16 @@ Para o que vence uma vez por ano (anuidade, IPVA, seguro, plano anual), escolha 
 
 Quando o valor real de um mês for diferente (um salário maior, uma conta de luz menor), toque no lançamento, troque o valor e salve em **Só este mês**. O valor padrão continua o mesmo para os próximos meses. Para mudar o padrão, salve em **Todos os meses** ou abra **Mais > Fixos**. Ao apagar um fixo, você escolhe entre tirar só aquele mês ou parar dali para frente.
 
+### Salário bruto, impostos e descontos
+
+Cadastre o salário pelo **valor bruto** (o que você tem a receber), de preferência como fixo (Repetir: Todo mês), e toque em **Descontos na fonte**.
+
+- **Impostos na fonte**: cada imposto é uma porcentagem do bruto (INSS, imposto de renda, taxa administrativa…). Quando o salário entra, o imposto sai do caixa no mesmo dia, já pago, na categoria Impostos e taxas. Se o bruto mudar num mês, os impostos acompanham.
+- **Plano de saúde e outros descontos**: cadastre como uma despesa normal (pode ser fixa) e, em **Como é pago**, escolha **Descontado de: Salário**. A baixa dela depende do salário: quando ele for confirmado, a despesa fica paga no mesmo dia e na mesma conta. Se o valor mudar num mês (uma coparticipação, por exemplo), edite só aquele mês.
+- **Ler recibo com IA**: mande o PDF ou a foto do recibo (holerite, contracheque ou recibo de produção). O app preenche o bruto, transforma os impostos em porcentagem do bruto, sugere os outros descontos como despesas fixas ligadas e confere se o resultado bate com o líquido do recibo.
+
+Na lista do caixa, o salário mostra o bruto e, logo abaixo, os descontos e o líquido. Os gráficos e as categorias mostram o bruto como entrada e os impostos e o plano como saídas.
+
 ### Parcelas
 
 Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no mês certo, também nas faturas futuras.

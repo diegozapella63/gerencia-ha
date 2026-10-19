@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import calc  # noqa: E402
 import assinaturas  # noqa: E402
 
-VERSAO = "1.3.1"
+VERSAO = "1.4.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -327,6 +327,11 @@ def gerar_csv_lancamentos(d):
                     calc.fmt_num(calc.num(l.get("valor"))),
                     ("Recebido" if rec else "Pago") if l.get("pago") else ("A receber" if rec else "A pagar"),
                     l.get("parcela") or "", "Sim" if l.get("recorrencia") else "", l.get("obs", "")])
+        for x in calc.descontos_de(l):
+            w.writerow([l.get("data") or "", dc.isoformat() if dc else "", "Desconto do recebimento",
+                        f'{x["descricao"]} (de {l.get("descricao", "")})', cats.get(x.get("categoria"), ""),
+                        calc.nome_conta(contas.get(l.get("conta"))), "", calc.fmt_num(x["valor"]),
+                        "Pago" if l.get("pago") else "A pagar", "", "Sim" if l.get("recorrencia") else "", ""])
     for r in d["recorrencias"]:
         anual = r.get("freq") == "anual"
         quando = f"todo ano, dia {r.get('dia')}/{str(r.get('inicio') or '')[5:7]}" if anual else f"todo dia {r.get('dia')}"
@@ -613,8 +618,24 @@ Responda somente com JSON válido, sem markdown e sem texto antes ou depois, nes
 {{"itens":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","confianca":"media"}}]}}"""
 
 
+IA_REGRAS_HOLERITE = """Devolva:
+- "data": data do pagamento em AAAA-MM-DD, se aparecer; senão "".
+- "creditos": cada linha de crédito (proventos, vencimentos, produção, ajuda de custo, transporte), com "descricao" como está no recibo e "valor" (número).
+- "debitos": cada linha de débito (descontos), com "descricao" como está, "valor" (número) e "tipo": "imposto" (INSS, IRRF, imposto de renda, taxa administrativa, contribuição sindical, ISS), "saude" (plano de saúde, assistência médica, odontológico, coparticipação) ou "outro" (vale-transporte, refeição, empréstimo consignado, adiantamento e o resto).
+- "total_creditos", "total_debitos" e "liquido": números como aparecem no recibo; 0 se não aparecerem.
+Ignore bases de cálculo, FGTS e linhas só informativas, que não entram no líquido. Não invente números.
+Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
+{"data":"","creditos":[{"descricao":"","valor":0}],"debitos":[{"descricao":"","valor":0,"tipo":"imposto"}],"total_creditos":0,"total_debitos":0,"liquido":0}"""
+
+
 def ia_prompt(d, modo, com_anexo, texto):
     hoje_txt = f"{date.today():%d/%m/%Y}"
+    if modo == "holerite":
+        partes = [f"Você lê recibos de pagamento de uma pessoa no Brasil (holerite, contracheque, recibo de produção de cooperativa ou pró-labore). Hoje é {hoje_txt}.",
+                  "Leia o anexo." if com_anexo else "Leia o texto abaixo.", IA_REGRAS_HOLERITE]
+        if texto:
+            partes.append("Texto:\n<<<\n" + texto + "\n>>>")
+        return "\n".join(partes)
     if modo == "caixa":
         cats = ", ".join(f"{c.get('id')} ({c.get('nome')}, {c.get('tipo')})" for c in d["categorias"])
         partes = [f"Você ajuda uma pessoa no Brasil a registrar recebimentos e despesas. Hoje é {hoje_txt}.",
@@ -715,6 +736,34 @@ def ia_limpar_caixa(parsed, d):
     return saida
 
 
+def ia_limpar_holerite(parsed, d=None):
+    p = parsed if isinstance(parsed, dict) else {}
+    def linhas(k, com_tipo):
+        out = []
+        for it in (p.get(k) or [])[:40]:
+            if not isinstance(it, dict):
+                continue
+            v = round(abs(calc.num(it.get("valor"))), 2)
+            if v <= 0:
+                continue
+            o = {"descricao": str(it.get("descricao") or "").strip()[:60] or ("Crédito" if k == "creditos" else "Desconto"), "valor": v}
+            if com_tipo:
+                t = str(it.get("tipo") or "outro").lower()
+                o["tipo"] = t if t in ("imposto", "saude", "outro") else "outro"
+            out.append(o)
+        return out
+    return {"data": _data_ou_vazio(p.get("data")), "creditos": linhas("creditos", False), "debitos": linhas("debitos", True),
+            "total_creditos": round(abs(calc.num(p.get("total_creditos"))), 2), "total_debitos": round(abs(calc.num(p.get("total_debitos"))), 2),
+            "liquido": round(abs(calc.num(p.get("liquido"))), 2)}
+
+
+# recibo inventado para testes (nenhum dado real)
+IA_SIMULADA_HOLERITE = {"data": "", "creditos": [
+    {"descricao": "Produção", "valor": 4200.00}, {"descricao": "Ajuda de custo", "valor": 7600.00}, {"descricao": "Transporte", "valor": 1250.00}],
+    "debitos": [{"descricao": "INSS", "valor": 840.00, "tipo": "imposto"}, {"descricao": "Taxa administrativa", "valor": 587.25, "tipo": "imposto"},
+                {"descricao": "Plano de saúde titular", "valor": 320.00, "tipo": "saude"}, {"descricao": "Coparticipação", "valor": 85.40, "tipo": "saude"}],
+    "total_creditos": 13050.00, "total_debitos": 1832.65, "liquido": 11217.35}
+
 IA_SIMULADA = {"itens": [
     {"nome": "CDB Banco Inter 2028", "banco": "Inter", "tipo": "cdb", "valor": 15412.37, "aplicado": 15000,
      "data_valor": "", "indexador": "cdi_pct", "taxa": 112, "vencimento": "2028-03-13", "liquidez": "vencimento", "confianca": "alta"},
@@ -753,7 +802,7 @@ def pdf_texto(raw):
 
 def ia_ler(corpo):
     d = ler()
-    modo = "caixa" if corpo.get("modo") == "caixa" else "invest"
+    modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite") else "invest"
     foto = str(corpo.get("foto") or "")
     texto = str(corpo.get("texto") or "").strip()[:12000]
     anexo = corpo.get("anexo") or {}
@@ -776,12 +825,14 @@ def ia_ler(corpo):
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
     if IA_MOCK:
         time.sleep(1.2)
+        if modo == "holerite":
+            return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
                 "entidade": "ai_task.simulada"}
     ent = d["ajustes"].get("ia_entidade") or ""
 
     def chamar(com_anexo, txt):
-        payload = {"task_name": "GerencIA: ler " + ("lançamentos" if modo == "caixa" else "investimentos"),
+        payload = {"task_name": "GerencIA: ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento"}.get(modo, "investimentos"),
                    "instructions": ia_prompt(d, modo, com_anexo, txt)}
         if ent:
             payload["entity_id"] = ent
@@ -821,6 +872,8 @@ def ia_ler(corpo):
             dados = chamar(False, (texto + "\n" + extra).strip())
         except ErroHA as e2:
             raise ValueError(str(e2))
+    if modo == "holerite":
+        return {"holerite": ia_limpar_holerite(extrair_json(dados)), "entidade": ent or "padrão do Home Assistant"}
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 

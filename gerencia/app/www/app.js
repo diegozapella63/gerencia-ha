@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.3.1';
+const VERSAO = '1.4.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -394,6 +394,9 @@ function apiDemo() {
     async dicasConferir() { await espera(900); return this.dicas(); },
     async iaLer(c) {
       await espera(1600);
+      if (c.modo === 'holerite') return { holerite: { data: '', creditos: [{ descricao: 'Produção', valor: 4200 }, { descricao: 'Ajuda de custo', valor: 7600 }, { descricao: 'Transporte', valor: 1250 }],
+        debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
+        total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
       const hj = iso(hoje()), ont = iso(new Date(hoje().getTime() - 86400000));
       if (c.modo === 'caixa') return { itens: [
         { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
@@ -641,7 +644,7 @@ function avisosCaixa(h) {
   const av = [];
   if (!temCaixa()) return av;
   const hj = iso(h);
-  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l));
+  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto);
   const nomes = l => l.cartao && contaDe(l.conta)?.cartao ? 'Fatura ' + nomeConta(contaDe(l.conta)) : l.descricao;
   const agrupar = lista => { const m = new Map(); for (const l of lista) { const k = nomes(l); m.set(k, (m.get(k) || 0) + (+l.valor || 0)); } return m; };
   const atras = agrupar(pend.filter(l => l.dc < hj));
@@ -1003,6 +1006,7 @@ const catDe = id => S.d.categorias.find(c => c.id === id);
 const corCat = l => l.ajuste ? '#B8B0B0' : (corOk(catDe(l.categoria)?.cor) || '#B8B0B0');
 
 function dataCaixa(l) {
+  if (l.vinculo && l.tipo !== 'receita') { const dv = dataVinculo(l); if (dv) return dv; }
   if (!l.cartao) return l.data;
   const c = contaDe(l.conta);
   const d = pData(l.data);
@@ -1059,6 +1063,57 @@ function salvarAporte(v, msg) {
     }
   }, msg || (v > 0 ? 'Aporte no fluxo de caixa' : 'Aporte tirado do fluxo de caixa'));
 }
+/* --------- créditos e descontos do recebimento: o bruto entra, impostos e plano descontados na fonte saem no mesmo dia */
+const temPartes = l => Array.isArray(l.partes) && l.partes.length > 0;
+const temDescontos = l => ehRec(l) && Array.isArray(l.descontos) && l.descontos.length > 0;
+const somaPartes = partes => round2((partes || []).reduce((s, p) => s + (+p.valor || 0), 0));
+function parteDe(l, id) { return id && temPartes(l) ? l.partes.find(p => p.id === id) : null; }
+const baseDesc = (l, x) => { const p = parteDe(l, x.base); return p ? (+p.valor || 0) : (+l.valor || 0); };
+const valorDesc = (l, x) => round2(x.modo === 'pct' ? baseDesc(l, x) * (+x.valor || 0) / 100 : (+x.valor || 0));
+function descontosDe(l) {
+  if (!temDescontos(l) || l.desconto) return [];
+  const out = [];
+  for (const x of l.descontos) {
+    const v = valorDesc(l, x);
+    if (!(v > 0)) continue;
+    out.push({ id: `d:${l.id}:${x.id}`, pai: l.id, paiDesc: l.descricao, desconto: true, tipo: 'despesa', descricao: x.descricao || 'Desconto',
+      valor: v, categoria: x.categoria || '', conta: l.conta || '', cartao: false, data: l.data, dc: l.dc || l.data, pago: !!l.pago,
+      competencia: l.competencia || null, regra: x, baseNome: parteDe(l, x.base)?.descricao || '' });
+  }
+  return out;
+}
+const totalDescontos = l => round2(descontosDe(l).reduce((s, d) => s + d.valor, 0));
+const liquidoDe = l => round2((+l.valor || 0) - totalDescontos(l));
+const regraDesc = d => d.regra.modo === 'pct' ? `${pct(+d.regra.valor)}% ${d.baseNome ? 'de ' + d.baseNome : 'do bruto'}` : 'valor fixo';
+const NA_FONTE = 'já pago, na fonte';
+function comDescontos(lista) { const out = []; for (const l of lista) { out.push(l); for (const d of descontosDe(l)) out.push(d); } return out; }
+
+/* --------- despesa ligada a um recebimento fixo (plano de saúde descontado do salário): a baixa dela vem com a do recebimento */
+const recMat = () => memo('recMat', () => { const m = new Map(); for (const l of S.d.lancamentos) if (l.recorrencia && l.competencia) m.set(l.recorrencia + '|' + l.competencia, l); return m; });
+const compDe = l => l.competencia || ymDe(l.data);
+function dataVinculo(l) {
+  const r = recPorId().get(l.vinculo);
+  if (!r) return null;
+  const ym = compDe(l), m = recMat().get(r.id + '|' + ym);
+  return m && !m.pulado ? m.data : (ativaEm(r, ym) ? dataNoMes(ym, r.dia) : null);
+}
+const nomeVinculo = l => recPorId().get(l.vinculo)?.descricao || 'recebimento';
+const recebimentosFixos = () => S.d.recorrencias.filter(r => r.tipo === 'receita' && (!r.fim || r.fim >= ymHoje()));
+// quando um recebimento fixo muda de situação, as despesas ligadas a ele naquele mês acompanham (mesma data e conta)
+function baixaVinculados(d, rec) {
+  if (!rec || !rec.recorrencia || rec.tipo !== 'receita') return;
+  const ym = rec.competencia || ymDe(rec.data);
+  for (const r of d.recorrencias) {
+    if (r.tipo === 'receita' || r.vinculo !== rec.recorrencia || !ativaEm(r, ym)) continue;
+    const x = d.lancamentos.find(l => l.recorrencia === r.id && l.competencia === ym);
+    if (x) { if (!x.pulado) Object.assign(x, { pago: !!rec.pago, data: rec.data, conta: rec.conta || x.conta, cartao: false }); }
+    else if (rec.pago) d.lancamentos.push(materializar(Object.assign({}, r, { data: rec.data, recorrencia: r.id, competencia: ym, pago: true, conta: rec.conta || r.conta, cartao: false })));
+  }
+  for (const x of d.lancamentos) {
+    if (x.tipo !== 'receita' && !x.recorrencia && x.vinculo === rec.recorrencia && ymDe(x.data) === ym) Object.assign(x, { pago: !!rec.pago, data: rec.data, conta: rec.conta || x.conta, cartao: false });
+  }
+}
+
 function feitos() { return memo('feitos', () => new Set(S.d.lancamentos.filter(l => l.recorrencia).map(l => l.recorrencia + '|' + l.competencia))); }
 
 // Tudo o que entra ou sai do caixa entre dois meses (pela data do caixa: no cartão, o vencimento da fatura)
@@ -1078,7 +1133,7 @@ function lancamentosEntre(ymIni, ymFim) {
         if (y >= ymIni && y <= ymFim) out.push(o);
       }
     }
-    return out.sort((a, b) => a.dc < b.dc ? -1 : a.dc > b.dc ? 1 : (ehRec(b) - ehRec(a)));
+    return comDescontos(out).sort((a, b) => a.dc < b.dc ? -1 : a.dc > b.dc ? 1 : (ehRec(b) - ehRec(a)));
   });
 }
 // Lançamentos pela data da compra (para as categorias)
@@ -1090,10 +1145,11 @@ function lancamentosCompetencia(ym) {
       if (!ativaEm(r, ym) || f.has(r.id + '|' + ym)) continue;
       out.push(ocorrencia(r, ym));
     }
-    return out;
+    return comDescontos(out);
   });
 }
 function acharLanc(id) {
+  if (String(id).startsWith('d:')) return acharLanc(String(id).slice(2, String(id).lastIndexOf(':')));
   if (String(id).startsWith('v:')) {
     const [, rid, ym] = id.split(':');
     const r = S.d.recorrencias.find(x => x.id === rid);
@@ -1106,13 +1162,16 @@ function materializar(l, extra) {
   const o = { id: uid(), tipo: l.tipo, descricao: l.descricao, valor: +l.valor || 0, categoria: l.categoria || '', conta: l.conta || '',
     cartao: !!l.cartao, data: l.data, pago: !!l.pago, obs: l.obs || '', recorrencia: l.recorrencia || null, competencia: l.competencia || null };
   if (l.aporte) o.aporte = true;
+  if (l.vinculo) o.vinculo = l.vinculo;
+  if (temPartes(l)) o.partes = clone(l.partes);
+  if (Array.isArray(l.descontos) && l.descontos.length) o.descontos = clone(l.descontos);
   return Object.assign(o, extra || {});
 }
 
 function saldoCaixa(ate = iso(hoje())) {
   return memo('s:' + ate, () => {
     let s = 0;
-    for (const l of S.d.lancamentos) if (!l.pulado && l.pago && dataCaixa(l) <= ate) s += sinal(l) * (+l.valor || 0);
+    for (const l of S.d.lancamentos) if (!l.pulado && l.pago && dataCaixa(l) <= ate) s += sinal(l) * (+l.valor || 0) - totalDescontos(l);
     return s;
   });
 }
@@ -1173,12 +1232,14 @@ function caixaExemplo() {
 
   L({ tipo: 'receita', descricao: 'Ajuste de saldo', valor: 6200, data: inicio + '-01', pago: true, ajuste: true, categoria: '' });
   const fixos = [
-    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 8650, dia: 5, categoria: 'c-salario', conta: 'k-itau-diego' }),
+    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 11800, dia: 5, categoria: 'c-salario', conta: 'k-itau-diego',
+      descontos: [{ id: 'd-inss', descricao: 'INSS', modo: 'pct', valor: 7, base: '', categoria: 'c-impostos' },
+        { id: 'd-taxa', descricao: 'Taxa administrativa', modo: 'pct', valor: 4.5, base: '', categoria: 'c-impostos' }] }),
+    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 698.46, dia: 5, categoria: 'c-saude', conta: 'k-itau-diego', vinculo: 'r-sal' }),
     R({ id: 'r-alug', tipo: 'despesa', descricao: 'Aluguel', valor: 2300, dia: 10, categoria: 'c-moradia', conta: 'k-itau-diego' }),
     R({ id: 'r-cond', tipo: 'despesa', descricao: 'Condomínio', valor: 680, dia: 10, categoria: 'c-moradia', conta: 'k-itau-diego' }),
     R({ id: 'r-luz', tipo: 'despesa', descricao: 'Conta de luz', valor: 260, dia: 21, categoria: 'c-contas', conta: 'k-itau-diego' }),
     R({ id: 'r-net', tipo: 'despesa', descricao: 'Internet', valor: 119.9, dia: 18, categoria: 'c-contas', conta: 'k-itau-diego' }),
-    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 690, dia: 12, categoria: 'c-saude', conta: 'k-nu-diego', cartao: true }),
     R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-nu-dessa', cartao: true }),
     R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-nu-diego', cartao: true }),
     R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
@@ -1194,9 +1255,13 @@ function caixaExemplo() {
       const data = dataNoMes(ym, r.dia);
       if (data > hj) continue;
       let valor = r.valor;
-      if (id === 'r-sal') valor = [8650, 9120, 8650, 8380, 9480, 8650, 8650][(+ym.slice(5)) % 7];
+      let extra = r.vinculo ? { vinculo: r.vinculo } : {};
+      if (id === 'r-sal') {
+        valor = [11800, 12280, 11800, 11530, 12630, 11800, 11800][(+ym.slice(5)) % 7];
+        extra = { descontos: clone(r.descontos) };
+      }
       if (id === 'r-luz') valor = entre(205, 335);
-      const o = { tipo: r.tipo, descricao: r.descricao, valor, categoria: r.categoria, conta: r.conta, cartao: r.cartao, data, recorrencia: r.id, competencia: ym };
+      const o = Object.assign({ tipo: r.tipo, descricao: r.descricao, valor, categoria: r.categoria, conta: r.conta, cartao: r.cartao, data, recorrencia: r.id, competencia: ym }, extra);
       o.pago = !r.cartao || o.data < addYm(ymAtual, 0) + '-01';
       L(o);
     }
@@ -1293,8 +1358,21 @@ function caixaLista() {
   if (u.cxFiltro === 'pendentes') lista = lista.filter(l => !l.pago);
   const faturas = faturasDe(lista);
   const naFatura = new Set(faturas.flatMap(f => f.itens.map(l => l.id)));
+  // impostos na fonte e despesas ligadas (plano de saúde) ficam dentro do recebimento; no filtro Saídas aparecem soltos
+  const aninha = u.cxFiltro !== 'saidas';
+  const ligadosDe = new Map();
+  if (aninha) {
+    const recs = new Map(lista.filter(l => ehRec(l) && l.recorrencia).map(l => [l.recorrencia + '|' + compDe(l), l.id]));
+    for (const x of lista) if (!ehRec(x) && x.vinculo) { const pid = recs.get(x.vinculo + '|' + compDe(x)); if (pid) { if (!ligadosDe.has(pid)) ligadosDe.set(pid, []); ligadosDe.get(pid).push(x); } }
+  }
+  const dentro = new Set([...ligadosDe.values()].flat().map(x => x.id));
+  const pais = new Set(lista.filter(l => temDescontos(l)).map(l => l.id));
   const entradas = [
-    ...lista.filter(l => !naFatura.has(l.id)).map(l => ({ dc: l.dc, html: linhaLanc(l), net: sinal(l) * (+l.valor || 0), ord: ehRec(l) ? 0 : 1 })),
+    ...lista.filter(l => !naFatura.has(l.id) && !dentro.has(l.id) && !(aninha && l.desconto && pais.has(l.pai))).map(l => {
+      const lig = ligadosDe.get(l.id) || [], ds = aninha && (pais.has(l.id) || lig.length);
+      const menos = ds ? totalDescontos(l) + lig.reduce((s2, x) => s2 + (+x.valor || 0), 0) : 0;
+      return { dc: l.dc, html: linhaLanc(l) + (ds ? blocoDescontos(l, lig) : ''), net: sinal(l) * (+l.valor || 0) - menos, ord: ehRec(l) ? 0 : 1 };
+    }),
     ...faturas.map(f => ({ dc: f.dc, html: linhaFatura(f), net: -f.total, ord: 2 })),
   ].sort((a, b) => a.dc < b.dc ? -1 : a.dc > b.dc ? 1 : a.ord - b.ord);
   if (!entradas.length) {
@@ -1320,14 +1398,15 @@ function linhaLanc(l, dentroFatura) {
   const atras = !l.pago && (l.dc || l.data) < iso(hoje());
   const rec = ehRec(l);
   const conta = !dentroFatura && l.conta ? nomeConta(contaDe(l.conta)) + (l.cartao ? ' · cartão' : '') : '';
-  const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : ''].filter(Boolean);
+  const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : '',
+    l.desconto ? 'descontado de ' + (l.paiDesc || 'recebimento') : '', l.vinculo && !ehRec(l) ? 'baixa com ' + nomeVinculo(l) : ''].filter(Boolean);
   const apo = ehAporte(l);
-  const estado = l.pago || dentroFatura ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
+  const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
   return `<div class="lanc${dentroFatura ? ' sub' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
     <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}
-      ${!l.pago && !dentroFatura ? `<button class="pagar" data-a="lanc-pagar" data-id="${esc(l.id)}">${rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei'}</button>` : ''}</span>
+      ${!l.pago && !dentroFatura && !l.desconto && !l.vinculo ? `<button class="pagar" data-a="lanc-pagar" data-id="${esc(l.id)}">${rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei'}</button>` : ''}</span>
   </div>`;
 }
 
@@ -1352,7 +1431,7 @@ function periodoFluxo() {
   return [addYm(a, -5), addYm(a, 6)];
 }
 // Gastos do dia a dia: o que não é fixo nem parcela (mercado, restaurante, combustível...)
-const ehVariavel = l => !ehRec(l) && !l.ajuste && !l.recorrencia && !l.grupo;
+const ehVariavel = l => !ehRec(l) && !l.ajuste && !l.recorrencia && !l.grupo && !l.desconto;
 function variaveisDoMes(ym) { return lancamentosEntre(ym, ym).filter(ehVariavel).reduce((s, l) => s + (+l.valor || 0), 0); }
 function mediaVariaveis() { const a = ymHoje(); return memo('mv', () => [1, 2, 3].reduce((s, k) => s + variaveisDoMes(addYm(a, -k)), 0) / 3); }
 function serieFluxo() {
@@ -1599,11 +1678,14 @@ function abrirLancamento(id, preset) {
     LF = { id: l.id, virtual: !!l.virtual, recorrencia: l.recorrencia || null, competencia: l.competencia || null, grupo: l.grupo || null,
       parcela: l.parcela || null, ajuste: !!l.ajuste, tipo: l.tipo, valor: +l.valor || 0, descricao: l.descricao || '', categoria: l.categoria || '',
       data: l.data, pago: !!l.pago, pagoMexido: true, conta: l.conta || '', cartao: !!l.cartao, obs: l.obs || '', obsAberta: !!l.obs,
-      repete: 'nao', vezes: 12, erros: {}, novaCat: null, catsNovas: [] };
+      repete: 'nao', vezes: 12, erros: {}, novaCat: null, catsNovas: [],
+      partes: clone(l.partes || []), descontos: clone(l.descontos || []), descAberto: String(id).startsWith('d:'), recibo: null, lendoRecibo: false,
+      vinculo: l.vinculo || '', ligadosNovos: [] };
   } else {
     const tipo = preset?.tipo || 'despesa';
     LF = Object.assign({ id: null, tipo, valor: 0, descricao: '', categoria: '', data: iso(hoje()), pago: true, pagoMexido: false,
-      obs: '', obsAberta: false, repete: 'nao', vezes: 10, erros: {}, novaCat: null, catsNovas: [] }, ultimaConta(tipo), preset || {});
+      obs: '', obsAberta: false, repete: 'nao', vezes: 10, erros: {}, novaCat: null, catsNovas: [],
+      partes: [], descontos: [], descAberto: false, recibo: null, lendoRecibo: false, vinculo: '', ligadosNovos: [] }, ultimaConta(tipo), preset || {});
   }
   abrirFolha(montarFormLanc);
 }
@@ -1612,13 +1694,14 @@ function montarFormLanc() {
   const f = LF, rec = f.tipo === 'receita', hj = iso(hoje());
   const cats = [...S.d.categorias, ...f.catsNovas].filter(c => c.tipo === f.tipo);
   const conta = contaDe(f.conta);
-  const noCartao = !rec && f.cartao && conta?.cartao;
+  const vinc = !rec && f.vinculo ? recPorId().get(f.vinculo) : null;
+  const noCartao = !rec && !vinc && f.cartao && conta?.cartao;
   const dc = dataCaixa({ data: f.data, conta: f.conta, cartao: noCartao });
   if (!f.pagoMexido) f.pago = dc <= hj;
   const r = f.recorrencia ? S.d.recorrencias.find(x => x.id === f.recorrencia) : null;
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
-  const titulo = f.ajuste ? 'Ajuste de saldo' : f.id ? (rec ? 'Recebimento' : 'Despesa') : (rec ? 'Novo recebimento' : 'Nova despesa');
+  const titulo = f.ajuste ? 'Ajuste de saldo' : f.confirmando ? 'Confirmar recebimento' : f.id ? (rec ? 'Recebimento' : 'Despesa') : (rec ? 'Novo recebimento' : 'Nova despesa');
   let c = '';
   if (!f.id) {
     c += `<div class="seg tipo-seg"><button class="${!rec ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
@@ -1626,10 +1709,17 @@ function montarFormLanc() {
   }
   const anualR = r && r.freq === 'anual';
   if (r && r.aporte) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Aporte nos seus investimentos, todo dia ${r.dia}. Valor padrão ${brl(r.valor)}, o mesmo da aba Invest.</span></div>`;
+  else if (r && r.vinculo && !rec) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>Gasto fixo, descontado de ${esc(recPorId().get(r.vinculo)?.descricao || 'um recebimento')} todo mês. Valor padrão ${brl(r.valor)}.</span></div>`;
   else if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}. ${f.virtual ? (anualR ? 'Este ano ainda não foi confirmado.' : 'Este mês ainda não foi confirmado.') : ''}</span></div>`;
   if (f.parcela) c += `<div class="aviso-fixo">${ic('calendar', 'ic-s')}<span>Parcela ${esc(f.parcela)}</span></div>`;
-  const rotValor = f.repete === 'parcelado' ? 'Valor total' : r ? (anualR ? 'Valor deste ano' : 'Valor deste mês') : 'Valor';
-  c += `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
+  const comPartes = false;
+  const brutoTxt = rec && (f.descontos.length || f.descAberto) ? 'bruto' : '';
+  const rotValor = f.repete === 'parcelado' ? 'Valor total' : comPartes ? 'Bruto (soma dos créditos)'
+    : ['Valor', brutoTxt, r ? (anualR ? 'deste ano' : 'deste mês') : ''].filter(Boolean).join(' ');
+  c += comPartes
+    ? `<div class="campo"><div class="lbl">${rotValor}</div><div class="pref grande lido"><span>R$</span><b id="lf-bruto">${NF2.format(somaPartes(f.partes))}</b></div>${msg('valor')}</div>`
+    : `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
+  c += secaoDescontos(f);
   const sugest = [...new Set(S.d.lancamentos.filter(l => l.tipo === f.tipo && !l.ajuste).map(l => l.descricao))].slice(-60);
   c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : 'Ex.: Mercado, Aluguel, iFood'}" list="dl-desc" autocomplete="off">
     <datalist id="dl-desc">${sugest.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>`;
@@ -1645,9 +1735,16 @@ function montarFormLanc() {
     c += `</div>`;
   }
   c += `<div class="duo"><div class="campo"><label for="lf-data">${noCartao ? 'Data da compra' : 'Data'}</label><input id="lf-data" class="inp" type="date" data-lf="data" value="${esc(f.data)}"></div>
-    <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
+    <div class="campo"><div class="lbl">Situação</div>${vinc ? `<p class="vinc-st">${ic('repeat', 'ic-s')}Baixa com ${esc(vinc.descricao)}</p>` : `<div class="seg mini" style="margin:0">
       <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : 'Pago'}</button>
-      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : 'A pagar'}</button></div></div></div>`;
+      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : 'A pagar'}</button></div>`}</div></div>`;
+  const recsFixos = rec || f.ajuste ? [] : recebimentosFixos();
+  if (recsFixos.length || vinc) {
+    c += `<div class="campo"><label for="lf-vinc">Como é pago</label><select id="lf-vinc" class="inp" data-lfv="1">
+      <option value="">Por conta própria (conta, Pix ou cartão)</option>${recsFixos.map(x => `<option value="${esc(x.id)}"${f.vinculo === x.id ? ' selected' : ''}>Descontado de: ${esc(x.descricao)} (dia ${x.dia})</option>`).join('')}</select>
+      ${vinc ? `<div class="ajuda">A baixa acontece junto com ${esc(vinc.descricao)}: quando ele for confirmado, este gasto fica pago no mesmo dia e na mesma conta. Se o valor mudar num mês, edite só aquele mês.</div>` : ''}</div>`;
+  }
+  if (!vinc) {
   c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : 'Como pagou'}</div><div class="chips" style="margin:0">
     <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">Sem conta</button>
     ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
@@ -1657,6 +1754,7 @@ function montarFormLanc() {
     if (noCartao) c += `<div class="ajuda">Entra na fatura que vence em <b>${fData(pData(dc))}</b> (fecha dia ${conta.fechamento}, vence dia ${conta.vencimento}).</div>`;
   }
   c += `</div>`;
+  }
   if (!f.id) {
     c += `<div class="campo"><div class="lbl">Repetir</div><div class="seg mini" style="margin:0">
       <button class="${f.repete === 'nao' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="nao">Uma vez</button>
@@ -1697,6 +1795,17 @@ function salvarLanc(alcance, eOutro) {
     valor: round2(f.valor), categoria: f.ajuste ? '' : f.categoria, conta: f.conta || '',
     cartao: !rec && !!f.cartao && !!contaDe(f.conta)?.cartao, data: f.data, pago: !!f.pago, obs: (f.obs || '').trim(),
   };
+  if (rec && f.repete !== 'parcelado') {
+    const ld = limparDescontos(f);
+    if (ld.partes.length) { base.partes = ld.partes; base.valor = somaPartes(ld.partes); }
+    if (ld.descontos.length) base.descontos = ld.descontos;
+  }
+  if (!rec && f.vinculo && recPorId().get(f.vinculo)) {
+    const rr = recPorId().get(f.vinculo);
+    Object.assign(base, { vinculo: f.vinculo, conta: rr.conta || base.conta, cartao: false, pago: !!recMat().get(f.vinculo + '|' + ymDe(f.data))?.pago });
+  }
+  const semDesc = o => { if (!base.partes) delete o.partes; if (!base.descontos) delete o.descontos; if (!base.vinculo) delete o.vinculo; return o; };
+  let recFinal = null, ridRec = rec ? f.recorrencia : null;
   const catsNovas = f.catsNovas.filter(c => c.id === f.categoria);
   const novo = !f.id;
   persistir(d => {
@@ -1706,8 +1815,13 @@ function salvarLanc(alcance, eOutro) {
         const r = { id: 'r-' + uid(), tipo: base.tipo, descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta,
           cartao: base.cartao, obs: base.obs, dia: +f.data.slice(8, 10), inicio: ymDe(f.data), fim: null };
         if (f.repete === 'anual') r.freq = 'anual';
+        if (base.partes) r.partes = clone(base.partes);
+        if (base.descontos) r.descontos = clone(base.descontos);
+        if (base.vinculo) r.vinculo = base.vinculo;
         d.recorrencias.push(r);
-        if (base.pago) d.lancamentos.push(materializar(Object.assign({}, base, { recorrencia: r.id, competencia: ymDe(f.data) })));
+        const mat = Object.assign({}, base, { recorrencia: r.id, competencia: ymDe(f.data) });
+        if (base.pago) d.lancamentos.push(recFinal = materializar(mat)); else recFinal = mat;
+        if (rec && f.repete === 'mensal') ridRec = r.id;
       } else if (f.repete === 'parcelado') {
         const n = +f.vezes, cada = Math.floor(base.valor * 100 / n) / 100, g = 'g-' + uid();
         for (let k = 0; k < n; k++) {
@@ -1715,22 +1829,27 @@ function salvarLanc(alcance, eOutro) {
             data: somaMeses(f.data, k), parcela: `${k + 1}/${n}`, grupo: g, pago: k === 0 ? base.pago : false }));
         }
       } else d.lancamentos.push(Object.assign({ id: uid() }, base));
+      if (rec && ridRec && recFinal) { criarLigados(d, f, ridRec, recFinal); baixaVinculados(d, recFinal); }
       return;
     }
     if (f.recorrencia && alcance === 'todos') {
       const r = d.recorrencias.find(x => x.id === f.recorrencia);
-      if (r) Object.assign(r, { descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta, cartao: base.cartao, obs: base.obs, dia: +f.data.slice(8, 10) });
+      if (r) semDesc(Object.assign(r, { descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta, cartao: base.cartao, obs: base.obs, dia: +f.data.slice(8, 10) },
+        base.partes ? { partes: clone(base.partes) } : {}, base.descontos ? { descontos: clone(base.descontos) } : {}, base.vinculo ? { vinculo: base.vinculo } : {}));
     }
+    const mat = Object.assign({}, base, { recorrencia: f.recorrencia, competencia: f.competencia });
     if (f.virtual) {
-      if (alcance === 'este' || base.pago) d.lancamentos.push(materializar(Object.assign({}, base, { recorrencia: f.recorrencia, competencia: f.competencia })));
+      if (alcance === 'este' || base.pago) d.lancamentos.push(recFinal = materializar(mat)); else recFinal = mat;
     } else {
       const x = d.lancamentos.find(y => y.id === f.id);
-      if (x) Object.assign(x, base);
+      if (x) semDesc(Object.assign(x, base));
+      recFinal = x;
     }
+    if (rec && ridRec && recFinal) { criarLigados(d, f, ridRec, recFinal); baixaVinculados(d, recFinal); }
   }, novo ? (f.repete === 'mensal' ? 'Fixo cadastrado: aparece todo mês' : f.repete === 'anual' ? 'Fixo cadastrado: aparece todo ano' : f.repete === 'parcelado' ? `${f.vezes} parcelas lançadas` : 'Lançado') : 'Salvo').then(ok => {
     if (!ok) return;
     if (eOutro) {
-      LF = Object.assign({}, LF, { id: null, valor: 0, descricao: '', obs: '', obsAberta: false, repete: 'nao', erros: {}, pagoMexido: false, catsNovas: [] });
+      LF = Object.assign({}, LF, { id: null, valor: 0, descricao: '', obs: '', obsAberta: false, repete: 'nao', erros: {}, pagoMexido: false, catsNovas: [], partes: [], descontos: [], descAberto: false, recibo: null, ligadosNovos: [], recorrencia: null, virtual: false });
       pintarFolha();
       const v = $('#lf-valor'); if (v) v.focus();
     } else fecharFolha();
@@ -1789,8 +1908,10 @@ function confirmarPagar() {
   const { l, valor } = PG;
   if (!(valor > 0)) { toast('Coloque o valor.'); return; }
   persistir(d => {
-    if (l.virtual) d.lancamentos.push(materializar(l, { valor: round2(valor), pago: true }));
-    else { const x = d.lancamentos.find(y => y.id === l.id); if (x) { x.pago = true; x.valor = round2(valor); } }
+    let x;
+    if (l.virtual) d.lancamentos.push(x = materializar(l, { valor: round2(valor), pago: true }));
+    else { x = d.lancamentos.find(y => y.id === l.id); if (x) { x.pago = true; x.valor = round2(valor); } }
+    baixaVinculados(d, x);
   }, ehRec(l) ? 'Recebimento confirmado' : 'Pagamento confirmado').then(ok => { if (ok) fecharFolha(); });
 }
 function pagarFatura(k) {
@@ -2162,7 +2283,7 @@ function dicaCategoria() {
     const ym = addYm(ymHoje(), -1), ant = [1, 2, 3].map(k => addYm(ym, -k));
     const tot = m => {
       const o = {};
-      for (const l of lancamentosCompetencia(m)) if (!l.ajuste && !ehRec(l) && !ehAporte(l) && l.categoria) o[l.categoria] = (o[l.categoria] || 0) + (+l.valor || 0);
+      for (const l of lancamentosCompetencia(m)) if (!l.ajuste && !ehRec(l) && !ehAporte(l) && !l.desconto && l.categoria) o[l.categoria] = (o[l.categoria] || 0) + (+l.valor || 0);
       return o;
     };
     const atual = tot(ym), antes = ant.map(tot);
@@ -2299,6 +2420,167 @@ function confirmarDicaAnual() {
   }, 'Pronto: agora é anual').then(ok => { if (ok) { fecharFolha(); carregarDicas(); } });
 }
 
+/* --------- formulário: créditos e descontos do recebimento */
+const DESC_RAPIDOS = [
+  ['INSS', 'pct', 'c-impostos'], ['Imposto de renda', 'pct', 'c-impostos'], ['Taxa administrativa', 'pct', 'c-impostos'], ['Outro imposto', 'pct', 'c-impostos'],
+];
+// despesas ligadas a este recebimento (no formulário): as já cadastradas e as que a IA achou no recibo
+function ligadosDoForm(f) {
+  const out = [];
+  if (f.recorrencia) {
+    const ym = f.competencia || ymDe(f.data);
+    for (const r of S.d.recorrencias) {
+      if (r.tipo === 'receita' || r.vinculo !== f.recorrencia || !ativaEm(r, ym)) continue;
+      const m = recMat().get(r.id + '|' + ym);
+      if (m && m.pulado) continue;
+      out.push({ descricao: r.descricao, valor: +(m ? m.valor : r.valor) || 0, existe: true });
+    }
+  }
+  (f.ligadosNovos || []).forEach((n, i) => { if (!out.some(o => semAcento(o.descricao) === semAcento(n.descricao))) out.push(Object.assign({ i }, n)); else if (n.sel) { const o = out.find(o2 => semAcento(o2.descricao) === semAcento(n.descricao)); o.valor = n.valor; o.atualiza = true; } });
+  return out;
+}
+const NFP4 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 });
+const lfComo = f => ({ id: 'lf', tipo: 'receita', valor: f.valor, descontos: f.descontos });
+function resumoDescHTML(f) {
+  const l = lfComo(f), lig = ligadosDoForm(f).filter(o => o.existe || o.sel).reduce((s2, o) => s2 + o.valor, 0);
+  const desc = round2(totalDescontos(l) + lig), liq = round2((+f.valor || 0) - desc);
+  let h = `<div><span>Bruto</span><b>${brl(+f.valor || 0)}</b></div><div><span>Descontos</span><b class="sai">− ${brl(desc)}</b></div>
+    <div class="liq"><span>Líquido</span><b>${brl(liq)}</b><small>cai na conta</small></div>`;
+  if (f.recibo && f.recibo.liquido) {
+    const ok = Math.abs(liq - f.recibo.liquido) < 0.05;
+    h += `<p class="desc-conf ${ok ? 'ok' : 'erro'}">${ic(ok ? 'check' : 'alert', 'ic-s')}${ok ? `Confere com o líquido do recibo: ${brl(f.recibo.liquido)}.` : `O recibo diz líquido de ${brl(f.recibo.liquido)}; aqui deu ${brl(liq)}. Confira os valores.`}</p>`;
+  }
+  return h;
+}
+function secaoDescontos(f) {
+  if (f.tipo !== 'receita' || f.repete === 'parcelado' || f.ajuste) return '';
+  const lig = ligadosDoForm(f);
+  if (!f.descontos.length && !lig.length && !f.descAberto) {
+    return `<div class="campo"><button class="abre" data-a="lf-desc-abrir">${ic('plus', 'ic-s')}Descontos na fonte (impostos, plano de saúde)</button></div>`;
+  }
+  const l = lfComo(f);
+  let h = `<div class="campo desc-sec"><div class="desc-cab"><div class="lbl">Impostos na fonte</div>
+    <button class="btn peq out" data-a="lf-ler-recibo"${f.lendoRecibo ? ' disabled' : ''}>${f.lendoRecibo ? '<span class="giro mini"></span>Lendo…' : ic('ia', 'ic-s') + 'Ler recibo com IA'}</button></div>`;
+  h += f.descontos.map((x, i) => `<div class="desc-ed2">
+    <input class="inp" data-lfd="descricao" data-i="${i}" value="${esc(x.descricao)}" placeholder="Ex.: INSS" aria-label="Nome do imposto" autocomplete="off">
+    <div class="pref"><input data-lfd="valor" data-i="${i}" inputmode="decimal" value="${x.valor ? NFP4.format(x.valor) : ''}" placeholder="0" aria-label="Porcentagem do bruto"><span>%</span></div>
+    <button class="icbtn" data-a="lf-desc-rm" data-v="${i}" aria-label="Tirar imposto">${ic('x')}</button>
+    <b class="desc-v" id="lfd-v-${i}">− ${brl(valorDesc(l, x))}</b></div>`).join('');
+  h += `<div class="chips" style="margin:6px 0 0">${DESC_RAPIDOS.map(([n], k) => [n, k]).filter(([n]) => n === 'Outro imposto' || !f.descontos.some(x => semAcento(x.descricao) === semAcento(n))).map(([n, k]) =>
+    `<button class="chip add" data-a="lf-desc-add" data-v="${k}">${ic('plus', 'ic-s')}${n}</button>`).join('')}</div>`;
+  h += `<div class="ajuda">Porcentagem do bruto. O imposto sai do caixa junto com o recebimento, já pago, na categoria Impostos e taxas.</div>`;
+  h += `<div class="sub-lbl">Outros descontos ligados</div>`;
+  if (lig.length) {
+    h += lig.map(o => `<div class="lig-l">${o.existe ? ic('repeat', 'ic-s') : `<input type="checkbox" data-lfn="${o.i}"${o.sel ? ' checked' : ''} aria-label="Criar ${esc(o.descricao)}">`}
+      <span>${esc(o.descricao)}${o.existe ? (o.atualiza ? ' · valor do recibo neste mês' : '') : ' · nova despesa fixa ligada'}</span><b>− ${brl(o.valor)}</b></div>`).join('');
+  }
+  h += `<div class="ajuda">${f.recorrencia || f.repete === 'mensal'
+    ? 'Plano de saúde e outros: cadastre a despesa e, em "Como é pago", escolha este recebimento. A baixa dela acontece junto com a dele.'
+    : 'Para ligar o plano de saúde e outros descontos, o recebimento precisa ser fixo (Repetir: Todo mês).'}</div>`;
+  h += `<div class="desc-res" id="lf-desc-res">${resumoDescHTML(f)}</div></div>`;
+  return h;
+}
+
+function atualizarDescontosVivo() {
+  const f = LF, l = lfComo(f);
+  if (f.partes.length) { f.valor = somaPartes(f.partes); const b = $('#lf-bruto'); if (b) b.textContent = NF2.format(f.valor); }
+  f.descontos.forEach((x, i) => { const e = $('#lfd-v-' + i); if (e) e.textContent = '− ' + brl(valorDesc(l, x)); });
+  const r = $('#lf-desc-res'); if (r) r.innerHTML = resumoDescHTML(f);
+}
+function addDesconto(k) {
+  const [n, modo, cat] = DESC_RAPIDOS[k] || DESC_RAPIDOS[DESC_RAPIDOS.length - 1];
+  LF.descontos.push({ id: 'd-' + uid(), descricao: n === 'Outro imposto' ? '' : n, modo, valor: 0, base: '', categoria: cat });
+  LF.descAberto = true;
+  pintarFolha();
+}
+function trocarModoDesc(i, modo) {
+  const x = LF.descontos[i];
+  if (!x || x.modo === modo) return;
+  const l = lfComo(LF), v = valorDesc(l, x);
+  if (modo === 'pct') { const b = +LF.valor || 0; x.valor = b > 0 ? Math.round(v / b * 1e6) / 1e4 : 0; x.base = ''; }
+  else x.valor = v;
+  x.modo = modo;
+  pintarFolha();
+}
+// imposto em % do bruto: um percentual redondo (1 casa) quando reproduz o valor; senão o percentual exato (até 4 casas)
+function pctDoBruto(v, bruto) {
+  if (!(bruto > 0) || !(v > 0)) return 0;
+  const p1 = Math.round(v / bruto * 1000) / 10;
+  if (p1 > 0 && Math.abs(round2(bruto * p1 / 100) - v) <= 0.011) return p1;
+  return Math.round(v / bruto * 1e6) / 1e4;
+}
+function aplicarRecibo(h) {
+  const bruto = round2(h.total_creditos || h.creditos.reduce((s, c) => s + (+c.valor || 0), 0));
+  const descontos = h.debitos.filter(dv => dv.tipo === 'imposto')
+    .map(dv => ({ id: 'd-' + uid(), descricao: dv.descricao, modo: 'pct', valor: pctDoBruto(dv.valor, bruto), base: '', categoria: 'c-impostos' }));
+  const ligadosNovos = h.debitos.filter(dv => dv.tipo !== 'imposto')
+    .map(dv => ({ descricao: dv.descricao, valor: round2(dv.valor), categoria: dv.tipo === 'saude' ? 'c-saude' : 'c-outros-gastos', sel: true }));
+  Object.assign(LF, { partes: [], valor: bruto, descontos, ligadosNovos, descAberto: true, recibo: { liquido: h.liquido || 0 } });
+  if (!LF.id && h.data) LF.data = h.data;
+  if (!LF.descricao) LF.descricao = 'Salário';
+  if (!LF.categoria) LF.categoria = 'c-salario';
+}
+async function lerRecibo() {
+  const file = await escolherArquivo('application/pdf,image/*');
+  if (!file) return;
+  const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (!pdf && !/^image\//.test(file.type)) { toast('Envie o recibo em PDF ou imagem.'); return; }
+  LF.lendoRecibo = true; pintarFolha();
+  try {
+    const b64 = pdf ? await lerArquivo(file) : await imagemJPG(file);
+    const r = await api.iaLer({ modo: 'holerite', anexo: { b64 } });
+    const h = r.holerite || {};
+    if (!(h.total_creditos > 0) && !(h.creditos || []).length) { toast('A IA não achou o valor bruto nesse arquivo.'); return; }
+    aplicarRecibo(h);
+    toast('Recibo lido. Confira antes de salvar.');
+  } catch (e) { toast('Não consegui ler o recibo. ' + e.message); }
+  finally { if (LF) { LF.lendoRecibo = false; pintarFolha(); } }
+}
+function criarLigados(d, f, rid, rec) {
+  const ym = rec.competencia || ymDe(rec.data);
+  for (const n of (f.ligadosNovos || []).filter(x => x.sel && x.valor > 0)) {
+    const r = d.recorrencias.find(x => x.tipo !== 'receita' && x.vinculo === rid && !x.fim && semAcento(x.descricao) === semAcento(n.descricao));
+    if (r) {
+      if (Math.abs((+r.valor || 0) - n.valor) < 0.005) continue;
+      const m = d.lancamentos.find(l => l.recorrencia === r.id && l.competencia === ym);
+      if (m) m.valor = n.valor;
+      else d.lancamentos.push(materializar(Object.assign({}, r, { valor: n.valor, data: rec.data, recorrencia: r.id, competencia: ym, pago: !!rec.pago, conta: rec.conta || r.conta, cartao: false })));
+    } else {
+      d.recorrencias.push({ id: 'r-' + uid(), tipo: 'despesa', descricao: n.descricao, valor: n.valor, categoria: n.categoria, conta: rec.conta || '', cartao: false,
+        obs: '', dia: +String(rec.data).slice(8, 10) || 1, inicio: ym, fim: null, vinculo: rid });
+    }
+  }
+}
+function limparDescontos(f) {
+  const partes = [], ids = new Set();
+  const descontos = f.descontos.filter(x => +x.valor > 0).map(x => ({ id: x.id, descricao: (x.descricao || '').trim() || 'Desconto', modo: x.modo === 'pct' ? 'pct' : 'fixo',
+    valor: x.modo === 'pct' ? Math.round(+x.valor * 1e4) / 1e4 : round2(x.valor), base: x.modo === 'pct' && ids.has(x.base) ? x.base : '', categoria: x.categoria || '' }));
+  return { partes, descontos };
+}
+function linhaDesc(d) {
+  const cat = catDe(d.categoria);
+  return `<div class="lanc sub" data-a="lanc" data-id="${esc(d.id)}" role="button" tabindex="0">
+    <span class="ini" style="--c:${corCat(d)}">${esc((d.descricao || '?').slice(0, 1).toUpperCase())}</span>
+    <span class="lanc-t"><b>${esc(d.descricao)}</b><span>${esc([cat?.nome || 'Sem categoria', regraDesc(d), d.pago ? NA_FONTE : 'na fonte'].join(' · '))}</span></span>
+    <span class="lanc-d"><b class="sai">− ${brl(d.valor)}</b></span></div>`;
+}
+function linhaLigada(x) {
+  const cat = catDe(x.categoria);
+  return `<div class="lanc sub" data-a="lanc" data-id="${esc(x.id)}" role="button" tabindex="0">
+    <span class="ini" style="--c:${corCat(x)}">${esc((x.descricao || '?').slice(0, 1).toUpperCase())}</span>
+    <span class="lanc-t"><b>${esc(x.descricao)}</b><span>${esc([cat?.nome || 'Sem categoria', x.recorrencia ? 'fixo' : '', x.pago ? 'já pago, descontado' : 'baixa junto'].filter(Boolean).join(' · '))}</span></span>
+    <span class="lanc-d"><b class="sai">− ${brl(+x.valor || 0)}</b></span></div>`;
+}
+function blocoDescontos(l, ligados = []) {
+  const ds = descontosDe(l);
+  const n = ds.length + ligados.length;
+  if (!n) return '';
+  const aberto = S.ui.descAberto === l.id;
+  const soma = ds.reduce((s2, d) => s2 + d.valor, 0) + ligados.reduce((s2, x) => s2 + (+x.valor || 0), 0);
+  return `<button class="desc-tog${aberto ? ' on' : ''}" data-a="desc-abrir" data-v="${esc(l.id)}" aria-expanded="${aberto}">${ic('chev', 'ic-s')}<span>${n === 1 ? '1 desconto' : n + ' descontos'} · líquido ${brl(liquidoDe(l) - ligados.reduce((s2, x) => s2 + (+x.valor || 0), 0))}</span><b>− ${brl(soma)}</b></button>`
+    + (aberto ? `<div class="desc-itens">${ds.map(linhaDesc).join('')}${ligados.map(linhaLigada).join('')}</div>` : '');
+}
+
 function cardCategorias() {
   const grupo = tipo => S.d.categorias.filter(c => c.tipo === tipo).map(c =>
     `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
@@ -2313,7 +2595,7 @@ function cardFixos() {
   const quando = r => (r.freq === 'anual' ? `Todo ano, ${r.dia} de ${MESES_LONGOS[+String(r.inicio).slice(5) - 1]}` : `Todo dia ${r.dia}`) + (r.fim ? ` · até ${nomeMes(r.fim, true)}` : '');
   const linha = r => `<button class="banco-row" data-a="fixo" data-id="${esc(r.id)}"><span class="ini" style="--c:${corCat(r)}">${esc((r.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <div class="op-t"><b>${esc(r.descricao)}</b><span>${quando(r)}${r.conta ? ' · ' + esc(nomeConta(contaDe(r.conta))) + (r.cartao ? ' · cartão' : '') : ''}</span></div>
-    <span class="op-n ${r.tipo === 'receita' ? 'ent' : 'sai'}">${brl(r.valor, 0)}<small>${r.freq === 'anual' ? 'por ano' : 'padrão'}</small></span>${ic('chev', 'chev')}</button>`;
+    <span class="op-n ${r.tipo === 'receita' ? 'ent' : 'sai'}">${brl(r.valor, 0)}<small>${r.freq === 'anual' ? 'por ano' : temDescontos(r) ? 'líquido ' + brl(liquidoDe(r), 0) : 'padrão'}</small></span>${ic('chev', 'chev')}</button>`;
   const mensais = ativos.filter(r => r.freq !== 'anual'), anuais = ativos.filter(r => r.freq === 'anual');
   const rec = mensais.filter(r => r.tipo === 'receita'), des = mensais.filter(r => r.tipo !== 'receita');
   const soma = l => l.reduce((s, r) => s + (+r.valor || 0), 0);
@@ -2741,7 +3023,12 @@ document.addEventListener('click', ev => {
     case 'novo-inv': abrirInvestimento(null); break;
     case 'lanc-novo': abrirLancamento(null, { tipo: v === 'receita' ? 'receita' : 'despesa' }); break;
     case 'lanc': abrirLancamento(id); break;
-    case 'lanc-pagar': abrirPagar(id); break;
+    case 'lanc-pagar': {
+      const l = acharLanc(id);
+      if (l && ehRec(l) && (temPartes(l) || temDescontos(l))) { abrirLancamento(id); Object.assign(LF, { pago: true, pagoMexido: true, descAberto: true, confirmando: true }); pintarFolha(); }
+      else abrirPagar(id);
+      break;
+    }
     case 'pg-ok': confirmarPagar(); break;
     case 'fatura-abrir': S.ui.faturaAberta = S.ui.faturaAberta === v ? null : v; render(); break;
     case 'fatura-pagar': pagarFatura(v); break;
@@ -2790,6 +3077,12 @@ document.addEventListener('click', ev => {
     case 'lf-conta': LF.conta = v; if (!contaDe(v)?.cartao) LF.cartao = false; LF.pagoMexido = LF.id ? LF.pagoMexido : false; pintarFolha(); break;
     case 'lf-cartao': LF.cartao = !!v; if (!LF.id) LF.pagoMexido = false; pintarFolha(); break;
     case 'lf-obs': LF.obsAberta = !LF.obsAberta; pintarFolha(); break;
+    case 'lf-desc-abrir': LF.descAberto = true; pintarFolha(); break;
+    case 'lf-desc-add': addDesconto(+v); break;
+    case 'lf-desc-rm': LF.descontos.splice(+v, 1); pintarFolha(); break;
+    case 'lf-desc-modo': trocarModoDesc(+el.dataset.i, v); break;
+    case 'lf-ler-recibo': lerRecibo(); break;
+    case 'desc-abrir': S.ui.descAberto = S.ui.descAberto === v ? null : v; render(); break;
     case 'lf-cat-nova': LF.novaCat = LF.novaCat ? null : { nome: '', cor: CORES_BANCO.find(c => !S.d.categorias.some(x => x.cor === c)) || CORES_BANCO[0] }; pintarFolha(); break;
     case 'lf-cat-cor': LF.novaCat.cor = v; pintarFolha(); break;
     case 'lf-cat-ok': {
@@ -3001,6 +3294,27 @@ document.addEventListener('input', ev => {
     const e = $('#da-eco'); if (e) e.innerHTML = ecoDA();
     return;
   }
+  if (el.dataset.lfp && LF) {
+    const p = LF.partes[+el.dataset.i]; if (!p) return;
+    if (el.dataset.lfp === 'valor') { const dig = el.value.replace(/\D/g, '').slice(0, 13); p.valor = dig ? parseInt(dig, 10) / 100 : 0; el.value = dig ? NF2.format(p.valor) : ''; }
+    else p.descricao = el.value;
+    atualizarDescontosVivo(); return;
+  }
+  if (el.dataset.lfd && LF) {
+    const x = LF.descontos[+el.dataset.i]; if (!x) return;
+    if (el.dataset.lfd === 'valor') {
+      if (x.modo === 'pct') { const n = parseNum(el.value); x.valor = isNaN(n) ? 0 : Math.min(100, Math.max(0, n)); }
+      else { const dig = el.value.replace(/\D/g, '').slice(0, 11); x.valor = dig ? parseInt(dig, 10) / 100 : 0; el.value = dig ? NF2.format(x.valor) : ''; }
+    } else x.descricao = el.value;
+    atualizarDescontosVivo(); return;
+  }
+  if (el.dataset.lfv && LF) { LF.vinculo = el.value; pintarFolha(); return; }
+  if (el.dataset.lfn != null && LF && el.type === 'checkbox') { const n = (LF.ligadosNovos || [])[+el.dataset.lfn]; if (n) n.sel = el.checked; atualizarDescontosVivo(); return; }
+  if (el.dataset.lfds && LF) {
+    const x = LF.descontos[+el.dataset.i]; if (!x) return;
+    x[el.dataset.lfds] = el.value;
+    atualizarDescontosVivo(); return;
+  }
   if (el.dataset.lf && LF) {
     const k = el.dataset.lf;
     if (k === 'valor') {
@@ -3008,6 +3322,7 @@ document.addEventListener('input', ev => {
       LF.valor = dig ? parseInt(dig, 10) / 100 : 0;
       el.value = dig ? NF2.format(LF.valor) : '';
       delete LF.erros.valor;
+      if (LF.descontos.length) atualizarDescontosVivo();
       if (LF.repete === 'parcelado') pintarFolhaDepois();
     } else if (k === 'vezes') { LF.vezes = el.value.replace(/\D/g, '').slice(0, 3); el.value = LF.vezes; pintarFolhaDepois(); }
     else if (k === 'novaCat') LF.novaCat.nome = el.value;

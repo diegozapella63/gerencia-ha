@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.4.0
+
+- **Salário bruto com impostos na fonte**: no recebimento, cada imposto é uma porcentagem do bruto. Quando o salário entra, os impostos saem do caixa no mesmo dia, já pagos, na categoria Impostos e taxas.
+- **Despesa ligada a um recebimento**: em "Como é pago", escolha "Descontado de: Salário" (para plano de saúde, coparticipação e outros). A baixa dela acontece junto com a do salário, no mesmo dia e na mesma conta.
+- **Ler recibo com IA**: o app lê o recibo de pagamento em PDF ou foto, preenche o bruto e os impostos em %, sugere os outros descontos como despesas ligadas e confere com o líquido.
+- Na lista do caixa, o salário mostra os descontos e o líquido logo abaixo; nos gráficos e nas categorias, o bruto entra e os descontos saem.
+- Contas ligadas ao salário não aparecem como atrasadas nos avisos.
+
 ## 1.3.1
 
 - Dicas de economia mostram a **economia real**: o desconto do plano anual menos o que o dinheiro das mensalidades renderia nos seus investimentos (o de liquidez diária que rende mais, já com IR). Se o rendimento empatar com o desconto, a dica não aparece.
