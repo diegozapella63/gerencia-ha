@@ -1141,7 +1141,7 @@ function abrirVersoes() {
 
 /* ------------------------------------------------------------------ render */
 const ABAS = [
-  ['inicio', 'Início', 'home'], ['investimentos', 'Investimentos', 'wallet'], ['add', 'Adicionar', 'plus'],
+  ['inicio', 'Início', 'home'], ['investimentos', 'Invest', 'wallet'], ['add', 'Adicionar', 'plus'],
   ['graficos', 'Gráficos', 'chart'], ['mais', 'Mais', 'sliders'],
 ];
 function pintarNav() {

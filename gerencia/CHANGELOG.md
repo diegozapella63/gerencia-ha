@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.0.2
+
+- No menu de baixo, a aba Investimentos agora se chama Invest.
+
 ## 1.0.1
 
 - Início com placar de cotações: o patrimônio aparece em plaquinhas que viram, com seu dinheiro, o de terceiros e quanto rende por mês.
