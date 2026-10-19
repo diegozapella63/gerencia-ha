@@ -418,17 +418,25 @@ function cabecalho(titulo, acoes = '') {
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
 }
 
-// Código de autenticação do comprovante, como nos recibos de banco (muda com o total e o dia).
-const autenticacao = v => (Math.round(v * 100) * 31 + +iso(hoje()).replace(/-/g, '')).toString(16).toUpperCase().slice(-6).padStart(6, '0');
-
-// Comprovante saindo da fenda do caixa eletrônico: o destaque principal do Início.
-function comprovante({ topo, data, val, palavra, linhas, texto, rodape }) {
-  return `<div class="cpv-wrap"><div class="cpv-fenda" aria-hidden="true"></div><div class="cpv-papel"><div class="cpv">
-    <div class="cpv-topo"><span>${topo}</span><span>${data}</span></div>
-    <div class="cpv-val${palavra ? ' palavra' : ''}">${val}</div>
-    <div class="cpv-linhas">${texto ? `<p class="cpv-texto">${texto}</p>` : linhas.map(([k, v]) => `<div class="cpv-linha"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
-    ${rodape ? `<div class="cpv-rodape"><span>${rodape[0]}</span><span>${rodape[1] || ''}</span></div>` : ''}
-  </div></div></div>`;
+// Placar de cotações com plaquinhas que viram (split-flap): o destaque principal do Início.
+let PLACAR_ULTIMO = null;
+function placar({ cab, data, valor, palavra, cols, texto, rotulo }) {
+  const chars = [...valor];
+  const sep = ch => ch === '.' || ch === ',';
+  const nSep = chars.filter(sep).length;
+  const n = (chars.length - nSep) + nSep * 0.32 + (palavra ? 0 : 0.9);
+  const vira = PLACAR_ULTIMO !== valor;
+  PLACAR_ULTIMO = valor;
+  let i = 0;
+  const plaquinhas = chars.map((ch, k) => sep(ch)
+    ? `<span class="flap ponto"><span>${ch}</span></span>`
+    : `<span class="flap${palavra && k >= chars.length - 2 ? ' acento' : ''}" style="--i:${i++}"><span>${esc(ch)}</span></span>`).join('');
+  return `<section class="placar${vira ? ' vira' : ''}">
+    <div class="placar-cab"><span class="led" aria-hidden="true"></span><span>${cab}</span><span class="dt">${data}</span></div>
+    <div class="placar-num" style="--n:${n.toFixed(2)}" role="img" aria-label="${esc(rotulo || valor)}">${palavra ? '' : '<span class="moeda" aria-hidden="true">R$</span>'}${plaquinhas}</div>
+    ${texto ? `<p class="placar-txt">${texto}</p>`
+      : `<div class="placar-cols">${cols.map(([k, v, ac]) => `<div><span>${k}</span><b${ac ? ' class="acento"' : ''}>${v}</b></div>`).join('')}</div>`}
+  </section>`;
 }
 
 function tagDono(i) {
@@ -455,12 +463,13 @@ function telaInicio() {
   let html = cabecalho('Início', `${olho}<button class="icbtn" data-a="buscar" aria-label="Buscar">${ic('search')}</button>`);
   if (d.exemplo) html += avisoExemplo();
 
-  const linhas = [['Seu dinheiro', brl(t.meu, 0)]];
-  if (t.terc > 0) linhas.push(['De terceiros', brl(t.terc, 0)]);
-  linhas.push(['Rende por mês', brl(t.mes, 0)]);
-  html += comprovante({
-    topo: 'Patrimônio', data: fData(h), val: `<small>R$</small>${numf(t.total, 0)}`, linhas,
-    rodape: [`${plural(d.investimentos.length, 'investimento', 'investimentos')} · ${plural(nBancos, 'banco', 'bancos')}`, 'AUT ' + autenticacao(t.total)],
+  html += placar({
+    cab: 'Patrimônio', data: fData(h), valor: numf(t.total, 0), rotulo: `Patrimônio de ${brl(t.total, 0)}`,
+    cols: [
+      ['Seu', brl(t.meu, 0)],
+      t.terc > 0 ? ['Terceiros', brl(t.terc, 0)] : ['Bancos', String(nBancos)],
+      ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
+    ],
   });
 
   // destaques
@@ -547,7 +556,7 @@ function avisoExemplo() {
 
 function telaBoasVindas() {
   return `${cabecalho('Início')}
-    ${comprovante({ topo: 'Bem-vindo', data: fData(hoje()), val: 'Gerenc<span style="opacity:.6">IA</span>', palavra: true, texto: 'Seu dinheiro, seus investimentos e quanto eles vão render.', rodape: ['Comprovante nº 0001', ''] })}
+    ${placar({ cab: 'Bem-vindo', data: fData(hoje()), valor: 'GERENCIA', palavra: true, rotulo: 'GerencIA', texto: 'Seu dinheiro, seus investimentos e quanto eles vão render.' })}
     <div class="comeco"><h2>Vamos começar</h2>
     <p>Cadastre o primeiro investimento com o valor de hoje e quanto ele rende. Já tem um backup? Importe o arquivo .zip e tudo volta.</p>
     <div class="btns">
@@ -1142,7 +1151,7 @@ function pintarNav() {
 }
 
 function ajustarTextos() {
-  $$('.cpv-val, .stat-duo b, .inv-valor, .hl-n').forEach(el => {
+  $$('.stat-duo b, .inv-valor, .hl-n').forEach(el => {
     el.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(el).fontSize), n = 0;
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14 && n++ < 40) { fs -= 1.5; el.style.fontSize = fs + 'px'; }

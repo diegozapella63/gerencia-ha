@@ -11,7 +11,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ## Telas
 
-- **Início**: o comprovante do patrimônio (seu e de terceiros), quanto rende por mês, melhor rendimento, o que vence primeiro, maior banco e quanto seu dinheiro deve valer em 1 ano. Abaixo, o dinheiro de terceiros por pessoa e os avisos (vencimentos, valores desatualizados, índices).
+- **Início**: o placar do patrimônio, com plaquinhas que viram como num painel de cotações (seu, de terceiros e quanto rende por mês), quanto rende por mês, melhor rendimento, o que vence primeiro, maior banco e quanto seu dinheiro deve valer em 1 ano. Abaixo, o dinheiro de terceiros por pessoa e os avisos (vencimentos, valores desatualizados, índices).
 - **Investimentos**: lista com filtro Todos, Meus e Terceiros, por pessoa e por banco. Cada cartão mostra o rendimento, o dono (Meu ou De fulano) e a liquidez.
 - **Adicionar**: valor, data do valor, banco, tipo, rendimento e de quem é o dinheiro. Se for de terceiros, diga de quem.
 - **Gráficos**: *Evolução* mostra o que foi registrado até hoje e a projeção (1, 2, 5 ou 10 anos), com aporte mensal opcional, desconto de IR e o valor em dinheiro de hoje (descontando o IPCA). *Dinheiro atual* divide o total por banco, dono, tipo ou liquidez.
