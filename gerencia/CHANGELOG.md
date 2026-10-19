@@ -1,5 +1,19 @@
 # Mudanças
 
+## 1.1.0
+
+- Nova aba **Caixa** para o seu próprio dinheiro: despesas, recebimentos, lista do mês, fluxo de caixa mensal (entradas, saídas, o que sobrou e saldo) e categorias de gastos e recebimentos.
+- **Fixos** com valor padrão: aparecem em todos os meses à frente, e cada mês pode ter um valor diferente sem mudar o padrão.
+- **Cartão de crédito**: compras, parcelas e fixos no cartão entram no mês em que a fatura vence, também nos gráficos futuros. Fatura agrupada na lista, com botão para pagar.
+- **Bancos com contas por pessoa**: no mesmo banco, diga quem tem conta e quem tem cartão, com dia de fechamento e de vencimento.
+- Previsão do dia a dia no fluxo (média dos gastos variáveis dos últimos 3 meses), que dá para desligar.
+- **Leitura por IA** com a IA do Home Assistant: fatura em PDF, prints, fotos de papel, prints e textos do WhatsApp para lançar gastos e recebimentos, e prints do banco para cadastrar investimentos. Tudo passa por uma conferência antes de lançar.
+- Fotos nos investimentos e nos lançamentos.
+- Os gráficos dos investimentos agora ficam dentro da aba Invest (Carteira, Evolução e Divisão).
+- Avisos de fatura atrasada e contas que vencem em até 5 dias no Início.
+- Novos sensores: saldo em caixa, entradas e saídas do mês.
+- O app agora usa a pasta `media` do Home Assistant para mandar arquivos à IA. Se a atualização pedir, reinicie o app.
+
 ## 1.0.2
 
 - No menu de baixo, a aba Investimentos agora se chama Invest.

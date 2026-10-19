@@ -1,7 +1,7 @@
 name: GerencIA
-version: "1.0.2"
+version: "1.1.0"
 slug: gerencia
-description: Investimentos, dinheiro de terceiros e projeções, com índices do Banco Central.
+description: Seu caixa (recebimentos, despesas, fixos e cartões) e seus investimentos, com fluxo de caixa, projeções e leitura por IA.
 url: https://github.com/diegozapella63/gerencia-ha
 arch:
   - amd64
@@ -15,5 +15,7 @@ panel_title: GerencIA
 homeassistant_api: true
 map:
   - type: share
+    read_only: false
+  - type: media
     read_only: false
 watchdog: "tcp://[HOST]:[PORT:8099]"
