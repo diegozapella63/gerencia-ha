@@ -24,8 +24,9 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import calc  # noqa: E402
+import assinaturas  # noqa: E402
 
-VERSAO = "1.1.0"
+VERSAO = "1.2.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -325,10 +326,12 @@ def gerar_csv_lancamentos(d):
                     ("Recebido" if rec else "Pago") if l.get("pago") else ("A receber" if rec else "A pagar"),
                     l.get("parcela") or "", "Sim" if l.get("recorrencia") else "", l.get("obs", "")])
     for r in d["recorrencias"]:
-        w.writerow([f"todo dia {r.get('dia')}", "", "Recebimento fixo" if r.get("tipo") == "receita" else "Despesa fixa",
+        anual = r.get("freq") == "anual"
+        quando = f"todo ano, dia {r.get('dia')}/{str(r.get('inicio') or '')[5:7]}" if anual else f"todo dia {r.get('dia')}"
+        w.writerow([quando, "", "Recebimento fixo" if r.get("tipo") == "receita" else "Despesa fixa",
                     r.get("descricao", ""), cats.get(r.get("categoria"), ""), calc.nome_conta(contas.get(r.get("conta"))),
                     "Sim" if r.get("cartao") else "", calc.fmt_num(calc.num(r.get("valor"))),
-                    f"desde {r.get('inicio')}" + (f" até {r['fim']}" if r.get("fim") else ""), "", "Sim", r.get("obs", "")])
+                    f"desde {r.get('inicio')}" + (f" até {r['fim']}" if r.get("fim") else ""), "", "Anual" if anual else "Sim", r.get("obs", "")])
     return ("\ufeff" + buf.getvalue()).encode("utf-8")
 
 
@@ -819,6 +822,239 @@ def ia_ler(corpo):
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 
+# ---------------------------------------------------------------- dicas de economia (assinaturas conferidas na origem)
+
+DICAS_ARQ = os.path.join(DATA_DIR, "dicas.json")
+FONTES_MOCK = os.environ.get("GERENCIA_FONTES_MOCK")  # pasta com <id>.html, só para testes
+DOLAR_FIXO = os.environ.get("GERENCIA_DOLAR")         # só para testes
+_conferindo = threading.Event()
+_trava_conf = threading.Lock()
+
+DICAS_SIMULADAS = {
+    "nabucasa": {"planos": [
+        {"plano": "Monthly", "moeda": "USD", "mensal": 6.5, "trecho_mensal": "$6.50 USD", "anual_total": 0, "anual_por_mes": 0, "trecho_anual": ""},
+        {"plano": "Annual", "moeda": "USD", "mensal": 0, "trecho_mensal": "", "anual_total": 65, "anual_por_mes": 0, "trecho_anual": "$65.00 USD"}]},
+    "spotify": {"planos": [
+        {"plano": "Premium Individual", "moeda": "BRL", "mensal": 23.9, "trecho_mensal": "R$ 23,90 por 1 mês", "anual_total": 239, "trecho_anual": "R$ 239 por 1 ano"},
+        {"plano": "Premium Duo", "moeda": "BRL", "mensal": 31.9, "trecho_mensal": "R$ 31,90 por 1 mês", "anual_total": 379, "trecho_anual": "R$ 379 por 1 ano"},
+        {"plano": "Premium Família", "moeda": "BRL", "mensal": 40.9, "trecho_mensal": "R$ 40,90 por 1 mês", "anual_total": 490, "trecho_anual": "R$ 490 por 1 ano"},
+        {"plano": "Premium Universitário", "moeda": "BRL", "mensal": 12.9, "trecho_mensal": "R$ 12,90 por 1 mês", "anual_total": 0, "trecho_anual": ""}]},
+    "microsoft365": {"planos": [
+        {"plano": "Microsoft 365 Personal", "moeda": "BRL", "mensal": 51, "trecho_mensal": "R$51,00/mês", "anual_total": 509, "trecho_anual": "R$509,00/ano"},
+        {"plano": "Microsoft 365 Family", "moeda": "BRL", "mensal": 60, "trecho_mensal": "R$60,00/mês", "anual_total": 599, "trecho_anual": "R$599,00/ano"}]},
+    # preço inventado de propósito: o app tem de recusar
+    "claude": {"planos": [
+        {"plano": "Pro", "moeda": "USD", "mensal": 20, "trecho_mensal": "$20 if billed monthly", "anual_total": 180, "trecho_anual": "$180 billed up front"}]},
+}
+
+
+def dicas_ler():
+    try:
+        with open(DICAS_ARQ, encoding="utf-8") as f:
+            c = json.load(f)
+        return c if isinstance(c, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def buscar_pagina(serv):
+    if FONTES_MOCK:
+        caminho = os.path.join(FONTES_MOCK, serv["id"] + ".html")
+        if not os.path.isfile(caminho):
+            raise OSError("sem página de teste")
+        with open(caminho, encoding="utf-8") as f:
+            return f.read()
+    req = urllib.request.Request(serv["url"], headers={
+        "User-Agent": f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 GerencIA/{VERSAO}",
+        "Accept": "text/html,application/xhtml+xml", "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.6"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        bruto = r.read(4 * 1024 * 1024)
+        cs = r.headers.get_content_charset() or "utf-8"
+    return bruto.decode(cs, "replace")
+
+
+def ia_disponivel(d):
+    """Para ler texto basta qualquer IA com tarefa de IA (não precisa aceitar imagem)."""
+    if IA_MOCK:
+        return True
+    if not TOKEN:
+        return False
+    try:
+        ents = ia_entidades()
+    except ErroHA:
+        return False
+    sel = d["ajustes"].get("ia_entidade") or ""
+    return any(e["id"] == sel for e in ents) if sel else bool(ents)
+
+
+def ia_gerar(d, nome, instrucoes, timeout=180):
+    payload = {"task_name": nome, "instructions": instrucoes}
+    ent = d["ajustes"].get("ia_entidade") or ""
+    if ent:
+        payload["entity_id"] = ent
+    res = ha_request("POST", "/services/ai_task/generate_data?return_response", payload, timeout=timeout)
+    dados = ((res or {}).get("service_response") or {}).get("data")
+    if dados is None:
+        raise ValueError("A IA não devolveu resposta.")
+    return dados
+
+
+def conferir_fonte(serv, d):
+    base = {"conferido": date.today().isoformat(), "url": serv["url"], "planos": [], "status": "erro"}
+    try:
+        pagina = buscar_pagina(serv)
+    except Exception as e:  # noqa: BLE001
+        log("Dicas: não abriu", serv["url"], e)
+        return {**base, "status": "sem_acesso"}
+    texto = assinaturas.html_texto(pagina)
+    trechos = assinaturas.trechos_preco(texto)
+    if not trechos:
+        return {**base, "status": "sem_precos"}
+    if not ia_disponivel(d):
+        return {**base, "status": "sem_ia"}
+    try:
+        if IA_MOCK:
+            dados = DICAS_SIMULADAS.get(serv["id"], {"planos": []})
+        else:
+            dados = ia_gerar(d, f"GerencIA: preços de {serv['curto']}", assinaturas.prompt(serv, trechos))
+        planos, recusados = assinaturas.limpar_planos(extrair_json(dados), texto)
+    except (ErroHA, ValueError) as e:
+        log("Dicas: IA em", serv["id"], e)
+        return {**base, "status": "erro_ia"}
+    if not planos:
+        return {**base, "status": "nao_confere" if recusados else "sem_precos"}
+    return {**base, "status": "ok", "planos": planos}
+
+
+def dolar_atual(cache):
+    hoje = date.today().isoformat()
+    dl = dict(cache.get("dolar") or {})
+    if DOLAR_FIXO:
+        return {"valor": float(DOLAR_FIXO), "data": "teste", "buscado": hoje}
+    if dl.get("buscado") == hoje and dl.get("valor"):
+        return dl
+    try:
+        v, dt = bcb_ultimo(1)  # série 1 do SGS: dólar americano (venda)
+        return {"valor": round(v, 4), "data": dt, "buscado": hoje}
+    except Exception as e:  # noqa: BLE001
+        log("Dólar:", e)
+        dl["buscado"] = hoje
+        return dl
+
+
+def assinaturas_do_usuario(d, hoje=None):
+    """Assinaturas reconhecidas: fixos (recorrências) e cobranças que se repetem em meses diferentes."""
+    hoje = hoje or date.today()
+    out = []
+    ja_anuais = set()
+    for r in d["recorrencias"]:
+        serv = assinaturas.identificar(r.get("descricao")) if r.get("freq") == "anual" else None
+        if serv and not r.get("fim"):
+            ja_anuais.add(serv["id"])
+    for r in d["recorrencias"]:
+        # fixo com data para acabar não é assinatura que continua
+        if r.get("tipo") == "receita" or r.get("fim"):
+            continue
+        serv = assinaturas.identificar(r.get("descricao"))
+        if not serv or (r.get("freq") != "anual" and serv["id"] in ja_anuais):
+            continue
+        out.append({"chave": f"r:{r.get('id')}", "rid": r.get("id"), "origem": "fixo", "servico": serv["id"],
+                    "descricao": r.get("descricao", ""), "valor": round(calc.num(r.get("valor")), 2),
+                    "freq_anual": r.get("freq") == "anual", "conta": r.get("conta", ""), "cartao": bool(r.get("cartao")),
+                    "categoria": r.get("categoria", ""), "dia": int(calc.num(r.get("dia")) or 1)})
+    cobertos = {s["servico"] for s in out} | ja_anuais
+    limite = (hoje - timedelta(days=100)).isoformat()
+    grupos = {}
+    for l in d["lancamentos"]:
+        if (l.get("tipo") == "receita" or l.get("pulado") or l.get("recorrencia") or l.get("ajuste")
+                or str(l.get("data") or "") < limite):
+            continue
+        serv = assinaturas.identificar(l.get("descricao"))
+        if serv and serv["id"] not in cobertos:
+            grupos.setdefault(serv["id"], []).append(l)
+    for sid, ls in grupos.items():
+        ls.sort(key=lambda l: str(l.get("data")))
+        if len({str(l.get("data"))[:7] for l in ls}) < 2:
+            continue
+        ult = ls[-1]
+        valores = [calc.num(l.get("valor")) for l in ls[-3:]]
+        if min(valores) <= 0 or max(valores) > 1.15 * min(valores):
+            continue  # valores muito diferentes: não parece a mesma mensalidade
+        out.append({"chave": f"l:{sid}", "rid": None, "origem": "lancamentos", "servico": sid,
+                    "descricao": ult.get("descricao", ""), "valor": round(calc.num(ult.get("valor")), 2), "freq_anual": False,
+                    "conta": ult.get("conta", ""), "cartao": bool(ult.get("cartao")), "categoria": ult.get("categoria", ""),
+                    "dia": int(str(ult.get("data"))[8:10] or 1)})
+    return out
+
+
+def _velha(fonte, forcar=False):
+    if not fonte or not fonte.get("conferido"):
+        return True
+    try:
+        dias = (date.today() - date.fromisoformat(fonte["conferido"])).days
+    except ValueError:
+        return True
+    if forcar:
+        return not (fonte.get("status") == "ok" and dias == 0)
+    return dias >= (30 if fonte.get("status") == "ok" else 1)
+
+
+def _conferir(forcar):
+    try:
+        d = ler()
+        cache = dicas_ler()
+        fontes = cache.get("fontes") or {}
+        for sid in sorted({s["servico"] for s in assinaturas_do_usuario(d) if not s["freq_anual"]}):
+            if _velha(fontes.get(sid), forcar):
+                fontes[sid] = conferir_fonte(assinaturas.POR_ID[sid], d)
+                log("Dicas:", sid, fontes[sid]["status"], len(fontes[sid]["planos"]), "planos")
+        cache["fontes"] = fontes
+        if any(p.get("moeda") == "USD" for f in fontes.values() for p in f.get("planos", [])):
+            cache["dolar"] = dolar_atual(cache)
+        cache["atualizado"] = agora_iso()
+        os.makedirs(DATA_DIR, exist_ok=True)
+        gravar_arquivo(DICAS_ARQ, json.dumps(cache, ensure_ascii=False, indent=1))
+    except Exception as e:  # noqa: BLE001
+        log("Dicas:", e)
+    finally:
+        _conferindo.clear()
+
+
+def iniciar_conferencia(forcar=False):
+    with _trava_conf:
+        if _conferindo.is_set():
+            return False
+        _conferindo.set()
+    threading.Thread(target=_conferir, args=(forcar,), daemon=True).start()
+    return True
+
+
+def dicas_estado(d, disparar=True):
+    cache = dicas_ler()
+    fontes = cache.get("fontes") or {}
+    dolar = float(DOLAR_FIXO) if DOLAR_FIXO else (cache.get("dolar") or {}).get("valor")
+    subs = assinaturas_do_usuario(d)
+    if disparar and any(_velha(fontes.get(s["servico"])) for s in subs if not s["freq_anual"]):
+        iniciar_conferencia()
+    lista, dicas = [], []
+    for s in subs:
+        serv = assinaturas.POR_ID[s["servico"]]
+        fonte = fontes.get(s["servico"])
+        av = {"status": "ja_anual"} if s["freq_anual"] else assinaturas.avaliar(s["valor"], fonte, dolar)
+        if av["status"] == "pendente" and _conferindo.is_set():
+            av["status"] = "conferindo"
+        item = {**s, **av, "nome": serv["curto"], "fonte": serv["url"],
+                "dominio": (urlparse(serv["url"]).hostname or "").replace("www.", ""),
+                "conferido": (fonte or {}).get("conferido"), "texto": assinaturas.TEXTOS.get(av["status"], "")}
+        lista.append(item)
+        if av["status"] == "ok":
+            dicas.append({"id": "anual:" + s["chave"], **item})
+    dicas.sort(key=lambda x: -x["economia_ano"])
+    return {"dicas": dicas, "assinaturas": lista, "conferindo": _conferindo.is_set(),
+            "catalogo": [c["curto"] for c in assinaturas.CATALOGO], "dolar": cache.get("dolar") if not DOLAR_FIXO else {"valor": dolar, "data": "teste"},
+            "atualizado": cache.get("atualizado")}
+
+
 # ---------------------------------------------------------------- HTTP
 
 TIPOS_MIME = {
@@ -913,6 +1149,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.enviar(200, f.read(), "image/jpeg")
             if p == "/api/ia/status":
                 return self.enviar(200, ia_status(ler()))
+            if p == "/api/dicas":
+                return self.enviar(200, dicas_estado(ler()))
             if p == "/api/export/zip":
                 return self.baixar(gerar_zip(ler()), "application/zip", nome_arquivo("zip"))
             if p == "/api/versoes":
@@ -967,6 +1205,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, salvar_foto(self.corpo_json()))
             if p == "/api/ia/ler":
                 return self.enviar(200, ia_ler(self.corpo_json()))
+            if p == "/api/dicas/conferir":
+                iniciar_conferencia(forcar=True)
+                return self.enviar(200, dicas_estado(ler(), disparar=False))
             if p == "/api/importar":
                 d = importar(self.corpo(), self.headers.get("X-Nome-Arquivo"))
                 return self.enviar(200, d)
@@ -1086,6 +1327,7 @@ def rotina():
             else:
                 publicar_sensores_async(d)
             limpar_fotos(d)
+            dicas_estado(d)  # confere assinaturas novas ou com mais de 30 dias
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)
         time.sleep(15 * 60)

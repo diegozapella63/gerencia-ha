@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.1.0';
+const VERSAO = '1.2.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -35,7 +35,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '' };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [] };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -133,6 +133,7 @@ const S = {
     cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxCatTipo: 'despesa', cxSel: null, faturaAberta: null,
   }, store.get('ui', {})),
   ia: null,
+  dicas: null,
 };
 const salvarUI = () => {
   const { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, cxEstimar } = S.ui;
@@ -324,6 +325,8 @@ const apiServidor = {
   foto: jpg => fetch('api/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jpg }) }).then(jsonOk),
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk),
+  dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
+  dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
 };
 function apiDemo() {
   let d = null;
@@ -357,6 +360,36 @@ function apiDemo() {
     async restaurar() { throw new Error('Na prévia não dá para restaurar versões.'); },
     async foto() { await espera(200); return { arquivo: `demo-${uid()}.jpg` }; },
     async iaStatus() { return { pronta: true, entidades: [{ id: 'ai_task.google_ai_task', nome: 'Google AI Task', imagens: true }], selecionada: '' }; },
+    async dicas() {
+      // Na prévia: preços conferidos nas páginas oficiais em 18/10/2026 (no app, o servidor confere de novo a cada 30 dias)
+      await espera(250);
+      const F = [
+        { id: 'nabucasa', nome: 'Nabu Casa', re: /nabu ?casa|home assistant cloud/i, fonte: 'https://www.nabucasa.com/pricing/', dominio: 'nabucasa.com', planos: [{ plano: 'Mensal', moeda: 'USD', mensal: 6.5, anual: 65 }] },
+        { id: 'spotify', nome: 'Spotify', re: /spotify/i, fonte: 'https://www.spotify.com/br-pt/premium/', dominio: 'spotify.com', planos: [{ plano: 'Premium Individual', moeda: 'BRL', mensal: 23.9, anual: 239 }, { plano: 'Premium Duo', moeda: 'BRL', mensal: 31.9, anual: 379 }, { plano: 'Premium Família', moeda: 'BRL', mensal: 40.9, anual: 490 }] },
+        { id: 'microsoft365', nome: 'Microsoft 365', re: /microsoft ?365|office ?365/i, fonte: 'https://www.microsoft.com/pt-br/microsoft-365/buy/compare-all-microsoft-365-products', dominio: 'microsoft.com', planos: [{ plano: 'Personal', moeda: 'BRL', mensal: 51, anual: 509 }, { plano: 'Family', moeda: 'BRL', mensal: 60, anual: 599 }] },
+      ];
+      const dolar = 5.04, assinaturas = [], dicas = [];
+      const anuais = new Set(d.recorrencias.filter(r => r.freq === 'anual' && !r.fim).map(r => (F.find(x => x.re.test(r.descricao || '')) || {}).id));
+      for (const r of d.recorrencias) {
+        if (r.tipo === 'receita' || r.fim) continue;
+        const f = F.find(x => x.re.test(r.descricao || ''));
+        if (!f || (r.freq !== 'anual' && anuais.has(f.id))) continue;
+        const b = { chave: 'r:' + r.id, rid: r.id, origem: 'fixo', servico: f.id, nome: f.nome, descricao: r.descricao, valor: +r.valor, freq_anual: r.freq === 'anual',
+          conta: r.conta, cartao: !!r.cartao, categoria: r.categoria, dia: r.dia, fonte: f.fonte, dominio: f.dominio, conferido: '2026-10-18' };
+        if (b.freq_anual) { assinaturas.push(Object.assign(b, { status: 'ja_anual', texto: 'Já está no plano anual.' })); continue; }
+        const p = f.planos.find(q => { const k = r.valor / (q.mensal * (q.moeda === 'USD' ? dolar : 1)); return q.moeda === 'USD' ? k >= 0.97 && k <= 1.25 : k >= 0.95 && k <= 1.06; });
+        if (!p) { assinaturas.push(Object.assign(b, { status: 'plano_nao_bate', texto: 'O valor que você paga não bate com nenhum plano da página.' })); continue; }
+        const pc = 1 - p.anual / (12 * p.mensal), eco = round2(12 * r.valor * pc);
+        if (pc < 0.03 || eco < 10) { assinaturas.push(Object.assign(b, { status: 'sem_vantagem', texto: 'O plano anual custa quase o mesmo que pagar por mês.' })); continue; }
+        const x = Object.assign(b, { status: 'ok', texto: 'Dá para economizar no plano anual.', plano: p.plano, moeda: p.moeda, mensal: p.mensal, anual: p.anual, pct: Math.round(pc * 1000) / 10,
+          economia_ano: eco, preco_anual: p.moeda === 'BRL' ? p.anual : round2(12 * r.valor * (1 - pc)), estimado: p.moeda !== 'BRL' });
+        assinaturas.push(x);
+        dicas.push(Object.assign({ id: 'anual:' + x.chave }, x));
+      }
+      dicas.sort((a, b) => b.economia_ano - a.economia_ano);
+      return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
+    },
+    async dicasConferir() { await espera(900); return this.dicas(); },
     async iaLer(c) {
       await espera(1600);
       const hj = iso(hoje()), ont = iso(new Date(hoje().getTime() - 86400000));
@@ -388,6 +421,7 @@ function persistir(mut, ok) {
       S.d = normalizar(await api.save(corpo));
       render();
       if (ok) toast(ok);
+      agendarDicas();
       return true;
     } catch (e) {
       if (e.conflito) { S.d = normalizar(e.d); render(); toast('Os dados mudaram em outro aparelho. Confira e tente de novo.'); }
@@ -505,7 +539,7 @@ function telaInicio() {
     const r = resumoMes(ymHoje());
     html += placar({ cab: 'Saldo em caixa', data: fData(h), valor: numf(saldoCaixa(), 0), rotulo: `Saldo em caixa de ${brl(saldoCaixa(), 0)}`,
       cols: [['Entrou', brl(r.entrou, 0)], ['Saiu', brl(r.saiu, 0)], ['Sobrou', brl(r.sobra, 0), true]] });
-    return html + avisosInicio(h) ;
+    return html + cardDicas() + avisosInicio(h);
   }
 
   html += placar({
@@ -517,7 +551,7 @@ function telaInicio() {
     ],
   });
 
-  if (temCaixa()) html += cardCaixaInicio();
+  if (temCaixa()) html += cardCaixaInicio() + cardDicas();
   // destaques
   const rows = [];
   rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">Rende por mês</div>
@@ -974,6 +1008,16 @@ function ocorrencia(r, ym) {
   o.dc = dataCaixa(o);
   return o;
 }
+// A recorrência acontece na competência ym? Mensal: todo mês; anual: no mês em que começou, todo ano.
+function ativaEm(r, ym) {
+  const ini = r.inicio || '9999-99';
+  return ini <= ym && !(r.fim && r.fim < ym) && (r.freq !== 'anual' || ini.slice(5) === ym.slice(5));
+}
+function proximaYm(r) {
+  let ym = addYm(ymHoje(), 1) < (r.inicio || '') ? r.inicio : addYm(ymHoje(), 1);
+  for (let k = 0; k < 12 && !ativaEm(r, ym); k++) ym = addYm(ym, 1);
+  return ym;
+}
 function feitos() { return memo('feitos', () => new Set(S.d.lancamentos.filter(l => l.recorrencia).map(l => l.recorrencia + '|' + l.competencia))); }
 
 // Tudo o que entra ou sai do caixa entre dois meses (pela data do caixa: no cartão, o vencimento da fatura)
@@ -988,7 +1032,7 @@ function lancamentosEntre(ymIni, ymFim) {
     const f = feitos();
     for (let ym = addYm(ymIni, -2); ym <= ymFim; ym = addYm(ym, 1)) {
       for (const r of S.d.recorrencias) {
-        if ((r.inicio || '9999') > ym || (r.fim && r.fim < ym) || f.has(r.id + '|' + ym)) continue;
+        if (!ativaEm(r, ym) || f.has(r.id + '|' + ym)) continue;
         const o = ocorrencia(r, ym), y = ymDe(o.dc);
         if (y >= ymIni && y <= ymFim) out.push(o);
       }
@@ -1002,7 +1046,7 @@ function lancamentosCompetencia(ym) {
     const out = S.d.lancamentos.filter(l => !l.pulado && ymDe(l.data) === ym).map(l => Object.assign({ dc: dataCaixa(l) }, l));
     const f = feitos();
     for (const r of S.d.recorrencias) {
-      if ((r.inicio || '9999') > ym || (r.fim && r.fim < ym) || f.has(r.id + '|' + ym)) continue;
+      if (!ativaEm(r, ym) || f.has(r.id + '|' + ym)) continue;
       out.push(ocorrencia(r, ym));
     }
     return out;
@@ -1096,7 +1140,8 @@ function caixaExemplo() {
     R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-nu-dessa', cartao: true }),
     R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-nu-diego', cartao: true }),
     R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
-    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Música', valor: 39.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-dessa', cartao: true }),
+    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-dessa', cartao: true }),
+    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
     R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-inter-diego', cartao: true }),
   ];
   // meses passados (e o atual até hoje): ocorrências confirmadas, com variação nos valores que mudam
@@ -1137,6 +1182,8 @@ function caixaExemplo() {
   for (let k = 0; k < 10; k++) {
     L({ tipo: 'despesa', descricao: 'Geladeira', valor: 389.9, categoria: 'c-compras', conta: 'k-nu-dessa', cartao: true, data: dataNoMes(addYm(ymAtual, -4 + k), 14), parcela: `${k + 1}/10`, grupo: g, pago: false });
   }
+  // seguro do carro: fixo anual
+  R({ id: 'r-seguro', tipo: 'despesa', descricao: 'Seguro do carro', valor: 2380, dia: 12, categoria: 'c-transporte', conta: 'k-itau-diego', inicio: addYm(ymAtual, 3), freq: 'anual' });
   // IPTU atrasado (para mostrar o aviso)
   const atras = iso(new Date(hoje().getTime() - 3 * 86400000));
   L({ tipo: 'despesa', descricao: 'IPTU', valor: 212.4, categoria: 'c-impostos', conta: 'k-itau-diego', data: atras, pago: false, parcela: '8/10' });
@@ -1301,7 +1348,7 @@ function caixaFluxo() {
       <div><span>Em ${nomeMes(serie[serie.length - 1].ym, true)}</span><b>${brl(serie[serie.length - 1].saldo, 0)}</b></div></div>
     <div class="chart" id="ch-saldo" role="img" aria-label="Saldo em caixa no fim de cada mês"></div>
     <div class="leg"><span><i class="k" style="--kc:var(--accent)"></i>Fechado</span><span><i class="k tr" style="--kc:var(--accent)"></i>Previsto</span></div></div>`;
-  html += `<p class="nota">Compras no cartão entram no mês em que a fatura vence. Fixos aparecem em todos os meses com o valor padrão até você confirmar o valor real.</p>
+  html += `<p class="nota">Compras no cartão entram no mês em que a fatura vence. Fixos aparecem nos meses em que acontecem (todo mês ou todo ano) com o valor padrão, até você confirmar o valor real.</p>
   <details class="card" style="margin-top:16px"><summary>Ver tabela por mês</summary>
   <table class="tabela"><thead><tr><th>Mês</th><th class="n">Entrou</th><th class="n">Saiu</th><th class="n">Sobrou</th><th class="n">Saldo</th></tr></thead><tbody>
   ${serie.map(m => `<tr><td>${nomeMes(m.ym, true)}${m.prev ? ' *' : ''}</td><td class="n">${brl(m.ent, 0)}</td><td class="n">${brl(m.sai, 0)}</td><td class="n">${brl(m.net, 0)}</td><td class="n">${brl(m.saldo, 0)}</td></tr>`).join('')}
@@ -1530,9 +1577,10 @@ function montarFormLanc() {
     c += `<div class="seg tipo-seg"><button class="${!rec ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
       <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button></div>`;
   }
-  if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, todo dia ${r.dia}. Valor padrão ${brl(r.valor)}. ${f.virtual ? 'Este mês ainda não foi confirmado.' : ''}</span></div>`;
+  const anualR = r && r.freq === 'anual';
+  if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}. ${f.virtual ? (anualR ? 'Este ano ainda não foi confirmado.' : 'Este mês ainda não foi confirmado.') : ''}</span></div>`;
   if (f.parcela) c += `<div class="aviso-fixo">${ic('calendar', 'ic-s')}<span>Parcela ${esc(f.parcela)}</span></div>`;
-  const rotValor = f.repete === 'parcelado' ? 'Valor total' : r ? 'Valor deste mês' : 'Valor';
+  const rotValor = f.repete === 'parcelado' ? 'Valor total' : r ? (anualR ? 'Valor deste ano' : 'Valor deste mês') : 'Valor';
   c += `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
   const sugest = [...new Set(S.d.lancamentos.filter(l => l.tipo === f.tipo && !l.ajuste).map(l => l.descricao))].slice(-60);
   c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : 'Ex.: Mercado, Aluguel, iFood'}" list="dl-desc" autocomplete="off">
@@ -1564,9 +1612,11 @@ function montarFormLanc() {
   if (!f.id) {
     c += `<div class="campo"><div class="lbl">Repetir</div><div class="seg mini" style="margin:0">
       <button class="${f.repete === 'nao' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="nao">Uma vez</button>
-      <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">${ic('repeat', 'ic-s')}Todo mês</button>
+      <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">Todo mês</button>
+      <button class="${f.repete === 'anual' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="anual">Todo ano</button>
       <button class="${f.repete === 'parcelado' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="parcelado">Parcelado</button></div>`;
     if (f.repete === 'mensal') c += `<div class="ajuda">Fica fixo: aparece todo dia ${+f.data.slice(8, 10)} a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, inclusive nos gráficos dos próximos meses. O valor acima é o padrão; quando ${rec ? 'receber' : 'pagar'}, você confirma o valor real do mês.</div>`;
+    if (f.repete === 'anual') c += `<div class="ajuda">Fica fixo: aparece todo ano em ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, dia ${+f.data.slice(8, 10)}, inclusive nos gráficos. Serve para anuidade, IPVA, seguro e planos anuais.</div>`;
     if (f.repete === 'parcelado') {
       const n = +f.vezes || 0;
       c += `<div class="duo" style="margin-top:10px"><div class="pref${err('vezes')}"><input data-lf="vezes" inputmode="numeric" value="${f.vezes || ''}" placeholder="10"><span>vezes</span></div>
@@ -1579,7 +1629,8 @@ function montarFormLanc() {
   const cab = f.id ? `<button class="icbtn" data-a="lf-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '';
   let pe;
   if (!f.id) pe = `<button class="btn" data-a="lf-salvar" data-mais="1">Salvar e lançar outro</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
-  else if (f.recorrencia) pe = `<button class="btn" data-a="lf-salvar" data-v="este">Só este mês</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os meses</button>`;
+  else if (f.recorrencia) pe = anualR ? `<button class="btn" data-a="lf-salvar" data-v="este">Só este ano</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os anos</button>`
+    : `<button class="btn" data-a="lf-salvar" data-v="este">Só este mês</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os meses</button>`;
   else pe = `<button class="btn" data-a="lf-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
   return { titulo, corpo: c, pe, cab };
 }
@@ -1603,9 +1654,10 @@ function salvarLanc(alcance, eOutro) {
   persistir(d => {
     d.categorias.push(...catsNovas);
     if (novo) {
-      if (f.repete === 'mensal') {
+      if (f.repete === 'mensal' || f.repete === 'anual') {
         const r = { id: 'r-' + uid(), tipo: base.tipo, descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta,
           cartao: base.cartao, obs: base.obs, dia: +f.data.slice(8, 10), inicio: ymDe(f.data), fim: null };
+        if (f.repete === 'anual') r.freq = 'anual';
         d.recorrencias.push(r);
         if (base.pago) d.lancamentos.push(materializar(Object.assign({}, base, { recorrencia: r.id, competencia: ymDe(f.data) })));
       } else if (f.repete === 'parcelado') {
@@ -1627,7 +1679,7 @@ function salvarLanc(alcance, eOutro) {
       const x = d.lancamentos.find(y => y.id === f.id);
       if (x) Object.assign(x, base);
     }
-  }, novo ? (f.repete === 'mensal' ? 'Fixo cadastrado: aparece todo mês' : f.repete === 'parcelado' ? `${f.vezes} parcelas lançadas` : 'Lançado') : 'Salvo').then(ok => {
+  }, novo ? (f.repete === 'mensal' ? 'Fixo cadastrado: aparece todo mês' : f.repete === 'anual' ? 'Fixo cadastrado: aparece todo ano' : f.repete === 'parcelado' ? `${f.vezes} parcelas lançadas` : 'Lançado') : 'Salvo').then(ok => {
     if (!ok) return;
     if (eOutro) {
       LF = Object.assign({}, LF, { id: null, valor: 0, descricao: '', obs: '', obsAberta: false, repete: 'nao', erros: {}, pagoMexido: false, catsNovas: [] });
@@ -1645,7 +1697,7 @@ function excluirLanc() {
     escolher({
       titulo: 'Apagar fixo', texto: `<b>${esc(f.descricao)}</b> é ${f.tipo === 'receita' ? 'um recebimento' : 'um gasto'} fixo. O que você quer apagar?`,
       opcoes: [
-        { rotulo: `Só ${MESES_LONGOS[+ym.slice(5) - 1]}`, acao: () => persistir(d => {
+        { rotulo: S.d.recorrencias.find(x => x.id === f.recorrencia)?.freq === 'anual' ? `Só em ${ym.slice(0, 4)}` : `Só ${MESES_LONGOS[+ym.slice(5) - 1]}`, acao: () => persistir(d => {
           if (f.virtual) d.lancamentos.push(materializar(Object.assign({}, f, { recorrencia: f.recorrencia, competencia: ym }), { pulado: true }));
           else { const x = d.lancamentos.find(y => y.id === f.id); if (x) x.pulado = true; }
         }, 'Apagado deste mês') },
@@ -2005,6 +2057,165 @@ document.addEventListener('paste', ev => {
 });
 
 /* ------------------------------------------------------------------ Mais: categorias, fixos, IA e bancos com pessoas */
+/* ------------------------------------------------------------------ dicas de economia */
+// Assinaturas conferidas na página oficial (feito no servidor, com a IA do Home Assistant)
+// e categorias acima da média (dos seus próprios lançamentos).
+let dicasTimer = null, dicasPedido = null, dicasAgenda = null;
+function carregarDicas(forcar) {
+  if (dicasPedido && !forcar) return dicasPedido;
+  dicasPedido = (forcar ? api.dicasConferir() : api.dicas()).then(r => {
+    S.dicas = r;
+    clearTimeout(dicasTimer);
+    if (r.conferindo) dicasTimer = setTimeout(() => carregarDicas(), 6000);
+    if (!FOLHA && (S.ui.tab === 'inicio' || S.ui.tab === 'mais')) render();
+  }).catch(() => {}).finally(() => { dicasPedido = null; });
+  return dicasPedido;
+}
+function agendarDicas() { clearTimeout(dicasAgenda); dicasAgenda = setTimeout(() => carregarDicas(), 1200); }
+
+const SIMBOLO = { BRL: 'R$', USD: 'US$', EUR: '€', GBP: '£' };
+const fmtPreco = (v, moeda) => `${SIMBOLO[moeda] || ''} ${Math.abs(v - Math.round(v)) < 0.005 ? NF0.format(Math.round(v)) : NF2.format(v)}`;
+const juntarE = l => l.length > 1 ? l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1] : (l[0] || '');
+function mesesGratis(x) {
+  const m = (12 * x.mensal - x.anual) / x.mensal, r = Math.round(m);
+  return r >= 1 && Math.abs(m - r) < 0.12 ? r : 0;
+}
+
+function dicaCategoria() {
+  return memo('dicaCat', () => {
+    const ym = addYm(ymHoje(), -1), ant = [1, 2, 3].map(k => addYm(ym, -k));
+    const tot = m => {
+      const o = {};
+      for (const l of lancamentosCompetencia(m)) if (!l.ajuste && !ehRec(l) && l.categoria) o[l.categoria] = (o[l.categoria] || 0) + (+l.valor || 0);
+      return o;
+    };
+    const atual = tot(ym), antes = ant.map(tot);
+    let melhor = null;
+    for (const [cat, v] of Object.entries(atual)) {
+      const vs = antes.map(o => o[cat] || 0);
+      if (vs.filter(x => x > 0).length < 2) continue;
+      const media = vs.reduce((a, b) => a + b, 0) / 3, dif = v - media;
+      if (v >= media * 1.25 && dif >= 150 && (!melhor || dif > melhor.dif)) melhor = { cat, v, media, dif, ym, ant };
+    }
+    return melhor ? Object.assign(melhor, { id: `cat:${melhor.cat}:${ym}` }) : null;
+  });
+}
+
+function dicasVisiveis() {
+  const fora = new Set(S.d.ajustes.dicas_fora || []);
+  const subs = ((S.dicas && S.dicas.dicas) || []).filter(x => !fora.has(x.id));
+  const cat = dicaCategoria();
+  return { subs, cat: cat && !fora.has(cat.id) ? cat : null };
+}
+
+function linhaDicaAssinatura(x) {
+  const mg = mesesGratis(x);
+  const quando = x.conferido ? fData(pData(x.conferido)) : '';
+  return `<div class="dica">
+    <div class="dica-cab"><span class="dica-ic">${ic('percent')}</span>
+      <div class="dica-t"><b>${esc(x.nome)} no plano anual</b>
+        <span>${fmtPreco(x.anual, x.moeda)} por ano em vez de ${fmtPreco(x.mensal, x.moeda)} por mês, ${mg ? (mg === 1 ? '1 mês grátis' : mg + ' meses grátis') : pct(x.pct) + '% a menos'}.</span></div>
+      <div class="dica-v">${x.estimado ? '<i>cerca de</i>' : ''}${brl(x.economia_ano, 0)}<small>por ano</small></div></div>
+    <div class="dica-fonte">${ic('check', 'ic-s')}<span>Preço conferido em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a>${quando ? ' em ' + quando : ''}${x.origem === 'fixo' ? '' : ' · cobrança das suas faturas'}</span></div>
+    <div class="dica-acoes"><button class="btn peq pri" data-a="dica-anual" data-v="${esc(x.id)}">Mudar para anual</button><button class="btn peq" data-a="dica-fora" data-v="${esc(x.id)}">Agora não</button></div>
+  </div>`;
+}
+
+function linhaDicaCategoria(c) {
+  const k = catDe(c.cat);
+  const per = `${MESES_LONGOS[+c.ant[2].slice(5) - 1]} a ${MESES_LONGOS[+c.ant[0].slice(5) - 1]}`;
+  return `<div class="dica">
+    <div class="dica-cab"><span class="dica-ic alerta">${ic('trend')}</span>
+      <div class="dica-t"><b>${esc(k?.nome || 'Categoria')} acima da média</b>
+        <span>Em ${MESES_LONGOS[+c.ym.slice(5) - 1]} foram ${brl(c.v, 0)}, ${brl(c.dif, 0)} a mais que a média de ${per}.</span></div>
+      <div class="dica-v alerta">+${brl(c.dif, 0)}<small>no mês</small></div></div>
+    <div class="dica-fonte">${ic('fluxo', 'ic-s')}<span>Pelos seus lançamentos</span></div>
+    <div class="dica-acoes"><button class="btn peq out" data-a="dica-cat" data-v="${esc(c.ym)}">Ver categorias</button><button class="btn peq" data-a="dica-fora" data-v="${esc(c.id)}">Agora não</button></div>
+  </div>`;
+}
+
+function cardDicas() {
+  if (!temCaixa()) return '';
+  const { subs, cat } = dicasVisiveis();
+  const conferindo = S.dicas && S.dicas.conferindo && (S.dicas.assinaturas || []).some(a => a.status === 'conferindo');
+  if (!subs.length && !cat) {
+    return conferindo ? `<div class="card dicas"><div class="rot">Dicas de economia</div>
+      <div class="dica-conf"><span class="giro"></span>Conferindo os preços das suas assinaturas nas páginas oficiais…</div></div>` : '';
+  }
+  const total = subs.reduce((s, x) => s + x.economia_ano, 0);
+  return `<div class="card dicas"><div class="rot">Dicas de economia${total ? ` <b>${subs.length > 1 ? 'até ' : ''}${brl(total, 0)} por ano</b>` : ''}</div>
+    ${subs.slice(0, 3).map(linhaDicaAssinatura).join('')}${cat ? linhaDicaCategoria(cat) : ''}
+    ${subs.length > 3 ? `<button class="link" data-a="tab" data-v="mais" data-ancora="dicas">Ver as ${subs.length} dicas</button>` : ''}</div>`;
+}
+
+function cardDicasMais() {
+  const st = S.dicas;
+  const catalogo = (st && st.catalogo) || ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'];
+  const fora = (S.d.ajustes.dicas_fora || []).length;
+  const subs = (st && st.assinaturas) || [];
+  let h = `<div class="card" id="dicas"><div class="rot">Dicas de economia</div>
+    <p class="desc">O app procura assinaturas nos seus fixos e faturas e confere o preço do plano anual na página oficial de cada serviço, lida pela IA do Home Assistant. A dica só aparece quando o valor que você paga bate com um plano e o preço está escrito na página. Reconhece ${esc(juntarE(catalogo))}.</p>`;
+  if (!st) h += `<div class="status manual">Carregando…</div>`;
+  else if (!subs.length) h += `<div class="status manual">Nenhuma dessas assinaturas nos seus fixos ou faturas.</div>`;
+  else {
+    h += subs.map(a => {
+      const txt = a.status === 'ok' ? `No plano anual você economiza ${a.estimado ? 'cerca de ' : ''}${brl(a.economia_ano, 0)} por ano.` : a.texto;
+      const quando = a.conferido && !['conferindo', 'ja_anual'].includes(a.status) ? ` Conferido em ${fData(pData(a.conferido))}.` : '';
+      const mesmoNome = semAcento(a.descricao) === semAcento(a.nome);
+      return `<div class="ass-row"><span class="ini" style="--c:${corCat(a)}">${esc((a.nome || '?').slice(0, 1))}</span>
+        <div class="op-t"><b>${esc(a.descricao)}</b><span>${brl(a.valor)} ${a.freq_anual ? 'por ano' : 'por mês'}${mesmoNome ? '' : ' · ' + esc(a.nome)}${a.origem === 'lancamentos' ? ' · nas faturas' : ''}</span><span class="ass-st ${a.status === 'ok' ? 'ok' : ''}">${esc(txt)}${quando}</span></div></div>`;
+    }).join('');
+  }
+  h += `<div class="dica-btns"><button class="btn out" data-a="dicas-conferir"${st && st.conferindo ? ' disabled' : ''}>${ic('refresh')}${st && st.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
+    ${fora ? `<button class="btn" data-a="dicas-voltar">Mostrar dispensadas (${fora})</button>` : ''}</div>`;
+  if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar são comparados com o dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão. A economia em reais é estimada pelo que você paga hoje.</p>`;
+  return h + `</div>`;
+}
+
+/* --------- mudar para o plano anual */
+let DA = null;
+function abrirDicaAnual(id) {
+  const x = ((S.dicas && S.dicas.dicas) || []).find(d => d.id === id);
+  if (!x) { toast('Essa dica não está mais disponível.'); return; }
+  const hj = iso(hoje());
+  let data = dataNoMes(ymHoje(), x.dia);
+  if (data <= hj) data = dataNoMes(addYm(ymHoje(), 1), x.dia);
+  DA = { x, valor: x.preco_anual, data, erro: '' };
+  abrirFolha(montarDicaAnual);
+}
+function ecoDA() {
+  const eco = 12 * DA.x.valor - (+DA.valor || 0);
+  return eco > 0.005 ? `Você economiza <b>${brl(eco)}</b> por ano.` : 'Com esse valor, o anual não sai mais barato.';
+}
+function montarDicaAnual() {
+  const { x } = DA, mes = MESES_LONGOS[+DA.data.slice(5, 7) - 1];
+  const corpo = `<p class="da-intro">Primeiro troque para o plano anual em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a>. Depois confirme aqui para o GerencIA ajustar o seu fluxo: ${x.origem === 'fixo' ? 'o fixo mensal para e entra um fixo anual.' : 'entra um fixo anual, que aparece todo ano.'}</p>
+    <div class="cmp-anual"><div><span>Hoje</span><b>${brl(x.valor)}</b><small>por mês · ${brl(12 * x.valor, 0)} por ano</small></div>
+      <div><span>No anual</span><b>${fmtPreco(x.anual, x.moeda)}</b><small>por ano, na página oficial</small></div></div>
+    <div class="campo"><label for="da-valor">Valor da cobrança anual</label><div class="pref grande${DA.erro ? ' erro' : ''}"><span>R$</span><input id="da-valor" data-da="valor" inputmode="numeric" value="${DA.valor ? NF2.format(DA.valor) : ''}"></div>
+      <div class="ajuda">${x.estimado ? `Estimado: ${fmtPreco(x.anual, x.moeda)} no câmbio que o seu cartão cobra hoje. Ajuste quando vier a cobrança.` : `Preço da página oficial.`}</div>${DA.erro ? `<div class="msg-erro">${DA.erro}</div>` : ''}</div>
+    <div class="campo"><label for="da-data">Primeira cobrança anual</label><input id="da-data" class="inp" type="date" data-da="data" value="${esc(DA.data)}">
+      <div class="ajuda">${x.origem === 'fixo' ? `O fixo mensal vai até o mês anterior. ` : ''}Depois, a cobrança entra todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.</div></div>
+    <div class="eco-linha" id="da-eco">${ecoDA()}</div>`;
+  return { titulo: `${esc(x.nome)} no plano anual`, corpo, pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="da-ok">Mudar para anual</button>` };
+}
+function confirmarDicaAnual() {
+  const { x } = DA;
+  if (!(DA.valor > 0)) { DA.erro = 'Coloque o valor.'; pintarFolha(); return; }
+  if (!pData(DA.data)) { DA.erro = 'Data inválida.'; pintarFolha(); return; }
+  const ym = ymDe(DA.data);
+  persistir(d => {
+    const r = x.rid ? d.recorrencias.find(y => y.id === x.rid) : null;
+    if (r) {
+      if (ym <= r.inicio) d.recorrencias = d.recorrencias.filter(y => y.id !== r.id); else r.fim = addYm(ym, -1);
+      d.lancamentos = d.lancamentos.filter(l => !(l.recorrencia === r.id && l.competencia >= ym && !l.pago));
+    }
+    const base = r || x;
+    d.recorrencias.push({ id: 'r-' + uid(), tipo: 'despesa', descricao: base.descricao || x.nome, valor: round2(DA.valor), categoria: base.categoria || '',
+      conta: base.conta || '', cartao: !!base.cartao, obs: '', dia: +DA.data.slice(8, 10), inicio: ym, fim: null, freq: 'anual' });
+  }, 'Pronto: agora é anual').then(ok => { if (ok) { fecharFolha(); carregarDicas(); } });
+}
+
 function cardCategorias() {
   const grupo = tipo => S.d.categorias.filter(c => c.tipo === tipo).map(c =>
     `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
@@ -2016,15 +2227,18 @@ function cardFixos() {
   const ym = ymHoje();
   const ativos = S.d.recorrencias.filter(r => !r.fim || r.fim >= ym);
   if (!ativos.length) return '';
+  const quando = r => (r.freq === 'anual' ? `Todo ano, ${r.dia} de ${MESES_LONGOS[+String(r.inicio).slice(5) - 1]}` : `Todo dia ${r.dia}`) + (r.fim ? ` · até ${nomeMes(r.fim, true)}` : '');
   const linha = r => `<button class="banco-row" data-a="fixo" data-id="${esc(r.id)}"><span class="ini" style="--c:${corCat(r)}">${esc((r.descricao || '?').slice(0, 1).toUpperCase())}</span>
-    <div class="op-t"><b>${esc(r.descricao)}</b><span>Todo dia ${r.dia}${r.conta ? ' · ' + esc(nomeConta(contaDe(r.conta))) + (r.cartao ? ' · cartão' : '') : ''}</span></div>
-    <span class="op-n ${r.tipo === 'receita' ? 'ent' : 'sai'}">${brl(r.valor, 0)}<small>padrão</small></span>${ic('chev', 'chev')}</button>`;
-  const rec = ativos.filter(r => r.tipo === 'receita'), des = ativos.filter(r => r.tipo !== 'receita');
+    <div class="op-t"><b>${esc(r.descricao)}</b><span>${quando(r)}${r.conta ? ' · ' + esc(nomeConta(contaDe(r.conta))) + (r.cartao ? ' · cartão' : '') : ''}</span></div>
+    <span class="op-n ${r.tipo === 'receita' ? 'ent' : 'sai'}">${brl(r.valor, 0)}<small>${r.freq === 'anual' ? 'por ano' : 'padrão'}</small></span>${ic('chev', 'chev')}</button>`;
+  const mensais = ativos.filter(r => r.freq !== 'anual'), anuais = ativos.filter(r => r.freq === 'anual');
+  const rec = mensais.filter(r => r.tipo === 'receita'), des = mensais.filter(r => r.tipo !== 'receita');
   const soma = l => l.reduce((s, r) => s + (+r.valor || 0), 0);
   return `<div class="card" id="fixos"><div class="rot">Fixos do mês <b>${brl(soma(rec) - soma(des), 0)}</b></div>
-    <p class="desc">Entram sozinhos em todos os meses, com o valor padrão. Toque para mudar o padrão.</p>
+    <p class="desc">Entram sozinhos nos próximos meses, com o valor padrão. Toque para mudar o padrão.</p>
     ${rec.length ? `<h3>Recebimentos · ${brl(soma(rec), 0)}</h3>${rec.map(linha).join('')}` : ''}
-    ${des.length ? `<h3 style="margin-top:14px">Gastos · ${brl(soma(des), 0)}</h3>${des.map(linha).join('')}` : ''}</div>`;
+    ${des.length ? `<h3 style="margin-top:14px">Gastos · ${brl(soma(des), 0)}</h3>${des.map(linha).join('')}` : ''}
+    ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}</div>`;
 }
 function cardIA() {
   const s = S.ia;
@@ -2120,7 +2334,7 @@ function telaMais() {
   if (sug.length) html += `<div class="ctrl"><div class="lbl">Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`;
   html += `</div>`;
 
-  html += cardFixos() + cardCategorias() + cardIA();
+  html += cardFixos() + cardCategorias() + cardDicasMais() + cardIA();
   // índices
   const quando = I.atualizado_em ? new Date(I.atualizado_em) : null;
   const st = I.erro ? ['erro', `${esc(I.erro)}. Usando os últimos valores.`]
@@ -2460,7 +2674,13 @@ document.addEventListener('click', ev => {
     case 'cx-ir': S.ui.cxModo = 'lista'; S.ui.cxMes = null; S.ui.cxFiltro = v || 'tudo'; irPara('caixa'); break;
     case 'inv-modo': S.ui.invModo = v; salvarUI(); if (S.ui.tab !== 'investimentos') irPara('investimentos'); else render(); break;
     case 'escolha': { const o = FOLHA && FOLHA.opcoes && FOLHA.opcoes[+v]; fecharFolha(); if (o) o.acao(); break; }
-    case 'fixo': { const r = S.d.recorrencias.find(x => x.id === id); if (r) abrirLancamento(`v:${r.id}:${addYm(ymHoje(), 1) < r.inicio ? r.inicio : addYm(ymHoje(), 1)}`); break; }
+    case 'fixo': { const r = S.d.recorrencias.find(x => x.id === id); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
+    case 'dica-anual': abrirDicaAnual(v); break;
+    case 'dica-fora': persistir(d => { d.ajustes.dicas_fora = [...new Set([...(d.ajustes.dicas_fora || []), v])].slice(-200); }, 'Dica dispensada'); break;
+    case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
+    case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
+    case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
+    case 'da-ok': confirmarDicaAnual(); break;
     case 'categoria': abrirCategoria(id); break;
     case 'categoria-nova': abrirCategoria(null, v); break;
     case 'cat-tipo': FC.tipo = v; pintarFolha(); break;
@@ -2687,6 +2907,16 @@ document.addEventListener('input', ev => {
     el.value = dig ? NF2.format(alvo.valor) : '';
     return;
   }
+  if (el.dataset.da && DA) {
+    if (el.dataset.da === 'valor') {
+      const dig = el.value.replace(/\D/g, '').slice(0, 11);
+      DA.valor = dig ? parseInt(dig, 10) / 100 : 0;
+      el.value = dig ? NF2.format(DA.valor) : '';
+    } else DA.data = el.value;
+    DA.erro = '';
+    const e = $('#da-eco'); if (e) e.innerHTML = ecoDA();
+    return;
+  }
   if (el.dataset.lf && LF) {
     const k = el.dataset.lf;
     if (k === 'valor') {
@@ -2768,6 +2998,7 @@ async function iniciar() {
   S.ui.cxMes = null; S.ui.faturaAberta = null; S.ui.cxSel = null;
   S.ui.busca = ''; S.ui.buscaAberta = false; S.ui.gSel = null;
   render();
+  carregarDicas();
 }
 iniciar();
 })();

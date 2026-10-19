@@ -29,6 +29,8 @@
   --placar-borda: #262d37;
   --placar-ink: #f3f5f8;
   --placar-muted: #8f99a6;
+  --placar-tile-a: #262d37; --placar-tile-b: #1b2129; --placar-fresta: #05070a;
+  --placar-brilho: rgba(255, 255, 255, .07); --placar-sombra: rgba(0, 0, 0, .55);
   --terc: #F5B14C;
   --danger: #FF7A6B;
   --good: #4CD3A5;
@@ -46,6 +48,9 @@
   --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
   --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
   --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f;
+  --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
+  --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
+  --placar-brilho: rgba(255, 255, 255, .9); --placar-sombra: rgba(20, 30, 45, .2);
   --accent-text: color-mix(in srgb, var(--accent) 58%, #000);
   --shadow: 0 10px 30px rgba(20, 30, 45, .14);
   --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100;
@@ -56,7 +61,10 @@
     color-scheme: light;
     --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
     --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
-      --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f;
+    --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f;
+    --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
+    --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
+    --placar-brilho: rgba(255, 255, 255, .9); --placar-sombra: rgba(20, 30, 45, .2);
     --accent-text: color-mix(in srgb, var(--accent) 58%, #000);
     --shadow: 0 10px 30px rgba(20, 30, 45, .14);
     --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100;
@@ -104,14 +112,14 @@ svg { display: block; }
 
 /* ---------- placar de cotações (destaque principal do GerencIA) */
 .placar {
-  --tile-a: #262d37; --tile-b: #1b2129; --fresta: #05070a;
+  --tile-a: var(--placar-tile-a); --tile-b: var(--placar-tile-b); --fresta: var(--placar-fresta);
   position: relative; margin: 4px 0 26px; padding: 16px 16px 14px; border-radius: 18px;
   background: var(--placar-bg); color: var(--placar-ink); border: 1px solid var(--placar-borda);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), var(--shadow);
 }
 .placar::before, .placar::after { /* parafusos do painel */
   content: ""; position: absolute; top: 9px; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--placar-borda); box-shadow: inset 0 1px 1px rgba(0, 0, 0, .6);
+  background: var(--placar-borda); box-shadow: inset 0 1px 1px var(--placar-sombra);
 }
 .placar::before { left: 9px; }
 .placar::after { right: 9px; }
@@ -119,12 +127,12 @@ svg { display: block; }
 .placar-cab .led { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 10px var(--accent); flex: none; }
 .placar-cab .dt { margin-left: auto; font: 600 14px/1 var(--font-d); letter-spacing: .06em; }
 .placar-num { container-type: inline-size; display: flex; align-items: stretch; gap: 4px; }
-.placar-num .moeda { align-self: center; font: 600 clamp(18px, 6cqw, 26px)/1 var(--font-d); color: var(--accent); margin-right: 4px; }
+.placar-num .moeda { align-self: center; font: 600 clamp(18px, 6cqw, 26px)/1 var(--font-d); color: var(--accent-text); margin-right: 4px; }
 .flap {
   position: relative; flex: 1 1 0; min-width: 0; max-width: 62px; display: grid; place-items: center;
   height: min(86px, calc(100cqw / var(--n) * 1.5));
   border-radius: 7px; background: linear-gradient(var(--tile-a) 0 50%, var(--tile-b) 50% 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 2px 0 rgba(0, 0, 0, .55);
+  box-shadow: inset 0 1px 0 var(--placar-brilho), 0 2px 0 var(--placar-sombra);
   font: 700 min(66px, calc(100cqw / var(--n) * 1.18))/1 var(--font-d); color: var(--placar-ink);
   overflow: hidden;
 }
@@ -133,7 +141,7 @@ svg { display: block; }
   content: ""; position: absolute; left: -1px; right: -1px; top: calc(50% - 4px); height: 8px;
   border-left: 3px solid var(--fresta); border-right: 3px solid var(--fresta); border-radius: 2px;
 }
-.flap.acento { color: var(--accent); }
+.flap.acento { color: var(--accent-text); }
 .flap.ponto {
   flex: 0 0 auto; width: max(10px, calc(100cqw / var(--n) * .32)); height: auto; align-self: stretch; background: none; box-shadow: none;
   display: flex; align-items: flex-end; justify-content: center; padding: 0 0 10px; font-size: 0; overflow: visible;
@@ -152,7 +160,7 @@ svg { display: block; }
 .placar-cols > div + div { border-left: 1px solid var(--placar-borda); padding-left: 11px; }
 .placar-cols span { display: block; font: 600 12px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--placar-muted); }
 .placar-cols b { display: block; margin-top: 4px; font: 600 19px/1.1 var(--font-d); white-space: nowrap; color: var(--placar-ink); }
-.placar-cols b.acento { color: var(--accent); }
+.placar-cols b.acento { color: var(--accent-text); }
 .placar-txt { margin: 12px 6px 2px; color: var(--placar-muted); font-size: 15px; }
 
 /* ---------- destaques em lista (padrão InventarIA) */
@@ -576,3 +584,41 @@ details summary { list-style-position: inside; }
 .ia-atualiza { display: block; font-size: 13px; color: var(--accent-text) !important; margin-top: 2px; }
 .ia-atualiza.novo { color: var(--entra) !important; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
+
+/* ---------- dicas de economia */
+.dica { padding: 16px 0; border-top: 1px solid var(--line); }
+.dica:first-of-type { border-top: 0; padding-top: 2px; }
+.dica-cab { display: flex; align-items: flex-start; gap: 13px; }
+.dica-ic {
+  width: 42px; height: 42px; border-radius: 13px; flex: none; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good);
+}
+.dica-ic.alerta { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.dica-t { flex: 1; min-width: 0; }
+.dica-t b { display: block; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.dica-t span { display: block; color: var(--text-2); font-size: 14px; margin-top: 3px; }
+.dica-v { text-align: right; font: 600 22px/1.05 var(--font-d); color: var(--good); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dica-v i { display: block; font: 400 12px/1.2 var(--font); font-style: normal; color: var(--muted); }
+.dica-v small { display: block; font: 400 13px/1.3 var(--font); color: var(--muted); margin-top: 2px; }
+.dica-v.alerta { color: var(--danger); }
+.dica-fonte { display: flex; align-items: center; gap: 6px; margin: 10px 0 0 55px; font-size: 13px; color: var(--muted); }
+.dica-fonte .ic-s { color: var(--good); flex: none; }
+.dica-fonte a { color: var(--accent-text); }
+.dica-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0 55px; }
+.dica-conf { display: flex; align-items: center; gap: 12px; color: var(--text-2); font-size: 15px; }
+.dica-conf .giro { width: 22px; height: 22px; border-width: 2px; flex: none; }
+.dica-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.ass-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.ass-row .ini { width: 40px; height: 40px; border-radius: 12px; font-size: 18px; }
+.ass-row .op-t span.ass-st { white-space: normal; color: var(--text-2); margin-top: 3px; }
+.ass-row .op-t span.ass-st.ok { color: var(--good); }
+.da-intro { margin: 0 0 16px; color: var(--text-2); }
+.da-intro a { color: var(--accent-text); }
+.cmp-anual { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-bottom: 18px; }
+.cmp-anual div { background: var(--card-2); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.cmp-anual span { display: block; font-size: 13px; color: var(--muted); }
+.cmp-anual b { display: block; font: 600 22px/1.15 var(--font-d); font-variant-numeric: tabular-nums; }
+.cmp-anual small { display: block; font-size: 13px; color: var(--muted); }
+.eco-linha { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--text); font-size: 15px; }
+.eco-linha b { color: var(--good); }
+@media (max-width: 380px) { .dica-fonte, .dica-acoes { margin-left: 0; } }

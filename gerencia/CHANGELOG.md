@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.2.0
+
+- **Dicas de economia** no Início: quando uma assinatura sua (Nabu Casa, Claude, Spotify, Microsoft 365 ou Deezer) tem plano anual mais barato, o app mostra quanto você economiza por ano. O preço é conferido na página oficial do serviço pela IA do Home Assistant, e a dica só aparece se o preço estiver escrito na página e o valor que você paga bater com um plano.
+- Botão **Mudar para anual**: encerra o fixo mensal e cria um fixo anual no fluxo.
+- Aviso de categoria bem acima da média dos 3 meses anteriores.
+- Fixos **Todo ano**, para anuidade, IPVA, seguro e planos anuais. Aparecem no mês certo, também nos gráficos.
+- O placar do Início fica claro no tema claro.
+
 ## 1.1.0
 
 - Nova aba **Caixa** para o seu próprio dinheiro: despesas, recebimentos, lista do mês, fluxo de caixa mensal (entradas, saídas, o que sobrou e saldo) e categorias de gastos e recebimentos.

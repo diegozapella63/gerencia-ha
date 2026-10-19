@@ -235,6 +235,14 @@ def data_caixa(l, contas):
     return _data_mes(d.year, m, venc)
 
 
+def ativa_em(r, ym):
+    """A recorrência acontece na competência `ym`? Mensal: todo mês; anual: no mês do início, todo ano."""
+    ini = str(r.get("inicio") or "9999-99")
+    if ini > ym or (r.get("fim") and str(r["fim"]) < ym):
+        return False
+    return r.get("freq") != "anual" or ini[5:7] == ym[5:7]
+
+
 def ocorrencias_mes(data, ym):
     """Lançamentos reais mais as ocorrências das recorrências (gastos fixos) da competência `ym`."""
     reais = [l for l in data.get("lancamentos", []) if str(l.get("data") or "")[:7] == ym]
@@ -242,7 +250,7 @@ def ocorrencias_mes(data, ym):
     a, m = int(ym[:4]), int(ym[5:7])
     out = list(reais)
     for r in data.get("recorrencias", []):
-        if (r.get("inicio") or "9999") > ym or (r.get("fim") and r["fim"] < ym) or (r.get("id"), ym) in feitos:
+        if not ativa_em(r, ym) or (r.get("id"), ym) in feitos:
             continue
         o = dict(r)
         o.update({"data": _data_mes(a, m, r.get("dia")).isoformat(), "pago": False, "recorrencia": r.get("id"), "competencia": ym})
