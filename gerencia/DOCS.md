@@ -134,6 +134,27 @@ Com **Sensores no Home Assistant** ligado, o app cria:
 
 Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reiniciar o Home Assistant, voltam em até 15 minutos.
 
+## Contas no CronologIA
+
+O [CronologIA](https://github.com/diegozapella63/cronologia-ha) é o app de agenda da mesma família. Com os dois instalados no mesmo Home Assistant:
+
+- as contas a pagar, os fixos e as faturas do cartão aparecem no calendário do CronologIA, no dia do vencimento, e no card **Contas a pagar** da tela Agora (atrasadas primeiro);
+- **Paguei** no CronologIA dá baixa aqui: o fixo do mês vira um lançamento pago, a fatura fica toda paga e uma conta avulsa fica paga. **Desfazer** volta para "a pagar";
+- o modelo **Conta a pagar** do CronologIA cria a conta aqui: única (lançamento a pagar) ou fixa, todo mês ou todo ano.
+
+Recebimentos, aportes, ajustes de saldo e despesas descontadas do salário não aparecem como contas.
+
+A ligação não pede configuração. Ao iniciar, o GerencIA grava em `share/gerencia/integracao.json` o endereço dele na rede interna dos apps e uma chave, e o CronologIA (que lê a pasta `share`) usa essa chave para chamar o GerencIA. Quem já consegue ler a pasta `share` também lê os backups do GerencIA que ficam lá, então a chave não abre nada novo. Para cortar a ligação, desligue **Mais › Outros apps › Contas no CronologIA**: o arquivo é apagado e a chave deixa de valer. O mesmo cartão mostra quando o CronologIA usou a ligação pela última vez.
+
+Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
+
+| Método | Rota | O que faz |
+| --- | --- | --- |
+| GET | `/api/integracao/contas?de=AAAA-MM-DD&ate=AAAA-MM-DD` | Contas do período e as atrasadas dos últimos 2 meses: `{id, tipo: conta\|fixo\|fatura, descricao, valor, vencimento, pago, atrasada, categoria, conta}` e as categorias de gasto. |
+| POST | `/api/integracao/pagar` | `{id, valor?}`: dá baixa. |
+| POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
+| POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
+
 ## Dados e backup
 
 - Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As fotos ficam em `/data/fotos`.

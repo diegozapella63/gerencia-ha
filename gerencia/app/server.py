@@ -24,9 +24,10 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import calc  # noqa: E402
+import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 
-VERSAO = "1.4.0"
+VERSAO = "1.5.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -64,7 +65,7 @@ INDICES_PADRAO = {
     "erro": None,
 }
 
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": True, "ia_entidade": ""}
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": True, "ia_entidade": "", "integracao": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
 
@@ -1122,6 +1123,13 @@ TIPOS_MIME = {
 CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias")
 
 
+CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)
+
+
+def integracao_ligada(d=None):
+    return (d or ler()).get("ajustes", {}).get("integracao", True) is not False
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "GerencIA/" + VERSAO
 
@@ -1131,6 +1139,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- util
     def permitido(self):
+        if self.caminho().startswith("/api/integracao/"):
+            # Outros apps do Home Assistant (CronologIA) chegam pela rede interna, com a chave de share/gerencia.
+            if integracao_ligada() and CONEXAO.autorizado(self.headers):
+                return True
+            self.enviar(401, {"erro": "Chave inválida ou conexão com outros apps desligada no GerencIA."})
+            return False
         if DEV:
             return True
         ip = self.client_address[0].replace("::ffff:", "")
@@ -1187,7 +1201,15 @@ class Handler(BaseHTTPRequestHandler):
                 # O ingress do Home Assistant informa quem está usando o app.
                 d["usuario"] = (self.headers.get("X-Remote-User-Display-Name")
                                 or self.headers.get("X-Remote-User-Name") or None)
+                d["integracao_ultimo"] = CONEXAO.ultimo
                 return self.enviar(200, d)
+            if p == "/api/rev":
+                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo})
+            if p == "/api/integracao/contas":
+                hoje = date.today()
+                de = date.fromisoformat(q.get("de", [(hoje - timedelta(days=31)).isoformat()])[0])
+                ate = date.fromisoformat(q.get("ate", [(hoje + timedelta(days=62)).isoformat()])[0])
+                return self.enviar(200, dict(integracao.listar(ler(), de, ate, hoje), versao=VERSAO))
             if p == "/api/export/json":
                 return self.baixar(json.dumps(ler(), ensure_ascii=False, indent=1).encode(),
                                    "application/json", nome_arquivo("json"))
@@ -1268,18 +1290,37 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, d)
             if p == "/api/versoes/restaurar":
                 return self.restaurar(self.corpo_json().get("nome", ""))
+            if p in ("/api/integracao/pagar", "/api/integracao/desfazer", "/api/integracao/nova"):
+                return self.post_integracao(p.rsplit("/", 1)[1], self.corpo_json())
             return self.enviar(404, {"erro": "não encontrado"})
+        except LookupError as e:
+            return self.enviar(404, {"erro": str(e)})
         except (ValueError, zipfile.BadZipFile) as e:
             return self.enviar(400, {"erro": str(e)})
         except Exception as e:  # noqa: BLE001
             log("Erro POST", p, e)
             return self.enviar(500, {"erro": str(e)})
 
+    def post_integracao(self, acao, corpo):
+        with TRAVA:
+            d = ler()
+            if acao == "nova":
+                novo = integracao.nova(d, corpo)
+            else:
+                v = corpo.get("valor")
+                integracao.pagar(d, corpo.get("id"), float(v) if v not in (None, "") else None, pago=acao == "pagar")
+                novo = corpo.get("id")
+            d["rev"] = d["rev"] + 1
+            salvar(d)
+        log("Conexão:", CONEXAO.ultimo["app"] if CONEXAO.ultimo else "app", acao, novo)
+        return self.enviar(200, {"ok": True, "id": novo, "rev": d["rev"]})
+
     def put_state(self, corpo):
         with TRAVA:
             atual = ler()
             if int(corpo.get("rev", -1)) != atual["rev"]:
                 return self.enviar(409, atual)
+            ligada_antes = integracao_ligada(atual)
             for k in CAMPOS_USUARIO:
                 if k in corpo:
                     atual[k] = corpo[k]
@@ -1288,6 +1329,8 @@ class Handler(BaseHTTPRequestHandler):
             d = normalizar(atual)
             d["rev"] = atual["rev"] + 1
             salvar(d)
+        if integracao_ligada(d) != ligada_antes:
+            CONEXAO.publicar(integracao_ligada(d))
         return self.enviar(200, d)
 
     def put_indices(self, corpo):
@@ -1382,6 +1425,7 @@ def rotina():
             else:
                 publicar_sensores_async(d)
             limpar_fotos(d)
+            CONEXAO.publicar(integracao_ligada(d))
             dicas_estado(d)  # confere assinaturas novas ou com mais de 30 dias
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)
@@ -1390,6 +1434,7 @@ def rotina():
 
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
+    CONEXAO.publicar(integracao_ligada())
     threading.Thread(target=rotina, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORTA), Handler)
     log(f"GerencIA {VERSAO} ouvindo na porta {PORTA} (dados em {DATA_DIR})")

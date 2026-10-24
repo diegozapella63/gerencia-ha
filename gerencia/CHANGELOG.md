@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.5.0
+
+- **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) no mesmo Home Assistant, as contas a pagar, os fixos e as faturas do cartão aparecem na agenda e na tela Agora dele. O **Paguei** de lá dá baixa aqui, do mesmo jeito que o daqui (o fixo do mês fica pago, a fatura fica toda paga), e o modelo **Conta a pagar** de lá cria a conta aqui, única, todo mês ou todo ano.
+- A ligação é automática: o GerencIA deixa o endereço e uma chave em `share/gerencia/integracao.json` e o CronologIA encontra sozinho. Dá para desligar em **Mais › Outros apps**, que também mostra o último acesso.
+- Mudanças feitas por outro app aparecem na tela em até 20 segundos, sem recarregar.
+
 ## 1.4.0
 
 - **Salário bruto com impostos na fonte**: no recebimento, cada imposto é uma porcentagem do bruto. Quando o salário entra, os impostos saem do caixa no mesmo dia, já pagos, na categoria Impostos e taxas.

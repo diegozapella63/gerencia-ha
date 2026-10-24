@@ -44,6 +44,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
 - **Fotos** em lançamentos e investimentos.
 - **Sensores** no Home Assistant: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês.
+- **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
 - **Backup** em `share/gerencia`, exportação em CSV, relatório e versões anteriores.
 
 Mais detalhes em [gerencia/DOCS.md](gerencia/DOCS.md).
@@ -60,6 +61,7 @@ gerencia/                     o app (config, Dockerfile, ícone, documentação)
 gerencia/app/server.py        servidor (só biblioteca padrão do Python)
 gerencia/app/calc.py          cálculos de rendimento e de caixa
 gerencia/app/assinaturas.py   dicas de economia conferidas na origem
+gerencia/app/integracao.py    contas a pagar para o CronologIA
 gerencia/app/www/             interface (HTML, CSS e JavaScript, sem etapa de build)
 docs/                         imagens deste README
 ```

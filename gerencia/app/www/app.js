@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.4.0';
+const VERSAO = '1.5.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -35,7 +35,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [] };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [], integracao: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -2722,6 +2722,7 @@ function telaMais() {
     <div class="sep"></div>
     <div class="linha-sw"><div><b>Sensores no Home Assistant</b><span><code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code> e <code>_rendimento_mensal</code>, para painéis e automações.</span></div>
       <button class="sw${a.sensores !== false ? ' on' : ''}" data-a="ajuste" data-k="sensores" aria-label="Sensores"></button></div></div>`;
+  html += cardOutrosApps(a);
 
   // dados
   const exp = (fmt, nome) => DEMO
@@ -3388,12 +3389,35 @@ document.addEventListener('visibilitychange', () => {
 let rz;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(desenharGraficos, 150); });
 
+/* ------------------------------------------------------------------ outros apps */
+function cardOutrosApps(a) {
+  const lig = a.integracao !== false, u = S.integracaoUltimo;
+  let quando = '';
+  if (u && u.em) {
+    const dt = new Date(u.em), hj = iso(hoje()) === iso(dt);
+    quando = `${esc(u.app)} usou ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
+  }
+  return `<div class="card" id="outros-apps"><div class="rot">Outros apps</div>
+    <div class="linha-sw"><div><b>Contas no CronologIA</b><span>O CronologIA, no mesmo Home Assistant, mostra as contas a pagar e as faturas na agenda, dá baixa com o Paguei e cria contas novas. A ligação é automática, pela pasta <code>share/gerencia</code>.</span></div>
+      <button class="sw${lig ? ' on' : ''}" data-a="ajuste" data-k="integracao" aria-label="Contas no CronologIA"></button></div>
+    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhum app conectou ainda.'}</div>` : ''}</div>`;
+}
+// Mudanças feitas por outro app (Paguei no CronologIA) aparecem sem precisar recarregar.
+if (!DEMO) setInterval(() => {
+  if (document.hidden || FOLHA || !S.d) return;
+  fetch('api/rev', { cache: 'no-store' }).then(jsonOk).then(r => {
+    S.integracaoUltimo = r.integracao_ultimo || null;
+    if (r.rev !== S.d.rev && !FOLHA) return api.state().then(d => { S.d = normalizar(d); render(); });
+  }).catch(() => {});
+}, 20000);
+
 /* ------------------------------------------------------------------ início */
 async function iniciar() {
   pintarNav();
   try {
     const st = await api.state();
     S.usuario = st.usuario || null;
+    S.integracaoUltimo = st.integracao_ultimo || null;
     S.d = normalizar(st);
   } catch (e) {
     $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;
