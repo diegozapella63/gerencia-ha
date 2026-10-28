@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.10.0';
+const VERSAO = '1.10.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1733,9 +1733,11 @@ function tilesIA(modo) {
   if (!iaOn()) return '';
   const caixa = modo === 'caixa', voz = vozPronta();
   const t = (inicio, icone, txt) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}</span></button>`;
-  return `<div class="campo imp-campo"><div class="lbl">${caixa ? 'Ler com IA: fatura, print ou mensagem' : 'Ler com IA: print ou extrato do banco'}</div>
-    <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', caixa ? 'Colar mensagem' : 'Colar texto')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Print ou extrato')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
-    <p class="imp-ajuda">${caixa ? 'A IA separa cada gasto e recebimento e você confere antes de lançar.' : 'A IA acha cada investimento e você confere antes de salvar.'}</p></div>`;
+  return `<div class="campo imp-campo"><div class="lbl">Trazer de mensagem ou imagem</div>
+    <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
+    <p class="imp-ajuda">${caixa
+      ? 'Cole a mensagem do WhatsApp ou mande a fatura, o print ou a foto do papel (dá para colar a imagem direto aqui). A IA separa cada gasto e recebimento e você confere antes de lançar.'
+      : 'Cole a mensagem do WhatsApp ou do e-mail, ou mande a imagem do app do banco (dá para colar a imagem direto aqui). A IA acha cada investimento e você confere antes de salvar.'}</p></div>`;
 }
 
 function montarFormLanc() {
@@ -2271,7 +2273,7 @@ function montarIA() {
         : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${s.modo === 'caixa' ? 'Fatura em PDF, print ou foto' : 'Print, foto ou PDF do extrato'}</button>`}
         ${!arq && vozPronta() ? `<button class="btn larga" data-a="ia-falar" style="margin-top:8px">${ic('mic')}Falar</button>` : ''}</div>
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
-        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${s.modo === 'caixa' ? 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”), extrato ou fatura copiada' : 'Ex.: e-mail de aplicação, extrato copiado do app do banco'}">${esc(s.texto)}</textarea>
+        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${s.modo === 'caixa' ? 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”), extrato ou fatura copiada' : 'Ex.: mensagem do WhatsApp do gerente, e-mail de aplicação, extrato copiado do app do banco'}">${esc(s.texto)}</textarea>
         <div class="ajuda">Você também pode colar um print aqui. ${s.modo === 'caixa' ? 'A IA separa cada gasto e recebimento e você confere antes de lançar.' : 'A IA acha cada investimento e você confere antes de salvar.'}</div></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
@@ -2422,14 +2424,35 @@ function revisarItemInvest(k) {
   const it = IAS.itens[k], foto = IAS.arquivo?.foto;
   const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
   if (ex) { abrirInvestimento(ex.id); preencherForm(it); if (foto) F.fotos = [...(F.fotos || []), foto]; pintarFolha(); return; }
-  abrirInvestimento(null, { fotos: foto ? [foto] : [] });
+  abrirInvestimento(null, { fotos: foto ? [foto] : [], daIA: true });
   preencherForm(it);
   pintarFolha();
 }
 document.addEventListener('paste', ev => {
-  if (!IAS || IAS.etapa !== 'entrada' || !iaOn()) return;
+  if (!iaOn()) return;
   const f = [...(ev.clipboardData?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
-  if (f) { ev.preventDefault(); iaPegarArquivo(f); }
+  if (!f) return;
+  if (IAS && IAS.etapa === 'entrada') { ev.preventDefault(); iaPegarArquivo(f); return; }
+  // com a Nova despesa ou o Novo investimento aberto, colar uma imagem já abre a leitura por IA com ela
+  if (!IAS && FOLHA && $('#folhas .imp-campo')) {
+    ev.preventDefault();
+    abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa');
+    iaPegarArquivo(f);
+  }
+});
+
+// No computador, dá para arrastar a imagem ou o PDF para a janela (Nova despesa, Novo investimento ou Ler com IA)
+const podeSoltar = () => iaOn() && FOLHA && ((IAS && IAS.etapa === 'entrada') || (!IAS && $('#folhas .imp-campo')));
+document.addEventListener('dragover', ev => {
+  if (podeSoltar() && [...(ev.dataTransfer?.types || [])].includes('Files')) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; }
+});
+document.addEventListener('drop', ev => {
+  if (!podeSoltar()) return;
+  const f = [...(ev.dataTransfer?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
+  if (!f) return;
+  ev.preventDefault();
+  if (!IAS) abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa');
+  iaPegarArquivo(f);
 });
 
 /* ------------------------------------------------------------------ Mais: categorias, fixos, IA e bancos com pessoas */
@@ -3204,7 +3227,7 @@ function montarFormInv() {
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
   const titulo = f.id ? 'Editar investimento' : f.duplicando ? 'Duplicar investimento' : 'Novo investimento';
-  let c = `${!f.id && !f.duplicando ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
+  let c = `${!f.id && !f.duplicando && !f.daIA ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
     <div class="seg dono-seg" style="margin-bottom:10px">
       <button class="${f.titular !== 'terceiros' ? 'on' : ''}" data-a="f-set" data-k="titular" data-v="meu">${ic('user', 'ic-s')}Meu</button>
       <button class="${f.titular === 'terceiros' ? 'on terc' : ''}" data-a="f-set" data-k="titular" data-v="terceiros">${ic('users', 'ic-s')}De terceiros</button></div>`;

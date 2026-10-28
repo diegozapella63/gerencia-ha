@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.10.1
+
+- **Novo investimento e Nova despesa leem mensagem e imagem**, como nos outros apps: no alto, **Colar mensagem** (do WhatsApp ou do e-mail), **Imagem ou print** (na despesa, **Fatura, print ou foto**) e **Falar**. A IA lê e você confere antes de salvar.
+- Com essas janelas abertas, **colar uma imagem** já abre a leitura por IA com ela; no computador, dá para **arrastar** a imagem ou o PDF para a janela.
+- O investimento que veio da leitura por IA não mostra os quadrinhos de novo.
+
 ## 1.10.0
 
 - **Aporte é um tipo de conta a pagar**: em **Adicionar › Aporte** (ou no botão **Aporte** da Nova despesa), o compromisso de aplicar nos seus investimentos, com valor, dia, de onde sai e se é todo mês. Fica *A aplicar* com o botão **Apliquei** e, como qualquer conta, aparece atrasado nos avisos e vai para as contas a pagar do CronologIA. No resumo do mês volta a entrar no "a pagar".
