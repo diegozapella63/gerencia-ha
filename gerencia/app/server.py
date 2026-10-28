@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.10.2"
+VERSAO = "1.11.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -796,11 +796,48 @@ IA_REGRAS_CAIXA = """Para cada gasto ou recebimento, devolva:
 - "parcela_atual" e "parcelas_total": números, quando aparecer "parcela 3/10", "PARC 03/10" ou "3 de 10"; senão 0 e 0.
 - "cartao": true se for compra no cartão de crédito (fatura); senão false.
 - "banco": banco ou cartão citado; "" se não aparecer.
+- "situacao": "feito" se já foi pago ou recebido; "pendente" se é conta, boleto ou parcela a pagar, ou valor que ainda vai receber; "" se não der para saber.
 - "confianca": "alta", "media" ou "baixa".
 Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas.
 Em conversas (WhatsApp, anotações), cada valor citado como gasto ou ganho vira um item. Não invente números.
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
-{{"itens":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","confianca":"media"}}]}}"""
+{{"itens":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","situacao":"","confianca":"media"}}]}}"""
+
+
+# Ler com IA sem escolher antes: a IA separa o que é lançamento (gasto, recebimento, a pagar, a receber) e o que é investimento
+IA_REGRAS_AUTO = """Separe tudo em dois grupos. Um mesmo conteúdo pode ter os dois, só um ou nenhum.
+
+"lancamentos": dinheiro que entrou ou saiu do caixa da pessoa, ou que vai entrar ou sair: gastos, compras, contas, boletos, faturas, parcelas, salário, pix recebido ou enviado, vendas e reembolsos. Para cada um:
+- "tipo": "despesa" (gasto, compra, conta, débito) ou "receita" (salário, pix recebido, venda, reembolso).
+- "descricao": curta e limpa, como a pessoa escreveria (ex.: "iFood", "Posto Shell", "Aluguel", "Salário").
+- "valor": valor em reais, número positivo sem símbolo. Em parcelas, o valor da parcela.
+- "data": AAAA-MM-DD. Em fatura de cartão, a data da compra; em conta ou boleto a pagar, o vencimento. Se só houver dia e mês, use o ano mais provável. Se não houver data, use a de hoje. "ontem", "hoje" e "amanhã" valem pela data de hoje.
+- "categoria": uma destas chaves: {cats}.
+- "parcela_atual" e "parcelas_total": números, quando aparecer "parcela 3/10", "PARC 03/10" ou "3 de 10"; senão 0 e 0.
+- "cartao": true se for compra no cartão de crédito (fatura); senão false.
+- "banco": banco ou cartão citado; "" se não aparecer.
+- "situacao": "feito" se já foi pago ou recebido; "pendente" se é conta, boleto ou parcela a pagar, ou valor que ainda vai receber; "" se não der para saber.
+- "confianca": "alta", "media" ou "baixa".
+Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas. Em conversas, cada valor citado como gasto, conta ou ganho vira um item.
+
+"investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
+- "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
+- "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), previdencia, outro.
+- "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
+- "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
+- "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
+- "indexador": cdi_pct (ex.: 110% do CDI), cdi_mais (CDI + 1,5% a.a.), pre (prefixado 13% a.a.), ipca_mais (IPCA + 6% a.a.), selic_mais (Tesouro Selic, Selic + 0,1%), poupanca, estimado (renda variável), parado (sem rendimento).
+- "taxa": 110 para 110% do CDI; 1.5 para CDI + 1,5%; 13 para 13% a.a.; 6.5 para IPCA + 6,5%; 0.1 para Selic + 0,1%; 0 para poupança e sem rendimento; 10 para renda variável.
+- "vencimento": AAAA-MM-DD, se aparecer; senão "".
+- "liquidez": "diaria" se der para resgatar a qualquer momento; senão "vencimento".
+- "existente": se for o mesmo investimento de um já cadastrado (lista abaixo), o id dele; senão "".
+- "confianca": "alta", "media" ou "baixa".
+Ignore saldo parado em conta corrente, cartões, limites e empréstimos.
+
+Não invente números: se não der para ler, use 0 ou "".
+Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
+{{"lancamentos":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","situacao":"","confianca":"media"}}],"investimentos":[{{"nome":"","banco":"","tipo":"cdb","valor":0,"aplicado":0,"data_valor":"","indexador":"cdi_pct","taxa":100,"vencimento":"","liquidez":"vencimento","existente":"","confianca":"media"}}]}}"""
 
 
 IA_REGRAS_HOLERITE = """Devolva:
@@ -821,7 +858,19 @@ def ia_prompt(d, modo, com_anexo, texto):
         if texto:
             partes.append("Texto:\n<<<\n" + texto + "\n>>>")
         return "\n".join(partes)
-    if modo == "caixa":
+    if modo == "auto":
+        cats = ", ".join(f"{c.get('id')} ({c.get('nome')}, {c.get('tipo')})" for c in d["categorias"])
+        bancos = {b.get("id"): b.get("nome", "") for b in d["bancos"]}
+        partes = [f"Você ajuda uma pessoa no Brasil a organizar o dinheiro: o caixa do dia a dia e os investimentos. Hoje é {hoje_txt}.",
+                  "Leia o anexo (fatura de cartão em PDF, foto de nota, cupom ou boleto, print de app de banco ou corretora, print de conversa do WhatsApp, extrato ou comprovante)."
+                  if com_anexo else
+                  "Leia o texto abaixo (mensagens do WhatsApp, anotações, fala transcrita, extrato, fatura ou e-mail colado).",
+                  "Liste até 120 lançamentos e até 20 investimentos.", IA_REGRAS_AUTO.format(cats=cats)]
+        if d["investimentos"]:
+            partes.append("Investimentos já cadastrados (id | nome | banco | valor):")
+            for inv in d["investimentos"][:80]:
+                partes.append(f"{inv.get('id')} | {inv.get('nome', '')} | {bancos.get(inv.get('banco'), '')} | {calc.num(inv.get('valor')):.2f}")
+    elif modo == "caixa":
         cats = ", ".join(f"{c.get('id')} ({c.get('nome')}, {c.get('tipo')})" for c in d["categorias"])
         partes = [f"Você ajuda uma pessoa no Brasil a registrar recebimentos e despesas. Hoje é {hoje_txt}.",
                   "Leia o anexo (fatura de cartão em PDF, foto de nota ou cupom, print de app de banco ou de conversa do WhatsApp) "
@@ -916,9 +965,22 @@ def ia_limpar_caixa(parsed, d):
             "valor": valor, "data": _data_ou_vazio(it.get("data")) or date.today().isoformat(), "categoria": cat,
             "parcela_atual": pa if 0 < pa <= pt <= 120 else 0, "parcelas_total": pt if 0 < pa <= pt <= 120 else 0,
             "cartao": bool(it.get("cartao")), "banco": str(it.get("banco") or "").strip()[:40],
+            "situacao": it.get("situacao") if it.get("situacao") in ("feito", "pendente") else "",
             "confianca": it.get("confianca") if it.get("confianca") in ("alta", "media", "baixa") else "media",
         })
     return saida
+
+
+def ia_limpar_auto(parsed, d):
+    """{"lancamentos": [...], "investimentos": [...]}; aceita também só uma lista (vira lançamentos ou investimentos pelo jeito)."""
+    p = parsed if isinstance(parsed, dict) else {"itens": parsed if isinstance(parsed, list) else []}
+    lanc = p.get("lancamentos")
+    inv = p.get("investimentos")
+    if lanc is None and inv is None:
+        lista = _lista(p)
+        eh_inv = [x for x in lista if isinstance(x, dict) and ("indexador" in x or "nome" in x and "descricao" not in x)]
+        inv, lanc = eh_inv, [x for x in lista if x not in eh_inv]
+    return {"lancamentos": ia_limpar_caixa({"itens": lanc or []}, d), "investimentos": ia_limpar({"itens": inv or []}, d)}
 
 
 def ia_limpar_holerite(parsed, d=None):
@@ -955,6 +1017,15 @@ IA_SIMULADA = {"itens": [
     {"nome": "Tesouro Selic 2029", "banco": "XP", "tipo": "tesouro", "valor": 8350.10, "aplicado": 8000,
      "data_valor": "", "indexador": "selic_mais", "taxa": 0.05, "vencimento": "2029-03-01", "liquidez": "diaria", "confianca": "media"},
 ]}
+def ia_simulada_auto(texto, dica):
+    t = (texto or "").lower()
+    inv = re.search(r"cdb|tesouro|\blc[ia]\b|invest|apliquei|aplica[çc]|% do cdi|caixinha|rende", t)
+    cx = re.search(r"gast|receb|pagu|pagar|compr|fatura|pix|mercado|boleto|conta de|sal[áa]rio", t)
+    if not inv and not cx:
+        inv, cx = dica == "invest", dica != "invest"
+    return {"lancamentos": IA_SIMULADA_CAIXA["itens"] if cx else [], "investimentos": IA_SIMULADA["itens"] if inv else []}
+
+
 IA_SIMULADA_CAIXA = {"itens": [
     {"tipo": "despesa", "descricao": "iFood", "valor": 64.90, "data": "", "categoria": "c-restaurantes", "cartao": True, "banco": "Nubank"},
     {"tipo": "despesa", "descricao": "Posto Shell", "valor": 210.00, "data": "", "categoria": "c-transporte", "cartao": True, "banco": "Nubank"},
@@ -989,7 +1060,7 @@ def ia_ler(corpo):
     d = ler()
     if not ia_ligada(d):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
-    modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite") else "invest"
+    modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite", "invest") else "auto"
     foto = str(corpo.get("foto") or "")
     texto = str(corpo.get("texto") or "").strip()[:12000]
     anexo = corpo.get("anexo") or {}
@@ -1010,19 +1081,21 @@ def ia_ler(corpo):
     if not bruto and not texto:
         raise ValueError("Envie uma imagem, um PDF ou cole um texto.")
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
-    # o que veio do microfone conta como Falar no Uso da IA, como no InventarIA
-    tipo_uso = "fala" if corpo.get("fala") and modo != "holerite" and not bruto else modo
+    # o que veio do microfone conta como Falar no Uso da IA, como no InventarIA; o resto do jeito automático, como Ler com IA
+    tipo_uso = "fala" if corpo.get("fala") and modo != "holerite" and not bruto else "ler" if modo == "auto" else modo
     if IA_MOCK:
         time.sleep(1.2)
         registrar_uso(tipo_uso, "ai_task.simulada", 1800, 600, 1 if bruto else 0, 1.2, "ok")
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
+        if modo == "auto":
+            return dict(ia_limpar_auto(json.loads(json.dumps(ia_simulada_auto(texto, corpo.get("dica")))), d), entidade="ai_task.simulada")
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
                 "entidade": "ai_task.simulada"}
     ent = d["ajustes"].get("ia_entidade") or ""
 
     def chamar(com_anexo, txt):
-        payload = {"task_name": "GerencIA: ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento"}.get(modo, "investimentos"),
+        payload = {"task_name": "GerencIA: ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento", "auto": "lançamentos e investimentos"}.get(modo, "investimentos"),
                    "instructions": ia_prompt(d, modo, com_anexo, txt)}
         if ent:
             payload["entity_id"] = ent
@@ -1064,6 +1137,8 @@ def ia_ler(corpo):
             raise ValueError(str(e2))
     if modo == "holerite":
         return {"holerite": ia_limpar_holerite(extrair_json(dados)), "entidade": ent or "padrão do Home Assistant"}
+    if modo == "auto":
+        return dict(ia_limpar_auto(extrair_json(dados), d), entidade=ent or "padrão do Home Assistant")
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 

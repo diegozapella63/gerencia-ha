@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.10.2';
+const VERSAO = '1.11.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -432,21 +432,27 @@ function apiDemo() {
         debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
         total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
       const hj = iso(hoje()), ont = iso(new Date(hoje().getTime() - 86400000));
-      if (c.modo === 'caixa' && /mercado/i.test(c.texto || '') && /jo[aã]o/i.test(c.texto || '')) return { itens: [
-        { tipo: 'despesa', descricao: 'Mercado', valor: 45, data: hj, categoria: 'c-mercado', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
-        { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', confianca: 'alta' },
-      ], entidade: 'simulada' };
-      if (c.modo === 'caixa') return { itens: [
-        { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
-        { tipo: 'despesa', descricao: 'Posto Shell', valor: 210, data: ont, categoria: 'c-transporte', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
-        { tipo: 'despesa', descricao: 'Magazine Luiza', valor: 189.9, data: iso(addMeses(hoje(), -1)), categoria: 'c-compras', parcela_atual: 2, parcelas_total: 6, cartao: true, banco: 'Nubank', confianca: 'media' },
-        { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', confianca: 'alta' },
-      ], entidade: 'simulada' };
+      const t = (c.texto || '').toLowerCase();
+      // na prévia, a IA "lê" pelo texto: palavras de investimento trazem investimentos, de gasto trazem lançamentos
+      let inv = /cdb|tesouro|\blc[ia]\b|invest|apliquei|aplica[çc]|% do cdi|caixinha|rende/.test(t), cx = /gast|receb|pagu|pagar|compr|fatura|pix|mercado|boleto|conta de|sal[áa]rio/.test(t);
+      if (!inv && !cx) { inv = c.dica === 'invest'; cx = !inv; }
+      const lanc = !cx ? [] : /mercado/.test(t) && /jo[aã]o/.test(t) ? [
+        { tipo: 'despesa', descricao: 'Mercado', valor: 45, data: hj, categoria: 'c-mercado', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'feito', confianca: 'alta' },
+      ] : [
+        { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'despesa', descricao: 'Posto Shell', valor: 210, data: ont, categoria: 'c-transporte', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'despesa', descricao: 'Magazine Luiza', valor: 189.9, data: iso(addMeses(hoje(), -1)), categoria: 'c-compras', parcela_atual: 2, parcelas_total: 6, cartao: true, banco: 'Nubank', situacao: '', confianca: 'media' },
+        { tipo: 'despesa', descricao: 'IPVA', valor: 1480, data: iso(addMeses(hoje(), 1)), categoria: 'c-impostos', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'pendente', confianca: 'alta' },
+        { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'feito', confianca: 'alta' },
+      ];
       const cdb = d.investimentos.find(i => i.tipo === 'cdb');
-      return { itens: [
+      const invs = !inv ? [] : [
         { nome: 'CDB Inter 2028', banco: 'Inter', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' },
         { nome: 'LCA Banco do Brasil 2027', banco: 'Banco do Brasil', tipo: 'lci', valor: 10250, aplicado: 10000, data_valor: hj, indexador: 'cdi_pct', taxa: 93, vencimento: '2027-09-20', liquidez: 'vencimento', existente: '', confianca: 'media' },
-      ], entidade: 'simulada' };
+      ];
+      if (c.modo === 'invest') return { itens: invs.length ? invs : [{ nome: 'CDB Inter 2028', banco: 'Inter', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' }], entidade: 'simulada' };
+      return { lancamentos: lanc, investimentos: invs, entidade: 'simulada' };
     },
   };
 }
@@ -2232,26 +2238,25 @@ async function terminarFala() {
 }
 function telaFala() {
   const s = IAS, on = s.rec === 'on', v = S.voz || {};
-  const ex = s.modo === 'invest' ? '<i>“Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”</i>'
-    : '<i>“Gastei 45 no mercado hoje no cartão do Nubank”</i> ou <i>“Recebi 300 do João pelo Pix”</i>';
+  const ex = s.dica === 'invest' ? '<i>“Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”</i> ou <i>“Paguei a luz, 180 reais”</i>'
+    : '<i>“Gastei 45 no mercado hoje no cartão do Nubank”</i>, <i>“Tenho que pagar o IPVA dia 10”</i> ou <i>“Apliquei 2 mil no CDB do Inter”</i>';
   return {
     titulo: 'Falar',
-    corpo: `<div class="seg"><button class="${s.modo === 'caixa' ? 'on' : ''}" data-a="ia-modo" data-v="caixa">Gastos e recebimentos</button>
-        <button class="${s.modo === 'invest' ? 'on' : ''}" data-a="ia-modo" data-v="invest">Investimentos</button></div>
-      <div class="voz${on ? ' on' : ''}">
+    corpo: `<div class="voz${on ? ' on' : ''}">
         <button class="voz-mic" style="--lvl:0" data-a="fala-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Começar a falar'}"><span class="voz-anel"></span>${ic(on ? 'check' : 'mic')}</button>
         <div class="voz-estado">${on ? `<b>Ouvindo…</b> <span class="voz-tempo">0:00</span>` : s.rec === 'starting' ? 'Abrindo o microfone…' : 'Toque no microfone e fale'}</div>
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
-      <p class="nota" style="text-align:center">O Home Assistant transcreve${v.nome && !/^home assistant$/i.test(v.nome) ? ` (${esc(v.nome)})` : ''} e a IA separa ${s.modo === 'caixa' ? 'os gastos e recebimentos' : 'os investimentos'}. Você confere antes de lançar.</p>`,
+      <p class="nota" style="text-align:center">O Home Assistant transcreve${v.nome && !/^home assistant$/i.test(v.nome) ? ` (${esc(v.nome)})` : ''} e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos. Você confere antes de lançar.</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
 const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<span>“${esc(s.ouvido)}”</span></div>` : '';
 
 function abrirIA(modo, inicio) {
-  IAS = { modo: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], erro: '', conta: '', cartao: false,
+  // a IA separa sozinha lançamentos (gastos, recebimentos, a pagar e a receber) e investimentos: não se escolhe antes
+  IAS = { dica: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], invs: [], erro: '', conta: '', cartao: false,
     situacao: 'auto', futuras: true, ouvido: '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
   abrirFolha(montarIA, () => { pararFala(); IAS = null; });
@@ -2263,22 +2268,20 @@ function montarIA() {
   const s = IAS;
   if (s.etapa === 'voz') return telaFala();
   if (s.etapa === 'transcrevendo') return { titulo: 'Falar', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Transcrevendo o que você disse…</p></div>` };
-  if (s.etapa === 'revisao' && s.ouvido) { const r = s.modo === 'caixa' ? revisaoCaixa() : revisaoInvest(); r.corpo = ouvidoHTML(s) + r.corpo; return r; }
+  if (s.etapa === 'revisao' && s.ouvido) { const r = revisaoIA(); r.corpo = ouvidoHTML(s) + r.corpo; return r; }
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${s.arquivo ? (s.arquivo.pdf ? 'o PDF' : 'a imagem') : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
-  if (s.etapa === 'revisao') return s.modo === 'caixa' ? revisaoCaixa() : revisaoInvest();
+  if (s.etapa === 'revisao') return revisaoIA();
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais &gt; Leitura por IA.</span></div>` : '';
   const arq = s.arquivo;
   return {
     titulo: 'Ler com IA',
-    corpo: `${aviso}<div class="seg"><button class="${s.modo === 'caixa' ? 'on' : ''}" data-a="ia-modo" data-v="caixa">Gastos e recebimentos</button>
-        <button class="${s.modo === 'invest' ? 'on' : ''}" data-a="ia-modo" data-v="invest">Investimentos</button></div>
-      <div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
+    corpo: `${aviso}<div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
           <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
-        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${s.modo === 'caixa' ? 'Fatura em PDF, print ou foto' : 'Print, foto ou PDF do extrato'}</button>`}
+        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}Fatura, print, foto ou PDF</button>`}
         ${!arq && vozPronta() ? `<button class="btn larga" data-a="ia-falar" style="margin-top:8px">${ic('mic')}Falar</button>` : ''}</div>
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
-        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${s.modo === 'caixa' ? 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”), extrato ou fatura copiada' : 'Ex.: mensagem do WhatsApp do gerente, e-mail de aplicação, extrato copiado do app do banco'}">${esc(s.texto)}</textarea>
-        <div class="ajuda">Você também pode colar um print aqui. ${s.modo === 'caixa' ? 'A IA separa cada gasto e recebimento e você confere antes de lançar.' : 'A IA acha cada investimento e você confere antes de salvar.'}</div></div>
+        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco">${esc(s.texto)}</textarea>
+        <div class="ajuda">Você também pode colar um print aqui. Não precisa dizer o que é: a IA separa os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e você confere antes de salvar.</div></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
@@ -2299,17 +2302,16 @@ async function iaLer() {
   const s = IAS;
   s.erro = ''; s.etapa = 'lendo'; pintarFolha();
   try {
-    const corpo = { modo: s.modo, texto: s.texto };
+    const corpo = { modo: 'auto', dica: s.dica, texto: s.texto };
     if (s.ouvido && !s.arquivo) corpo.fala = true;
-    if (s.arquivo && s.modo === 'invest' && !s.arquivo.pdf) {
-      if (!s.arquivo.foto) { const r = await api.foto(s.arquivo.dataUrl); s.arquivo.foto = r.arquivo; if (DEMO) DEMO_FOTOS[r.arquivo] = s.arquivo.dataUrl; }
-      corpo.foto = s.arquivo.foto;
-    } else if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
+    if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
     const r = await api.iaLer(corpo);
     if (!IAS) return;
-    if (!r.itens.length) { s.etapa = 'entrada'; s.erro = 'A IA não encontrou nada para lançar. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
-    s.itens = r.itens.map(it => Object.assign({ marcado: true }, it));
-    if (s.modo === 'caixa') prepararRevisaoCaixa();
+    const lanc = r.lancamentos || [], invs = r.investimentos || [];
+    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
+    s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
+    s.invs = invs.map(it => Object.assign({ marcado: true }, it));
+    if (s.itens.length) prepararRevisaoCaixa();
     s.etapa = 'revisao';
     pintarFolha();
   } catch (e) {
@@ -2335,43 +2337,88 @@ function prepararRevisaoCaixa() {
     if (dup) it.marcado = false;
   }
 }
+// Conferir o que a IA leu: lançamentos e investimentos juntos, um botão salva tudo o que estiver marcado
+function revisaoIA() {
+  const s = IAS, nl = s.itens.length, ni = s.invs.length;
+  const ml = s.itens.filter(i => i.marcado), mi = s.invs.filter(i => i.marcado);
+  const achou = [nl ? plural(nl, 'lançamento', 'lançamentos') : '', ni ? plural(ni, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ');
+  let corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${achou}</b>. Confira e desmarque o que não quiser.</p>`;
+  if (nl) corpo += `${ni ? `<h3 class="ia-sec">${ic('fluxo', 'ic-s')}Lançamentos</h3>` : ''}${revisaoCaixa()}`;
+  if (ni) corpo += `${nl ? `<h3 class="ia-sec">${ic('wallet', 'ic-s')}Investimentos</h3>` : ''}${revisaoInvest()}`;
+  const total = ml.reduce((a, i) => a + (i.tipo === 'receita' ? i.valor : -i.valor), 0);
+  const n = ml.length + mi.length;
+  const rot = ni && !nl ? `Salvar ${n}` : nl && !ni ? `Lançar ${n} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}` : `Salvar ${n}`;
+  return { titulo: nl && ni ? 'Conferir o que a IA leu' : nl ? 'Conferir lançamentos' : 'Conferir investimentos', corpo,
+    pe: `<button class="btn" data-a="ia-voltar">Voltar</button><button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${rot}</button>` };
+}
+// o lançamento fica pago ou pendente: Automática segue o que a IA viu (conta a pagar, a receber) e, sem isso, a data
+function iaPago(it, data) {
+  const s = IAS;
+  if (s.situacao === 'pago') return true;
+  if (s.situacao === 'apagar') return false;
+  // compra no cartão segue a fatura (paga quando a fatura vence), não o que a IA achou
+  const cartao = iaNoCartao(it);
+  if (!cartao && it.situacao === 'feito') return true;
+  if (!cartao && it.situacao === 'pendente') return false;
+  return dataCaixa({ data, conta: s.conta, cartao }) <= iso(hoje());
+}
+// no cartão: o que a IA leu como compra no cartão; se você escolher Cartão de crédito ou Débito, vale para todos
+function iaNoCartao(it) {
+  const s = IAS;
+  return it.tipo === 'despesa' && !!s.cartao && !!contaDe(s.conta)?.cartao && (s.cartaoMexido || it.cartao !== false);
+}
 function revisaoCaixa() {
   const s = IAS;
-  const marc = s.itens.filter(i => i.marcado);
-  const total = marc.reduce((a, i) => a + (i.tipo === 'receita' ? i.valor : -i.valor), 0);
   const conta = contaDe(s.conta);
   const temParc = s.itens.some(i => i.parcelas_total > i.parcela_atual);
-  const corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${plural(s.itens.length, 'lançamento', 'lançamentos')}</b>. Confira, desmarque o que não quiser e escolha onde lançar.</p>
-    <div class="campo"><div class="lbl">Lançar em</div><div class="chips" style="margin:0">
+  return `<div class="campo"><div class="lbl">Lançar em</div><div class="chips" style="margin:0">
       <button class="chip${!s.conta ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
       ${contas().map(k => `<button class="chip${s.conta === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>
       ${conta?.cartao ? `<div class="seg mini" style="margin:10px 0 0"><button class="${!s.cartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${s.cartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
-      <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Pela data</button>
+      <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
       <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">Tudo pago</button>
-      <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">A pagar</button></div></div>
+      <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">Tudo pendente</button></div>
+      ${s.situacao === 'auto' ? `<div class="ajuda">O que a IA viu como conta a pagar ou valor a receber fica pendente; o resto, pela data.${s.cartao ? ' Compras no cartão seguem a fatura.' : ''}</div>` : ''}</div>
     ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div><b>Lançar as próximas parcelas</b><span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
     <div class="ia-itens">${s.itens.map((it, k) => {
       const cats = S.d.categorias.filter(c => c.tipo === it.tipo);
       return `<div class="ia-item${it.marcado ? '' : ' off'}">
         <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
         <div class="ia-item-t"><b>${esc(it.descricao)}</b>
-          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span>
+          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${iaNoCartao(it) || iaPago(it, it.data) ? '' : ` · <b class="ia-pend">${it.tipo === 'receita' ? 'a receber' : 'a pagar'}</b>`}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span>
           <select class="ia-cat" data-iai="categoria" data-i="${k}" aria-label="Categoria">${cats.map(c => `<option value="${c.id}"${c.id === it.categoria ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>
         <b class="${it.tipo === 'receita' ? 'ent' : 'sai'}">${it.tipo === 'receita' ? '+' : '−'} ${brl(it.valor)}</b></div>`;
     }).join('')}</div>`;
-  return { titulo: 'Conferir lançamentos', corpo,
-    pe: `<button class="btn" data-a="ia-voltar">Voltar</button><button class="btn pri" data-a="iac-salvar"${marc.length ? '' : ' disabled'}>Lançar ${marc.length} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}</button>` };
 }
-function salvarIACaixa() {
-  const s = IAS, hj = iso(hoje());
-  const itens = s.itens.filter(i => i.marcado);
+// salva o que estiver marcado nos dois grupos de uma vez
+async function salvarIA() {
+  const s = IAS;
+  const ml = s.itens.filter(i => i.marcado), mi = s.invs.filter(i => i.marcado);
+  if (!ml.length && !mi.length) return;
+  // a imagem lida fica guardada com os investimentos salvos
+  if (mi.length && s.arquivo && !s.arquivo.pdf && !s.arquivo.foto) {
+    try { const r = await api.foto(s.arquivo.dataUrl); s.arquivo.foto = r.arquivo; if (DEMO) DEMO_FOTOS[r.arquivo] = s.arquivo.dataUrl; } catch (e) { /* salva sem a imagem */ }
+  }
+  const msg = [ml.length ? plural(ml.length, 'lançamento', 'lançamentos') : '', mi.length ? plural(mi.length, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ');
   persistir(d => {
+    if (ml.length) aplicarIACaixa(d, ml);
+    if (mi.length) aplicarIAInvest(d, mi);
+  }, `${msg} pela IA`).then(ok => {
+    if (!ok) return;
+    fecharFolha();
+    if (ml.length) { S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; } else { S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; }
+    render();
+  });
+}
+function aplicarIACaixa(d, itens) {
+  const s = IAS;
+  {
     const antes = S.d;
     for (const it of itens) {
-      const cartao = it.tipo === 'despesa' && s.cartao && !!contaDe(s.conta)?.cartao;
+      const cartao = iaNoCartao(it);
       const base = { tipo: it.tipo, descricao: it.descricao, valor: it.valor, categoria: it.categoria, conta: s.conta, cartao, obs: '' };
-      const pago = data => s.situacao === 'pago' ? true : s.situacao === 'apagar' ? false : dataCaixa(Object.assign({ data }, base)) <= hj;
+      const pago = data => iaPago(it, data);
       if (it.parcelas_total && it.parcela_atual) {
         const g = 'g-' + uid();
         const ultimo = s.futuras ? it.parcelas_total : it.parcela_atual;
@@ -2382,16 +2429,15 @@ function salvarIACaixa() {
       } else d.lancamentos.push(Object.assign({ id: uid() }, base, { data: it.data, pago: pago(it.data) }));
     }
     S.d = antes;
-  }, `${plural(itens.length, 'lançamento', 'lançamentos')} pela IA`).then(ok => { if (ok) { fecharFolha(); S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; render(); } });
+  }
 }
 function revisaoInvest() {
   const s = IAS;
-  const marc = s.itens.filter(i => i.marcado);
-  const corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${plural(s.itens.length, 'investimento', 'investimentos')}</b>. Os que já existem têm o valor atualizado.</p>
-    <div class="ia-itens">${s.itens.map((it, k) => {
+  return `<p class="ajuda" style="margin:0 0 10px">Os investimentos que já existem têm o valor atualizado.</p>
+    <div class="ia-itens">${s.invs.map((it, k) => {
       const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
       return `<div class="ia-item${it.marcado ? '' : ' off'}">
-        <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
+        <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca-inv" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
         <div class="ia-item-t"><b>${esc(it.nome)}</b>
           <span>${esc([it.banco, tipoDe(it.tipo).nome, rotuloTaxa(it), it.vencimento ? 'vence ' + fData(pData(it.vencimento)) : ''].filter(Boolean).join(' · '))}</span>
           ${ex ? `<span class="ia-atualiza">Atualiza ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(it.valor)}</span>` : '<span class="ia-atualiza novo">Novo investimento</span>'}
@@ -2399,14 +2445,11 @@ function revisaoInvest() {
           <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div>
         <b>${brl(it.valor)}</b></div>`;
     }).join('')}</div>`;
-  return { titulo: 'Conferir investimentos', corpo,
-    pe: `<button class="btn" data-a="ia-voltar">Voltar</button><button class="btn pri" data-a="iai-salvar"${marc.length ? '' : ' disabled'}>Salvar ${marc.length}</button>` };
 }
-function salvarIAInvest() {
+function aplicarIAInvest(d, itens) {
   const s = IAS, hj = iso(hoje());
-  const itens = s.itens.filter(i => i.marcado);
   const foto = s.arquivo?.foto;
-  persistir(d => {
+  {
     for (const it of itens) {
       const ex = it.existente && d.investimentos.find(i => i.id === it.existente);
       if (ex) {
@@ -2422,10 +2465,10 @@ function salvarIAInvest() {
         titular: 'meu', terceiro: '', obs: it.aplicado ? `Valor aplicado: ${brl(it.aplicado)}` : '', fotos: foto ? [foto] : [],
         criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString() });
     }
-  }, `${plural(itens.length, 'investimento salvo', 'investimentos salvos')} pela IA`).then(ok => { if (ok) { fecharFolha(); S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; render(); } });
+  }
 }
 function revisarItemInvest(k) {
-  const it = IAS.itens[k], foto = IAS.arquivo?.foto;
+  const it = IAS.invs[k], foto = IAS.arquivo?.foto;
   const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
   if (ex) { abrirInvestimento(ex.id); preencherForm(it); if (foto) F.fotos = [...(F.fotos || []), foto]; pintarFolha(); return; }
   abrirInvestimento(null, { fotos: foto ? [foto] : [], daIA: true });
@@ -3019,7 +3062,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar' };
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -3581,18 +3624,18 @@ document.addEventListener('click', ev => {
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
     case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini); break;
-    case 'ia-modo': IAS.modo = v; IAS.erro = ''; pintarFolha(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
     case 'ia-ler': iaLer(); break;
     case 'ia-voltar': IAS.etapa = 'entrada'; pintarFolha(); break;
     case 'ia-marca': { const it = IAS.itens[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
+    case 'ia-marca-inv': { const it = IAS.invs[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
+    case 'ia-salvar': salvarIA(); break;
     case 'iac-conta': IAS.conta = v; if (!contaDe(v)?.cartao) IAS.cartao = false; pintarFolha(); break;
-    case 'iac-cartao': IAS.cartao = !!v; pintarFolha(); break;
+    case 'iac-cartao': IAS.cartao = !!v; IAS.cartaoMexido = true; pintarFolha(); break;
     case 'iac-sit': IAS.situacao = v; pintarFolha(); break;
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
-    case 'iac-salvar': salvarIACaixa(); break;
-    case 'iai-salvar': salvarIAInvest(); break;
+
     case 'iai-revisar': revisarItemInvest(+el.dataset.i); break;
     case 'ia-verificar': S.ia = null; render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
     case 'f-foto-add':

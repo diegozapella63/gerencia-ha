@@ -104,7 +104,11 @@ O app usa a IA configurada no Home Assistant (ação `ai_task.generate_data`) pa
 - print do WhatsApp ou texto colado da conversa;
 - print do banco ou da corretora, para cadastrar investimentos.
 
-No Início, toque em **Adicionar › Ler com IA**. No Caixa e no Invest, o **Adicionar** abre a despesa ou o investimento com os quadrinhos **Colar mensagem** (do WhatsApp, do e-mail), **Fatura, print ou foto** (no investimento, **Imagem ou print** do app do banco) e **Falar** no alto, como no ResolvIA e no CronologIA. Com essa janela aberta, dá também para colar a imagem direto ou, no computador, arrastar a imagem ou o PDF para ela. No computador, o **Ler com IA** também fica no alto à direita. Envie o arquivo ou cole o texto (dá para colar uma imagem direto). O app mostra o que encontrou para você conferir antes de lançar: desmarque o que não quiser, troque a categoria e escolha a conta ou o cartão. Em uma fatura, as próximas parcelas também podem ser lançadas.
+No Início, toque em **Adicionar › Ler com IA**. No Caixa e no Invest, o **Adicionar** abre a despesa ou o investimento com os quadrinhos **Colar mensagem** (do WhatsApp, do e-mail), **Fatura, print ou foto** (no investimento, **Imagem ou print** do app do banco) e **Falar** no alto, como no ResolvIA e no CronologIA. Com essa janela aberta, dá também para colar a imagem direto ou, no computador, arrastar a imagem ou o PDF para ela. No computador, o **Ler com IA** também fica no alto à direita. Envie o arquivo ou cole o texto (dá para colar uma imagem direto).
+
+Não precisa dizer o que é: a IA separa sozinha os **gastos**, os **recebimentos**, as **contas a pagar e a receber** e os **investimentos**. Na mesma janela, o app mostra o que encontrou para você conferir: os lançamentos (desmarque o que não quiser, troque a categoria e escolha a conta ou o cartão) e os investimentos (os que já existem têm o valor atualizado). Um botão salva tudo o que estiver marcado. Em uma fatura, as próximas parcelas também podem ser lançadas.
+
+A **Situação** começa em **Automática**: o que a IA viu como conta, boleto ou parcela a pagar, ou valor que ainda vai receber, fica pendente; o resto segue a data. Compras no cartão seguem a fatura. Dá para trocar para **Tudo pago** ou **Tudo pendente**.
 
 Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais > Leitura por IA** dá para escolher qual IA usar e ver se ela está pronta.
 
@@ -112,7 +116,7 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 ## Falar
 
-O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa os gastos e recebimentos, ou os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
+O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
 - O microfone só aparece com a IA ligada e um assistente de voz com fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto e com qual motor.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.

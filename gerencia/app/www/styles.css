@@ -801,6 +801,12 @@ details summary { list-style-position: inside; }
 .card .nota a { color: var(--accent-text); }
 @media (prefers-reduced-motion: reduce) { .uso-bar i, .uso-ult summary .ic-s { transition: none; } }
 
+/* Conferir o que a IA leu: lançamentos e investimentos na mesma janela */
+.ia-sec { display: flex; align-items: center; gap: 8px; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); font: 600 19px/1.2 var(--font-d); }
+.ia-sec:first-of-type { margin-top: 4px; padding-top: 0; border-top: 0; }
+.ia-sec .ic-s { color: var(--accent-text); }
+.ia-pend { font-weight: 600; color: var(--terc); }
+
 /* Adicionar: Ler com IA em quadrinhos tracejados no alto da janela (como no ResolvIA e no CronologIA) */
 .imp-campo { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .imp-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

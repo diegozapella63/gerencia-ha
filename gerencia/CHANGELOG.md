@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.11.0
+
+- **Ler com IA e Falar sem escolher antes**: saiu o "Gastos e recebimentos / Investimentos". A IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e o app mostra tudo na mesma janela para conferir, com um botão que salva o que estiver marcado.
+- Cada lançamento vem com a situação que a IA leu: conta, boleto ou parcela a pagar e valor a receber ficam pendentes (com "a pagar" ou "a receber" na lista); o resto segue a data, e compras no cartão seguem a fatura. A situação **Automática** pode virar **Tudo pago** ou **Tudo pendente**.
+- A imagem lida fica guardada com os investimentos salvos.
+- No Uso da IA, essas leituras aparecem como **Ler com IA**.
+
 ## 1.10.2
 
 - **Novo investimento sem leitura dobrada**: a área de imagens do fim virou **Imagens guardadas**, só para guardar o comprovante ou o print junto com o investimento. Quem lê com IA no investimento novo são os quadrinhos do alto (Colar mensagem e Imagem ou print). Ao editar um investimento, o **Ler** numa imagem guardada continua, para atualizar os campos.
