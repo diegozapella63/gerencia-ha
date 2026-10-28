@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.6.2';
+const VERSAO = '1.7.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -83,6 +83,7 @@ const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
 /* ------------------------------------------------------------------ ícones */
 const P = {
+  'mic': '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
   'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   'contrast': '<circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/>',
   'palette': '<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>',
@@ -341,6 +342,8 @@ const apiServidor = {
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
   iaUso: () => fetch('api/ia/uso', { cache: 'no-store' }).then(jsonOk),
+  vozStatus: () => fetch('api/voz/status', { cache: 'no-store' }).then(jsonOk),
+  vozTexto: pcm => fetch('api/voz', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pcm }).then(jsonOk),
   backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
@@ -407,6 +410,8 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
+    async vozStatus() { return { pronta: true, nome: 'Home Assistant Cloud' }; },
+    async vozTexto() { await espera(900); return { texto: 'Gastei 45 reais no mercado hoje no cartão do Nubank e recebi 150 do João pelo Pix', nome: 'Home Assistant Cloud' }; },
     async iaUso() {
       const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
       const rec = [['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
@@ -427,6 +432,10 @@ function apiDemo() {
         debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
         total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
       const hj = iso(hoje()), ont = iso(new Date(hoje().getTime() - 86400000));
+      if (c.modo === 'caixa' && /mercado/i.test(c.texto || '') && /jo[aã]o/i.test(c.texto || '')) return { itens: [
+        { tipo: 'despesa', descricao: 'Mercado', valor: 45, data: hj, categoria: 'c-mercado', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
+        { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', confianca: 'alta' },
+      ], entidade: 'simulada' };
       if (c.modo === 'caixa') return { itens: [
         { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
         { tipo: 'despesa', descricao: 'Posto Shell', valor: 210, data: ont, categoria: 'c-transporte', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', confianca: 'alta' },
@@ -521,8 +530,8 @@ function syncInfo() {
 }
 function cabecalho(titulo, acoes = '', status = null) {
   const [cls, txt] = status || syncInfo();
-  return `<header class="cab"><div class="cab-l"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? ' · Olá, ' + esc(S.usuario.split(' ')[0]) : ''}</p>
-    <h1>${titulo}</h1></div>${acoes}</header>
+  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? ' · Olá, ' + esc(S.usuario.split(' ')[0]) : ''}</p>${botaoFalar()}</div>
+    <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div></header>
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
 }
 
@@ -2076,14 +2085,161 @@ function preencherForm(it) {
 
 /* --------- leitor por IA (caixa e investimentos) */
 let IAS = null;
-function abrirIA(modo) {
-  IAS = { modo: modo === 'invest' ? 'invest' : 'caixa', etapa: 'entrada', arquivo: null, texto: '', itens: [], erro: '', conta: '', cartao: false,
-    situacao: 'auto', futuras: true };
+/* ------------------------------------------------------------------ Falar (como no CronologIA e no ResolvIA) */
+// O microfone grava PCM cru, 16 kHz, 16 bits, mono (o que a fala para texto do Home Assistant recebe, igual ao Assist).
+// O servidor manda para o assistente de voz preferido e o texto passa pela mesma leitura por IA de uma mensagem colada.
+const VOZ_TAXA = 16000, VOZ_MAX_S = 120;
+class Gravador {
+  constructor(aoNivel) { this.aoNivel = aoNivel; this.pedacos = []; this.total = 0; this.taxa = VOZ_TAXA; }
+  async start() {
+    const md = navigator.mediaDevices;
+    if (!md || !md.getUserMedia) throw Object.assign(new Error('sem api'), { name: 'NoApi' });
+    this.stream = await md.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const AC = window.AudioContext || window.webkitAudioContext;
+    try { this.ctx = new AC({ sampleRate: VOZ_TAXA }); } catch (e) { this.ctx = new AC(); } // alguns navegadores só gravam na taxa deles: reamostra no fim
+    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+    this.taxa = this.ctx.sampleRate;
+    this.src = this.ctx.createMediaStreamSource(this.stream);
+    this.no = this.ctx.createScriptProcessor(4096, 1, 1);
+    this.no.onaudioprocess = e => {
+      const d = e.inputBuffer.getChannelData(0);
+      this.pedacos.push(new Float32Array(d));
+      this.total += d.length;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += d[i] * d[i];
+      if (this.aoNivel) this.aoNivel(Math.min(1, Math.sqrt(s / (d.length / 4)) * 5));
+    };
+    this.src.connect(this.no);
+    this.no.connect(this.ctx.destination); // a saída fica muda; só mantém o nó rodando
+  }
+  segundos() { return this.total / this.taxa; }
+  stop() {
+    this._fechar();
+    const tudo = new Float32Array(this.total);
+    let o = 0;
+    for (const c of this.pedacos) { tudo.set(c, o); o += c.length; }
+    this.pedacos = [];
+    const k = this.taxa / VOZ_TAXA, n = Math.floor(tudo.length / k), out = new Int16Array(n);
+    for (let i = 0; i < n; i++) {
+      // a média de cada janela: um passa-baixa simples quando o navegador gravou a 44,1/48 kHz
+      const a = Math.floor(i * k), b = Math.max(a + 1, Math.min(tudo.length, Math.floor((i + 1) * k)));
+      let s = 0;
+      for (let j = a; j < b; j++) s += tudo[j];
+      const v = Math.max(-1, Math.min(1, s / (b - a)));
+      out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+    }
+    return out;
+  }
+  cancel() { this._fechar(); this.pedacos = []; this.total = 0; }
+  _fechar() {
+    try { if (this.no) this.no.onaudioprocess = null; if (this.src) this.src.disconnect(); if (this.no) this.no.disconnect(); } catch (e) { /* já fechado */ }
+    if (this.stream) for (const t of this.stream.getTracks()) t.stop();
+    if (this.ctx && this.ctx.state !== 'closed') this.ctx.close().catch(() => {});
+    this.stream = null; this.no = null; this.src = null;
+  }
+}
+// na prévia, sem microfone: finge que ouviu, para mostrar o caminho todo
+class GravadorSimulado {
+  constructor(aoNivel) { this.aoNivel = aoNivel; this.t0 = 0; }
+  async start() { this.t0 = Date.now(); this.iv = setInterval(() => this.aoNivel && this.aoNivel(0.2 + Math.random() * 0.6), 120); }
+  segundos() { return (Date.now() - this.t0) / 1000; }
+  stop() { clearInterval(this.iv); return new Int16Array(Math.round(VOZ_TAXA * Math.max(1, this.segundos()))); }
+  cancel() { clearInterval(this.iv); }
+}
+function erroMicrofone(err) {
+  const n = (err && err.name) || '';
+  if (n === 'NotAllowedError' || n === 'SecurityError') return 'O microfone está bloqueado. Permita o microfone para o Home Assistant (no navegador, no cadeado ao lado do endereço; no app do celular, nas permissões do app Home Assistant) e tente de novo.';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'Não achei um microfone neste aparelho.';
+  if (n === 'NotReadableError') return 'O microfone está sendo usado por outro app. Feche o outro e tente de novo.';
+  if (n === 'NoApi') return 'Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app.';
+  return `Não consegui abrir o microfone (${(err && err.message) || n || 'erro'}).`;
+}
+
+const vozPronta = () => iaOn() && !!(S.voz && S.voz.pronta) && (DEMO || !S.ia || S.ia.pronta !== false);
+function carregarVoz() {
+  if (!iaOn()) { S.voz = null; return; }
+  api.vozStatus().then(v => { S.voz = v; if (!FOLHA) render(); }).catch(e => { S.voz = { pronta: false, motivo: e.message }; });
+}
+const botaoFalar = () => vozPronta() ? `<button class="mic-top" data-a="falar" aria-label="Falar: lançar falando" title="Falar">${ic('mic')}</button>` : '';
+
+let GRAV = null, gravTimer = null, gravNivel = 0;
+async function comecarFala() {
+  if (GRAV || !IAS) return;
+  Object.assign(IAS, { etapa: 'voz', rec: 'starting', secs: 0, erro: '' });
+  pintarFolha();
+  const g = DEMO && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? new GravadorSimulado(l => (gravNivel = l)) : new Gravador(l => (gravNivel = l));
+  GRAV = g;
+  try { await g.start(); }
+  catch (err) {
+    g.cancel();
+    if (GRAV === g) GRAV = null;
+    if (DEMO) { // na prévia, sem permissão de microfone: segue simulado
+      const sim = new GravadorSimulado(l => (gravNivel = l)); GRAV = sim; await sim.start();
+    } else { if (IAS && IAS.etapa === 'voz') { IAS.rec = 'off'; IAS.erro = erroMicrofone(err); pintarFolha(); } return; }
+  }
+  if (!IAS || IAS.etapa !== 'voz') { if (GRAV) GRAV.cancel(); GRAV = null; return; }
+  IAS.rec = 'on'; pintarFolha();
+  clearInterval(gravTimer);
+  gravTimer = setInterval(() => {
+    if (!GRAV) return clearInterval(gravTimer);
+    const secs = GRAV.segundos();
+    const m = $('.voz-mic'), t = $('.voz-tempo');
+    if (m) m.style.setProperty('--lvl', gravNivel.toFixed(2));
+    if (t) t.textContent = `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+    if (secs >= VOZ_MAX_S) terminarFala();
+  }, 120);
+}
+function pararFala() { clearInterval(gravTimer); if (GRAV) GRAV.cancel(); GRAV = null; }
+async function terminarFala() {
+  const g = GRAV;
+  if (!g || !IAS) return;
+  clearInterval(gravTimer); GRAV = null;
+  const pcm = g.stop();
+  if (pcm.length < VOZ_TAXA * 0.4) { IAS.rec = 'off'; IAS.erro = 'Não ouvi nada. Toque no microfone e fale.'; pintarFolha(); return; }
+  IAS.etapa = 'transcrevendo'; IAS.erro = ''; pintarFolha();
+  try {
+    const r = await api.vozTexto(pcm);
+    if (!IAS) return;
+    IAS.texto = r.texto; IAS.ouvido = r.texto;
+    iaLer();
+  } catch (e) {
+    if (!IAS) return;
+    Object.assign(IAS, { etapa: 'voz', rec: 'off', erro: e.message || 'Não consegui transcrever.' });
+    pintarFolha();
+  }
+}
+function telaFala() {
+  const s = IAS, on = s.rec === 'on', v = S.voz || {};
+  const ex = s.modo === 'invest' ? '<i>“Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”</i>'
+    : '<i>“Gastei 45 no mercado hoje no cartão do Nubank”</i> ou <i>“Recebi 300 do João pelo Pix”</i>';
+  return {
+    titulo: 'Falar',
+    corpo: `<div class="seg"><button class="${s.modo === 'caixa' ? 'on' : ''}" data-a="ia-modo" data-v="caixa">Gastos e recebimentos</button>
+        <button class="${s.modo === 'invest' ? 'on' : ''}" data-a="ia-modo" data-v="invest">Investimentos</button></div>
+      <div class="voz${on ? ' on' : ''}">
+        <button class="voz-mic" style="--lvl:0" data-a="fala-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Começar a falar'}"><span class="voz-anel"></span>${ic(on ? 'check' : 'mic')}</button>
+        <div class="voz-estado">${on ? `<b>Ouvindo…</b> <span class="voz-tempo">0:00</span>` : s.rec === 'starting' ? 'Abrindo o microfone…' : 'Toque no microfone e fale'}</div>
+        <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
+      </div>
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
+      <p class="nota" style="text-align:center">O Home Assistant transcreve${v.nome && !/^home assistant$/i.test(v.nome) ? ` (${esc(v.nome)})` : ''} e a IA separa ${s.modo === 'caixa' ? 'os gastos e recebimentos' : 'os investimentos'}. Você confere antes de lançar.</p>`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
+  };
+}
+const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<span>“${esc(s.ouvido)}”</span></div>` : '';
+
+function abrirIA(modo, inicio) {
+  IAS = { modo: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], erro: '', conta: '', cartao: false,
+    situacao: 'auto', futuras: true, ouvido: '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
-  abrirFolha(montarIA, () => { IAS = null; });
+  abrirFolha(montarIA, () => { pararFala(); IAS = null; });
+  if (inicio === 'voz') comecarFala();
 }
 function montarIA() {
   const s = IAS;
+  if (s.etapa === 'voz') return telaFala();
+  if (s.etapa === 'transcrevendo') return { titulo: 'Falar', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Transcrevendo o que você disse…</p></div>` };
+  if (s.etapa === 'revisao' && s.ouvido) { const r = s.modo === 'caixa' ? revisaoCaixa() : revisaoInvest(); r.corpo = ouvidoHTML(s) + r.corpo; return r; }
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${s.arquivo ? (s.arquivo.pdf ? 'o PDF' : 'a imagem') : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
   if (s.etapa === 'revisao') return s.modo === 'caixa' ? revisaoCaixa() : revisaoInvest();
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais &gt; Leitura por IA.</span></div>` : '';
@@ -2094,7 +2250,8 @@ function montarIA() {
         <button class="${s.modo === 'invest' ? 'on' : ''}" data-a="ia-modo" data-v="invest">Investimentos</button></div>
       <div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
           <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
-        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${s.modo === 'caixa' ? 'Fatura em PDF, print ou foto' : 'Print, foto ou PDF do extrato'}</button>`}</div>
+        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${s.modo === 'caixa' ? 'Fatura em PDF, print ou foto' : 'Print, foto ou PDF do extrato'}</button>`}
+        ${!arq && vozPronta() ? `<button class="btn larga" data-a="ia-falar" style="margin-top:8px">${ic('mic')}Falar</button>` : ''}</div>
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${s.modo === 'caixa' ? 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”), extrato ou fatura copiada' : 'Ex.: e-mail de aplicação, extrato copiado do app do banco'}">${esc(s.texto)}</textarea>
         <div class="ajuda">Você também pode colar um print aqui. ${s.modo === 'caixa' ? 'A IA separa cada gasto e recebimento e você confere antes de lançar.' : 'A IA acha cada investimento e você confere antes de salvar.'}</div></div>
@@ -2654,7 +2811,10 @@ function cardIA() {
   else if (s.pronta) st = ['', `Pronta. Usando ${s.selecionada ? esc((s.entidades.find(e => e.id === s.selecionada) || {}).nome || s.selecionada) : 'a IA padrão do Home Assistant'}.`];
   else st = ['erro', esc(s.motivo || 'A IA não está pronta.')];
   const ents = (s && s.entidades) || [];
-  return cab + `<div class="status ${st[0]}">${st[1]}</div>
+  const v = S.voz;
+  const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
+    : v.pronta ? ['', `Falar: pronto, com ${esc(v.nome || 'a fala para texto do Home Assistant')}. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
+  return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
@@ -3302,6 +3462,10 @@ document.addEventListener('click', ev => {
     case 'lf-duplicar': LF = Object.assign({}, LF, { id: null, virtual: false, recorrencia: null, competencia: null, grupo: null, parcela: null, repete: 'nao', pagoMexido: false }); pintarFolha(); break;
     case 'lf-excluir': excluirLanc(); break;
     // imagens e IA
+    case 'falar': if (!vozPronta()) break; abrirIA(S.ui.tab === 'investimentos' ? 'invest' : 'caixa', 'voz'); break;
+    case 'ia-falar': comecarFala(); break;
+    case 'fala-mic': if (IAS && IAS.rec === 'on') terminarFala(); else comecarFala(); break;
+    case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
     case 'ia-modo': IAS.modo = v; IAS.erro = ''; pintarFolha(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
@@ -3366,7 +3530,7 @@ document.addEventListener('click', ev => {
       const k = el.dataset.k; const nv = S.d.ajustes[k] === false;
       persistir(d => { d.ajustes[k] = nv; }).then(ok => {
         if (!ok) return;
-        if (k === 'ia') { S.ia = null; S.uso = null; render(); }
+        if (k === 'ia') { S.ia = null; S.uso = null; carregarVoz(); render(); }
         if (k === 'dicas') carregarDicas();
       });
       break;
@@ -3647,6 +3811,7 @@ async function iniciar() {
   S.ui.busca = ''; S.ui.buscaAberta = false; S.ui.gSel = null;
   render();
   carregarDicas();
+  carregarVoz();
   if (+S.ui.gAporte > 0) {
     const v = +S.ui.gAporte;
     S.ui.gAporte = 0; salvarUI();

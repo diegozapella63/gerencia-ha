@@ -790,3 +790,28 @@ details summary { list-style-position: inside; }
 
 /* IA desligada em Mais › Integrações: os botões de IA somem */
 [data-ia="off"] [data-a="ia"], [data-ia="off"] [data-a="f-foto-ia"], [data-ia="off"] [data-a="lf-ler-recibo"] { display: none !important; }
+
+/* ---------- Falar: o microfone no alto de cada tela, à direita (como no CronologIA e no ResolvIA) */
+.cab { display: block; }
+.cab-topo { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+.cab-topo .eyebrow { flex: 1; min-width: 0; }
+.cab-linha { display: flex; align-items: flex-end; gap: 4px; }
+.cab-linha h1 { flex: 1; min-width: 0; }
+.mic-top { flex: none; width: 44px; height: 44px; margin: -6px -2px -6px 0; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 17%, transparent); color: var(--accent-text); }
+.mic-top .ic { width: 22px; height: 22px; }
+.mic-top:active { transform: scale(.94); }
+.voz { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px 8px 8px; text-align: center; }
+.voz-mic { position: relative; width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #0b0f14;
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 35%, transparent); }
+.voz-mic .ic { position: relative; width: 40px; height: 40px; }
+.voz-anel { position: absolute; inset: -10px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 22%, transparent);
+  transform: scale(calc(.85 + var(--lvl, 0) * .45)); transition: transform .12s ease-out; }
+.voz.on .voz-anel { animation: respira 1.6s ease-in-out infinite; }
+@keyframes respira { 50% { opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .voz-anel { transition: none; } .voz.on .voz-anel { animation: none; } }
+.voz-estado { font: 600 21px/1.2 var(--font-d); margin-top: 6px; }
+.voz-tempo { color: var(--muted); font-variant-numeric: tabular-nums; }
+.voz-dica { margin: 0; max-width: 34ch; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.ouvido { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); font-size: 14.5px; line-height: 1.4; }
+.ouvido .ic-s { flex: none; margin-top: 2px; color: var(--accent-text); }

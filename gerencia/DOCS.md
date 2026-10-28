@@ -106,6 +106,14 @@ Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Ho
 
 Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
+## Falar
+
+O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa os gastos e recebimentos, ou os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
+
+- O microfone só aparece com a IA ligada e um assistente de voz com fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto e com qual motor.
+- O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.
+- O áudio vai direto para o Home Assistant e não fica guardado no app.
+
 ## Imagens
 
 Investimentos e lançamentos podem ter fotos (comprovante, print do banco). No formulário, toque em **Adicionar** na área de imagens. Numa imagem já anexada, o botão **Ler** usa a IA para preencher o formulário. As fotos ficam em `/data/fotos` e entram no backup.

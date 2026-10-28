@@ -41,6 +41,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Meu ou de terceiros**: de quem é cada dinheiro, com o total por pessoa.
 - **Evolução projetada** de 1 a 10 anos, com aporte mensal, desconto de IR e valor em dinheiro de hoje. O aporte entra no fluxo de caixa todo mês.
 - **Leitura por IA**: fatura em PDF, print, foto de papel ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
+- **Falar**: o microfone no alto de cada tela. Fale os gastos e recebimentos; o Home Assistant transcreve e a IA separa os lançamentos para você conferir.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
 - **Fotos** em lançamentos e investimentos.
 - **Sensores** no Home Assistant: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês.

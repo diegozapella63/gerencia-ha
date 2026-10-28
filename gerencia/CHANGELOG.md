@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.7.0
+
+- **Falar**: o microfone no alto de cada tela, à direita, como no CronologIA e no ResolvIA. Fale os gastos, recebimentos ou investimentos; o Home Assistant transcreve (fala para texto do assistente de voz, como o Home Assistant Cloud) e a IA separa os lançamentos para você conferir, com o que foi ouvido no alto.
+- Na leitura por IA, o botão **Falar** ao lado de "Fatura em PDF, print ou foto".
+- Em Mais › Integrações › Leitura por IA, a linha do Falar mostra se está pronto e com qual motor.
+
 ## 1.6.2
 
 - **Versões anteriores**: o app fica só com as 3 mais recentes, como o ResolvIA, o CronologIA e o InventarIA. As mais antigas são apagadas na próxima cópia.

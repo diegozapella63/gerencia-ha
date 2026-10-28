@@ -7,5 +7,5 @@ Seu dinheiro no Home Assistant: o caixa do dia a dia e os investimentos, com flu
 - Bancos com conta e cartão por pessoa, com fechamento e vencimento
 - Fluxo de caixa mês a mês e categorias de gastos e recebimentos
 - Investimentos com rendimento no padrão de mercado, de quem é o dinheiro e evolução projetada
-- Leitura por IA de fatura em PDF, prints, papel e WhatsApp
+- Leitura por IA de fatura em PDF, prints, papel e WhatsApp, e Falar pelo microfone
 - Sensores, backup, exportação e tema claro e escuro seguindo o Home Assistant

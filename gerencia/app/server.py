@@ -26,8 +26,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import calc  # noqa: E402
 import integracao  # noqa: E402
 import assinaturas  # noqa: E402
+import voz  # noqa: E402
 
-VERSAO = "1.6.2"
+VERSAO = "1.7.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -38,6 +39,7 @@ FOTOS = os.path.join(DATA_DIR, "fotos")
 MEDIA_ROOT = os.environ.get("GERENCIA_MEDIA", "/media")
 IA_TMP_REL = "gerencia/ia-temp"  # relativo a /media (fonte de mídia "local" do Home Assistant)
 HA_API = os.environ.get("GERENCIA_HA_API", "http://supervisor/core/api")
+HA_WS = os.environ.get("GERENCIA_HA_WS", "ws://supervisor/core/websocket")
 IA_MOCK = os.environ.get("GERENCIA_IA_MOCK") == "1"
 RE_FOTO = re.compile(r"[0-9]{8}-[0-9]{6}-[0-9a-f]{6}\.jpg")
 DEV = os.environ.get("GERENCIA_DEV") == "1"
@@ -1269,6 +1271,32 @@ def dicas_estado(d, disparar=True):
             "atualizado": cache.get("atualizado")}
 
 
+# ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
+
+VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"))
+
+
+def voz_status():
+    if not ia_ligada():
+        return {"pronta": False, "motivo": "A IA está desligada em Mais › Integrações."}
+    if not TOKEN and not IA_MOCK:
+        return {"pronta": False, "motivo": "Fora do Home Assistant não dá para falar."}
+    return VOZ.status()
+
+
+def voz_texto(pcm):
+    if not ia_ligada():
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
+    t0 = time.time()
+    try:
+        r = VOZ.texto(pcm)
+    except voz.ErroVoz as e:
+        log("Falar:", e)
+        raise ValueError(str(e))
+    log(f"Falar: {len(pcm) / 32000:.1f}s de áudio, texto em {time.time() - t0:.1f}s ({r.get('nome') or 'fala para texto'})")
+    return r
+
+
 # ---------------------------------------------------------------- HTTP
 
 TIPOS_MIME = {
@@ -1386,6 +1414,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, ia_status(ler()))
             if p == "/api/ia/uso":
                 return self.enviar(200, resumo_uso())
+            if p == "/api/voz/status":
+                return self.enviar(200, voz_status())
             if p == "/api/backups":
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
@@ -1447,6 +1477,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/dicas/conferir":
                 iniciar_conferencia(forcar=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
+            if p == "/api/voz":
+                return self.enviar(200, voz_texto(self.corpo()))
             if p == "/api/backups/restaurar":
                 return self.enviar(200, restaurar_backup(self.corpo_json().get("nome", "")))
             if p == "/api/importar":
