@@ -27,7 +27,7 @@ import calc  # noqa: E402
 import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 
-VERSAO = "1.5.0"
+VERSAO = "1.6.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -65,7 +65,8 @@ INDICES_PADRAO = {
     "erro": None,
 }
 
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": True, "ia_entidade": "", "integracao": True}
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": True, "ia_entidade": "", "integracao": True,
+                  "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
 
@@ -363,6 +364,28 @@ def nome_arquivo(ext):
     return f"gerencia-{datetime.now().strftime('%Y-%m-%d-%H%M')}.{ext}"
 
 
+RE_BACKUP = re.compile(r"gerencia-[\w\-]+\.zip")
+
+
+def listar_backups():
+    if not os.path.isdir(SHARE_DIR):
+        return []
+    saida = []
+    for nome in os.listdir(SHARE_DIR):
+        caminho = os.path.join(SHARE_DIR, nome)
+        if RE_BACKUP.fullmatch(nome) and os.path.isfile(caminho):
+            st = os.stat(caminho)
+            saida.append({"nome": nome, "tamanho": st.st_size, "quando": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds")})
+    return sorted(saida, key=lambda b: b["quando"], reverse=True)[:12]
+
+
+def restaurar_backup(nome):
+    if not RE_BACKUP.fullmatch(nome or "") or not os.path.isfile(os.path.join(SHARE_DIR, nome)):
+        raise ValueError("Esse backup não existe mais.")
+    with open(os.path.join(SHARE_DIR, nome), "rb") as f:
+        return importar(f.read(), nome)
+
+
 # ---------------------------------------------------------------- relatório
 
 def gerar_relatorio(d):
@@ -556,6 +579,130 @@ def ha_request(method, path, body=None, timeout=20):
         raise ErroHA(f"Sem resposta do Home Assistant ({e}).")
 
 
+# -- uso da IA: o Home Assistant não devolve tokens nem custo, então o app conta as chamadas (como no InventarIA)
+USO_ARQ = os.path.join(DATA_DIR, "uso_ia.json")
+USO_TRAVA = threading.Lock()
+USO_DIAS = 120
+USO_SENSOR = "sensor.gerencia_ia_hoje"
+_uso_sensor = {"dia": None, "visto": 0.0}
+
+
+def ia_ligada(d=None):
+    return (d or ler())["ajustes"].get("ia", True) is not False
+
+
+def uso_dia(ts=None):
+    t = time.time() if ts is None else ts
+    if os.environ.get("TZ"):
+        return time.strftime("%Y-%m-%d", time.localtime(t))
+    return time.strftime("%Y-%m-%d", time.gmtime(t - 3 * 3600))  # sem fuso no ambiente: horário de Brasília
+
+
+def e_cota(msg):
+    t = str(msg or "").lower()
+    return "429" in t or "quota" in t or "resource_exhausted" in t or "rate limit" in t
+
+
+def registrar_uso(tipo, entidade, chars_in, chars_out, imagens, segundos, resultado):
+    tokens = round((chars_in + chars_out) / 4)  # estimativa: uns 4 caracteres por token, só o texto
+    dia = uso_dia()
+    with USO_TRAVA:
+        try:
+            with open(USO_ARQ, encoding="utf-8") as f:
+                u = json.load(f)
+        except (OSError, ValueError):
+            u = {}
+        dias = u.setdefault("days", {})
+        dd = dias.setdefault(dia, {})
+        for k, v in (("calls", 1), ("tokens", tokens), ("images", imagens), ("seconds", round(segundos, 1)),
+                     ("errors", 0 if resultado in ("ok", "cota") else 1), ("quota", 1 if resultado == "cota" else 0)):
+            dd[k] = round(dd.get(k, 0) + v, 1)
+        nome = entidade or "padrão do Home Assistant"
+        for grupo, chave in (("kinds", tipo), ("entities", nome)):
+            g = dd.setdefault(grupo, {})
+            g[chave] = g.get(chave, 0) + 1
+        for velho in sorted(dias)[:-USO_DIAS]:
+            del dias[velho]
+        rec = u.setdefault("recent", [])
+        rec.insert(0, {"at": agora_iso(), "kind": tipo, "entity": nome, "result": resultado,
+                       "seconds": round(segundos, 1), "tokens": tokens, "images": imagens})
+        del rec[40:]
+        os.makedirs(DATA_DIR, exist_ok=True)
+        gravar_arquivo(USO_ARQ, json.dumps(u, ensure_ascii=False))
+    threading.Thread(target=publicar_uso_sensor, daemon=True).start()
+
+
+def resumo_uso():
+    with USO_TRAVA:
+        try:
+            with open(USO_ARQ, encoding="utf-8") as f:
+                u = json.load(f)
+        except (OSError, ValueError):
+            u = {}
+    dias = u.get("days") or {}
+    hoje = uso_dia()
+    semana = [uso_dia(time.time() - i * 86400) for i in range(6, -1, -1)]
+
+    def total(chaves):
+        t = {"calls": 0, "errors": 0, "quota": 0, "tokens": 0, "images": 0, "seconds": 0, "kinds": {}, "entities": {}}
+        for k in chaves:
+            dd = dias.get(k) or {}
+            for c in ("calls", "errors", "quota", "tokens", "images", "seconds"):
+                t[c] = round(t[c] + (dd.get(c) or 0), 1)
+            for grupo in ("kinds", "entities"):
+                for nome, n in (dd.get(grupo) or {}).items():
+                    t[grupo][nome] = t[grupo].get(nome, 0) + n
+        return t
+
+    return {"today": total([hoje]), "week": total(semana), "month": total([k for k in dias if k[:7] == hoje[:7]]),
+            "days": [{"day": k, **{c: (dias.get(k) or {}).get(c, 0) for c in ("calls", "errors", "quota")}} for k in semana],
+            "recent": (u.get("recent") or [])[:12], "since": min(dias) if dias else None, "sensor": USO_SENSOR}
+
+
+def publicar_uso_sensor():
+    """Sensor no Home Assistant com as chamadas de IA de hoje, para painel e automação."""
+    if not TOKEN or IA_MOCK:
+        return
+    try:
+        d = ler()
+        if d["ajustes"].get("sensores") is False or not ia_ligada(d):
+            return
+        r = resumo_uso()
+        h = r["today"]
+        ha_request("POST", "/states/" + USO_SENSOR, {"state": int(h["calls"]), "attributes": {
+            "friendly_name": "GerencIA: chamadas de IA hoje", "icon": "mdi:robot-outline",
+            "unit_of_measurement": "chamadas", "state_class": "total_increasing",
+            "erros": int(h["errors"]), "cota_excedida": int(h["quota"]), "tokens_texto_estimados": int(h["tokens"]),
+            "imagens": int(h["images"]), "por_tipo": h["kinds"], "ultimos_7_dias": int(r["week"]["calls"]),
+            "este_mes": int(r["month"]["calls"]), "ultima_chamada": r["recent"][0]["at"] if r["recent"] else None}}, timeout=10)
+        _uso_sensor["dia"] = uso_dia()
+    except Exception as e:  # noqa: BLE001
+        if _uso_sensor["dia"] != uso_dia():
+            log("Sensor de uso da IA:", e)
+        _uso_sensor["dia"] = uso_dia()
+
+
+def ia_chamar(tipo, payload, imagens=0, timeout=180):
+    """Chama a ação ai_task.generate_data e registra a chamada no uso da IA."""
+    t0, resultado, saida = time.time(), "ok", 0
+    try:
+        res = ha_request("POST", "/services/ai_task/generate_data?return_response", payload, timeout=timeout)
+        dados = ((res or {}).get("service_response") or {}).get("data")
+        try:
+            saida = len(dados if isinstance(dados, str) else json.dumps(dados, ensure_ascii=False))
+        except (TypeError, ValueError):
+            saida = 0
+        return res
+    except Exception as e:
+        resultado = "cota" if e_cota(e) else "erro"
+        raise
+    finally:
+        try:
+            registrar_uso(tipo, payload.get("entity_id", ""), len(payload.get("instructions") or ""), saida, imagens, time.time() - t0, resultado)
+        except Exception as e:  # noqa: BLE001
+            log("Uso da IA:", e)
+
+
 def ia_entidades():
     if IA_MOCK:
         return [{"id": "ai_task.simulada", "nome": "IA simulada (teste)", "imagens": True}]
@@ -571,6 +718,8 @@ def ia_entidades():
 
 def ia_status(d):
     sel = d["ajustes"].get("ia_entidade") or ""
+    if not ia_ligada(d):
+        return {"pronta": False, "ligada": False, "motivo": "A IA está desligada.", "entidades": [], "selecionada": sel}
     if not TOKEN and not IA_MOCK:
         return {"pronta": False, "motivo": "Fora do Home Assistant a leitura por IA não funciona.", "entidades": [], "selecionada": sel}
     try:
@@ -702,11 +851,11 @@ def ia_limpar(parsed, d):
             "nome": str(it.get("nome") or "").strip()[:80] or "Investimento",
             "banco": str(it.get("banco") or "").strip()[:40],
             "tipo": tipo if tipo in calc.TIPOS else "outro",
-            "valor": round(max(0.0, calc.num(it.get("valor"))), 2),
-            "aplicado": round(max(0.0, calc.num(it.get("aplicado"))), 2),
+            "valor": round(max(0.0, calc.num_br(it.get("valor"))), 2),
+            "aplicado": round(max(0.0, calc.num_br(it.get("aplicado"))), 2),
             "data_valor": _data_ou_vazio(it.get("data_valor")),
             "indexador": idx if idx in calc.INDEXADORES else "cdi_pct",
-            "taxa": round(calc.num(it.get("taxa")), 4),
+            "taxa": round(calc.num_br(it.get("taxa")), 4),
             "vencimento": _data_ou_vazio(it.get("vencimento")),
             "liquidez": "diaria" if str(it.get("liquidez")).lower().startswith("diar") else "vencimento",
             "existente": it.get("existente") if it.get("existente") in ids else "",
@@ -721,7 +870,7 @@ def ia_limpar_caixa(parsed, d):
     for it in _lista(parsed)[:120]:
         if not isinstance(it, dict):
             continue
-        valor = round(abs(calc.num(it.get("valor"))), 2)
+        valor = round(abs(calc.num_br(it.get("valor"))), 2)
         if valor <= 0:
             continue
         tipo = "receita" if str(it.get("tipo")).lower().startswith("rec") else "despesa"
@@ -744,7 +893,7 @@ def ia_limpar_holerite(parsed, d=None):
         for it in (p.get(k) or [])[:40]:
             if not isinstance(it, dict):
                 continue
-            v = round(abs(calc.num(it.get("valor"))), 2)
+            v = round(abs(calc.num_br(it.get("valor"))), 2)
             if v <= 0:
                 continue
             o = {"descricao": str(it.get("descricao") or "").strip()[:60] or ("Crédito" if k == "creditos" else "Desconto"), "valor": v}
@@ -754,8 +903,8 @@ def ia_limpar_holerite(parsed, d=None):
             out.append(o)
         return out
     return {"data": _data_ou_vazio(p.get("data")), "creditos": linhas("creditos", False), "debitos": linhas("debitos", True),
-            "total_creditos": round(abs(calc.num(p.get("total_creditos"))), 2), "total_debitos": round(abs(calc.num(p.get("total_debitos"))), 2),
-            "liquido": round(abs(calc.num(p.get("liquido"))), 2)}
+            "total_creditos": round(abs(calc.num_br(p.get("total_creditos"))), 2), "total_debitos": round(abs(calc.num_br(p.get("total_debitos"))), 2),
+            "liquido": round(abs(calc.num_br(p.get("liquido"))), 2)}
 
 
 # recibo inventado para testes (nenhum dado real)
@@ -803,6 +952,8 @@ def pdf_texto(raw):
 
 def ia_ler(corpo):
     d = ler()
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
     modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite") else "invest"
     foto = str(corpo.get("foto") or "")
     texto = str(corpo.get("texto") or "").strip()[:12000]
@@ -826,6 +977,7 @@ def ia_ler(corpo):
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
     if IA_MOCK:
         time.sleep(1.2)
+        registrar_uso(modo, "ai_task.simulada", 1800, 600, 1 if bruto else 0, 1.2, "ok")
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
@@ -850,7 +1002,7 @@ def ia_ler(corpo):
                     f.write(bruto)
                 payload["attachments"] = [{"media_content_id": f"media-source://media_source/local/{IA_TMP_REL}/{nome_tmp}",
                                            "media_content_type": mime}]
-            res = ha_request("POST", "/services/ai_task/generate_data?return_response", payload, timeout=240)
+            res = ia_chamar(modo, payload, 1 if com_anexo else 0, timeout=240)
         finally:
             if tmp:
                 try:
@@ -948,7 +1100,7 @@ def ia_gerar(d, nome, instrucoes, timeout=180):
     ent = d["ajustes"].get("ia_entidade") or ""
     if ent:
         payload["entity_id"] = ent
-    res = ha_request("POST", "/services/ai_task/generate_data?return_response", payload, timeout=timeout)
+    res = ia_chamar("precos", payload, 0, timeout=timeout)
     dados = ((res or {}).get("service_response") or {}).get("data")
     if dados is None:
         raise ValueError("A IA não devolveu resposta.")
@@ -966,11 +1118,14 @@ def conferir_fonte(serv, d):
     trechos = assinaturas.trechos_preco(texto)
     if not trechos:
         return {**base, "status": "sem_precos"}
+    if not ia_ligada(d):
+        return {**base, "status": "ia_desligada"}
     if not ia_disponivel(d):
         return {**base, "status": "sem_ia"}
     try:
         if IA_MOCK:
             dados = DICAS_SIMULADAS.get(serv["id"], {"planos": []})
+            registrar_uso("precos", "ai_task.simulada", len(trechos), 400, 0, 0.6, "ok")
         else:
             dados = ia_gerar(d, f"GerencIA: preços de {serv['curto']}", assinaturas.prompt(serv, trechos))
         planos, recusados = assinaturas.limpar_planos(extrair_json(dados), texto)
@@ -1086,6 +1241,9 @@ def iniciar_conferencia(forcar=False):
 
 
 def dicas_estado(d, disparar=True):
+    if d["ajustes"].get("dicas") is False:
+        return {"dicas": [], "assinaturas": [], "conferindo": False, "desligadas": True,
+                "catalogo": [c["curto"] for c in assinaturas.CATALOGO], "dolar": None, "atualizado": None}
     cache = dicas_ler()
     fontes = cache.get("fontes") or {}
     dolar = float(DOLAR_FIXO) if DOLAR_FIXO else (cache.get("dolar") or {}).get("valor")
@@ -1226,6 +1384,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.enviar(200, f.read(), "image/jpeg")
             if p == "/api/ia/status":
                 return self.enviar(200, ia_status(ler()))
+            if p == "/api/ia/uso":
+                return self.enviar(200, resumo_uso())
+            if p == "/api/backups":
+                return self.enviar(200, listar_backups())
             if p == "/api/dicas":
                 return self.enviar(200, dicas_estado(ler()))
             if p == "/api/export/zip":
@@ -1285,6 +1447,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/dicas/conferir":
                 iniciar_conferencia(forcar=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
+            if p == "/api/backups/restaurar":
+                return self.enviar(200, restaurar_backup(self.corpo_json().get("nome", "")))
             if p == "/api/importar":
                 d = importar(self.corpo(), self.headers.get("X-Nome-Arquivo"))
                 return self.enviar(200, d)
@@ -1427,6 +1591,7 @@ def rotina():
             limpar_fotos(d)
             CONEXAO.publicar(integracao_ligada(d))
             dicas_estado(d)  # confere assinaturas novas ou com mais de 30 dias
+            publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)
         time.sleep(15 * 60)

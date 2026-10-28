@@ -1,5 +1,16 @@
 # Mudanças
 
+## 1.6.0
+
+- **Mais em abas**, no mesmo padrão do ResolvIA, do CronologIA e do InventarIA: Bancos, Caixa, Invest, Integrações, Dados, Aparência e Opções, com o ícone de cada seção num quadradinho.
+- **Usar IA**: chave em Mais › Integrações que liga e desliga tudo o que usa IA, para todos os aparelhos.
+- **Uso da IA**: chamadas de hoje, 7 dias e mês, gráfico por dia, tipos e últimas chamadas, e o sensor `sensor.gerencia_ia_hoje`.
+- **Dados**: os backups da pasta `share/gerencia` aparecem na tela, com **Restaurar**; exportar com Tudo (ZIP), Lançamentos e Investimentos (CSV) e Dados (JSON); e "Onde ficam os dados".
+- **Aparência**: tema em três botões com ícone e cor do app em etiquetas com nome.
+- **Opções**: dicas de economia, prever o dia a dia e corrigir valores, valendo para todos os aparelhos.
+- **Buscar** sempre à mostra na Carteira do Invest, com botão de limpar; no computador, a tecla / põe o cursor nele.
+- Valores lidos pela IA no formato brasileiro ("15.000,00") agora entram certos.
+
 ## 1.5.0
 
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) no mesmo Home Assistant, as contas a pagar, os fixos e as faturas do cartão aparecem na agenda e na tela Agora dele. O **Paguei** de lá dá baixa aqui, do mesmo jeito que o daqui (o fixo do mês fica pago, a fatura fica toda paga), e o modelo **Conta a pagar** de lá cria a conta aqui, única, todo mês ou todo ano.

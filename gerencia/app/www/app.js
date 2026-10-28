@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.5.0';
+const VERSAO = '1.6.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -35,7 +35,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [], integracao: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -83,6 +83,18 @@ const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
 /* ------------------------------------------------------------------ ícones */
 const P = {
+  'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+  'contrast': '<circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/>',
+  'palette': '<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>',
+  'blocks': '<path d="M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2"/><rect x="14" y="2" width="8" height="8" rx="1"/>',
+  'toggle-right': '<circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/>',
+  'archive-restore': '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>',
+  'sheet': '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/>',
+  'braces': '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+  'database': '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  'chart-column': '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  'layers': '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+  'receipt': '<path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/>',
   wallet: '<path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1V7Z"/><path d="M4 7V6a2 2 0 0 1 2-2h10"/><circle cx="16" cy="13.5" r="1.3" fill="currentColor" stroke="none"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -131,15 +143,15 @@ const S = {
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
     invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gAporte: 0, gIR: false, gAgrup: 'banco', gSel: null,
-    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxCatTipo: 'despesa', cxSel: null, faturaAberta: null,
+    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
   }, store.get('ui', {})),
   ia: null,
   dicas: null,
   aporteDig: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, cxEstimar } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, cxEstimar });
+  const { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba });
 };
 
 function normalizar(d) {
@@ -328,6 +340,9 @@ const apiServidor = {
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
+  iaUso: () => fetch('api/ia/uso', { cache: 'no-store' }).then(jsonOk),
+  backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
+  restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
 };
 function apiDemo() {
@@ -392,6 +407,20 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
+    async iaUso() {
+      const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
+      const rec = [['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
+        .map(([kind, result, seconds, tokens, images], k) => ({ at: new Date(Date.now() - (k * 37 + 6) * 60000).toISOString(), kind, entity: 'ai_task.google_ai_task', result, seconds, tokens, images }));
+      return { today: { calls: 4, errors: 0, quota: 1, tokens: 6900, images: 3, kinds: { caixa: 1, holerite: 1, precos: 1, invest: 1 }, entities: {} },
+        week: { calls: 15, errors: 1, quota: 1, tokens: 28000, images: 9, kinds: { caixa: 7, precos: 4, holerite: 2, invest: 2 }, entities: { 'ai_task.google_ai_task': 15 } },
+        month: { calls: 38, errors: 2, quota: 1, tokens: 71000, images: 22, kinds: {}, entities: { 'ai_task.google_ai_task': 38 } },
+        days: [1, 3, 0, 2, 4, 1, 4].map((calls, k) => ({ day: dia(k), calls, errors: k === 3 ? 1 : 0, quota: k === 6 ? 1 : 0 })), recent: rec, sensor: 'sensor.gerencia_ia_hoje' };
+    },
+    async backups() {
+      const b = k => ({ nome: `gerencia-${iso(new Date(hoje().getTime() - k * 864e5))}-2105.zip`, tamanho: 182000 - k * 1500, quando: new Date(Date.now() - k * 864e5 - 3 * 36e5).toISOString() });
+      return [b(0), b(7), b(14)];
+    },
+    async restaurarBackup() { throw new Error('Na prévia não dá para restaurar backups.'); },
     async iaLer(c) {
       await espera(1600);
       if (c.modo === 'holerite') return { holerite: { data: '', creditos: [{ descricao: 'Produção', valor: 4200 }, { descricao: 'Ajuda de custo', valor: 7600 }, { descricao: 'Transporte', valor: 1250 }],
@@ -462,6 +491,7 @@ function aplicarTema() {
   }
   const cor = corOk(a.cor) || AJUSTES_PADRAO.cor;
   root.style.setProperty('--accent', cor);
+  root.dataset.ia = a.ia === false ? 'off' : 'on';
   const meta = $('meta[name="theme-color"]');
   if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0f1318';
 }
@@ -489,8 +519,8 @@ function syncInfo() {
   if (I.fonte === 'bcb' && q) return ['', iso(q) === iso(hoje()) ? `Índices do Banco Central de hoje, ${hora}` : `Índices do Banco Central de ${fDataC(q)}`];
   return ['manual', DEMO ? 'Exemplo com os índices de outubro de 2026' : 'Esperando os índices do Banco Central'];
 }
-function cabecalho(titulo, acoes = '') {
-  const [cls, txt] = syncInfo();
+function cabecalho(titulo, acoes = '', status = null) {
+  const [cls, txt] = status || syncInfo();
   return `<header class="cab"><div class="cab-l"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? ' · Olá, ' + esc(S.usuario.split(' ')[0]) : ''}</p>
     <h1>${titulo}</h1></div>${acoes}</header>
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
@@ -706,12 +736,13 @@ function telaInvest() {
       <button class="btn" data-a="ia" data-v="invest">${ic('ia')}Ler print com IA</button></div></div>`;
   }
   const nMeu = porEscopo('meu').length, nTerc = porEscopo('terc').length;
-  let html = cabecalho('Investimentos', `${u.invModo === 'carteira' ? `<button class="icbtn" data-a="buscar" aria-label="Buscar">${ic(u.buscaAberta ? 'x' : 'search')}</button>` : ''}
-    <button class="icbtn" data-a="ia" data-v="invest" aria-label="Ler com IA">${ic('ia')}</button>`);
+  let html = cabecalho('Investimentos', `<button class="icbtn" data-a="ia" data-v="invest" aria-label="Ler com IA">${ic('ia')}</button>`);
   html += `<div class="seg">${[['carteira', 'Carteira'], ['evolucao', 'Evolução'], ['divisao', 'Divisão']].map(([k, n]) =>
     `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (u.invModo !== 'carteira') return html + invGraficos();
-  if (u.buscaAberta) html += `<div class="busca">${ic('search', 'ic-s')}<input id="q" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off"></div>`;
+  // Buscar sempre à mostra, como no ResolvIA; no computador, a tecla / põe o cursor nele
+  html += `<div class="busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
+    ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
   html += `<div class="seg">
     <button class="${u.filtro === 'todos' ? 'on' : ''}" data-a="filtro" data-v="todos">Todos <small>${d.investimentos.length}</small></button>
     <button class="${u.filtro === 'meus' ? 'on' : ''}" data-a="filtro" data-v="meus">Meus <small>${nMeu}</small></button>
@@ -1438,7 +1469,7 @@ function serieFluxo() {
   const [ini, fim] = periodoFluxo();
   const meses = [];
   for (let ym = ini; ym <= fim; ym = addYm(ym, 1)) meses.push(ym);
-  const atual = ymHoje(), estimar = S.ui.cxEstimar !== false, media = mediaVariaveis();
+  const atual = ymHoje(), estimar = S.d.ajustes.prever_dia !== false, media = mediaVariaveis();
   let acum = 0;
   return meses.map(ym => {
     let ent = 0, sai = 0, apo = 0;
@@ -1459,14 +1490,14 @@ function caixaFluxo() {
     `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}">${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card"><h3 class="g-tit">Fluxo de caixa mensal</h3>
     <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
-      ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${u.cxEstimar !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
+      ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${S.d.ajustes.prever_dia !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
     <div class="chart" id="ch-fluxo" role="img" aria-label="Entradas e saídas por mês"></div>
     <div class="leg"><span><i class="sw-q" style="--kc:var(--entra)"></i>Entradas</span><span><i class="sw-q" style="--kc:var(--sai)"></i>Saídas</span>
       ${serie.some(m => m.apo > 0) ? '<span><i class="sw-q" style="--kc:var(--apo)"></i>Aportes</span>' : ''}
-      ${u.cxEstimar !== false ? '<span><i class="sw-q est"></i>Dia a dia (média)</span>' : ''}<span><i class="pt-q"></i>Sobrou</span><span><i class="sw-q prev"></i>Previsto</span></div>
+      ${S.d.ajustes.prever_dia !== false ? '<span><i class="sw-q est"></i>Dia a dia (média)</span>' : ''}<span><i class="pt-q"></i>Sobrou</span><span><i class="sw-q prev"></i>Previsto</span></div>
     <div class="sep" style="margin:14px 6px"></div>
     <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Soma nos próximos meses a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.</span></div>
-      <button class="sw${u.cxEstimar !== false ? ' on' : ''}" data-a="cx-estimar" aria-label="Prever o dia a dia"></button></div></div>`;
+      ${chave('prever_dia', S.d.ajustes.prever_dia !== false, 'Prever o dia a dia')}</div></div>`;
   html += `<div class="graf-card"><h3 class="g-tit">Saldo em caixa</h3>
     <div class="stat-duo"><div><span>Hoje</span><b>${brl(saldoCaixa(), 0)}</b></div>
       <div><span>Em ${nomeMes(serie[serie.length - 1].ym, true)}</span><b>${brl(serie[serie.length - 1].saldo, 0)}</b></div></div>
@@ -2220,7 +2251,7 @@ function revisarItemInvest(k) {
   pintarFolha();
 }
 document.addEventListener('paste', ev => {
-  if (!IAS || IAS.etapa !== 'entrada') return;
+  if (!IAS || IAS.etapa !== 'entrada' || !iaOn()) return;
   const f = [...(ev.clipboardData?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (f) { ev.preventDefault(); iaPegarArquivo(f); }
 });
@@ -2334,7 +2365,7 @@ function linhaDicaCategoria(c) {
 }
 
 function cardDicas() {
-  if (!temCaixa()) return '';
+  if (!temCaixa() || S.d.ajustes.dicas === false) return '';
   const { subs, cat } = dicasVisiveis();
   const conferindo = S.dicas && S.dicas.conferindo && (S.dicas.assinaturas || []).some(a => a.status === 'conferindo');
   if (!subs.length && !cat) {
@@ -2352,8 +2383,9 @@ function cardDicasMais() {
   const catalogo = (st && st.catalogo) || ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'];
   const fora = (S.d.ajustes.dicas_fora || []).length;
   const subs = (st && st.assinaturas) || [];
-  let h = `<div class="card" id="dicas"><div class="rot">Dicas de economia</div>
-    <p class="desc">O app procura assinaturas nos seus fixos e faturas e confere o preço do plano anual na página oficial de cada serviço, lida pela IA do Home Assistant. A dica só aparece quando o valor que você paga bate com um plano e o preço está escrito na página. Reconhece ${esc(juntarE(catalogo))}.</p>`;
+  let h = `<section class="card" id="dicas">${maisCab('percent', 'Dicas de economia')}
+    ${maisLead(`O app procura assinaturas nos seus fixos e faturas e confere o preço do plano anual na página oficial de cada serviço, lida pela IA do Home Assistant. A dica só aparece quando o valor que você paga bate com um plano e o preço está escrito na página. Reconhece ${esc(juntarE(catalogo))}.`)}`;
+  if (S.d.ajustes.dicas === false) return h + `<div class="status manual">Desligadas em Mais › Opções.</div></section>`;
   if (!st) h += `<div class="status manual">Carregando…</div>`;
   else if (!subs.length) h += `<div class="status manual">Nenhuma dessas assinaturas nos seus fixos ou faturas.</div>`;
   else {
@@ -2371,7 +2403,7 @@ function cardDicasMais() {
   h += `<div class="dica-btns"><button class="btn out" data-a="dicas-conferir"${st && st.conferindo ? ' disabled' : ''}>${ic('refresh')}${st && st.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
     ${fora ? `<button class="btn" data-a="dicas-voltar">Mostrar dispensadas (${fora})</button>` : ''}</div>`;
   if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar são comparados com o dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão. A economia em reais é estimada pelo que você paga hoje.</p>`;
-  return h + `</div>`;
+  return h + `</section>`;
 }
 
 /* --------- mudar para o plano anual */
@@ -2584,9 +2616,10 @@ function blocoDescontos(l, ligados = []) {
 function cardCategorias() {
   const grupo = tipo => S.d.categorias.filter(c => c.tipo === tipo).map(c =>
     `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
-  return `<div class="card" id="categorias"><div class="rot">Categorias</div>
+  return `<section class="card" id="categorias">${maisCab('layers', 'Categorias')}
+    ${maisLead('Para onde vai e de onde vem o dinheiro. Toque numa categoria para mudar o nome ou a cor.')}
     <h3>Gastos</h3><div class="chips">${grupo('despesa')}<button class="chip add" data-a="categoria-nova" data-v="despesa">${ic('plus', 'ic-s')}Nova</button></div>
-    <h3>Recebimentos</h3><div class="chips" style="margin:0">${grupo('receita')}<button class="chip add" data-a="categoria-nova" data-v="receita">${ic('plus', 'ic-s')}Nova</button></div></div>`;
+    <h3>Recebimentos</h3><div class="chips" style="margin:0">${grupo('receita')}<button class="chip add" data-a="categoria-nova" data-v="receita">${ic('plus', 'ic-s')}Nova</button></div></section>`;
 }
 function cardFixos() {
   const ym = ymHoje();
@@ -2599,27 +2632,33 @@ function cardFixos() {
   const mensais = ativos.filter(r => r.freq !== 'anual'), anuais = ativos.filter(r => r.freq === 'anual');
   const rec = mensais.filter(r => r.tipo === 'receita'), des = mensais.filter(r => r.tipo !== 'receita');
   const soma = l => l.reduce((s, r) => s + (+r.valor || 0), 0);
-  return `<div class="card" id="fixos"><div class="rot">Fixos do mês <b>${brl(soma(rec) - soma(des), 0)}</b></div>
-    <p class="desc">Entram sozinhos nos próximos meses, com o valor padrão. Toque para mudar o padrão.</p>
+  return `<section class="card" id="fixos">${maisCab('repeat', 'Fixos', brl(soma(rec) - soma(des), 0) + ' por mês')}
+    ${maisLead('Entram sozinhos nos próximos meses, com o valor padrão. Toque para mudar o padrão ou parar.')}
     ${rec.length ? `<h3>Recebimentos · ${brl(soma(rec), 0)}</h3>${rec.map(linha).join('')}` : ''}
     ${des.length ? `<h3 style="margin-top:14px">Gastos · ${brl(soma(des), 0)}</h3>${des.map(linha).join('')}` : ''}
-    ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}</div>`;
+    ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}</section>`;
 }
 function cardIA() {
+  const on = iaOn();
+  const chaveIA = linhaChave('ia', on, 'Usar IA', on
+    ? 'Ligado: aparecem Ler com IA (fatura, print, foto de papel e WhatsApp), Ler recibo no salário e Ler nas imagens; as dicas de economia conferem preços com a IA.'
+    : 'Desligado: os botões de IA somem e as dicas não conferem preços. Vale para todos os aparelhos; nada do que já foi lançado muda.');
+  const cab = `<section class="card" id="ia">${maisCab('ia', 'Leitura por IA')}
+    ${maisLead('Lê faturas em PDF, prints, fotos de papel, textos do WhatsApp e recibos de pagamento, e prints do banco para cadastrar investimentos. Usa a integração de IA configurada no Home Assistant (Anthropic Claude, OpenAI, Google Gemini ou um modelo local); o app não guarda nenhuma chave.')}
+    ${chaveIA}`;
+  if (!on) return cab + `</section>`;
   const s = S.ia;
   let st;
   if (DEMO) st = ['', 'Na prévia, a leitura por IA é simulada.'];
   else if (!s) st = ['manual', 'Verificando a IA do Home Assistant…'];
-  else if (s.pronta) st = ['', `Usando ${s.selecionada ? esc((s.entidades.find(e => e.id === s.selecionada) || {}).nome || s.selecionada) : 'a IA padrão do Home Assistant'}.`];
+  else if (s.pronta) st = ['', `Pronta. Usando ${s.selecionada ? esc((s.entidades.find(e => e.id === s.selecionada) || {}).nome || s.selecionada) : 'a IA padrão do Home Assistant'}.`];
   else st = ['erro', esc(s.motivo || 'A IA não está pronta.')];
   const ents = (s && s.entidades) || [];
-  return `<div class="card" id="ia"><div class="rot">Leitura por IA</div>
-    <p class="desc">Lê fatura em PDF, prints, fotos de papel e textos do WhatsApp para lançar gastos e recebimentos, e prints do banco para cadastrar investimentos. Usa a IA configurada no Home Assistant.</p>
-    <div class="status ${st[0]}">${st[1]}</div>
-    <div class="campo"><label class="lbl" for="ia-ent">IA usada</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
+  return cab + `<div class="status ${st[0]}">${st[1]}</div>
+    <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
-    <p class="nota" style="margin:12px 0 0">Para ler imagem e PDF, a IA precisa aceitar anexos; Google Gemini, OpenAI e Anthropic aceitam. Se a IA não aceitar PDF, o app manda só o texto do arquivo.</p></div>`;
+    <p class="nota" style="margin:12px 0 0">Para ler imagem e PDF, a IA precisa aceitar anexos; Google Gemini, OpenAI e Anthropic aceitam. Se a IA não aceitar PDF, o app manda só o texto do arquivo.</p></section>`;
 }
 
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
@@ -2672,79 +2711,230 @@ function salvarBanco() {
 }
 
 /* ------------------------------------------------------------------ Mais */
+/* ------------------------------------------------------------------ Mais: abas no alto, como no ResolvIA, no CronologIA e no InventarIA */
+const MAIS_ABAS = [
+  ['bancos', 'Bancos', 'bank'], ['caixa', 'Caixa', 'fluxo'], ['invest', 'Invest', 'trend'], ['integracoes', 'Integrações', 'blocks'],
+  ['dados', 'Dados', 'archive'], ['aparencia', 'Aparência', 'palette'], ['opcoes', 'Opções', 'toggle-right'],
+];
+const maisAba = () => MAIS_ABAS.some(([k]) => k === S.ui.maisAba) ? S.ui.maisAba : 'bancos';
+const iaOn = () => S.d.ajustes.ia !== false;
+// cabeçalho de seção: o ícone num quadradinho no tom da cor do app e o título grande
+const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
+const maisLead = t => `<p class="painel-lead">${t}</p>`;
+const chave = (k, on, rotulo) => `<button class="sw${on ? ' on' : ''}" data-a="ajuste" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
+const linhaChave = (k, on, titulo, texto) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo)}</div>`;
+// cores do app com nome, em forma de etiqueta (as mesmas do CronologIA e do ResolvIA; o azul é o do GerencIA)
+const CORES_APP = [
+  ['Vermelho', '#FF5A4F'], ['Coral', '#FF8A65'], ['Laranja', '#FFA23E'], ['Ouro', '#F2C14E'], ['Verde', '#8BD45F'], ['Menta', '#4ED3A6'],
+  ['Turquesa', '#3CCBDA'], ['Azul', '#56AEFF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
+];
+const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
+function corAppAtual() {
+  const c = (corOk(S.d.ajustes.cor) || AJUSTES_PADRAO.cor).toUpperCase();
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [r, g, b] = rgb(c);
+  let melhor = null, dist = 1e9;
+  for (const [, hex] of CORES_APP) { const [r2, g2, b2] = rgb(hex); const dd = Math.abs(r - r2) + Math.abs(g - g2) + Math.abs(b - b2); if (dd < dist) { dist = dd; melhor = hex; } }
+  return dist <= 24 ? melhor : null;
+}
+
 function telaMais() {
-  const d = S.d, a = d.ajustes, I = d.indices;
-  let html = cabecalho('Mais');
-  const temaDesc = { auto: 'Segue o modo claro/escuro do Home Assistant.', claro: 'Sempre claro.', escuro: 'Sempre escuro.' }[a.tema] || '';
-  html += `<div class="card"><div class="rot">Aparência</div><h3>Tema</h3>
-    <div class="seg">${[['auto', 'Automático', 'auto'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
-      `<button class="${a.tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i, 'ic-s')}${n}</button>`).join('')}</div>
-    <p class="desc">${temaDesc}</p><div class="sep"></div><h3>Cor do app</h3>
-    <div class="cores">${PALETA.map(c => `<button class="cor${(a.cor || '').toUpperCase() === c ? ' on' : ''}" style="--c:${c}" data-a="cor" data-v="${c}" aria-label="Cor ${c}">${(a.cor || '').toUpperCase() === c ? ic('check') : ''}</button>`).join('')}</div></div>`;
+  const aba = maisAba();
+  const d = S.d;
+  let status = ['', `GerencIA ${VERSAO}`];
+  if (aba === 'bancos') {
+    const cs = d.bancos.flatMap(b => b.contas || []);
+    status = ['', d.bancos.length ? `${plural(d.bancos.length, 'banco', 'bancos')} · ${plural(cs.length, 'conta', 'contas')} · ${plural(cs.filter(c => c.cartao).length, 'cartão', 'cartões')}` : 'Nenhum banco ainda'];
+  } else if (aba === 'invest') status = syncInfo();
+  else if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
+  const corpo = { bancos: maisBancos, caixa: maisCaixa, invest: maisInvest, integracoes: maisIntegracoes, dados: maisDados, aparencia: maisAparencia, opcoes: maisOpcoes }[aba]();
+  return `${cabecalho('Mais', '', status)}
+    <div class="mais-abas" role="tablist" aria-label="Seções de Mais">${MAIS_ABAS.map(([k, n, i]) =>
+      `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
+    <div class="mais-painel" role="tabpanel" aria-label="${MAIS_ABAS.find(([k]) => k === aba)[1]}">${corpo}</div>
+    <p class="foot"><b>GerencIA</b><br>v${VERSAO} · ${DEMO ? 'prévia do app do Home Assistant: as alterações ficam só nesta tela.' : 'seus dados ficam em arquivos abertos (JSON) dentro do Home Assistant.'}</p>`;
+}
 
-  // bancos
-  html += `<div class="card" id="bancos"><div class="rot">Bancos</div>`;
-  if (d.bancos.length) {
-    for (const b of d.bancos) {
-      const l = d.investimentos.filter(i => i.banco === b.id);
-      const v = l.reduce((s, i) => s + valorHoje(i), 0);
-      html += `<button class="banco-row" data-a="banco" data-id="${b.id}"><span class="ini" style="--c:${corOk(b.cor) || '#B8B0B0'}">${esc((b.nome || '?').slice(0, 1).toUpperCase())}</span>
-        <div class="op-t"><b>${esc(b.nome)}</b><span>${esc(resumoContas(b))}${l.length ? ` · ${plural(l.length, 'investimento', 'investimentos')} · ${brl(v, 0)}` : ''}</span></div>${ic('chev', 'chev')}</button>`;
-    }
-  } else {
-    html += `<p class="desc">Cadastre os bancos e corretoras, quem tem conta em cada um e quem tem cartão de crédito. Cada banco ganha uma cor para as listas e os gráficos.</p>`;
+/* --------- Bancos */
+function maisBancos() {
+  const d = S.d;
+  let h = `<section class="card" id="bancos">${maisCab('bank', 'Bancos e contas')}
+    ${maisLead('Os bancos e corretoras, quem tem conta em cada um e quem tem cartão de crédito, com o dia em que a fatura fecha e vence. Cada banco ganha uma cor para as listas e os gráficos.')}`;
+  for (const b of d.bancos) {
+    const l = d.investimentos.filter(i => i.banco === b.id);
+    const v = l.reduce((s, i) => s + valorHoje(i), 0);
+    h += `<button class="banco-row" data-a="banco" data-id="${b.id}"><span class="ini" style="--c:${corOk(b.cor) || '#B8B0B0'}">${esc((b.nome || '?').slice(0, 1).toUpperCase())}</span>
+      <div class="op-t"><b>${esc(b.nome)}</b><span>${esc(resumoContas(b))}${l.length ? ` · ${plural(l.length, 'investimento', 'investimentos')} · ${brl(v, 0)}` : ''}</span></div>${ic('chev', 'chev')}</button>`;
   }
-  html += `<button class="btn out larga" data-a="banco" style="margin-top:14px">${ic('plus')}Cadastrar banco</button>`;
+  h += `<button class="btn out larga" data-a="banco" style="margin-top:14px">${ic('plus')}Cadastrar banco</button>`;
   const sug = BANCOS_COMUNS.filter(n => !d.bancos.some(b => (b.nome || '').toLowerCase() === n.toLowerCase())).slice(0, 10);
-  if (sug.length) html += `<div class="ctrl"><div class="lbl">Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`;
-  html += `</div>`;
+  if (sug.length) h += `<div class="ctrl"><div class="lbl">Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`;
+  return h + `</section>`;
+}
 
-  html += cardFixos() + cardCategorias() + cardDicasMais() + cardIA();
-  // índices
+/* --------- Caixa: fixos, categorias e dicas */
+function maisCaixa() {
+  const fixos = cardFixos();
+  return (fixos || `<section class="card" id="fixos">${maisCab('repeat', 'Fixos')}${maisLead('Salário, aluguel, assinaturas e o que mais se repete. Ao lançar, escolha Repetir: Todo mês ou Todo ano, e eles aparecem sozinhos nos próximos meses.')}
+    <button class="btn out" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar um fixo</button></section>`) + cardCategorias() + cardDicasMais();
+}
+
+/* --------- Invest: índices de mercado */
+function maisInvest() {
+  const I = S.d.indices;
   const quando = I.atualizado_em ? new Date(I.atualizado_em) : null;
   const st = I.erro ? ['erro', `${esc(I.erro)}. Usando os últimos valores.`]
     : I.fonte === 'manual' ? ['manual', `Valores digitados à mão${quando ? ' em ' + fData(quando) : ''}.`]
       : I.fonte === 'bcb' && quando ? ['', `Atualizado pelo Banco Central em ${fData(quando)} às ${quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`]
         : ['manual', 'Valores de partida (outubro de 2026). Toque em atualizar para buscar os de hoje.'];
-  html += `<div class="card" id="indices"><div class="rot">Índices de mercado</div>
-    <p class="desc">Usados para calcular quanto cada investimento rende. Toque num valor para mudar à mão.</p>
-    ${[['cdi', 'CDI', 'Taxa DI, ao ano', '% a.a.'], ['selic', 'Selic', 'Meta do Copom, ao ano', '% a.a.'], ['ipca', 'IPCA', 'Inflação dos últimos 12 meses', '%'], ['tr', 'TR', 'Taxa referencial, ao mês (poupança)', '% a.m.']].map(([k, n, s]) =>
+  return `<section class="card" id="indices">${maisCab('trend', 'Índices de mercado')}
+    ${maisLead('Usados para calcular quanto cada investimento rende. Toque num valor para mudar à mão.')}
+    ${[['cdi', 'CDI', 'Taxa DI, ao ano'], ['selic', 'Selic', 'Meta do Copom, ao ano'], ['ipca', 'IPCA', 'Inflação dos últimos 12 meses'], ['tr', 'TR', 'Taxa referencial, ao mês (poupança)']].map(([k, n, s]) =>
       `<button class="idx-row" data-a="indice" data-v="${k}"><div><b>${n}</b><span>${s}</span></div><span class="vl">${pct(+I[k] || 0)}%</span>${ic('chev', 'chev')}</button>`).join('')}
     <div class="status ${st[0]}">${st[1]}</div>
-    <div class="linha-sw" style="margin-bottom:16px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
-      <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" aria-label="Atualizar sozinho"></button></div>
-    <button class="btn out" data-a="indices-atualizar">${ic('refresh')}Atualizar agora</button></div>`;
+    ${linhaChaveIdx(I)}
+    <button class="btn out" data-a="indices-atualizar" style="margin-top:6px">${ic('refresh')}Atualizar agora</button></section>`;
+}
+const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
+  <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" role="switch" aria-checked="${!!I.auto}" aria-label="Atualizar sozinho"></button></div>`;
 
-  // ajustes
-  html += `<div class="card"><div class="rot">Cálculos</div>
-    <div class="linha-sw"><div><b>Corrigir valores pelo rendimento</b><span>Estima o valor de hoje a partir do último valor informado. Renda variável e dinheiro parado não mudam.</span></div>
-      <button class="sw${a.corrigir !== false ? ' on' : ''}" data-a="ajuste" data-k="corrigir" aria-label="Corrigir valores"></button></div>
-    <div class="sep"></div>
-    <div class="linha-sw"><div><b>Sensores no Home Assistant</b><span><code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code> e <code>_rendimento_mensal</code>, para painéis e automações.</span></div>
-      <button class="sw${a.sensores !== false ? ' on' : ''}" data-a="ajuste" data-k="sensores" aria-label="Sensores"></button></div></div>`;
-  html += cardOutrosApps(a);
+/* --------- Integrações: outros apps, IA, uso da IA e sensores */
+function maisIntegracoes() {
+  const a = S.d.ajustes;
+  return cardOutrosApps(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
+    <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
+      ${maisLead('Para painéis e automações: patrimônio, seu dinheiro, de terceiros, rendimento por mês, saldo em caixa, entradas e saídas do mês e as chamadas de IA de hoje.')}
+      ${linhaChave('sensores', a.sensores !== false, 'Criar os sensores', a.sensores !== false
+        ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code> e <code>_ia_hoje</code>. Atualizam a cada mudança e a cada 15 minutos.'
+        : 'Desligado: o app não cria sensores no Home Assistant.')}
+    </section>`;
+}
 
-  // dados
-  const exp = (fmt, nome) => DEMO
-    ? `<button class="btn" data-a="demo-arq">${ic('download')}${nome}</button>`
-    : `<a class="btn" href="api/export/${fmt}" download>${ic('download')}${nome}</a>`;
-  html += `<div class="card"><div class="rot">Dados</div>
-    <div class="dado"><h4>Exportar</h4><p>Baixe para abrir no Excel, guardar ou levar para outro programa. Os arquivos são abertos e legíveis.</p>
-      <div class="btns">${exp('lancamentos', 'Lançamentos (CSV)')}${exp('csv', 'Investimentos (CSV)')}${exp('json', 'JSON')}${exp('zip', 'Tudo com imagens (ZIP)')}</div></div>
-    <div class="dado"><h4>Relatório de patrimônio</h4><p>Lista por dono e por banco, pronta para imprimir ou salvar em PDF.</p>
-      <button class="btn" data-a="relatorio">${ic('file')}Abrir relatório</button></div>
-    <div class="dado"><h4>Backup na pasta share</h4><p>Cria uma cópia completa em <code>share/gerencia</code>, que você acessa pela rede do Home Assistant. Os backups do próprio Home Assistant também incluem o GerencIA.</p>
-      <button class="btn pri" data-a="backup">${ic('archive')}Criar backup</button></div>
-    <div class="dado"><h4>Importar backup ou JSON</h4><p>Traz os dados de um .zip ou .json exportado pelo app. Antes de importar, o app guarda uma cópia do que existe hoje.</p>
-      <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></div>
-    <div class="dado"><h4>Versões anteriores</h4><p>O app guarda sozinho uma cópia a cada 10 minutos de uso. Se algo sair errado, volte para uma versão anterior.</p>
-      <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></div>
-    <div class="dado"><h4>Começar do zero</h4><p>Apaga lançamentos, fixos, investimentos e bancos. Índices, categorias e preferências continuam.</p>
-      <button class="btn perigo" data-a="apagar-tudo">${ic('trash')}Apagar tudo</button></div></div>`;
+/* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura' };
+const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
+const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
+function quandoCurto(isoTxt) {
+  const dt = new Date(isoTxt);
+  if (isNaN(dt)) return '';
+  const hm = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const k = iso(dt), hj = iso(hoje()), on = iso(new Date(hoje().getTime() - 864e5));
+  return k === hj ? `hoje ${hm}` : k === on ? `ontem ${hm}` : `${k.slice(8, 10)}/${k.slice(5, 7)} ${hm}`;
+}
+function nomeIA(id) {
+  if (!id || id === 'padrão do Home Assistant') return 'Padrão do Home Assistant';
+  const e = ((S.ia && S.ia.entidades) || []).find(x => x.id === id);
+  return e ? e.nome : id === 'ai_task.simulada' ? 'IA simulada (teste)' : id.replace(/^[a-z_]+\./, '').replace(/_/g, ' ');
+}
+function cardUsoIA() {
+  const u = S.uso;
+  let corpo;
+  if (!u) corpo = `<div class="status manual">Carregando…</div>`;
+  else if (!u.today || !(u.days || []).length || !u.month.calls) corpo = `<div class="status manual">Nenhuma chamada de IA ainda. Elas aparecem aqui quando o app lê uma fatura, um print, um recibo ou confere o preço de uma assinatura.</div>`;
+  else {
+    const hojeK = u.days[u.days.length - 1].day;
+    if (!S.usoSel || !u.days.some(x => x.day === S.usoSel)) S.usoSel = hojeK;
+    const diaSem = k => DIA_SEM[new Date(k + 'T12:00:00').getDay()];
+    const diaLongo = k => k === hojeK ? 'Hoje' : `${maiuscula(diaSem(k))}, ${k.slice(8, 10)}/${k.slice(5, 7)}`;
+    const sub = t => t.quota ? `<span class="s alerta">${t.quota} ${t.quota > 1 ? 'vezes' : 'vez'} sem cota</span>` : t.errors ? `<span class="s alerta">${t.errors} com erro</span>` : `<span class="s">≈ ${milTokens(t.tokens)} tokens</span>`;
+    const tile = (k, t) => `<div class="uso-tile"><span class="uk">${k}</span><span class="v">${t.calls || 0}</span>${sub(t)}</div>`;
+    const max = Math.max(1, ...u.days.map(x => x.calls || 0));
+    const barras = u.days.map(x => {
+      const h = x.calls ? Math.max(4, Math.round(x.calls / max * 100)) : 0;
+      const lab = `${diaLongo(x.day)}: ${plural(x.calls || 0, 'chamada', 'chamadas')}${x.errors ? `, ${x.errors} com erro` : ''}${x.quota ? `, ${x.quota} sem cota` : ''}`;
+      return `<button class="uso-bar" data-a="uso-dia" data-v="${esc(x.day)}" aria-pressed="${x.day === S.usoSel}" aria-label="${esc(lab)}" title="${esc(lab)}"><i style="height:${h}%"></i></button>`;
+    }).join('');
+    const sel = u.days.find(x => x.day === S.usoSel);
+    const tipos = Object.entries(u.week.kinds || {}).sort((a, b) => b[1] - a[1]);
+    const recentes = (u.recent || []).map(c => {
+      const res = USO_RES[c.result] ?? c.result;
+      return `<li><b>${esc(USO_TIPO[c.kind] || c.kind)}</b><span>${esc(nomeIA(c.entity))}</span>${res ? `<span class="r-erro">${esc(res)}</span>` : ''}
+        <span class="t">${esc(String(c.seconds).replace('.', ','))} s · ≈ ${milTokens(c.tokens)} tokens${c.images ? ` · ${plural(c.images, 'anexo', 'anexos')}` : ''} · ${esc(quandoCurto(c.at))}</span></li>`;
+    }).join('');
+    const ids = [...Object.keys(u.month.entities || {}), S.d.ajustes.ia_entidade || ''].join(' ').toLowerCase();
+    const link = (href, t) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+    const prov = /google|gemini/.test(ids) ? `Consumo exato do Gemini: no ${link('https://console.cloud.google.com/apis/dashboard', 'Google Cloud Console')}, abra APIs e serviços ativados e depois Generative Language API. Os limites do plano grátis estão no ${link('https://aistudio.google.com/', 'Google AI Studio')}.`
+      : /openai|gpt/.test(ids) ? `Consumo exato e custo da OpenAI: ${link('https://platform.openai.com/usage', 'platform.openai.com/usage')}.`
+        : /anthropic|claude/.test(ids) ? `Consumo exato e custo da Anthropic: ${link('https://platform.claude.com/usage', 'Claude Console, Usage')}.`
+          : 'O consumo exato e o custo ficam no painel do provedor da sua IA (Google, OpenAI, Anthropic...).';
+    corpo = `<div class="uso-tiles">${tile('Hoje', u.today)}${tile('7 dias', u.week)}${tile('Este mês', u.month)}</div>
+      <div class="uso-chart" role="group" aria-label="Chamadas de IA nos últimos 7 dias">${barras}</div>
+      <div class="uso-dias" aria-hidden="true">${u.days.map(x => `<span>${x.day === hojeK ? 'hoje' : diaSem(x.day)}</span>`).join('')}</div>
+      <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
+      ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
+      <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
+      <p class="nota">${prov} A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
+      <p class="nota">No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para um painel ou uma automação.</p>`;
+  }
+  return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
+    ${maisLead('Cada leitura de fatura, print ou recibo e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}
+    ${corpo}</section>`;
+}
 
-  html += `<div class="card"><div class="rot">Sobre</div><p class="sobre"><b>GerencIA ${VERSAO}.</b> Os dados ficam em <code>gerencia.json</code>, dentro do app.
-    Funciona sem internet; só a atualização dos índices usa a internet, direto do Banco Central. Valores e projeções são estimativas, antes do imposto de renda quando não indicado.</p></div>`;
-  return html;
+/* --------- Dados */
+function maisDados() {
+  const exp = (fmt, nome, icone) => DEMO
+    ? `<button class="btn" data-a="demo-arq">${ic(icone)}${nome}</button>`
+    : `<a class="btn" href="api/export/${fmt}" download>${ic(icone)}${nome}</a>`;
+  const bks = S.backups;
+  const listaBk = !DEMO && bks == null ? `<div class="status manual">Carregando backups…</div>`
+    : (bks || []).length ? `<div class="bk-lista">${bks.slice(0, 5).map(b => {
+      const dt = new Date(b.quando);
+      return `<div class="bk-row"><div><b>${fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</b><span>${tamanhoTxt(b.tamanho)} · ${esc(b.nome)}</span></div>
+        <button class="btn peq" data-a="bk-restaurar" data-v="${esc(b.nome)}">${ic('archive-restore', 'ic-s')}Restaurar</button></div>`;
+    }).join('')}</div>` : `<p class="nota" style="margin:12px 0 0">Nenhum backup na pasta ainda.</p>`;
+  return `<section class="card" id="exportar">${maisCab('download', 'Exportar')}
+      ${maisLead('Baixe para guardar ou abrir em outro programa. Os arquivos são abertos e legíveis: o ZIP tem tudo, com as imagens; os CSV abrem no Excel.')}
+      <div class="btns">${exp('zip', 'Tudo (ZIP)', 'archive')}${exp('lancamentos', 'Lançamentos (CSV)', 'sheet')}${exp('csv', 'Investimentos (CSV)', 'sheet')}${exp('json', 'Dados (JSON)', 'braces')}</div></section>
+    <section class="card" id="relatorio">${maisCab('file', 'Relatório de patrimônio')}
+      ${maisLead('Lista por dono e por banco, pronta para imprimir ou salvar em PDF.')}
+      <button class="btn" data-a="relatorio">${ic('file')}Abrir relatório</button></section>
+    <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
+      ${maisLead('Cria uma cópia completa em <code>share/gerencia</code>, que você acessa pela rede do Home Assistant. Os backups do próprio Home Assistant também incluem o GerencIA.')}
+      <button class="btn pri" data-a="backup">${ic('archive')}Criar backup</button>${listaBk}</section>
+    <section class="card" id="importar">${maisCab('upload', 'Importar')}
+      ${maisLead('Traz os dados de um .zip ou .json exportado pelo GerencIA: lançamentos, fixos, investimentos, bancos e imagens. Antes de importar, o app guarda uma cópia do que existe hoje.')}
+      <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></section>
+    <section class="card" id="versoes">${maisCab('clock', 'Versões anteriores')}
+      ${maisLead('O app guarda sozinho uma cópia dos dados a cada 10 minutos de uso e antes de importar ou restaurar. Se algo sair errado, volte para uma delas.')}
+      <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></section>
+    <section class="card" id="onde">${maisCab('database', 'Onde ficam os dados')}
+      ${maisLead('Tudo fica em <code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, dentro do app, e entra no backup do Home Assistant. O app funciona sem internet: só os índices do Banco Central, a leitura por IA e as dicas de economia precisam dela. Valores e projeções são estimativas.')}</section>
+    <section class="card" id="zerar">${maisCab('trash', 'Começar do zero')}
+      ${maisLead('Apaga lançamentos, fixos, investimentos e bancos. Índices, categorias e preferências continuam. Uma cópia fica em Versões anteriores.')}
+      <button class="btn perigo" data-a="apagar-tudo">${ic('trash')}Apagar tudo</button></section>`;
+}
+const tamanhoTxt = n => n >= 1048576 ? `${(n / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+
+/* --------- Aparência */
+function maisAparencia() {
+  const a = S.d.ajustes, cor = corAppAtual();
+  return `<section class="card" id="tema">${maisCab('contrast', 'Tema')}
+      ${maisLead('Automático segue o modo claro ou escuro do Home Assistant. Vale para todos os aparelhos.')}
+      <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Automático', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
+        `<button role="radio" aria-checked="${a.tema === k}" class="${a.tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
+    <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
+      ${maisLead('Muda os botões principais, a aba escolhida e os destaques. Vale para todos os aparelhos.')}
+      <div class="tag-cores" role="radiogroup" aria-label="Cor do app">${CORES_APP.map(([n, hex]) =>
+        `<button class="tsw${cor === hex ? ' on' : ''}" role="radio" aria-checked="${cor === hex}" style="--a:${hex}" data-a="cor" data-v="${hex}">
+          <svg viewBox="-5 -5 40 30" aria-hidden="true"><path class="sw-ring" d="${TAG_SW}"/><path class="sw-gap" d="${TAG_SW}"/><path class="sw-fill" d="${TAG_SW}${FURO_SW}"/><path class="sw-check" d="m14.6 10.3 3.2 3.2 6.5-6.9"/></svg>
+          <span>${n}</span></button>`).join('')}</div></section>`;
+}
+
+/* --------- Opções: o jeito de o app funcionar, para a casa toda */
+function maisOpcoes() {
+  const a = S.d.ajustes;
+  return `<section class="card" id="op-inicio">${maisCab('home', 'Início')}
+      ${linhaChave('dicas', a.dicas !== false, 'Dicas de economia', a.dicas !== false
+        ? 'Ligado: o Início mostra quando uma assinatura tem plano anual mais barato e quando uma categoria passa da média. O preço é conferido na página oficial, com a IA.'
+        : 'Desligado: o Início não mostra dicas e o app não confere preços de assinaturas.')}</section>
+    <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
+      ${linhaChave('prever_dia', a.prever_dia !== false, 'Prever o dia a dia', a.prever_dia !== false
+        ? `Ligado: os próximos meses somam a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.`
+        : 'Desligado: os próximos meses mostram só fixos, parcelas e faturas já lançados.')}</section>
+    <section class="card" id="op-invest">${maisCab('wallet', 'Investimentos')}
+      ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje a partir do último valor informado, contando dias úteis. Renda variável e dinheiro parado não mudam.')}</section>`;
 }
 
 /* ------------------------------------------------------------------ folhas (bottom sheets) */
@@ -2995,8 +3185,17 @@ function render() {
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
   pintarNav();
   desenharGraficos();
+  { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
   ajustarTextos();
-  if (S.ui.tab === 'mais' && !S.ia && !DEMO) api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {});
+  if (S.ui.tab === 'mais' && !S.ia && !DEMO && iaOn()) api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {});
+  if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.uso && !S.usoPedido) {
+    S.usoPedido = true;
+    api.iaUso().then(u => { S.uso = u; }).catch(() => { S.uso = { today: null, days: [] }; }).finally(() => { S.usoPedido = false; if (S.ui.tab === 'mais') render(); });
+  }
+  if (S.ui.tab === 'mais' && maisAba() === 'dados' && S.backups == null && !S.bkPedido) {
+    S.bkPedido = true;
+    api.backups().then(b => { S.backups = b; }).catch(() => { S.backups = []; }).finally(() => { S.bkPedido = false; if (S.ui.tab === 'mais') render(); });
+  }
   if (foco) { const el = $(`[data-ui="${foco}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* ok */ } } }
   if (FOLHA) pintarFolha();
 }
@@ -3039,7 +3238,12 @@ document.addEventListener('click', ev => {
     case 'cx-mes': S.ui.cxMes = +v === 0 ? null : addYm(mesCaixa(), +v); S.ui.faturaAberta = null; S.ui.cxSel = null; render(); break;
     case 'cx-filtro': S.ui.cxFiltro = v; salvarUI(); render(); break;
     case 'cx-periodo': S.ui.cxPeriodo = v; salvarUI(); render(); break;
-    case 'cx-estimar': S.ui.cxEstimar = S.ui.cxEstimar === false; salvarUI(); render(); break;
+    case 'mais-aba': S.ui.maisAba = v; salvarUI(); render(); { const t = $('.mais-abas'); if (t && t.getBoundingClientRect().top < 0) t.scrollIntoView({ block: 'start' }); } break;
+    case 'uso-dia': S.usoSel = v; render(); break;
+    case 'bk-restaurar':
+      confirmar({ titulo: 'Restaurar backup?', texto: `Os dados de agora são trocados pelos do backup <b>${esc(v)}</b>. Antes, o app guarda uma cópia do que existe hoje em Versões anteriores.`, botao: 'Restaurar',
+        acao: () => api.restaurarBackup(v).then(d => { S.d = normalizar(d); render(); toast('Backup restaurado'); }).catch(e => toast('Não consegui restaurar. ' + e.message)) });
+      break;
     case 'cx-cat-tipo': S.ui.cxCatTipo = v; S.ui.cxSel = null; salvarUI(); render(); break;
     case 'cx-sel': S.ui.cxSel = S.ui.cxSel === v ? null : v; render(); break;
     case 'cx-ir': S.ui.cxModo = 'lista'; S.ui.cxMes = null; S.ui.cxFiltro = v || 'tudo'; irPara('caixa'); break;
@@ -3096,7 +3300,7 @@ document.addEventListener('click', ev => {
     case 'lf-duplicar': LF = Object.assign({}, LF, { id: null, virtual: false, recorrencia: null, competencia: null, grupo: null, parcela: null, repete: 'nao', pagoMexido: false }); pintarFolha(); break;
     case 'lf-excluir': excluirLanc(); break;
     // imagens e IA
-    case 'ia': abrirIA(v); break;
+    case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
     case 'ia-modo': IAS.modo = v; IAS.erro = ''; pintarFolha(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
@@ -3123,11 +3327,10 @@ document.addEventListener('click', ev => {
     case 'inv': abrirInvestimento(id); break;
     case 'olho': S.oculto = !S.oculto; store.set('oculto', S.oculto); render(); break;
     case 'buscar':
-      if (S.ui.tab !== 'investimentos') { S.ui.tab = 'investimentos'; S.ui.buscaAberta = true; }
-      else { S.ui.buscaAberta = !S.ui.buscaAberta; if (!S.ui.buscaAberta) S.ui.busca = ''; }
-      render(); window.scrollTo(0, 0);
-      if (S.ui.buscaAberta) { const q = $('#q'); if (q) q.focus(); }
+      S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; render(); window.scrollTo(0, 0);
+      { const q = $('#q'); if (q) q.focus(); }
       break;
+    case 'busca-limpar': S.ui.busca = ''; render(); { const q = $('#q'); if (q) q.focus(); } break;
     case 'filtro': S.ui.filtro = v; S.ui.pessoa = null; salvarUI(); render(); break;
     case 'pessoa-f': S.ui.pessoa = v || null; render(); break;
     case 'banco-f': S.ui.banco = v || null; render(); break;
@@ -3157,7 +3360,15 @@ document.addEventListener('click', ev => {
       break;
     case 'tema': S.d.ajustes.tema = v; aplicarTema(); render(); persistir(d => { d.ajustes.tema = v; }); break;
     case 'cor': S.d.ajustes.cor = v; aplicarTema(); render(); persistir(d => { d.ajustes.cor = v; }); break;
-    case 'ajuste': { const k = el.dataset.k; const nv = S.d.ajustes[k] === false; persistir(d => { d.ajustes[k] = nv; }); break; }
+    case 'ajuste': {
+      const k = el.dataset.k; const nv = S.d.ajustes[k] === false;
+      persistir(d => { d.ajustes[k] = nv; }).then(ok => {
+        if (!ok) return;
+        if (k === 'ia') { S.ia = null; S.uso = null; render(); }
+        if (k === 'dicas') carregarDicas();
+      });
+      break;
+    }
     case 'banco': abrirBanco(id); break;
     case 'banco-sug': abrirBanco(null, v); break;
     case 'indice': abrirIndice(v); break;
@@ -3169,7 +3380,7 @@ document.addEventListener('click', ev => {
       break;
     case 'relatorio': if (DEMO) toast('Na prévia o relatório não abre. No app, ele abre pronto para imprimir.'); else location.href = 'relatorio'; break;
     case 'demo-arq': toast('Na prévia os arquivos não são baixados.'); break;
-    case 'backup': api.backup().then(r => toast(`Backup salvo em ${r.pasta}/${r.arquivo}`)).catch(e => toast('Não consegui criar o backup. ' + e.message)); break;
+    case 'backup': api.backup().then(r => { toast(`Backup salvo em ${r.pasta}/${r.arquivo}`); S.backups = null; render(); }).catch(e => toast('Não consegui criar o backup. ' + e.message)); break;
     case 'importar': $('#arquivo').click(); break;
     case 'versoes': abrirVersoes(); break;
     case 'restaurar':
@@ -3356,6 +3567,10 @@ document.addEventListener('input', ev => {
 
 document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && FOLHA) fecharFolha();
+  if (ev.key === '/' && !FOLHA && !ev.ctrlKey && !ev.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
+    const q = $('#q'); if (q) { ev.preventDefault(); q.focus(); }
+  }
+  if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
 });
 document.addEventListener('change', ev => {
@@ -3397,10 +3612,10 @@ function cardOutrosApps(a) {
     const dt = new Date(u.em), hj = iso(hoje()) === iso(dt);
     quando = `${esc(u.app)} usou ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
   }
-  return `<div class="card" id="outros-apps"><div class="rot">Outros apps</div>
-    <div class="linha-sw"><div><b>Contas no CronologIA</b><span>O CronologIA, no mesmo Home Assistant, mostra as contas a pagar e as faturas na agenda, dá baixa com o Paguei e cria contas novas. A ligação é automática, pela pasta <code>share/gerencia</code>.</span></div>
-      <button class="sw${lig ? ' on' : ''}" data-a="ajuste" data-k="integracao" aria-label="Contas no CronologIA"></button></div>
-    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhum app conectou ainda.'}</div>` : ''}</div>`;
+  return `<section class="card" id="outros-apps">${maisCab('calendar', 'Contas no CronologIA')}
+    ${maisLead('O CronologIA, no mesmo Home Assistant, mostra as contas a pagar e as faturas na agenda, dá baixa com o Paguei e cria contas novas. A ligação é automática, pela pasta <code>share/gerencia</code>.')}
+    ${linhaChave('integracao', lig, 'Usar a integração', lig ? 'Ligado: o CronologIA lê e dá baixa nas contas daqui.' : 'Desligado: o CronologIA não vê as contas do GerencIA.')}
+    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhum app conectou ainda.'}</div>` : ''}</section>`;
 }
 // Mudanças feitas por outro app (Paguei no CronologIA) aparecem sem precisar recarregar.
 if (!DEMO) setInterval(() => {

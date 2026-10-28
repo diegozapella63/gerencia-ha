@@ -3,6 +3,7 @@
 Taxas são guardadas em porcentagem (13.65 = 13,65% a.a.) e convertidas aqui.
 """
 import math
+import re
 from datetime import date, datetime
 
 INDEXADORES = {
@@ -60,6 +61,36 @@ def num(v, padrao=0.0):
         return float(v)
     except (TypeError, ValueError):
         return padrao
+
+
+def num_br(v, padrao=0.0):
+    """Número vindo da IA ou de texto, entendendo o jeito brasileiro: "15.000" = 15000, "15.000,50" = 15000.5,
+    "R$ 1.234,56" = 1234.56, "13,65" = 13.65; e também "1,234.56" e "6.50"."""
+    if isinstance(v, bool):
+        return padrao
+    if isinstance(v, (int, float)):
+        return float(v)
+    t = re.sub(r"[^\d,.\-]", "", str(v or ""))
+    if not re.search(r"\d", t):
+        return padrao
+    neg = t.startswith("-")
+    t = t.replace("-", "")
+    if "," in t and "." in t:
+        dec = "," if t.rfind(",") > t.rfind(".") else "."
+        t = t.replace("." if dec == "," else ",", "").replace(dec, ".")
+    elif "," in t:
+        partes = t.split(",")
+        t = t.replace(",", ".") if len(partes) == 2 and len(partes[1]) != 3 else t.replace(",", "") if len(partes) > 2 or len(partes[1]) == 3 else t
+    elif "." in t:
+        partes = t.split(".")
+        # "15.000" e "1.234.567": separador de milhar (três dígitos depois de cada ponto)
+        if len(partes) > 2 or (len(partes[1]) == 3 and len(partes[0]) <= 3):
+            t = t.replace(".", "")
+    try:
+        x = float(t)
+    except ValueError:
+        return padrao
+    return -x if neg else x
 
 
 def taxa_anual(inv, ind):

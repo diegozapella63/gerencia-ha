@@ -129,10 +129,8 @@ def confere(trecho, valor, texto_cmp):
 
 
 def _num(v):
-    try:
-        return float(str(v).replace(",", ".")) if v not in (None, "") else 0.0
-    except ValueError:
-        return 0.0
+    import calc  # noqa: PLC0415 (mesmo diretório do servidor)
+    return calc.num_br(v)
 
 
 def limpar_planos(parsed, texto):
@@ -262,6 +260,7 @@ TEXTOS = {
     "pendente": "Ainda não conferido.",
     "conferindo": "Conferindo na página oficial…",
     "sem_ia": "Para ler a página oficial, o app precisa da IA do Home Assistant.",
+    "ia_desligada": "A IA está desligada em Mais › Integrações, então o app não confere preços.",
     "sem_acesso": "Não deu para abrir a página oficial agora. O app tenta de novo amanhã.",
     "sem_precos": "A página oficial não mostrou preços para o app (pode depender do navegador).",
     "erro_ia": "A IA não conseguiu ler a página. O app tenta de novo amanhã.",

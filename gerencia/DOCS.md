@@ -18,7 +18,14 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
 - **Adicionar**: escolha despesa, recebimento, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
 - **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com aporte mensal nos seus investimentos, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
-- **Mais**: aparência (tema e cor), bancos e contas, categorias, fixos, dicas de economia, leitura por IA, índices de mercado, cálculos, sensores e dados (exportar, relatório, backup, importar, versões).
+- **Mais**, em abas no alto, como no ResolvIA, no CronologIA e no InventarIA:
+  - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
+  - *Caixa*: fixos, categorias e dicas de economia.
+  - *Invest*: índices de mercado.
+  - *Integrações*: contas no CronologIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
+  - *Dados*: exportar, relatório, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
+  - *Aparência*: tema e cor do app.
+  - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
 
 ## Caixa
 
@@ -120,6 +127,12 @@ O valor de hoje é estimado a partir do último valor informado, contando dias �
 
 Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais > Índices de mercado**.
 
+## Uso da IA
+
+Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Ler nas imagens e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos.
+
+Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço) e as últimas chamadas. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
+
 ## Sensores
 
 Com **Sensores no Home Assistant** ligado, o app cria:
@@ -131,6 +144,7 @@ Com **Sensores no Home Assistant** ligado, o app cria:
 - `sensor.gerencia_saldo_caixa`
 - `sensor.gerencia_entradas_mes` (atributo `a_receber`)
 - `sensor.gerencia_saidas_mes` (atributos `a_pagar` e `atrasado`)
+- `sensor.gerencia_ia_hoje`: chamadas de IA de hoje, com erros, cota excedida, tokens estimados, por tipo, últimos 7 dias e mês
 
 Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reiniciar o Home Assistant, voltam em até 15 minutos.
 
