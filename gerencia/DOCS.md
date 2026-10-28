@@ -68,6 +68,7 @@ Em **Invest > Evolução**, o **Aporte por mês nos seus investimentos** é a su
 - Vale só para o seu dinheiro: com o filtro *De terceiros*, o aporte não entra na projeção nem no caixa.
 - O dia e a conta de saída começam no dia seguinte ao do seu salário fixo, na mesma conta. Para mudar, toque em **Mudar dia ou conta**.
 - No mês em que aplicar, toque em **Apliquei** e confirme quanto foi. Se um mês for diferente, o padrão continua o da aba Invest.
+- **Não é dívida**: o aporte fica como *A aplicar* até você tocar em Apliquei, mesmo depois do dia. Ele não aparece em contas atrasadas nem nas contas a vencer dos avisos, não vai para as contas a pagar do CronologIA e, no resumo do mês, aparece separado como "a aplicar". Ele só tira o valor do saldo previsto, porque é dinheiro que sai do caixa para os investimentos.
 - Apagar o valor do campo tira o aporte do caixa dali para frente.
 
 ### Dia a dia
@@ -104,7 +105,7 @@ O app usa a IA configurada no Home Assistant (ação `ai_task.generate_data`) pa
 - print do WhatsApp ou texto colado da conversa;
 - print do banco ou da corretora, para cadastrar investimentos.
 
-Toque em **Adicionar > Ler com IA**, envie o arquivo ou cole o texto (dá para colar uma imagem direto). O app mostra o que encontrou para você conferir antes de lançar: desmarque o que não quiser, troque a categoria e escolha a conta ou o cartão. Em uma fatura, as próximas parcelas também podem ser lançadas.
+No Início, toque em **Adicionar › Ler com IA**. No Caixa e no Invest, o **Adicionar** abre a despesa ou o investimento com os quadrinhos **Colar mensagem**, **Fatura, print ou foto** (ou **Print ou extrato**) e **Falar** no alto, como no ResolvIA e no CronologIA. No computador, o **Ler com IA** também fica no alto à direita. Envie o arquivo ou cole o texto (dá para colar uma imagem direto). O app mostra o que encontrou para você conferir antes de lançar: desmarque o que não quiser, troque a categoria e escolha a conta ou o cartão. Em uma fatura, as próximas parcelas também podem ser lançadas.
 
 Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais > Leitura por IA** dá para escolher qual IA usar e ver se ela está pronta.
 

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.9.0';
+const VERSAO = '1.9.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -93,6 +93,7 @@ const P = {
   'sheet': '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/>',
   'braces': '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
   'database': '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  'clipboard-paste': '<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M11 14h10"/><path d="m17 10 4 4-4 4"/>',
   'chart-column': '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
   'layers': '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
   'receipt': '<path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>',
@@ -586,7 +587,7 @@ function telaInicio() {
   const t = totais();
   const nBancos = new Set(d.investimentos.map(i => i.banco).filter(Boolean)).size;
   const olho = `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`;
-  let html = cabecalho('Início', `${olho}<button class="icbtn" data-a="ia" data-v="caixa" aria-label="Ler com IA">${ic('ia')}</button>`);
+  let html = cabecalho('Início', olho);
   if (d.exemplo) html += avisoExemplo();
   if (!d.investimentos.length) {
     const r = resumoMes(ymHoje());
@@ -692,7 +693,8 @@ function avisosCaixa(h) {
   const av = [];
   if (!temCaixa()) return av;
   const hj = iso(h);
-  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto);
+  // o aporte nos investimentos não é dívida: fica fora de contas atrasadas e a vencer (e do número na barra lateral)
+  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto && !ehAporte(l));
   const nomes = l => l.cartao && contaDe(l.conta)?.cartao ? 'Fatura ' + nomeConta(contaDe(l.conta)) : l.descricao;
   const agrupar = lista => { const m = new Map(); for (const l of lista) { const k = nomes(l); m.set(k, (m.get(k) || 0) + (+l.valor || 0)); } return m; };
   const atras = agrupar(pend.filter(l => l.dc < hj));
@@ -755,7 +757,7 @@ function telaInvest() {
       <button class="btn" data-a="ia" data-v="invest">${ic('ia')}Ler print com IA</button></div></div>`;
   }
   const nMeu = porEscopo('meu').length, nTerc = porEscopo('terc').length;
-  let html = cabecalho('Investimentos', `<button class="icbtn" data-a="ia" data-v="invest" aria-label="Ler com IA">${ic('ia')}</button>`);
+  let html = cabecalho('Investimentos');
   html += `<div class="seg">${[['carteira', 'Carteira'], ['evolucao', 'Evolução'], ['divisao', 'Divisão']].map(([k, n]) =>
     `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (u.invModo !== 'carteira') return html + invGraficos();
@@ -1226,13 +1228,13 @@ function saldoCaixa(ate = iso(hoje())) {
   });
 }
 function resumoMes(ym) {
-  let entrou = 0, saiu = 0, aEntrar = 0, aSair = 0;
+  let entrou = 0, saiu = 0, aEntrar = 0, aSair = 0, aAplicar = 0;
   for (const l of lancamentosEntre(ym, ym)) {
     if (l.ajuste) continue;
     const v = +l.valor || 0;
-    if (ehRec(l)) { if (l.pago) entrou += v; else aEntrar += v; } else if (l.pago) saiu += v; else aSair += v;
+    if (ehRec(l)) { if (l.pago) entrou += v; else aEntrar += v; } else if (l.pago) saiu += v; else if (ehAporte(l)) aAplicar += v; else aSair += v;
   }
-  return { entrou, saiu, aEntrar, aSair, sobra: entrou - saiu, previsto: entrou + aEntrar - saiu - aSair };
+  return { entrou, saiu, aEntrar, aSair, aAplicar, sobra: entrou - saiu, previsto: entrou + aEntrar - saiu - aSair - aAplicar };
 }
 function saldoPrevisto(ym) {
   let s = saldoCaixa(dataNoMes(ym, 31));
@@ -1370,8 +1372,7 @@ function navMes(ym) {
 
 function telaCaixa() {
   const u = S.ui;
-  let html = cabecalho('Caixa', `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>
-    <button class="icbtn" data-a="ia" data-v="caixa" aria-label="Ler com IA">${ic('ia')}</button>`);
+  let html = cabecalho('Caixa', `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`);
   html += `<div class="seg">${[['lista', 'Lançamentos'], ['fluxo', 'Fluxo'], ['categorias', 'Categorias']].map(([k, n]) =>
     `<button class="${u.cxModo === k ? 'on' : ''}" data-a="cx-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (!temCaixa()) {
@@ -1389,7 +1390,7 @@ function resumoCaixaHTML(ym) {
   const r = resumoMes(ym);
   return `<div class="cx-resumo">
     <div><span>Entrou</span><b class="ent">${brl(r.entrou, 0)}</b>${r.aEntrar ? `<small>+ ${brl(r.aEntrar, 0)} a receber</small>` : ''}</div>
-    <div><span>Saiu</span><b class="sai">${brl(r.saiu, 0)}</b>${r.aSair ? `<small>+ ${brl(r.aSair, 0)} a pagar</small>` : ''}</div>
+    <div><span>Saiu</span><b class="sai">${brl(r.saiu, 0)}</b>${r.aSair ? `<small>+ ${brl(r.aSair, 0)} a pagar</small>` : ''}${r.aAplicar ? `<small>+ ${brl(r.aAplicar, 0)} a aplicar</small>` : ''}</div>
     <div><span>Sobrou</span><b>${brl(r.sobra, 0)}</b><small>previsto ${brl(r.previsto, 0)}</small></div></div>`;
 }
 
@@ -1451,7 +1452,9 @@ function linhaLanc(l, dentroFatura) {
   const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : '',
     l.desconto ? 'descontado de ' + (l.paiDesc || 'recebimento') : '', l.vinculo && !ehRec(l) ? 'baixa com ' + nomeVinculo(l) : ''].filter(Boolean);
   const apo = ehAporte(l);
-  const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
+  // o aporte não atrasa como uma conta: fica "A aplicar" até você tocar em Apliquei
+  const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : apo ? '<span class="tag pend">A aplicar</span>'
+    : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : 'A pagar')}</span>`;
   return `<div class="lanc${dentroFatura ? ' sub' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
@@ -1740,6 +1743,17 @@ function abrirLancamento(id, preset) {
   abrirFolha(montarFormLanc);
 }
 
+// Adicionar › Nova despesa e Novo investimento: trazer de mensagem, arquivo ou fala, em quadrinhos tracejados
+// no alto da janela, como no ResolvIA e no CronologIA (Ler com IA mora aqui, não no cabeçalho).
+function tilesIA(modo) {
+  if (!iaOn()) return '';
+  const caixa = modo === 'caixa', voz = vozPronta();
+  const t = (inicio, icone, txt) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}</span></button>`;
+  return `<div class="campo imp-campo"><div class="lbl">${caixa ? 'Ler com IA: fatura, print ou mensagem' : 'Ler com IA: print ou extrato do banco'}</div>
+    <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', caixa ? 'Colar mensagem' : 'Colar texto')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Print ou extrato')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
+    <p class="imp-ajuda">${caixa ? 'A IA separa cada gasto e recebimento e você confere antes de lançar.' : 'A IA acha cada investimento e você confere antes de salvar.'}</p></div>`;
+}
+
 function montarFormLanc() {
   const f = LF, rec = f.tipo === 'receita', hj = iso(hoje());
   const cats = [...S.d.categorias, ...f.catsNovas].filter(c => c.tipo === f.tipo);
@@ -1753,6 +1767,7 @@ function montarFormLanc() {
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
   const titulo = f.ajuste ? 'Ajuste de saldo' : f.confirmando ? 'Confirmar recebimento' : f.id ? (rec ? 'Recebimento' : 'Despesa') : (rec ? 'Novo recebimento' : 'Nova despesa');
   let c = '';
+  if (!f.id && !f.ajuste) c += tilesIA('caixa');
   if (!f.id) {
     c += `<div class="seg tipo-seg"><button class="${!rec ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
       <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button></div>`;
@@ -2244,6 +2259,8 @@ function abrirIA(modo, inicio) {
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
   abrirFolha(montarIA, () => { pararFala(); IAS = null; });
   if (inicio === 'voz') comecarFala();
+  if (inicio === 'arquivo') escolherArquivo('image/*,application/pdf').then(iaPegarArquivo);
+  if (inicio === 'texto') requestAnimationFrame(() => { const t = $('#ia-txt'); if (t) t.focus(); });
 }
 function montarIA() {
   const s = IAS;
@@ -3196,7 +3213,7 @@ function montarFormInv() {
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
   const titulo = f.id ? 'Editar investimento' : f.duplicando ? 'Duplicar investimento' : 'Novo investimento';
-  let c = `<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
+  let c = `${!f.id && !f.duplicando ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
     <div class="seg dono-seg" style="margin-bottom:10px">
       <button class="${f.titular !== 'terceiros' ? 'on' : ''}" data-a="f-set" data-k="titular" data-v="meu">${ic('user', 'ic-s')}Meu</button>
       <button class="${f.titular === 'terceiros' ? 'on terc' : ''}" data-a="f-set" data-k="titular" data-v="terceiros">${ic('users', 'ic-s')}De terceiros</button></div>`;
@@ -3536,6 +3553,7 @@ document.addEventListener('click', ev => {
     case 'fala-mic': if (IAS && IAS.rec === 'on') terminarFala(); else comecarFala(); break;
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
+    case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini); break;
     case 'ia-modo': IAS.modo = v; IAS.erro = ''; pintarFolha(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;

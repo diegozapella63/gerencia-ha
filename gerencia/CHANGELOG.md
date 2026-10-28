@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.9.1
+
+- **Ler com IA no Adicionar**, como no ResolvIA e no CronologIA. No celular, o cabeçalho fica só com o microfone (e o olho no Início e no Caixa). No Caixa e no Invest, o **Adicionar** abre a despesa ou o investimento com os quadrinhos **Colar mensagem**, **Fatura, print ou foto** (ou **Print ou extrato**) e **Falar** no alto. No Início, o Adicionar continua com a opção **Ler com IA**. No computador, o Ler com IA segue no alto à direita.
+- **O aporte mensal não é dívida**: fica *A aplicar* até você tocar em Apliquei, mesmo depois do dia. Não aparece mais como conta atrasada nem a vencer nos avisos (nem no número da barra lateral), não vai para as contas a pagar do CronologIA e, no resumo do mês, aparece como "a aplicar", separado do "a pagar".
+
 ## 1.9.0
 
 - **No computador** (tela de 1000 pixels ou mais), como no ResolvIA, no CronologIA e no InventarIA:
