@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.8.0';
+const VERSAO = '1.9.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -339,7 +339,7 @@ const apiServidor = {
   restaurar: nome => fetch('api/versoes/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   foto: jpg => fetch('api/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jpg }) }).then(jsonOk),
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
-  iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk),
+  iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
   iaUso: () => fetch('api/ia/uso', { cache: 'no-store' }).then(jsonOk),
   vozStatus: () => fetch('api/voz/status', { cache: 'no-store' }).then(jsonOk),
@@ -414,12 +414,12 @@ function apiDemo() {
     async vozTexto() { await espera(900); return { texto: 'Gastei 45 reais no mercado hoje no cartão do Nubank e recebi 150 do João pelo Pix', nome: 'Home Assistant Cloud' }; },
     async iaUso() {
       const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
-      const rec = [['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
+      const rec = [['fala', 'ok', 3.4, 1100, 0], ['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
         .map(([kind, result, seconds, tokens, images], k) => ({ at: new Date(Date.now() - (k * 37 + 6) * 60000).toISOString(), kind, entity: 'ai_task.google_ai_task', result, seconds, tokens, images }));
-      return { today: { calls: 4, errors: 0, quota: 1, tokens: 6900, images: 3, kinds: { caixa: 1, holerite: 1, precos: 1, invest: 1 }, entities: {} },
-        week: { calls: 15, errors: 1, quota: 1, tokens: 28000, images: 9, kinds: { caixa: 7, precos: 4, holerite: 2, invest: 2 }, entities: { 'ai_task.google_ai_task': 15 } },
+      return { today: { calls: 5, errors: 0, quota: 1, tokens: 8000, images: 3, kinds: { fala: 1, caixa: 1, holerite: 1, precos: 1, invest: 1 }, entities: {} },
+        week: { calls: 16, errors: 1, quota: 1, tokens: 29100, images: 9, kinds: { caixa: 6, precos: 4, fala: 2, holerite: 2, invest: 2 }, entities: { 'ai_task.google_ai_task': 15 } },
         month: { calls: 38, errors: 2, quota: 1, tokens: 71000, images: 22, kinds: {}, entities: { 'ai_task.google_ai_task': 38 } },
-        days: [1, 3, 0, 2, 4, 1, 4].map((calls, k) => ({ day: dia(k), calls, errors: k === 3 ? 1 : 0, quota: k === 6 ? 1 : 0 })), recent: rec, sensor: 'sensor.gerencia_ia_hoje' };
+        days: [1, 3, 0, 2, 4, 1, 5].map((calls, k) => ({ day: dia(k), calls, errors: k === 3 ? 1 : 0, quota: k === 6 ? 1 : 0 })), recent: rec, sensor: 'sensor.gerencia_ia_hoje' };
     },
     async backups() {
       const b = k => ({ nome: `gerencia-${iso(new Date(hoje().getTime() - k * 864e5))}-2105.zip`, tamanho: 182000 - k * 1500, quando: new Date(Date.now() - k * 864e5 - 3 * 36e5).toISOString() });
@@ -530,9 +530,18 @@ function syncInfo() {
 }
 function cabecalho(titulo, acoes = '', status = null) {
   const [cls, txt] = status || syncInfo();
-  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? ' · Olá, ' + esc(S.usuario.split(' ')[0]) : ''}</p>${botaoFalar()}</div>
-    <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div></header>
+  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoFalar()}</div>
+    <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
+}
+
+// No computador, as ações ficam no alto à direita, como no ResolvIA e no CronologIA: Falar, esconder valores, Ler com IA e Adicionar.
+function acoesTopo(acoes) {
+  const olho = /data-a="olho"/.test(acoes)
+    ? `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores" title="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>` : '';
+  const v = S.ui.tab === 'investimentos' ? 'invest' : 'caixa';
+  return `<div class="top-acts">${botaoFalar()}${olho}<button class="btn" data-a="ia" data-v="${v}">${ic('ia', 'ic-s')}Ler com IA</button>
+    <button class="btn pri" data-a="novo">${ic('plus', 'ic-s')}Adicionar</button></div>`;
 }
 
 // Placar de cotações com plaquinhas que viram (split-flap): o destaque principal do Início.
@@ -583,10 +592,10 @@ function telaInicio() {
     const r = resumoMes(ymHoje());
     html += placar({ cab: 'Saldo em caixa', data: fData(h), valor: numf(saldoCaixa(), 0), rotulo: `Saldo em caixa de ${brl(saldoCaixa(), 0)}`,
       cols: [['Entrou', brl(r.entrou, 0)], ['Saiu', brl(r.saiu, 0)], ['Sobrou', brl(r.sobra, 0), true]] });
-    return html + cardDicas() + avisosInicio(h);
+    return html.replace('<section class="placar', '<div class="ini-g so-caixa"><section class="placar') + `<div class="ini-ga">${cardDicas()}</div><div class="ini-gb">${avisosInicio(h)}</div></div>`;
   }
 
-  html += placar({
+  html += '<div class="ini-g">' + placar({
     cab: 'Patrimônio', data: fData(h), valor: numf(t.total, 0), rotulo: `Patrimônio de ${brl(t.total, 0)}`,
     cols: [
       ['Seu', brl(t.meu, 0)],
@@ -595,7 +604,7 @@ function telaInicio() {
     ],
   });
 
-  if (temCaixa()) html += cardCaixaInicio() + cardDicas();
+  html += `<div class="ini-ga">${temCaixa() ? cardCaixaInicio() + cardDicas() : ''}</div>`;
   // destaques
   const rows = [];
   rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">Rende por mês</div>
@@ -627,7 +636,7 @@ function telaInicio() {
   const ganho = pr[12].valor - pr[0].valor;
   rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${meus.length ? 'Seu dinheiro em 1 ano' : 'Em 1 ano'}</div>
     <div class="hl-v">${apM ? `Com aporte de ${brl(apM, 0)} por mês` : 'Sem novos aportes'}</div></div><div class="hl-n">${brl(pr[12].valor, 0)}<small>+${brl(ganho, 0)}</small></div></button>`);
-  html += `<div class="hl">${rows.join('')}</div>`;
+  html += `<div class="hl">${rows.join('')}</div><div class="ini-gb">`;
 
   // terceiros
   const ps = pessoas();
@@ -671,7 +680,7 @@ function telaInicio() {
     <div class="op-t"><b>Índices</b><span>CDI ${pct(I.cdi)}% · Selic ${pct(I.selic)}% · IPCA ${pct(I.ipca)}%</span></div>
     <div class="op-n">${quando}<small>${fonte}</small></div>${ic('chev', 'chev')}</button>`);
   html += `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>`;
-  return html;
+  return html + '</div></div>';
 }
 
 function cardCaixaInicio() {
@@ -687,6 +696,7 @@ function avisosCaixa(h) {
   const nomes = l => l.cartao && contaDe(l.conta)?.cartao ? 'Fatura ' + nomeConta(contaDe(l.conta)) : l.descricao;
   const agrupar = lista => { const m = new Map(); for (const l of lista) { const k = nomes(l); m.set(k, (m.get(k) || 0) + (+l.valor || 0)); } return m; };
   const atras = agrupar(pend.filter(l => l.dc < hj));
+  S.nAtrasadas = atras.size;
   if (atras.size) {
     const soma = [...atras.values()].reduce((a, b) => a + b, 0);
     av.push(`<button class="op" data-a="cx-ir" data-v="pendentes"><div class="op-ic alerta">${ic('alert')}</div>
@@ -750,12 +760,12 @@ function telaInvest() {
     `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (u.invModo !== 'carteira') return html + invGraficos();
   // Buscar sempre à mostra, como no ResolvIA; no computador, a tecla / põe o cursor nele
-  html += `<div class="busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
+  html += `<div class="inv-filtros"><div class="busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
     ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
   html += `<div class="seg">
     <button class="${u.filtro === 'todos' ? 'on' : ''}" data-a="filtro" data-v="todos">Todos <small>${d.investimentos.length}</small></button>
     <button class="${u.filtro === 'meus' ? 'on' : ''}" data-a="filtro" data-v="meus">Meus <small>${nMeu}</small></button>
-    <button class="${u.filtro === 'terc' ? 'on' : ''}" data-a="filtro" data-v="terc">Terceiros <small>${nTerc}</small></button></div>`;
+    <button class="${u.filtro === 'terc' ? 'on' : ''}" data-a="filtro" data-v="terc">Terceiros <small>${nTerc}</small></button></div></div>`;
   const ps = pessoas();
   if (u.filtro === 'terc' && ps.length > 1) {
     html += `<div class="chips rola"><button class="chip${!u.pessoa ? ' on' : ''}" data-a="pessoa-f" data-v="">Todas as pessoas</button>
@@ -770,7 +780,7 @@ function telaInvest() {
   const soma = l.reduce((s, x) => s + x.v, 0);
   const mes = l.reduce((s, x) => s + rendeMes(x.v, taxaAnual(x.i)), 0);
   html += `<div class="resumo-lista"><span>${plural(l.length, 'investimento', 'investimentos')} · rende ≈ ${brl(mes, 0)}/mês</span><b>${brl(soma, 0)}</b></div>`;
-  html += l.length ? l.map(x => cardInv(x.i, x.v)).join('') : '<div class="vazio">Nenhum investimento com esse filtro.</div>';
+  html += l.length ? `<div class="inv-lista">${l.map(x => cardInv(x.i, x.v)).join('')}</div>` : '<div class="vazio">Nenhum investimento com esse filtro.</div>';
   return html;
 }
 
@@ -1385,11 +1395,11 @@ function resumoCaixaHTML(ym) {
 
 function caixaLista() {
   const u = S.ui, ym = mesCaixa(), atual = ym === ymHoje(), hj = iso(hoje());
-  let html = navMes(ym) + resumoCaixaHTML(ym);
+  let html = '<div class="cx-duas"><div class="cx-lado">' + navMes(ym) + resumoCaixaHTML(ym);
   const saldoTxt = atual ? 'Saldo em caixa hoje' : ym < ymHoje() ? 'Saldo no fim do mês' : 'Saldo previsto no fim do mês';
   const saldoV = atual ? saldoCaixa() : ym < ymHoje() ? saldoCaixa(dataNoMes(ym, 31)) : saldoPrevisto(ym);
   html += `<div class="cx-saldo"><div><span>${saldoTxt}</span><b>${brl(saldoV)}</b>${atual ? `<small>No fim do mês: ${brl(saldoPrevisto(ym), 0)}</small>` : ''}</div>
-    ${atual ? `<button class="btn peq" data-a="cx-ajuste">Ajustar saldo</button>` : ''}</div>`;
+    ${atual ? `<button class="btn peq" data-a="cx-ajuste">Ajustar saldo</button>` : ''}</div></div><div class="cx-lista">`;
   html += `<div class="chips">${[['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['pendentes', 'A pagar e receber']].map(([k, n]) =>
     `<button class="chip${u.cxFiltro === k ? ' on' : ''}" data-a="cx-filtro" data-v="${k}">${n}</button>`).join('')}</div>`;
   let lista = lancamentosEntre(ym, ym);
@@ -1417,7 +1427,7 @@ function caixaLista() {
   ].sort((a, b) => a.dc < b.dc ? -1 : a.dc > b.dc ? 1 : a.ord - b.ord);
   if (!entradas.length) {
     return html + `<div class="vazio">Nada ${u.cxFiltro === 'tudo' ? 'lançado' : 'com esse filtro'} em ${nomeMes(ym).split(' ')[0]}.<br><br>
-      <button class="btn" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar</button></div>`;
+      <button class="btn" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar</button></div></div></div>`;
   }
   let dia = null;
   for (const e of entradas) {
@@ -1429,7 +1439,7 @@ function caixaLista() {
     }
     html += e.html;
   }
-  return html;
+  return html + '</div></div>';
 }
 
 function linhaLanc(l, dentroFatura) {
@@ -1666,7 +1676,7 @@ function caixaCategorias() {
       <div><span>Média dos 3 meses antes</span><b>${brl(ant.reduce((s, m) => s + [...m.values()].reduce((a, g) => a + g.v, 0), 0) / 3, 0)}</b></div></div>
     <div class="pilha-cap">${sel ? `<b>${esc(nome(sel))}</b> · ${brl(sel.v, 0)} · ${pct(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
     <div class="pilha" role="img" aria-label="Divisão por categoria">${gs.map(g => `<i data-a="cx-sel" data-v="${esc(g.k)}" style="--c:${cor(g)};flex:${g.v / total} 1 0"></i>`).join('')}</div>
-    <div style="margin-top:8px">${gs.map(g => {
+    <div class="comps">${gs.map(g => {
       const media = g.k === '_outras' ? null : ant.reduce((s, m) => s + (m.get(g.k)?.v || 0), 0) / 3;
       const dif = media ? (g.v - media) / media * 100 : null;
       return `<div class="comp${u.cxSel === g.k ? ' on' : ''}" data-a="cx-sel" data-v="${esc(g.k)}" style="--c:${cor(g)}">
@@ -2276,6 +2286,7 @@ async function iaLer() {
   s.erro = ''; s.etapa = 'lendo'; pintarFolha();
   try {
     const corpo = { modo: s.modo, texto: s.texto };
+    if (s.ouvido && !s.arquivo) corpo.fala = true;
     if (s.arquivo && s.modo === 'invest' && !s.arquivo.pdf) {
       if (!s.arquivo.foto) { const r = await api.foto(s.arquivo.dataUrl); s.arquivo.foto = r.arquivo; if (DEMO) DEMO_FOTOS[r.arquivo] = s.arquivo.dataUrl; }
       corpo.foto = s.arquivo.foto;
@@ -2973,7 +2984,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura' };
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -2993,7 +3004,7 @@ function cardUsoIA() {
   const u = S.uso;
   let corpo;
   if (!u) corpo = `<div class="status manual">Carregando…</div>`;
-  else if (!u.today || !(u.days || []).length || !u.month.calls) corpo = `<div class="status manual">Nenhuma chamada de IA ainda. Elas aparecem aqui quando o app lê uma fatura, um print, um recibo ou confere o preço de uma assinatura.</div>`;
+  else if (!u.today || !(u.days || []).length) corpo = `<div class="status manual">Sem dados de uso ainda.</div>`;
   else {
     const hojeK = u.days[u.days.length - 1].day;
     if (!S.usoSel || !u.days.some(x => x.day === S.usoSel)) S.usoSel = hojeK;
@@ -3014,9 +3025,15 @@ function cardUsoIA() {
       return `<li><b>${esc(USO_TIPO[c.kind] || c.kind)}</b><span>${esc(nomeIA(c.entity))}</span>${res ? `<span class="r-erro">${esc(res)}</span>` : ''}
         <span class="t">${esc(String(c.seconds).replace('.', ','))} s · ≈ ${milTokens(c.tokens)} tokens${c.images ? ` · ${plural(c.images, 'anexo', 'anexos')}` : ''} · ${esc(quandoCurto(c.at))}</span></li>`;
     }).join('');
-    const ids = [...Object.keys(u.month.entities || {}), S.d.ajustes.ia_entidade || ''].join(' ').toLowerCase();
+    const idsIA = [...Object.keys(u.month.entities || {}), ...Object.keys(u.week.entities || {}), S.d.ajustes.ia_entidade || ''];
+    let ids = [...idsIA, ...idsIA.filter(Boolean).map(nomeIA)].join(' ').toLowerCase();
+    if (!/google|gemini|openai|gpt|anthropic|claude/.test(ids)) {
+      // sem chamada ainda: se todas as IAs do Home Assistant são do mesmo provedor, usa ele
+      const ps = new Set(((S.ia && S.ia.entidades) || []).map(e => (`${e.id} ${e.nome}`.toLowerCase().match(/google|gemini|openai|gpt|anthropic|claude/) || [''])[0].replace('gemini', 'google').replace('gpt', 'openai').replace('claude', 'anthropic')).filter(Boolean));
+      if (ps.size === 1) ids = [...ps][0];
+    }
     const link = (href, t) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${t}</a>`;
-    const prov = /google|gemini/.test(ids) ? `Consumo exato do Gemini: no ${link('https://console.cloud.google.com/apis/dashboard', 'Google Cloud Console')}, abra APIs e serviços ativados e depois Generative Language API. Os limites do plano grátis estão no ${link('https://aistudio.google.com/', 'Google AI Studio')}.`
+    const prov = /google|gemini/.test(ids) ? `Consumo exato do Gemini: no ${link('https://console.cloud.google.com/apis/dashboard', 'Google Cloud Console')}, abra APIs e serviços ativados e depois Generative Language API; o gráfico de tráfego mostra os pedidos e os erros 429 de cota. Os limites do plano grátis estão no ${link('https://aistudio.google.com/', 'Google AI Studio')}. A cota diária volta à meia-noite do horário do Pacífico, de madrugada no Brasil (4h ou 5h).`
       : /openai|gpt/.test(ids) ? `Consumo exato e custo da OpenAI: ${link('https://platform.openai.com/usage', 'platform.openai.com/usage')}.`
         : /anthropic|claude/.test(ids) ? `Consumo exato e custo da Anthropic: ${link('https://platform.claude.com/usage', 'Claude Console, Usage')}.`
           : 'O consumo exato e o custo ficam no painel do provedor da sua IA (Google, OpenAI, Anthropic...).';
@@ -3028,19 +3045,20 @@ function cardUsoIA() {
       <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
       <p class="nota">${prov} A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
       <p class="nota">${S.d.ajustes.sensores === true
-        ? `No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para um painel ou uma automação.`
+        ? `No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para pôr num painel ou numa automação (por exemplo, avisar quando passar de 50 no dia).`
         : `Para ter o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> no Home Assistant (as chamadas de hoje, com erros, cota e tokens), ligue <b>Sensores no Home Assistant</b>, logo abaixo.`}</p>`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
-    ${maisLead('Cada leitura de fatura, print ou recibo e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}
+    ${maisLead('Cada leitura de fatura, print ou recibo, cada fala e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}
     ${corpo}</section>`;
 }
 
 /* --------- Dados */
 function maisDados() {
-  const exp = (fmt, nome, icone) => DEMO
-    ? `<button class="btn" data-a="demo-arq">${ic(icone)}${nome}</button>`
-    : `<a class="btn" href="api/export/${fmt}" download>${ic(icone)}${nome}</a>`;
+  // Exportar como no InventarIA, no ResolvIA e no CronologIA: uma linha por arquivo, o que ele tem e o botão
+  const exp = (fmt, titulo, texto, rotulo) => `<li><div class="ot"><b>${titulo}</b><span>${texto}</span></div>${DEMO
+    ? `<button class="btn peq" data-a="demo-arq">${ic('download', 'ic-s')}${rotulo}</button>`
+    : `<a class="btn peq" href="api/export/${fmt}" download>${ic('download', 'ic-s')}${rotulo}</a>`}</li>`;
   const bks = S.backups;
   const listaBk = !DEMO && bks == null ? `<div class="status manual">Carregando backups…</div>`
     : (bks || []).length ? `<div class="bk-lista">${bks.slice(0, 5).map(b => {
@@ -3049,11 +3067,14 @@ function maisDados() {
         <button class="btn peq" data-a="bk-restaurar" data-v="${esc(b.nome)}">${ic('archive-restore', 'ic-s')}Restaurar</button></div>`;
     }).join('')}</div>` : `<p class="nota" style="margin:12px 0 0">Nenhum backup na pasta ainda.</p>`;
   return `<section class="card" id="exportar">${maisCab('download', 'Exportar')}
-      ${maisLead('Baixe para guardar ou abrir em outro programa. Os arquivos são abertos e legíveis: o ZIP tem tudo, com as imagens; os CSV abrem no Excel.')}
-      <div class="btns">${exp('zip', 'Tudo (ZIP)', 'archive')}${exp('lancamentos', 'Lançamentos (CSV)', 'sheet')}${exp('csv', 'Investimentos (CSV)', 'sheet')}${exp('json', 'Dados (JSON)', 'braces')}</div></section>
-    <section class="card" id="relatorio">${maisCab('file', 'Relatório de patrimônio')}
-      ${maisLead('Lista por dono e por banco, pronta para imprimir ou salvar em PDF.')}
-      <button class="btn" data-a="relatorio">${ic('file')}Abrir relatório</button></section>
+      ${maisLead('Baixe para guardar ou levar para outro programa. Os arquivos são abertos e legíveis.')}
+      <ul class="opts">
+        ${exp('lancamentos', 'Lançamentos (CSV)', 'Abre no Excel e no Google Planilhas, com um lançamento por linha: data, data no caixa, categoria, conta, valor e se está pago. Traz também os fixos e os descontos do salário.', 'Baixar CSV')}
+        ${exp('csv', 'Investimentos (CSV)', 'Um investimento por linha, com banco, de quem é, rendimento, valor de hoje, quanto rende por mês e liquidez.', 'Baixar CSV')}
+        ${exp('json', 'Dados completos (JSON)', 'Todos os campos, para backup ou para outro sistema.', 'Baixar JSON')}
+        ${exp('zip', 'Tudo (ZIP)', 'Os dados completos, as duas planilhas e as imagens dos lançamentos e investimentos num arquivo só. É o arquivo que o Importar traz de volta.', 'Baixar ZIP')}
+        <li id="relatorio"><div class="ot"><b>Relatório de patrimônio</b><span>Os investimentos por dono e por banco, com os totais, pronto para imprimir ou salvar em PDF.</span></div><button class="btn peq" data-a="relatorio">${ic('file', 'ic-s')}Abrir relatório</button></li>
+      </ul></section>
     <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
       ${maisLead('Cria uma cópia completa em <code>share/gerencia</code>, que você acessa pela rede do Home Assistant. Os backups do próprio Home Assistant também incluem o GerencIA.')}
       <button class="btn pri" data-a="backup">${ic('archive')}Criar backup</button>${listaBk}</section>
@@ -3327,6 +3348,50 @@ function pintarNav() {
     : `<button class="${S.ui.tab === k ? 'on' : ''}" data-a="tab" data-v="${k}" ${S.ui.tab === k ? 'aria-current="page"' : ''}>${ic(i)}${n}</button>`).join('');
 }
 
+// Computador (1000 px ou mais): barra lateral no lugar das abas de baixo, como no ResolvIA, no CronologIA e no InventarIA.
+// Seções, Buscar (tecla /), os bancos e as pessoas com dinheiro aqui; cada um abre a Carteira já filtrada.
+function irBuscar() {
+  // como o Buscar dos outros apps: procura em todos os investimentos
+  Object.assign(S.ui, { tab: 'investimentos', invModo: 'carteira', filtro: 'todos', pessoa: null, banco: null });
+  salvarUI(); render(); window.scrollTo(0, 0);
+  const q = $('#q'); if (q) q.focus();
+}
+function pintarLado() {
+  let el = $('#lado');
+  if (!el) { el = document.createElement('aside'); el.id = 'lado'; el.setAttribute('aria-label', 'Menu'); document.body.prepend(el); }
+  const d = S.d, u = S.ui, tab = u.tab;
+  // com um banco ou uma pessoa aberta, só ele fica marcado (como a lista aberta no ResolvIA)
+  const naCarteira = tab === 'investimentos' && u.invModo === 'carteira';
+  const itemAberto = naCarteira && ((u.banco && u.filtro === 'todos') || (u.filtro === 'terc' && u.pessoa && !u.banco));
+  const link = (k, n, i, extra = '') => `<button class="side-link" data-a="tab" data-v="${k}"${tab === k && !(k === 'investimentos' && itemAberto) ? ' aria-current="page"' : ''}>${ic(i)}<span>${n}</span>${extra}</button>`;
+  const nAtr = temCaixa() ? memo('nAtr', () => { avisosCaixa(hoje()); return S.nAtrasadas || 0; }) : 0;
+  let h = `<div class="side-brand">Gerenc<span>IA</span></div><nav class="side-nav" aria-label="Seções">
+    ${link('inicio', 'Início', 'home')}
+    ${d.investimentos.length ? `<button class="side-link" data-a="buscar">${ic('search')}<span>Buscar</span><kbd aria-hidden="true">/</kbd></button>` : ''}
+    ${link('caixa', 'Caixa', 'fluxo', nAtr ? `<span class="side-badge" title="${plural(nAtr, 'conta atrasada', 'contas atrasadas')}">${nAtr}</span>` : '')}
+    ${link('investimentos', 'Investimentos', 'wallet')}
+    ${link('mais', 'Mais', 'sliders')}</nav>`;
+  const pb = new Map();
+  for (const i of d.investimentos) pb.set(i.banco || '', (pb.get(i.banco || '') || 0) + valorHoje(i));
+  const bancos = [...pb].sort((a, b) => b[1] - a[1]);
+  if (bancos.length) {
+    h += `<div class="side-h"><span>Bancos</span><small>${bancos.length}</small></div><div class="side-lista">${bancos.map(([id, v]) => {
+      const b = bancoDe(id), on = naCarteira && u.banco === id && u.filtro === 'todos';
+      return `<button class="side-item" data-a="lado-banco" data-v="${esc(id)}"${on ? ' aria-current="page"' : ''}><span class="side-tile" style="--c:${corOk(b?.cor) || 'var(--c0)'}">${esc((b?.nome || '?').slice(0, 1).toUpperCase())}</span><span class="sl-nome">${esc(b?.nome || 'Sem banco')}</span><span class="sl-num">${compacto(v)}</span></button>`;
+    }).join('')}</div>`;
+  }
+  const ps = pessoas();
+  if (ps.length) {
+    h += `<div class="side-h"><span>De terceiros</span><small>${ps.length}</small></div><div class="side-lista">${ps.map(p => {
+      const v = d.investimentos.filter(i => i.titular === 'terceiros' && dono(i) === p).reduce((s2, i) => s2 + valorHoje(i), 0);
+      const on = naCarteira && u.filtro === 'terc' && u.pessoa === p && !u.banco;
+      return `<button class="side-item" data-a="pessoa" data-v="${esc(p)}"${on ? ' aria-current="page"' : ''}><span class="side-tile terc">${esc(p.slice(0, 1).toUpperCase())}</span><span class="sl-nome">${esc(p)}</span><span class="sl-num">${compacto(v)}</span></button>`;
+    }).join('')}</div>`;
+  }
+  h += `<p class="side-foot">GerencIA ${VERSAO}${DEMO ? ' · prévia' : ''}</p>`;
+  el.innerHTML = h;
+}
+
 function ajustarTextos() {
   $$('.stat-duo b, .inv-valor, .hl-n').forEach(el => {
     el.style.fontSize = '';
@@ -3348,13 +3413,15 @@ function render() {
   const pos = foco ? document.activeElement.selectionStart : null;
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
   pintarNav();
+  pintarLado();
   desenharGraficos();
   { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
   ajustarTextos();
   if (S.ui.tab === 'mais' && !S.ia && !DEMO && iaOn()) api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {});
-  if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.uso && !S.usoPedido) {
+  if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.usoPedido && (!S.uso || Date.now() - (S.usoEm || 0) > 30000)) {
     S.usoPedido = true;
-    api.iaUso().then(u => { S.uso = u; }).catch(() => { S.uso = { today: null, days: [] }; }).finally(() => { S.usoPedido = false; if (S.ui.tab === 'mais') render(); });
+    api.iaUso().then(u => { S.uso = u; }).catch(() => { if (!S.uso) S.uso = { today: null, days: [] }; })
+      .finally(() => { S.usoPedido = false; S.usoEm = Date.now(); if (S.ui.tab === 'mais') render(); });
   }
   if (S.ui.tab === 'mais' && maisAba() === 'dados' && S.backups == null && !S.bkPedido) {
     S.bkPedido = true;
@@ -3502,7 +3569,9 @@ document.addEventListener('click', ev => {
     case 'filtro': S.ui.filtro = v; S.ui.pessoa = null; salvarUI(); render(); break;
     case 'pessoa-f': S.ui.pessoa = v || null; render(); break;
     case 'banco-f': S.ui.banco = v || null; render(); break;
-    case 'pessoa': S.ui.filtro = 'terc'; S.ui.pessoa = v; S.ui.banco = null; irPara('investimentos'); break;
+    case 'buscar': irBuscar(); break;
+    case 'lado-banco': Object.assign(S.ui, { invModo: 'carteira', filtro: 'todos', pessoa: null, banco: v, busca: '' }); irPara('investimentos'); break;
+    case 'pessoa': S.ui.filtro = 'terc'; S.ui.pessoa = v; S.ui.banco = null; S.ui.invModo = 'carteira'; irPara('investimentos'); break;
     case 'graf-comp': S.ui.invModo = 'divisao'; S.ui.gAgrup = v; S.ui.gEscopo = 'tudo'; salvarUI(); irPara('investimentos'); break;
     case 'g': {
       const k = el.dataset.k;
@@ -3736,7 +3805,7 @@ document.addEventListener('input', ev => {
 document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && FOLHA) fecharFolha();
   if (ev.key === '/' && !FOLHA && !ev.ctrlKey && !ev.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
-    const q = $('#q'); if (q) { ev.preventDefault(); q.focus(); }
+    const q = $('#q'); if (q) { ev.preventDefault(); q.focus(); } else if (S.d && S.d.investimentos.length) { ev.preventDefault(); irBuscar(); }
   }
   if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }

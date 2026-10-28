@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.8.0"
+VERSAO = "1.9.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -391,7 +391,7 @@ def gerar_zip(d):
                 z.write(p, f"fotos/{nome}")
         z.writestr("LEIA-ME.txt",
                    f"Backup do GerencIA {VERSAO} criado em {agora_iso()}.\n"
-                   "Para restaurar: Mais > Dados > Importar backup, e escolha este .zip.\n")
+                   "Para restaurar: Mais > Dados > Importar, e escolha este .zip.\n")
     return buf.getvalue()
 
 
@@ -1010,9 +1010,11 @@ def ia_ler(corpo):
     if not bruto and not texto:
         raise ValueError("Envie uma imagem, um PDF ou cole um texto.")
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
+    # o que veio do microfone conta como Falar no Uso da IA, como no InventarIA
+    tipo_uso = "fala" if corpo.get("fala") and modo != "holerite" and not bruto else modo
     if IA_MOCK:
         time.sleep(1.2)
-        registrar_uso(modo, "ai_task.simulada", 1800, 600, 1 if bruto else 0, 1.2, "ok")
+        registrar_uso(tipo_uso, "ai_task.simulada", 1800, 600, 1 if bruto else 0, 1.2, "ok")
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
@@ -1037,7 +1039,7 @@ def ia_ler(corpo):
                     f.write(bruto)
                 payload["attachments"] = [{"media_content_id": f"media-source://media_source/local/{IA_TMP_REL}/{nome_tmp}",
                                            "media_content_type": mime}]
-            res = ia_chamar(modo, payload, 1 if com_anexo else 0, timeout=240)
+            res = ia_chamar(tipo_uso, payload, 1 if com_anexo else 0, timeout=240)
         finally:
             if tmp:
                 try:

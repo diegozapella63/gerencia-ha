@@ -1,5 +1,19 @@
 # Mudanças
 
+## 1.9.0
+
+- **No computador** (tela de 1000 pixels ou mais), como no ResolvIA, no CronologIA e no InventarIA:
+  - uma **barra lateral** no lugar das abas de baixo, com Início, **Buscar** (tecla /), Caixa (com o número de contas atrasadas), Investimentos e Mais, os **bancos** e as **pessoas** com dinheiro aqui, cada um abrindo a Carteira já filtrada;
+  - no alto à direita, **Falar**, esconder valores, **Ler com IA** e **Adicionar**;
+  - seções direto na página, sem cartões, com título grande e ícone e uma linha entre as linhas;
+  - no Início, os números ao lado do placar e, abaixo, dois grupos lado a lado (Caixa e dicas; terceiros e avisos);
+  - no Caixa, a lista à esquerda e o mês (entrou, saiu, sobrou e saldo) à direita; as categorias em duas colunas;
+  - na Carteira, a busca ao lado do filtro e os investimentos em duas colunas;
+  - as janelas abrem no meio da tela.
+  No celular e no tablet nada muda.
+- **Exportar** como nos outros apps: uma linha por arquivo, cada uma com o que ele tem e o botão **Baixar** (Lançamentos e Investimentos em CSV, Dados completos em JSON, Tudo em ZIP e o Relatório de patrimônio).
+- **Uso da IA** igual ao dos outros apps: os quadros aparecem zerados antes da primeira chamada, o Falar conta como um tipo próprio e a nota do Gemini fala dos erros 429 e da hora em que a cota volta.
+
 ## 1.8.0
 
 - **Sensores no Home Assistant desligados por padrão**: o app só cria os sensores (`sensor.gerencia_patrimonio`, `_meu`, `_terceiros`, `_rendimento_mensal`, `_saldo_caixa`, `_entradas_mes`, `_saidas_mes` e `_ia_hoje`) se você ligar em Mais › Integrações. Desligado, apaga os que tinha criado. Quem atualizar fica com eles desligados até ligar.

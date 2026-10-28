@@ -27,6 +27,10 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Aparência*: tema e cor do app.
   - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
 
+### No computador
+
+Com a tela larga (1000 pixels ou mais, como no ResolvIA, no CronologIA e no InventarIA), as abas de baixo viram uma **barra lateral**: Início, **Buscar** (ou a tecla /, que abre a Carteira com o cursor na busca), Caixa (com o número de contas atrasadas), Investimentos e Mais, e embaixo os **bancos** e as **pessoas** com dinheiro aqui, cada um abrindo a Carteira já filtrada. No alto à direita ficam **Falar**, esconder valores, **Ler com IA** e **Adicionar**. As seções ficam direto na página, com título grande; no Início, os destaques ficam ao lado do placar; no Caixa, o mês fica à direita da lista; na Carteira, os investimentos ficam em duas colunas. As janelas abrem no meio da tela. No celular e no tablet nada muda.
+
 ## Caixa
 
 ### Fixos
@@ -133,13 +137,13 @@ Investimentos e lançamentos podem ter fotos (comprovante, print do banco). No f
 
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.
 
-Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais > Índices de mercado**.
+Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais › Invest › Índices de mercado**.
 
 ## Uso da IA
 
 Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Ler nas imagens e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos.
 
-Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço) e as últimas chamadas. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
+Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 
 ## Sensores
 
@@ -182,7 +186,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 - Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As fotos ficam em `/data/fotos`.
 - **Criar backup** salva um `.zip` em `share/gerencia`, com os dados e as fotos.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
-- **Exportar** gera CSV dos investimentos e dos lançamentos (abre no Excel, separado por ponto e vírgula), JSON e ZIP.
+- **Exportar** (Mais › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta; e o **Relatório de patrimônio**, para imprimir ou salvar em PDF. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
 
 ## Avisos
 

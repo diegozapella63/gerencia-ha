@@ -46,7 +46,8 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Fotos** em lançamentos e investimentos.
 - **Sensores** no Home Assistant: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês.
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
-- **Backup** em `share/gerencia`, exportação em CSV, relatório e versões anteriores.
+- **No computador**, uma barra lateral com as seções, os bancos e as pessoas, as telas em duas colunas e as janelas no meio da tela, como nos outros apps.
+- **Backup** em `share/gerencia`, exportação em CSV, JSON e ZIP, relatório e versões anteriores.
 
 Mais detalhes em [gerencia/DOCS.md](gerencia/DOCS.md).
 

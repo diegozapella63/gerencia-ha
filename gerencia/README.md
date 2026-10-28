@@ -8,4 +8,5 @@ Seu dinheiro no Home Assistant: o caixa do dia a dia e os investimentos, com flu
 - Fluxo de caixa mês a mês e categorias de gastos e recebimentos
 - Investimentos com rendimento no padrão de mercado, de quem é o dinheiro e evolução projetada
 - Leitura por IA de fatura em PDF, prints, papel e WhatsApp, e Falar pelo microfone
+- No computador, barra lateral e telas em duas colunas
 - Sensores, backup, exportação e tema claro e escuro seguindo o Home Assistant

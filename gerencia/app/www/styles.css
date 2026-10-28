@@ -751,6 +751,13 @@ details summary { list-style-position: inside; }
 .tsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 
 /* backups na pasta share */
+/* Exportar (como no InventarIA, no ResolvIA e no CronologIA): uma linha por arquivo, com borda entre elas */
+.opts { list-style: none; margin: 0 0 4px; padding: 0; border-top: 1px solid var(--line); }
+.opts > li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 14px 2px; border-bottom: 1px solid var(--line); }
+.opts .ot { flex: 1; min-width: 220px; }
+.opts .ot b { display: block; font-weight: 600; font-size: 15.5px; }
+.opts .ot span { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+.opts .btn { flex: none; }
 .bk-lista { margin-top: 14px; border-top: 1px solid var(--line); }
 .bk-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .bk-row > div { flex: 1; min-width: 0; }
@@ -815,3 +822,127 @@ details summary { list-style-position: inside; }
 .voz-dica { margin: 0; max-width: 34ch; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .ouvido { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); font-size: 14.5px; line-height: 1.4; }
 .ouvido .ic-s { flex: none; margin-top: 2px; color: var(--accent-text); }
+
+/* ---------- computador (1000 px ou mais), como no ResolvIA, no CronologIA e no InventarIA:
+   barra lateral no lugar das abas de baixo, ações no alto à direita, seções na página (sem cartões)
+   com título grande e ícone, os números ao lado do placar, dois grupos lado a lado e as janelas no meio.
+   No celular e no tablet nada muda: os invólucros abaixo somem (display: contents). */
+:root { --side-w: 272px; }
+#lado, .top-acts { display: none; }
+.ini-g, .ini-ga, .ini-gb, .cx-duas, .cx-lado, .cx-lista, .inv-filtros, .inv-lista { display: contents; }
+.comps { margin-top: 8px; }
+
+.side-brand { font: 700 25px/1 var(--font-d); padding: 4px 10px 18px; color: var(--text); }
+.side-brand span { color: var(--accent-text); }
+.side-nav, .side-lista { display: grid; gap: 2px; }
+.side-link, .side-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 8px 10px;
+  border-radius: 10px; text-align: left; color: var(--text); font-weight: 500;
+}
+.side-link .ic { width: 20px; height: 20px; color: var(--muted); }
+.side-link:hover, .side-item:hover { background: var(--card-2); }
+.side-link[aria-current="page"], .side-item[aria-current="page"] { background: var(--card); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+.side-link[aria-current="page"] .ic { color: var(--accent-text); }
+.side-link kbd { margin-left: auto; font: 500 12px/1 var(--font); color: var(--muted); border: 1px solid var(--line-2); border-radius: 5px; padding: 3px 6px; }
+.side-badge {
+  margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 11px; background: var(--danger); color: #fff;
+  font: 600 13px/20px var(--font-d); text-align: center; font-variant-numeric: tabular-nums;
+}
+.side-h { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 10px 8px; }
+.side-h span { font: 600 17px/1.2 var(--font-d); color: var(--text); }
+.side-h small { font-size: 13px; color: var(--muted); }
+.side-item { min-height: 38px; padding: 5px 10px; font-weight: 400; }
+.side-tile {
+  width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); font: 700 14px/1 var(--font-d);
+}
+.side-tile.terc { --c: var(--terc); }
+.sl-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-num { font: 500 15px/1 var(--font-d); color: var(--muted); font-variant-numeric: tabular-nums; }
+.side-foot { margin: auto 0 0; padding: 18px 10px 0; font-size: 13px; color: var(--muted); }
+
+@media (min-width: 1000px) {
+  body { padding-left: var(--side-w); }
+  #lado {
+    display: flex; flex-direction: column; gap: 2px; position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--side-w);
+    padding: 22px 14px 18px; overflow-y: auto; border-right: 1px solid var(--line); background: var(--bg); scrollbar-width: thin;
+  }
+  #nav { display: none; }
+  #app { max-width: 1040px; padding: 28px 40px 72px; }
+
+  /* cabeçalho: o nome do app fica na barra lateral ("Olá, Diego" continua); as ações no alto à direita */
+  .eyebrow .brand, .eyebrow .eb-sep { display: none; }
+  .cab { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: start; }
+  .cab-topo { grid-column: 1; grid-row: 1; min-height: 18px; }
+  .cab-linha { grid-column: 1; grid-row: 2; }
+  .cab-topo > .mic-top, .cab-linha > .icbtn { display: none; }
+  .cab h1 { margin-top: 8px; font-size: 46px; }
+  .top-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 8px; }
+  .top-acts .btn { min-height: 40px; padding: 0 16px; border-radius: 10px; }
+  .top-acts .btn:not(.pri) { background: transparent; }
+  .top-acts .mic-top { margin: 0; width: 40px; height: 40px; }
+  .top-acts .icbtn { width: 40px; height: 40px; }
+  .top-acts .icbtn:hover { background: var(--card-2); }
+  .sync { margin: 12px 0 28px; }
+
+  /* seções na página, sem cartão: título grande com o ícone e uma linha entre as linhas */
+  #app .card, #app .graf-card { background: none; border: 0; border-radius: 0; padding: 0 !important; margin: 0 0 40px; box-shadow: none; overflow: visible; }
+  #app .card.flush > .rot, #app .cx-card .rot { padding: 0; }
+  #app .card .rot, #app .g-tit { margin: 0; padding: 0 0 12px; border-bottom: 1px solid var(--line); font-size: 25px; }
+  #app .g-tit { margin-bottom: 16px; }
+  #app .rot-ic { width: 38px; height: 38px; border-radius: 11px; }
+  #app .rot-ic .ic { width: 21px; height: 21px; }
+  #app .card .op { padding: 13px 8px; border-top: 0; border-bottom: 1px solid var(--line); }
+  #app .op:hover, .hl-row:hover, .cx-card-pe:hover, .comp:hover { background: var(--card-2); }
+  #app .cx-card .cx-resumo { border-top: 0; }
+  #app .cx-card-pe { padding: 12px 8px; }
+  #app .card.dicas .dica:first-of-type { padding-top: 16px; }
+  #app details.card { margin-top: 0 !important; }
+  .stat-duo { margin: 0 0 16px; }
+  .graf-card .leg, .graf-card .linha-sw, .graf-card .sep { margin-left: 0 !important; margin-right: 0 !important; }
+
+  /* Início: o placar com os números ao lado e, abaixo, dois grupos lado a lado */
+  .ini-g { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "p h" "a b"; gap: 0 40px; align-items: start; }
+  .ini-g.so-caixa { grid-template-areas: "p b" "a b"; }
+  .ini-g > .placar { grid-area: p; align-self: center; margin: 0 0 40px; }
+  .ini-g > .hl { grid-area: h; align-self: center; margin: 0 0 40px; }
+  .ini-ga { display: block; grid-area: a; min-width: 0; }
+  .ini-gb { display: block; grid-area: b; min-width: 0; }
+  .hl-row { padding: 10px 6px; }
+  .hl-n { font-size: 21px; }
+
+  /* Caixa: a lista à esquerda e o mês (números e saldo) à direita, parado na tela */
+  .cx-duas { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 0 40px; align-items: start; }
+  .cx-lado { display: block; grid-column: 2; grid-row: 1; position: sticky; top: 24px; }
+  .cx-lista { display: block; grid-column: 1; grid-row: 1; min-width: 0; }
+  .cx-lado .cx-saldo { flex-wrap: wrap; margin: 18px 2px 0; }
+  .cx-lista > .chips:first-child { margin-bottom: 4px; }
+  .dia-cab { margin: 22px 0 0; padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
+  .lanc { background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; margin: 0; padding: 11px 8px; }
+  .lanc:hover { background: var(--card-2); }
+  .lanc.fatura, .lanc.fatura.aberta { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; margin: 0; }
+  .fatura-itens { border: 0; border-left: 3px solid var(--line-2); border-radius: 0; margin: 0 0 0 26px; padding: 0 0 0 10px; }
+  .comps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; }
+  .comps .comp:last-child { border-bottom: 1px solid var(--line); }
+
+  /* Invest: a busca ao lado do filtro e os investimentos em duas colunas */
+  .inv-filtros { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; margin-bottom: 14px; }
+  .inv-filtros > * { margin: 0; }
+  .inv-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .inv-lista .inv { margin: 0; }
+  .inv:hover { background: var(--card-2); }
+
+  /* as janelas viram uma janela no meio da tela */
+  .folha {
+    left: var(--side-w); right: 0; top: 0; bottom: 0; height: fit-content; max-height: 86vh; margin: auto; width: calc(100% - var(--side-w) - 64px);
+    border-radius: 24px; opacity: 0; transform: translateY(14px) scale(.98); transition: opacity .18s, transform .22s cubic-bezier(.2, .8, .2, 1);
+  }
+  .folha.on { opacity: 1; transform: none; }
+  .folha-pe { padding-bottom: 14px; }
+  #toast { left: calc(50% + var(--side-w) / 2); bottom: 24px; }
+}
+/* no tema claro, a letra do banco na barra lateral fica mais escura para ler bem */
+:root[data-theme="light"] .side-tile { color: color-mix(in srgb, var(--c) 55%, #000); background: color-mix(in srgb, var(--c) 26%, transparent); }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .side-tile { color: color-mix(in srgb, var(--c) 55%, #000); background: color-mix(in srgb, var(--c) 26%, transparent); }
+}
