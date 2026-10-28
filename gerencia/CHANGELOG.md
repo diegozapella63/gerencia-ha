@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.6.1
+
+- Cada cartão ganhou um **ícone no cabeçalho**, como no CronologIA e no ResolvIA: Caixa do mês, Dicas de economia, Dinheiro de terceiros, Avisos, Fluxo de caixa mensal e Saldo em caixa.
+
 ## 1.6.0
 
 - **Mais em abas**, no mesmo padrão do ResolvIA, do CronologIA e do InventarIA: Bancos, Caixa, Invest, Integrações, Dados, Aparência e Opções, com o ícone de cada seção num quadradinho.

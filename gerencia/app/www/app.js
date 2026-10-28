@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.6.0';
+const VERSAO = '1.6.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -623,7 +623,7 @@ function telaInicio() {
   // terceiros
   const ps = pessoas();
   if (ps.length) {
-    html += `<div class="card flush"><div class="rot">Dinheiro de terceiros <b>${brl(t.terc, 0)}</b></div>`;
+    html += `<div class="card flush"><div class="rot">${rotIc('users', 'terc')}<span class="rot-t">Dinheiro de terceiros</span><b>${brl(t.terc, 0)}</b></div>`;
     for (const p of ps) {
       const l = d.investimentos.filter(i => i.titular === 'terceiros' && dono(i) === p);
       const v = l.reduce((s, i) => s + valorHoje(i), 0);
@@ -661,13 +661,13 @@ function telaInicio() {
   av.push(`<button class="op" data-a="tab" data-v="mais" data-ancora="indices"><div class="op-ic${I.erro ? ' alerta' : ''}">${ic('trend')}</div>
     <div class="op-t"><b>Índices</b><span>CDI ${pct(I.cdi)}% · Selic ${pct(I.selic)}% · IPCA ${pct(I.ipca)}%</span></div>
     <div class="op-n">${quando}<small>${fonte}</small></div>${ic('chev', 'chev')}</button>`);
-  html += `<div class="card flush"><div class="rot">Avisos</div>${av.join('')}</div>`;
+  html += `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>`;
   return html;
 }
 
 function cardCaixaInicio() {
   const ym = ymHoje();
-  return `<div class="card cx-card"><div class="rot">Caixa de ${MESES_LONGOS[+ym.slice(5) - 1]}</div>${resumoCaixaHTML(ym)}
+  return `<div class="card cx-card"><div class="rot">${rotIc('fluxo')}<span class="rot-t">Caixa de ${MESES_LONGOS[+ym.slice(5) - 1]}</span></div>${resumoCaixaHTML(ym)}
     <button class="cx-card-pe" data-a="tab" data-v="caixa"><span>Saldo hoje <b>${brl(saldoCaixa(), 0)}</b> · fim do mês <b>${brl(saldoPrevisto(ym), 0)}</b></span>${ic('chev', 'chev')}</button></div>`;
 }
 function avisosCaixa(h) {
@@ -695,7 +695,7 @@ function avisosCaixa(h) {
 }
 function avisosInicio(h) {
   const av = avisosCaixa(h);
-  return av.length ? `<div class="card flush"><div class="rot">Avisos</div>${av.join('')}</div>` : '';
+  return av.length ? `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>` : '';
 }
 
 function avisoExemplo() {
@@ -1488,7 +1488,7 @@ function caixaFluxo() {
   const soma = (l, k) => l.reduce((s, m) => s + m[k], 0);
   let html = `<div class="chips">${[['passado', '12 meses atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente']].map(([k, n]) =>
     `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}">${n}</button>`).join('')}</div>`;
-  html += `<div class="graf-card"><h3 class="g-tit">Fluxo de caixa mensal</h3>
+  html += `<div class="graf-card"><h3 class="g-tit">${rotIc('chart')}<span>Fluxo de caixa mensal</span></h3>
     <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
       ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${S.d.ajustes.prever_dia !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
     <div class="chart" id="ch-fluxo" role="img" aria-label="Entradas e saídas por mês"></div>
@@ -1498,7 +1498,7 @@ function caixaFluxo() {
     <div class="sep" style="margin:14px 6px"></div>
     <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Soma nos próximos meses a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.</span></div>
       ${chave('prever_dia', S.d.ajustes.prever_dia !== false, 'Prever o dia a dia')}</div></div>`;
-  html += `<div class="graf-card"><h3 class="g-tit">Saldo em caixa</h3>
+  html += `<div class="graf-card"><h3 class="g-tit">${rotIc('wallet', 'bom')}<span>Saldo em caixa</span></h3>
     <div class="stat-duo"><div><span>Hoje</span><b>${brl(saldoCaixa(), 0)}</b></div>
       <div><span>Em ${nomeMes(serie[serie.length - 1].ym, true)}</span><b>${brl(serie[serie.length - 1].saldo, 0)}</b></div></div>
     <div class="chart" id="ch-saldo" role="img" aria-label="Saldo em caixa no fim de cada mês"></div>
@@ -2369,11 +2369,11 @@ function cardDicas() {
   const { subs, cat } = dicasVisiveis();
   const conferindo = S.dicas && S.dicas.conferindo && (S.dicas.assinaturas || []).some(a => a.status === 'conferindo');
   if (!subs.length && !cat) {
-    return conferindo ? `<div class="card dicas"><div class="rot">Dicas de economia</div>
+    return conferindo ? `<div class="card dicas"><div class="rot">${rotIc('percent', 'bom')}<span class="rot-t">Dicas de economia</span></div>
       <div class="dica-conf"><span class="giro"></span>Conferindo os preços das suas assinaturas nas páginas oficiais…</div></div>` : '';
   }
   const total = subs.reduce((s, x) => s + realDe(x).real, 0);
-  return `<div class="card dicas"><div class="rot">Dicas de economia${total ? ` <b>${subs.length > 1 ? 'até ' : ''}${brl(total, 0)} por ano</b>` : ''}</div>
+  return `<div class="card dicas"><div class="rot">${rotIc('percent', 'bom')}<span class="rot-t">Dicas de economia</span>${total ? `<b>${subs.length > 1 ? 'até ' : ''}${brl(total, 0)} por ano</b>` : ''}</div>
     ${subs.slice(0, 3).map(linhaDicaAssinatura).join('')}${cat ? linhaDicaCategoria(cat) : ''}
     ${subs.length > 3 ? `<button class="link" data-a="tab" data-v="mais" data-ancora="dicas">Ver as ${subs.length} dicas</button>` : ''}</div>`;
 }
@@ -2719,6 +2719,8 @@ const MAIS_ABAS = [
 const maisAba = () => MAIS_ABAS.some(([k]) => k === S.ui.maisAba) ? S.ui.maisAba : 'bancos';
 const iaOn = () => S.d.ajustes.ia !== false;
 // cabeçalho de seção: o ícone num quadradinho no tom da cor do app e o título grande
+// the header of a card: an icon tile (like the CronologIA and the ResolvIA), the title and, on the right, a number
+const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="true">${ic(icone)}</span>`;
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo) => `<button class="sw${on ? ' on' : ''}" data-a="ajuste" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
