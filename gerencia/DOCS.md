@@ -120,7 +120,7 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 
 ## Imagens
 
-Investimentos e lançamentos podem ter fotos (comprovante, print do banco). No formulário, toque em **Adicionar** na área de imagens. Numa imagem já anexada, o botão **Ler** usa a IA para preencher o formulário. As fotos ficam em `/data/fotos` e entram no backup.
+Investimentos podem guardar imagens (comprovante, print do banco, extrato): no formulário, toque em **Guardar** em **Imagens guardadas**. No investimento novo, essa área só guarda; quem lê com IA são os quadrinhos do alto (**Colar mensagem** e **Imagem ou print**), e a imagem lida também fica guardada. Ao editar um investimento, o botão **Ler** numa imagem guardada usa a IA para atualizar os campos. As imagens ficam em `/data/fotos` e entram no backup.
 
 ## Rendimento no padrão de mercado
 

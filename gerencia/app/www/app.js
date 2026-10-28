@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.10.1';
+const VERSAO = '1.10.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2062,14 +2062,18 @@ async function enviarFoto(file) {
 }
 
 /* --------- imagens no formulário de investimento */
+// Imagens guardadas com o investimento. No investimento novo, quem lê com IA são os quadrinhos do alto
+// (Colar mensagem, Imagem ou print): aqui é só para guardar, sem o Ler, para não ter duas leituras na mesma janela.
 function fotosFormHTML() {
   const fotos = F.fotos || [];
-  return `<div class="campo"><div class="lbl">Imagens</div><div class="fotos">
+  const comLer = iaOn() && !!F.id;
+  return `<div class="campo"><div class="lbl">Imagens guardadas</div><div class="fotos">
     ${fotos.map(n => `<div class="foto"><img src="${fotoSrc(n)}" alt="Imagem do investimento" data-a="foto-ver" data-v="${esc(n)}">
       <button class="foto-x" data-a="f-foto-rm" data-v="${esc(n)}" aria-label="Remover imagem">${ic('x', 'ic-s')}</button>
-      <button class="foto-ia" data-a="f-foto-ia" data-v="${esc(n)}">${ic('ia', 'ic-s')}Ler</button></div>`).join('')}
-    <button class="foto add" data-a="f-foto-add">${ic('camera')}<span>Adicionar</span></button></div>
-    <div class="ajuda">Print do app do banco, comprovante ou extrato. Toque em <b>Ler</b> para a IA preencher os campos.</div></div>`;
+      ${comLer ? `<button class="foto-ia" data-a="f-foto-ia" data-v="${esc(n)}">${ic('ia', 'ic-s')}Ler</button>` : ''}</div>`).join('')}
+    <button class="foto add" data-a="f-foto-add">${ic('camera')}<span>Guardar</span></button></div>
+    <div class="ajuda">${comLer ? 'Comprovante, print ou extrato guardado com o investimento. Toque em <b>Ler</b> para a IA atualizar os campos com uma imagem nova.'
+      : 'Comprovante, print ou extrato para guardar junto com o investimento.'}</div></div>`;
 }
 function verFoto(n) {
   abrirFolha(() => ({ titulo: 'Imagem', corpo: `<img class="foto-grande" src="${fotoSrc(n)}" alt="Imagem do investimento">` }), null, true);

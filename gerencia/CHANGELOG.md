@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.10.2
+
+- **Novo investimento sem leitura dobrada**: a área de imagens do fim virou **Imagens guardadas**, só para guardar o comprovante ou o print junto com o investimento. Quem lê com IA no investimento novo são os quadrinhos do alto (Colar mensagem e Imagem ou print). Ao editar um investimento, o **Ler** numa imagem guardada continua, para atualizar os campos.
+
 ## 1.10.1
 
 - **Novo investimento e Nova despesa leem mensagem e imagem**, como nos outros apps: no alto, **Colar mensagem** (do WhatsApp ou do e-mail), **Imagem ou print** (na despesa, **Fatura, print ou foto**) e **Falar**. A IA lê e você confere antes de salvar.
