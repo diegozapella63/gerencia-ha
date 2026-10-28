@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.7.0"
+VERSAO = "1.8.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -67,7 +67,8 @@ INDICES_PADRAO = {
     "erro": None,
 }
 
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": True, "ia_entidade": "", "integracao": True,
+# sensores: desligado até ligar em Mais › Integrações; sensores_v marca os dados que já têm essa escolha
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "integracao": True,
                   "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
@@ -112,6 +113,9 @@ def normalizar(d):
         base["indices"].update(d["indices"])
     if isinstance(d.get("ajustes"), dict):
         base["ajustes"].update(d["ajustes"])
+        # antes os sensores vinham ligados sem ninguém escolher: agora ficam desligados até ligar
+        if "sensores_v" not in d["ajustes"]:
+            base["ajustes"]["sensores"] = False
     try:
         base["rev"] = int(base["rev"])
     except (TypeError, ValueError):
@@ -241,8 +245,35 @@ def atualizar_indices():
 
 # ---------------------------------------------------------------- sensores no HA
 
+SENSORES = ("sensor.gerencia_patrimonio", "sensor.gerencia_meu", "sensor.gerencia_terceiros",
+            "sensor.gerencia_rendimento_mensal", "sensor.gerencia_saldo_caixa", "sensor.gerencia_entradas_mes",
+            "sensor.gerencia_saidas_mes", "sensor.gerencia_ia_hoje")
+_sensores = {"ligado": None}  # o último estado visto: desligar apaga os sensores uma vez
+
+
+def sensores_ligados(d):
+    return (d or {}).get("ajustes", {}).get("sensores") is True
+
+
+def remover_sensores():
+    """Sensores no Home Assistant desligado: os sensores que o app criou somem do Home Assistant."""
+    for ent in SENSORES:
+        req = urllib.request.Request(f"{HA_API}/states/{ent}", method="DELETE",
+                                     headers={"Authorization": f"Bearer {TOKEN}"})
+        try:
+            urllib.request.urlopen(req, timeout=10).read()
+        except Exception:  # noqa: BLE001  (já não existia, ou o Home Assistant está fora: some no próximo reinício)
+            pass
+
+
 def publicar_sensores(d):
-    if not TOKEN or not d.get("ajustes", {}).get("sensores", True):
+    if not TOKEN:
+        return
+    ligado = sensores_ligados(d)
+    antes, _sensores["ligado"] = _sensores["ligado"], ligado
+    if not ligado:
+        if antes is not False:
+            remover_sensores()
         return
     t = calc.totais(d)
     base = {"unit_of_measurement": "BRL", "device_class": "monetary", "state_class": "total"}
@@ -266,13 +297,15 @@ def publicar_sensores(d):
     for ent, (valor, nome, icone, extra) in sensores.items():
         corpo = json.dumps({"state": valor, "attributes": {**base, "friendly_name": nome, "icon": icone, **extra}})
         req = urllib.request.Request(
-            f"http://supervisor/core/api/states/{ent}", data=corpo.encode(), method="POST",
+            f"{HA_API}/states/{ent}", data=corpo.encode(), method="POST",
             headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
         try:
             urllib.request.urlopen(req, timeout=10).read()
         except Exception as e:  # noqa: BLE001
             log("Sensor", ent, "não publicado:", e)
             return
+    if antes is not True:
+        publicar_uso_sensor()
 
 
 def publicar_sensores_async(d):
@@ -667,7 +700,7 @@ def publicar_uso_sensor():
         return
     try:
         d = ler()
-        if d["ajustes"].get("sensores") is False or not ia_ligada(d):
+        if not sensores_ligados(d) or not ia_ligada(d):
             return
         r = resumo_uso()
         h = r["today"]

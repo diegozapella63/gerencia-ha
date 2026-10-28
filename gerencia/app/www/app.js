@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.7.0';
+const VERSAO = '1.8.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -35,7 +35,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: true, ia_entidade: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -2966,9 +2966,9 @@ function maisIntegracoes() {
   return cardOutrosApps(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações: patrimônio, seu dinheiro, de terceiros, rendimento por mês, saldo em caixa, entradas e saídas do mês e as chamadas de IA de hoje.')}
-      ${linhaChave('sensores', a.sensores !== false, 'Criar os sensores', a.sensores !== false
+      ${linhaChave('sensores', a.sensores === true, 'Criar os sensores', a.sensores === true
         ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code> e <code>_ia_hoje</code>. Atualizam a cada mudança e a cada 15 minutos.'
-        : 'Desligado: o app não cria sensores no Home Assistant.')}
+        : 'Desligado: o app não cria sensores no Home Assistant, e apaga os que tinha criado.')}
     </section>`;
 }
 
@@ -3027,7 +3027,9 @@ function cardUsoIA() {
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
       <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
       <p class="nota">${prov} A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
-      <p class="nota">No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para um painel ou uma automação.</p>`;
+      <p class="nota">${S.d.ajustes.sensores === true
+        ? `No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para um painel ou uma automação.`
+        : `Para ter o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> no Home Assistant (as chamadas de hoje, com erros, cota e tokens), ligue <b>Sensores no Home Assistant</b>, logo abaixo.`}</p>`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
     ${maisLead('Cada leitura de fatura, print ou recibo e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}

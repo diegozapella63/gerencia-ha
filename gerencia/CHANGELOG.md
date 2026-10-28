@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.8.0
+
+- **Sensores no Home Assistant desligados por padrão**: o app só cria os sensores (`sensor.gerencia_patrimonio`, `_meu`, `_terceiros`, `_rendimento_mensal`, `_saldo_caixa`, `_entradas_mes`, `_saidas_mes` e `_ia_hoje`) se você ligar em Mais › Integrações. Desligado, apaga os que tinha criado. Quem atualizar fica com eles desligados até ligar.
+
 ## 1.7.0
 
 - **Falar**: o microfone no alto de cada tela, à direita, como no CronologIA e no ResolvIA. Fale os gastos, recebimentos ou investimentos; o Home Assistant transcreve (fala para texto do assistente de voz, como o Home Assistant Cloud) e a IA separa os lançamentos para você conferir, com o que foi ouvido no alto.
