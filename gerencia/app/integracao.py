@@ -142,15 +142,14 @@ def _ocorrencias(d, ym_ini, ym_fim):
     return out
 
 
-def _e_conta(l, aportes=frozenset()):
-    # o aporte mensal nos investimentos não é conta a pagar (nem quando o mês foi editado e virou lançamento)
+def _e_conta(l):
+    # o aporte é um tipo de conta a pagar (o compromisso de aplicar): entra como as outras
     return (l.get("tipo") != "receita" and not l.get("ajuste") and not l.get("desconto")
-            and not l.get("vinculo") and not l.get("aporte") and l.get("recorrencia") not in aportes)
+            and not l.get("vinculo"))
 
 
 def _faturas_e_contas(d, lista):
     contas = calc.mapa_contas(d)
-    aportes = frozenset(r.get("id") for r in d.get("recorrencias", []) if r.get("aporte"))
     faturas, avulsas = {}, []
     for l in lista:
         c = contas.get(l.get("conta")) if l.get("cartao") else None
@@ -165,7 +164,7 @@ def _faturas_e_contas(d, lista):
             if not l.get("pago"):
                 f["pago"] = False
             continue
-        if not _e_conta(l, aportes):
+        if not _e_conta(l):
             continue
         # o fixo do mês tem sempre o mesmo id, lançado ou não: "v:<fixo>:<mês>"
         fixo = l.get("recorrencia") and l.get("competencia")

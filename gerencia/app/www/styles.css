@@ -558,6 +558,12 @@ details summary { list-style-position: inside; }
 .pe-col .btn { width: 100%; }
 .tipo-seg button.on.sai-on { color: var(--sai); }
 .tipo-seg button.on.ent-on { color: var(--entra); }
+.tipo-seg button.on.apo-on { color: var(--apo); }
+.op-ic.apo { background: color-mix(in srgb, var(--apo) 18%, transparent); color: var(--apo); }
+/* Invest › Evolução: o aporte por mês vem das contas a pagar do tipo Aporte */
+.aporte-info { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.aporte-info b { font: 600 26px/1.1 var(--font-d); }
+.aporte-info span { color: var(--muted); font-size: 14px; }
 .seg.mini button { padding: 9px 10px; font-size: 14px; }
 .aviso-fixo { display: flex; gap: 10px; align-items: flex-start; background: var(--card-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 14px; color: var(--text-2); }
 .aviso-fixo svg { flex: none; margin-top: 1px; color: var(--accent-text); }

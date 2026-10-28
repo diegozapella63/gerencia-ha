@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.9.1';
+const VERSAO = '1.10.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -144,16 +144,15 @@ const S = {
   oculto: store.get('oculto', false),
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
-    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gAporte: 0, gIR: false, gAgrup: 'banco', gSel: null,
+    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gAgrup: 'banco', gSel: null,
     cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
   }, store.get('ui', {})),
   ia: null,
   dicas: null,
-  aporteDig: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAporte, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba });
 };
 
 function normalizar(d) {
@@ -693,8 +692,7 @@ function avisosCaixa(h) {
   const av = [];
   if (!temCaixa()) return av;
   const hj = iso(h);
-  // o aporte nos investimentos não é dívida: fica fora de contas atrasadas e a vencer (e do número na barra lateral)
-  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto && !ehAporte(l));
+  const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto);
   const nomes = l => l.cartao && contaDe(l.conta)?.cartao ? 'Fatura ' + nomeConta(contaDe(l.conta)) : l.descricao;
   const agrupar = lista => { const m = new Map(); for (const l of lista) { const k = nomes(l); m.set(k, (m.get(k) || 0) + (+l.valor || 0)); } return m; };
   const atras = agrupar(pend.filter(l => l.dc < hj));
@@ -823,7 +821,7 @@ function invGraficos() {
 let CACHE = {};
 function grafEvolucao(lista) {
   const u = S.ui;
-  const ap = u.gEscopo === 'terc' ? 0 : (S.aporteDig != null ? S.aporteDig : aporteMensal());
+  const ap = u.gEscopo === 'terc' ? 0 : aporteMensal();
   const pj = projetar(lista, u.gAnos, ap, u.gIR);
   CACHE.proj = pj;
   const fim = pj.pts[pj.pts.length - 1];
@@ -842,7 +840,7 @@ function grafEvolucao(lista) {
     </div></div>`;
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips">${[1, 2, 5, 10].map(a =>
     `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}</div>
-    ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteCampo(ap)}
+    ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteInfo(ap)}
     <div class="sep" style="margin:18px 0"></div>
     <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
       <button class="sw${u.gIR ? ' on' : ''}" data-a="g" data-k="gIR" data-v="${u.gIR ? '' : '1'}" aria-label="Descontar IR"></button></div>
@@ -856,12 +854,20 @@ function grafEvolucao(lista) {
   return html;
 }
 
-function aporteCampo(ap) {
-  const r = aporteRec(), conta = r && r.conta ? contaDe(r.conta) : null;
-  return `<div class="lbl"><label for="aporte">Aporte por mês nos seus investimentos</label></div>
-    <div class="pref" style="max-width:260px"><span>R$</span><input id="aporte" data-ui="aporte" inputmode="numeric" value="${ap ? NF2.format(ap) : ''}" placeholder="0,00"></div>
-    <div class="ajuda">${r ? `Entra no fluxo de caixa todo dia ${r.dia}${conta ? `, saindo de ${esc(nomeConta(conta))}` : ''}. <button class="link-in" data-a="aporte-ajustar">Mudar dia ou conta</button>`
-      : 'Quando tiver valor, ele entra no fluxo de caixa todo mês, como saída do seu caixa para os seus investimentos.'}</div>`;
+// O aporte por mês não se digita aqui: vem das contas a pagar do tipo Aporte (o compromisso de aplicar).
+function aporteInfo(ap) {
+  const fx = aportesFixos();
+  if (!fx.length) {
+    return `<div class="lbl">Aporte por mês nos seus investimentos</div>
+      <p class="ajuda" style="margin:0 0 10px">Nenhum. Para a projeção contar com um aporte, cadastre o compromisso no Caixa: uma conta a pagar do tipo <b>Aporte</b>, todo mês.</p>
+      <button class="btn out peq" data-a="aporte-novo">${ic('plus', 'ic-s')}Cadastrar aporte</button>`;
+  }
+  const r = fx[0], conta = r.conta ? contaDe(r.conta) : null;
+  const quando = fx.length > 1 ? `${fx.length} aportes fixos nas contas a pagar` : `${r.freq === 'anual' ? `todo ano em ${MESES_LONGOS[+String(r.inicio).slice(5, 7) - 1]}, dividido por 12` : `todo dia ${r.dia}`}${conta ? `, saindo de ${esc(nomeConta(conta))}` : ''}`;
+  return `<div class="lbl">Aporte por mês nos seus investimentos</div>
+    <div class="aporte-info"><b>${brl(ap)}</b><span>Das contas a pagar do tipo Aporte: ${quando}.</span></div>
+    <div class="btns" style="margin-top:10px"><button class="btn peq" data-a="aporte-ajustar">${ic('edit', 'ic-s')}${fx.length > 1 ? 'Ver os aportes' : 'Mudar o aporte'}</button>
+      <button class="btn peq" data-a="aporte-novo">${ic('plus', 'ic-s')}Outro aporte</button></div>`;
 }
 
 function niceStep(x) {
@@ -1085,35 +1091,14 @@ function proximaYm(r) {
   for (let k = 0; k < 12 && !ativaEm(r, ym); k++) ym = addYm(ym, 1);
   return ym;
 }
-// Aporte mensal: a intenção da aba Invest vira um fixo de saída no caixa (só para os seus investimentos)
+// Aporte: um tipo de conta a pagar, o compromisso de aplicar nos seus investimentos. Os aportes fixos
+// (todo mês, ou todo ano dividido por 12) somam o aporte por mês da projeção na aba Invest.
 const recPorId = () => memo('recId', () => new Map(S.d.recorrencias.map(r => [r.id, r])));
 const ehAporte = l => !!(l.aporte || (l.recorrencia && recPorId().get(l.recorrencia)?.aporte));
-const aporteRec = (d = S.d) => d.recorrencias.find(r => r.aporte && !r.fim);
-const aporteMensal = () => +(aporteRec()?.valor) || 0;
-function padraoAporte() {
-  const sal = S.d.recorrencias.filter(r => r.tipo === 'receita' && !r.fim).sort((a, b) => (+b.valor || 0) - (+a.valor || 0))[0];
-  return { dia: sal ? Math.min(28, (+sal.dia || 5) + 1) : 5, conta: sal?.conta || (contas().find(c => !c.cartao) || contas()[0])?.id || '' };
-}
-let aporteT = null;
-function salvarAporte(v, msg) {
-  clearTimeout(aporteT);
-  return persistir(d => {
-    if (!d.categorias.some(c => c.id === 'c-investimentos')) d.categorias.push(clone(CATEGORIAS_PADRAO.find(c => c.id === 'c-investimentos')));
-    const ym = ymHoje(), r = aporteRec(d);
-    if (v > 0) {
-      if (r) { r.valor = round2(v); return; }
-      const { dia, conta } = padraoAporte();
-      let inicio = dataNoMes(ym, dia) >= iso(hoje()) ? ym : addYm(ym, 1);
-      for (const x of d.recorrencias) if (x.aporte && x.fim && addYm(x.fim, 1) > inicio) inicio = addYm(x.fim, 1);
-      d.recorrencias.push({ id: 'r-' + uid(), tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: round2(v), categoria: 'c-investimentos',
-        conta, cartao: false, obs: '', dia, inicio, fim: null, aporte: true });
-    } else if (r) {
-      const feito = d.lancamentos.some(l => l.recorrencia === r.id && l.competencia === ym && (l.pago || l.pulado));
-      const desde = feito ? addYm(ym, 1) : ym;
-      if (desde <= r.inicio) d.recorrencias = d.recorrencias.filter(x => x.id !== r.id); else r.fim = addYm(desde, -1);
-      d.lancamentos = d.lancamentos.filter(l => !(l.recorrencia === r.id && l.competencia >= desde && !l.pago));
-    }
-  }, msg || (v > 0 ? 'Aporte no fluxo de caixa' : 'Aporte tirado do fluxo de caixa'));
+const aportesFixos = () => S.d.recorrencias.filter(r => r.aporte && (!r.fim || r.fim >= ymHoje()));
+const aporteMensal = () => round2(aportesFixos().reduce((s, r) => s + (+r.valor || 0) / (r.freq === 'anual' ? 12 : 1), 0));
+function novoAporte() {
+  abrirLancamento(null, { tipo: 'despesa', aporte: true, categoria: 'c-investimentos', repete: 'mensal', cartao: false });
 }
 /* --------- créditos e descontos do recebimento: o bruto entra, impostos e plano descontados na fonte saem no mesmo dia */
 const temPartes = l => Array.isArray(l.partes) && l.partes.length > 0;
@@ -1228,13 +1213,13 @@ function saldoCaixa(ate = iso(hoje())) {
   });
 }
 function resumoMes(ym) {
-  let entrou = 0, saiu = 0, aEntrar = 0, aSair = 0, aAplicar = 0;
+  let entrou = 0, saiu = 0, aEntrar = 0, aSair = 0;
   for (const l of lancamentosEntre(ym, ym)) {
     if (l.ajuste) continue;
     const v = +l.valor || 0;
-    if (ehRec(l)) { if (l.pago) entrou += v; else aEntrar += v; } else if (l.pago) saiu += v; else if (ehAporte(l)) aAplicar += v; else aSair += v;
+    if (ehRec(l)) { if (l.pago) entrou += v; else aEntrar += v; } else if (l.pago) saiu += v; else aSair += v;
   }
-  return { entrou, saiu, aEntrar, aSair, aAplicar, sobra: entrou - saiu, previsto: entrou + aEntrar - saiu - aSair - aAplicar };
+  return { entrou, saiu, aEntrar, aSair, sobra: entrou - saiu, previsto: entrou + aEntrar - saiu - aSair };
 }
 function saldoPrevisto(ym) {
   let s = saldoCaixa(dataNoMes(ym, 31));
@@ -1390,7 +1375,7 @@ function resumoCaixaHTML(ym) {
   const r = resumoMes(ym);
   return `<div class="cx-resumo">
     <div><span>Entrou</span><b class="ent">${brl(r.entrou, 0)}</b>${r.aEntrar ? `<small>+ ${brl(r.aEntrar, 0)} a receber</small>` : ''}</div>
-    <div><span>Saiu</span><b class="sai">${brl(r.saiu, 0)}</b>${r.aSair ? `<small>+ ${brl(r.aSair, 0)} a pagar</small>` : ''}${r.aAplicar ? `<small>+ ${brl(r.aAplicar, 0)} a aplicar</small>` : ''}</div>
+    <div><span>Saiu</span><b class="sai">${brl(r.saiu, 0)}</b>${r.aSair ? `<small>+ ${brl(r.aSair, 0)} a pagar</small>` : ''}</div>
     <div><span>Sobrou</span><b>${brl(r.sobra, 0)}</b><small>previsto ${brl(r.previsto, 0)}</small></div></div>`;
 }
 
@@ -1452,9 +1437,7 @@ function linhaLanc(l, dentroFatura) {
   const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : '',
     l.desconto ? 'descontado de ' + (l.paiDesc || 'recebimento') : '', l.vinculo && !ehRec(l) ? 'baixa com ' + nomeVinculo(l) : ''].filter(Boolean);
   const apo = ehAporte(l);
-  // o aporte não atrasa como uma conta: fica "A aplicar" até você tocar em Apliquei
-  const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : apo ? '<span class="tag pend">A aplicar</span>'
-    : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : 'A pagar')}</span>`;
+  const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec || apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
   return `<div class="lanc${dentroFatura ? ' sub' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
@@ -1716,6 +1699,7 @@ function abrirEscolhaNovo() {
     corpo: `<div class="escolhas">
       <button class="op" data-a="lanc-novo" data-v="despesa"><span class="op-ic alerta">${ic('minus')}</span><span class="op-t"><b>Despesa</b><span>Conta, compra, gasto fixo ou parcelado</span></span>${ic('chev', 'chev')}</button>
       <button class="op" data-a="lanc-novo" data-v="receita"><span class="op-ic ok">${ic('plus')}</span><span class="op-t"><b>Recebimento</b><span>Salário, freelance, pix recebido</span></span>${ic('chev', 'chev')}</button>
+      <button class="op" data-a="aporte-novo"><span class="op-ic apo">${ic('wallet')}</span><span class="op-t"><b>Aporte</b><span>Compromisso de aplicar nos seus investimentos</span></span>${ic('chev', 'chev')}</button>
       <button class="op" data-a="ia" data-v="caixa"><span class="op-ic">${ic('ia')}</span><span class="op-t"><b>Ler com IA</b><span>Fatura em PDF, print, foto de papel ou texto do WhatsApp</span></span>${ic('chev', 'chev')}</button>
       <button class="op" data-a="novo-inv"><span class="op-ic neutro">${ic('wallet')}</span><span class="op-t"><b>Investimento</b><span>CDB, Tesouro, poupança, ações</span></span>${ic('chev', 'chev')}</button>
     </div>`,
@@ -1733,7 +1717,7 @@ function abrirLancamento(id, preset) {
       data: l.data, pago: !!l.pago, pagoMexido: true, conta: l.conta || '', cartao: !!l.cartao, obs: l.obs || '', obsAberta: !!l.obs,
       repete: 'nao', vezes: 12, erros: {}, novaCat: null, catsNovas: [],
       partes: clone(l.partes || []), descontos: clone(l.descontos || []), descAberto: String(id).startsWith('d:'), recibo: null, lendoRecibo: false,
-      vinculo: l.vinculo || '', ligadosNovos: [] };
+      vinculo: l.vinculo || '', ligadosNovos: [], aporte: ehAporte(l) };
   } else {
     const tipo = preset?.tipo || 'despesa';
     LF = Object.assign({ id: null, tipo, valor: 0, descricao: '', categoria: '', data: iso(hoje()), pago: true, pagoMexido: false,
@@ -1765,15 +1749,18 @@ function montarFormLanc() {
   const r = f.recorrencia ? S.d.recorrencias.find(x => x.id === f.recorrencia) : null;
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
-  const titulo = f.ajuste ? 'Ajuste de saldo' : f.confirmando ? 'Confirmar recebimento' : f.id ? (rec ? 'Recebimento' : 'Despesa') : (rec ? 'Novo recebimento' : 'Nova despesa');
+  const apo = !rec && !!f.aporte;
+  const titulo = f.ajuste ? 'Ajuste de saldo' : f.confirmando ? 'Confirmar recebimento' : f.id ? (rec ? 'Recebimento' : apo ? 'Aporte' : 'Despesa') : (rec ? 'Novo recebimento' : apo ? 'Novo aporte' : 'Nova despesa');
   let c = '';
-  if (!f.id && !f.ajuste) c += tilesIA('caixa');
+  if (!f.id && !f.ajuste && !f.aporte) c += tilesIA('caixa');
   if (!f.id) {
-    c += `<div class="seg tipo-seg"><button class="${!rec ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
-      <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button></div>`;
+    c += `<div class="seg tipo-seg"><button class="${!rec && !apo ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
+      <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button>
+      <button class="${apo ? 'on apo-on' : ''}" data-a="lf-tipo" data-v="aporte">${ic('wallet', 'ic-s')}Aporte</button></div>`;
+    if (apo) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Um compromisso de aplicar nos seus investimentos, como uma conta a pagar. ${f.repete === 'mensal' || f.repete === 'anual' ? 'Fixo, ele soma o aporte por mês da projeção na aba Invest.' : 'Uma vez só, ele não entra no aporte por mês da projeção; para isso, escolha Todo mês.'}</span></div>`;
   }
   const anualR = r && r.freq === 'anual';
-  if (r && r.aporte) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Aporte nos seus investimentos, todo dia ${r.dia}. Valor padrão ${brl(r.valor)}, o mesmo da aba Invest.</span></div>`;
+  if (r && r.aporte) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Aporte nos seus investimentos, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}; ele soma o aporte por mês da projeção na aba Invest.</span></div>`;
   else if (r && r.vinculo && !rec) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>Gasto fixo, descontado de ${esc(recPorId().get(r.vinculo)?.descricao || 'um recebimento')} todo mês. Valor padrão ${brl(r.valor)}.</span></div>`;
   else if (r) c += `<div class="aviso-fixo">${ic('repeat', 'ic-s')}<span>${rec ? 'Recebimento' : 'Gasto'} fixo, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}. ${f.virtual ? (anualR ? 'Este ano ainda não foi confirmado.' : 'Este mês ainda não foi confirmado.') : ''}</span></div>`;
   if (f.parcela) c += `<div class="aviso-fixo">${ic('calendar', 'ic-s')}<span>Parcela ${esc(f.parcela)}</span></div>`;
@@ -1786,9 +1773,9 @@ function montarFormLanc() {
     : `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
   c += secaoDescontos(f);
   const sugest = [...new Set(S.d.lancamentos.filter(l => l.tipo === f.tipo && !l.ajuste).map(l => l.descricao))].slice(-60);
-  c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : 'Ex.: Mercado, Aluguel, iFood'}" list="dl-desc" autocomplete="off">
+  c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : apo ? 'Ex.: Aporte nos investimentos, Tesouro do mês' : 'Ex.: Mercado, Aluguel, iFood'}" list="dl-desc" autocomplete="off">
     <datalist id="dl-desc">${sugest.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>`;
-  if (!f.ajuste) {
+  if (!f.ajuste && !apo) {
     c += `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${cats.map(k =>
       `<button class="chip${f.categoria === k.id ? ' on' : ''}" data-a="lf-set" data-k="categoria" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(k.nome)}</button>`).join('')}
       <button class="chip add" data-a="lf-cat-nova">${ic('plus', 'ic-s')}Categoria</button></div>`;
@@ -1801,19 +1788,19 @@ function montarFormLanc() {
   }
   c += `<div class="duo"><div class="campo"><label for="lf-data">${noCartao ? 'Data da compra' : 'Data'}</label><input id="lf-data" class="inp" type="date" data-lf="data" value="${esc(f.data)}"></div>
     <div class="campo"><div class="lbl">Situação</div>${vinc ? `<p class="vinc-st">${ic('repeat', 'ic-s')}Baixa com ${esc(vinc.descricao)}</p>` : `<div class="seg mini" style="margin:0">
-      <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : 'Pago'}</button>
-      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : 'A pagar'}</button></div>`}</div></div>`;
-  const recsFixos = rec || f.ajuste ? [] : recebimentosFixos();
+      <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago'}</button>
+      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div></div>`;
+  const recsFixos = rec || apo || f.ajuste ? [] : recebimentosFixos();
   if (recsFixos.length || vinc) {
     c += `<div class="campo"><label for="lf-vinc">Como é pago</label><select id="lf-vinc" class="inp" data-lfv="1">
       <option value="">Por conta própria (conta, Pix ou cartão)</option>${recsFixos.map(x => `<option value="${esc(x.id)}"${f.vinculo === x.id ? ' selected' : ''}>Descontado de: ${esc(x.descricao)} (dia ${x.dia})</option>`).join('')}</select>
       ${vinc ? `<div class="ajuda">A baixa acontece junto com ${esc(vinc.descricao)}: quando ele for confirmado, este gasto fica pago no mesmo dia e na mesma conta. Se o valor mudar num mês, edite só aquele mês.</div>` : ''}</div>`;
   }
   if (!vinc) {
-  c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : 'Como pagou'}</div><div class="chips" style="margin:0">
+  c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : apo ? 'De onde sai' : 'Como pagou'}</div><div class="chips" style="margin:0">
     <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">Sem conta</button>
     ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
-  if (!rec && conta?.cartao) {
+  if (!rec && !apo && conta?.cartao) {
     c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">Débito ou Pix</button>
       <button class="${f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>`;
     if (noCartao) c += `<div class="ajuda">Entra na fatura que vence em <b>${fData(pData(dc))}</b> (fecha dia ${conta.fechamento}, vence dia ${conta.vencimento}).</div>`;
@@ -1826,7 +1813,7 @@ function montarFormLanc() {
       <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">Todo mês</button>
       <button class="${f.repete === 'anual' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="anual">Todo ano</button>
       <button class="${f.repete === 'parcelado' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="parcelado">Parcelado</button></div>`;
-    if (f.repete === 'mensal') c += `<div class="ajuda">Fica fixo: aparece todo dia ${+f.data.slice(8, 10)} a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, inclusive nos gráficos dos próximos meses. O valor acima é o padrão; quando ${rec ? 'receber' : 'pagar'}, você confirma o valor real do mês.</div>`;
+    if (f.repete === 'mensal') c += `<div class="ajuda">Fica fixo: aparece todo dia ${+f.data.slice(8, 10)} a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, inclusive nos gráficos dos próximos meses. O valor acima é o padrão; quando ${rec ? 'receber' : apo ? 'aplicar' : 'pagar'}, você confirma o valor real do mês.</div>`;
     if (f.repete === 'anual') c += `<div class="ajuda">Fica fixo: aparece todo ano em ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, dia ${+f.data.slice(8, 10)}, inclusive nos gráficos. Serve para anuidade, IPVA, seguro e planos anuais.</div>`;
     if (f.repete === 'parcelado') {
       const n = +f.vezes || 0;
@@ -1855,17 +1842,19 @@ function salvarLanc(alcance, eOutro) {
   if (Object.keys(f.erros).length) { pintarFolha(); return; }
   const rec = f.tipo === 'receita';
   const cats = [...S.d.categorias, ...f.catsNovas];
+  const apo = !rec && !!f.aporte;
   const base = {
-    tipo: f.tipo, descricao: f.descricao.trim() || cats.find(c => c.id === f.categoria)?.nome || (rec ? 'Recebimento' : 'Despesa'),
-    valor: round2(f.valor), categoria: f.ajuste ? '' : f.categoria, conta: f.conta || '',
-    cartao: !rec && !!f.cartao && !!contaDe(f.conta)?.cartao, data: f.data, pago: !!f.pago, obs: (f.obs || '').trim(),
+    tipo: f.tipo, descricao: f.descricao.trim() || (apo ? 'Aporte nos investimentos' : cats.find(c => c.id === f.categoria)?.nome || (rec ? 'Recebimento' : 'Despesa')),
+    valor: round2(f.valor), categoria: f.ajuste ? '' : apo ? 'c-investimentos' : f.categoria, conta: f.conta || '',
+    cartao: !rec && !apo && !!f.cartao && !!contaDe(f.conta)?.cartao, data: f.data, pago: !!f.pago, obs: (f.obs || '').trim(),
   };
+  if (apo) base.aporte = true;
   if (rec && f.repete !== 'parcelado') {
     const ld = limparDescontos(f);
     if (ld.partes.length) { base.partes = ld.partes; base.valor = somaPartes(ld.partes); }
     if (ld.descontos.length) base.descontos = ld.descontos;
   }
-  if (!rec && f.vinculo && recPorId().get(f.vinculo)) {
+  if (!rec && !apo && f.vinculo && recPorId().get(f.vinculo)) {
     const rr = recPorId().get(f.vinculo);
     Object.assign(base, { vinculo: f.vinculo, conta: rr.conta || base.conta, cartao: false, pago: !!recMat().get(f.vinculo + '|' + ymDe(f.data))?.pago });
   }
@@ -1875,6 +1864,7 @@ function salvarLanc(alcance, eOutro) {
   const novo = !f.id;
   persistir(d => {
     d.categorias.push(...catsNovas);
+    if (apo && !d.categorias.some(c => c.id === 'c-investimentos')) d.categorias.push(clone(CATEGORIAS_PADRAO.find(c => c.id === 'c-investimentos')));
     if (novo) {
       if (f.repete === 'mensal' || f.repete === 'anual') {
         const r = { id: 'r-' + uid(), tipo: base.tipo, descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta,
@@ -1883,6 +1873,7 @@ function salvarLanc(alcance, eOutro) {
         if (base.partes) r.partes = clone(base.partes);
         if (base.descontos) r.descontos = clone(base.descontos);
         if (base.vinculo) r.vinculo = base.vinculo;
+        if (apo) r.aporte = true;
         d.recorrencias.push(r);
         const mat = Object.assign({}, base, { recorrencia: r.id, competencia: ymDe(f.data) });
         if (base.pago) d.lancamentos.push(recFinal = materializar(mat)); else recFinal = mat;
@@ -1911,7 +1902,7 @@ function salvarLanc(alcance, eOutro) {
       recFinal = x;
     }
     if (rec && ridRec && recFinal) { criarLigados(d, f, ridRec, recFinal); baixaVinculados(d, recFinal); }
-  }, novo ? (f.repete === 'mensal' ? 'Fixo cadastrado: aparece todo mês' : f.repete === 'anual' ? 'Fixo cadastrado: aparece todo ano' : f.repete === 'parcelado' ? `${f.vezes} parcelas lançadas` : 'Lançado') : 'Salvo').then(ok => {
+  }, novo ? (apo && f.repete === 'mensal' ? 'Aporte cadastrado: todo mês, também na projeção' : f.repete === 'mensal' ? 'Fixo cadastrado: aparece todo mês' : f.repete === 'anual' ? 'Fixo cadastrado: aparece todo ano' : f.repete === 'parcelado' ? `${f.vezes} parcelas lançadas` : 'Lançado') : 'Salvo').then(ok => {
     if (!ok) return;
     if (eOutro) {
       LF = Object.assign({}, LF, { id: null, valor: 0, descricao: '', obs: '', obsAberta: false, repete: 'nao', erros: {}, pagoMexido: false, catsNovas: [], partes: [], descontos: [], descAberto: false, recibo: null, ligadosNovos: [], recorrencia: null, virtual: false });
@@ -3499,7 +3490,8 @@ document.addEventListener('click', ev => {
     case 'escolha': { const o = FOLHA && FOLHA.opcoes && FOLHA.opcoes[+v]; fecharFolha(); if (o) o.acao(); break; }
     case 'fixo': { const r = S.d.recorrencias.find(x => x.id === id); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
     case 'dica-anual': abrirDicaAnual(v); break;
-    case 'aporte-ajustar': { const r = aporteRec(); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
+    case 'aporte-ajustar': { const fx = aportesFixos(); if (fx.length === 1) abrirLancamento(`v:${fx[0].id}:${proximaYm(fx[0])}`); else { S.ui.maisAba = 'caixa'; irPara('mais', 'fixos'); } break; }
+    case 'aporte-novo': novoAporte(); break;
     case 'dica-fora': persistir(d => { d.ajustes.dicas_fora = [...new Set([...(d.ajustes.dicas_fora || []), v])].slice(-200); }, 'Dica dispensada'); break;
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
@@ -3524,7 +3516,15 @@ document.addEventListener('click', ev => {
       break;
     }
     // formulário de lançamento
-    case 'lf-tipo': LF.tipo = v; LF.categoria = ''; LF.pagoMexido = false; if (v === 'receita') LF.cartao = false; Object.assign(LF, ultimaConta(v)); pintarFolha(); break;
+    case 'lf-tipo': {
+      const apo = v === 'aporte', tipo = v === 'receita' ? 'receita' : 'despesa';
+      LF.tipo = tipo; LF.categoria = apo ? 'c-investimentos' : ''; LF.pagoMexido = false; Object.assign(LF, ultimaConta(tipo));
+      if (apo && !LF.aporte && LF.repete === 'nao') LF.repete = 'mensal';
+      if (!apo && LF.aporte && LF.repete === 'mensal') LF.repete = 'nao';
+      LF.aporte = apo;
+      if (tipo === 'receita' || apo) { LF.cartao = false; LF.vinculo = ''; }
+      pintarFolha(); break;
+    }
     case 'lf-set': LF[el.dataset.k] = v; pintarFolha(); break;
     case 'lf-pago': LF.pago = !!v; LF.pagoMexido = true; pintarFolha(); break;
     case 'lf-conta': LF.conta = v; if (!contaDe(v)?.cartao) LF.cartao = false; LF.pagoMexido = LF.id ? LF.pagoMexido : false; pintarFolha(); break;
@@ -3804,20 +3804,6 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.ui === 'busca') { S.ui.busca = el.value; render(); return; }
-  if (el.dataset.ui === 'aporte') {
-    const dig = el.value.replace(/\D/g, '').slice(0, 11);
-    S.aporteDig = dig ? parseInt(dig, 10) / 100 : 0;
-    el.value = dig ? NF2.format(S.aporteDig) : '';
-    clearTimeout(aporteT);
-    aporteT = setTimeout(() => { const v = S.aporteDig; salvarAporte(v).then(() => { S.aporteDig = null; render(); }); }, 900);
-    return;
-  }
-  if (el.dataset.ui === 'gAporte') {
-    const dig = el.value.replace(/\D/g, '').slice(0, 11);
-    S.ui.gAporte = dig ? parseInt(dig, 10) / 100 : 0;
-    el.value = dig ? NF2.format(S.ui.gAporte) : '';
-    clearTimeout(window.__ap); window.__ap = setTimeout(() => { salvarUI(); render(); }, 350);
-  }
 });
 
 document.addEventListener('keydown', ev => {
@@ -3901,11 +3887,6 @@ async function iniciar() {
   render();
   carregarDicas();
   carregarVoz();
-  if (+S.ui.gAporte > 0) {
-    const v = +S.ui.gAporte;
-    S.ui.gAporte = 0; salvarUI();
-    if (!aporteRec() && porEscopo('meu').length) salvarAporte(v, `Seu aporte de ${brl(v, 0)} por mês agora aparece no fluxo de caixa`);
-  }
 }
 iniciar();
 })();

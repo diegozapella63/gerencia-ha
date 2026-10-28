@@ -39,7 +39,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Categorias** de gastos e de recebimentos.
 - **Investimentos** com rendimento no padrão de mercado (% do CDI, CDI +, prefixado, IPCA +, Selic +, poupança) e índices do Banco Central.
 - **Meu ou de terceiros**: de quem é cada dinheiro, com o total por pessoa.
-- **Evolução projetada** de 1 a 10 anos, com aporte mensal, desconto de IR e valor em dinheiro de hoje. O aporte entra no fluxo de caixa todo mês.
+- **Evolução projetada** de 1 a 10 anos, com desconto de IR e valor em dinheiro de hoje. O aporte por mês vem das contas a pagar do tipo **Aporte**, o compromisso de aplicar todo mês.
 - **Leitura por IA**: fatura em PDF, print, foto de papel ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
 - **Falar**: o microfone no alto de cada tela. Fale os gastos e recebimentos; o Home Assistant transcreve e a IA separa os lançamentos para você conferir.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.

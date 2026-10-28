@@ -16,8 +16,8 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence.
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6 ou 12 à frente.
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
-- **Adicionar**: escolha despesa, recebimento, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
-- **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com aporte mensal nos seus investimentos, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
+- **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
+- **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
 - **Mais**, em abas no alto, como no ResolvIA, no CronologIA e no InventarIA:
   - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
   - *Caixa*: fixos, categorias e dicas de economia.
@@ -61,15 +61,14 @@ Em **Mais > Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartã
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
-### Aporte mensal
+### Aporte
 
-Em **Invest > Evolução**, o **Aporte por mês nos seus investimentos** é a sua intenção de investir todo mês. Esse valor entra no fluxo de caixa como uma saída fixa, a "Aporte nos investimentos", na categoria Investimentos, todo mês a partir de agora. No gráfico de fluxo, os aportes aparecem em azul, separados das saídas.
+O aporte é um **tipo de conta a pagar**: o compromisso de aplicar nos seus investimentos. Em **Adicionar › Aporte** (ou em Nova despesa, no botão **Aporte**), diga o valor, o dia, de onde sai e se é **Todo mês**. Ele entra no fluxo de caixa como as outras contas, na categoria Investimentos e em azul no gráfico, com **A aplicar** e o botão **Apliquei**. Se passar do dia sem aplicar, aparece como atrasado nos avisos e nas contas a pagar do CronologIA, como qualquer compromisso.
 
-- Vale só para o seu dinheiro: com o filtro *De terceiros*, o aporte não entra na projeção nem no caixa.
-- O dia e a conta de saída começam no dia seguinte ao do seu salário fixo, na mesma conta. Para mudar, toque em **Mudar dia ou conta**.
-- No mês em que aplicar, toque em **Apliquei** e confirme quanto foi. Se um mês for diferente, o padrão continua o da aba Invest.
-- **Não é dívida**: o aporte fica como *A aplicar* até você tocar em Apliquei, mesmo depois do dia. Ele não aparece em contas atrasadas nem nas contas a vencer dos avisos, não vai para as contas a pagar do CronologIA e, no resumo do mês, aparece separado como "a aplicar". Ele só tira o valor do saldo previsto, porque é dinheiro que sai do caixa para os investimentos.
-- Apagar o valor do campo tira o aporte do caixa dali para frente.
+- O **aporte por mês da projeção**, em **Invest › Evolução**, é a soma dos aportes fixos (todo mês; os de todo ano contam divididos por 12). Ali não se digita: aparece o valor, com **Mudar o aporte** e **Outro aporte**. Sem aporte cadastrado, a projeção é sem aporte.
+- Um aporte de uma vez só é um compromisso daquele mês e não entra no aporte por mês da projeção.
+- Vale só para o seu dinheiro: com o filtro *De terceiros*, o aporte não entra na projeção.
+- No mês em que aplicar, toque em **Apliquei** e confirme quanto foi. Se um mês for diferente, o padrão continua o mesmo.
 
 ### Dia a dia
 
@@ -169,7 +168,7 @@ O [CronologIA](https://github.com/diegozapella63/cronologia-ha) é o app de agen
 - **Paguei** no CronologIA dá baixa aqui: o fixo do mês vira um lançamento pago, a fatura fica toda paga e uma conta avulsa fica paga. **Desfazer** volta para "a pagar";
 - o modelo **Conta a pagar** do CronologIA cria a conta aqui: única (lançamento a pagar) ou fixa, todo mês ou todo ano.
 
-Recebimentos, aportes, ajustes de saldo e despesas descontadas do salário não aparecem como contas.
+Recebimentos, ajustes de saldo e despesas descontadas do salário não aparecem como contas. Os aportes aparecem, porque são compromissos (contas a pagar do tipo Aporte).
 
 A ligação não pede configuração. Ao iniciar, o GerencIA grava em `share/gerencia/integracao.json` o endereço dele na rede interna dos apps e uma chave, e o CronologIA (que lê a pasta `share`) usa essa chave para chamar o GerencIA. Quem já consegue ler a pasta `share` também lê os backups do GerencIA que ficam lá, então a chave não abre nada novo. Para cortar a ligação, desligue **Mais › Outros apps › Contas no CronologIA**: o arquivo é apagado e a chave deixa de valer. O mesmo cartão mostra quando o CronologIA usou a ligação pela última vez.
 

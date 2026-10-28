@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.10.0
+
+- **Aporte é um tipo de conta a pagar**: em **Adicionar › Aporte** (ou no botão **Aporte** da Nova despesa), o compromisso de aplicar nos seus investimentos, com valor, dia, de onde sai e se é todo mês. Fica *A aplicar* com o botão **Apliquei** e, como qualquer conta, aparece atrasado nos avisos e vai para as contas a pagar do CronologIA. No resumo do mês volta a entrar no "a pagar".
+- **Invest › Evolução** não tem mais o campo para digitar o aporte: o aporte por mês da projeção é a soma dos aportes fixos das contas a pagar, com **Mudar o aporte** e **Outro aporte** (ou **Cadastrar aporte** quando não houver nenhum). O aporte que já existia continua igual, agora como conta a pagar do tipo Aporte.
+
 ## 1.9.1
 
 - **Ler com IA no Adicionar**, como no ResolvIA e no CronologIA. No celular, o cabeçalho fica só com o microfone (e o olho no Início e no Caixa). No Caixa e no Invest, o **Adicionar** abre a despesa ou o investimento com os quadrinhos **Colar mensagem**, **Fatura, print ou foto** (ou **Print ou extrato**) e **Falar** no alto. No Início, o Adicionar continua com a opção **Ler com IA**. No computador, o Ler com IA segue no alto à direita.
