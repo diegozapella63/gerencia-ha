@@ -27,7 +27,7 @@ import calc  # noqa: E402
 import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 
-VERSAO = "1.6.1"
+VERSAO = "1.6.2"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -45,7 +45,7 @@ TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN")
 # O ingress do Home Assistant sempre chega por este endereço.
 PERMITIDOS = {"172.30.32.2", "127.0.0.1", "::1"}
 
-MAX_VERSOES = 60
+MAX_VERSOES = 3
 INTERVALO_VERSAO = 10 * 60
 MAX_CORPO = 25 * 1024 * 1024
 

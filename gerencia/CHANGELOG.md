@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.6.2
+
+- **Versões anteriores**: o app fica só com as 3 mais recentes, como o ResolvIA, o CronologIA e o InventarIA. As mais antigas são apagadas na próxima cópia.
+
 ## 1.6.1
 
 - Cada cartão ganhou um **ícone no cabeçalho**, como no CronologIA e no ResolvIA: Caixa do mês, Dicas de economia, Dinheiro de terceiros, Avisos, Fluxo de caixa mensal e Saldo em caixa.

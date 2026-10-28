@@ -173,7 +173,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 
 - Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As fotos ficam em `/data/fotos`.
 - **Criar backup** salva um `.zip` em `share/gerencia`, com os dados e as fotos.
-- O app guarda uma versão a cada 10 minutos de uso (as 60 mais recentes) e antes de importar ou restaurar.
+- O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
 - **Exportar** gera CSV dos investimentos e dos lançamentos (abre no Excel, separado por ponto e vírgula), JSON e ZIP.
 
 ## Avisos

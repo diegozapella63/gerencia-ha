@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.6.1';
+const VERSAO = '1.6.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2899,7 +2899,7 @@ function maisDados() {
       ${maisLead('Traz os dados de um .zip ou .json exportado pelo GerencIA: lançamentos, fixos, investimentos, bancos e imagens. Antes de importar, o app guarda uma cópia do que existe hoje.')}
       <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></section>
     <section class="card" id="versoes">${maisCab('clock', 'Versões anteriores')}
-      ${maisLead('O app guarda sozinho uma cópia dos dados a cada 10 minutos de uso e antes de importar ou restaurar. Se algo sair errado, volte para uma delas.')}
+      ${maisLead('O app guarda sozinho uma cópia dos dados a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes. Se algo sair errado, volte para uma delas.')}
       <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></section>
     <section class="card" id="onde">${maisCab('database', 'Onde ficam os dados')}
       ${maisLead('Tudo fica em <code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, dentro do app, e entra no backup do Home Assistant. O app funciona sem internet: só os índices do Banco Central, a leitura por IA e as dicas de economia precisam dela. Valores e projeções são estimativas.')}</section>
