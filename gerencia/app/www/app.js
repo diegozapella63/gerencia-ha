@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.12.2';
+const VERSAO = '1.13.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -947,7 +947,7 @@ function desenharEvolucao() {
   const svg = $('svg', el), tip = $('.tip', el), cross = $('#cross', el);
   const mostrar = ev => {
     const r = svg.getBoundingClientRect();
-    const x = ev.clientX - r.left;
+    const x = (ev.clientX - r.left) * (W / (r.width || W));
     const t = xMin + (x - pl) / (W - pl - pr) * (xMax - xMin);
     let q = quadros[0];
     for (const c of quadros) if (Math.abs(c.t - t) < Math.abs(q.t - t)) q = c;
@@ -1560,7 +1560,7 @@ function desenharFluxo() {
   const svg = $('svg', el), tip = $('.tip', el), hl = $('#fx-hl', el);
   const mostrar = ev => {
     const rc = svg.getBoundingClientRect();
-    const i = Math.max(0, Math.min(serie.length - 1, Math.floor((ev.clientX - rc.left - pl) / banda)));
+    const i = Math.max(0, Math.min(serie.length - 1, Math.floor(((ev.clientX - rc.left) * (W / (rc.width || W)) - pl) / banda)));
     const m = serie[i];
     hl.setAttribute('x', (pl + i * banda).toFixed(1)); hl.style.display = '';
     tip.textContent = '';
@@ -1616,7 +1616,7 @@ function desenharSaldo() {
   const svg = $('svg', el), tip = $('.tip', el), cr = $('#sd-x', el);
   const mostrar = ev => {
     const rc = svg.getBoundingClientRect();
-    const i = Math.max(0, Math.min(serie.length - 1, Math.round((ev.clientX - rc.left - pl) / ((W - pl - pr) / serie.length) - 0.5)));
+    const i = Math.max(0, Math.min(serie.length - 1, Math.round(((ev.clientX - rc.left) * (W / (rc.width || W)) - pl) / ((W - pl - pr) / serie.length) - 0.5)));
     const m = serie[i], x = X(i);
     cr.style.display = ''; $('line', cr).setAttribute('x1', x); $('line', cr).setAttribute('x2', x);
     $('circle', cr).setAttribute('cx', x); $('circle', cr).setAttribute('cy', Y(m.saldo));

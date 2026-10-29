@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.13.0
+
+- **Monitores grandes (Full HD, 2K, 4K)**: o app aproveita a tela. Fica mais largo (a Carteira em três colunas) e tudo cresce na mesma proporção conforme a largura: letras, placar, botões e gráficos (15% a mais em Full HD, 35% em 2K, até 85% em 4K). As janelas cabem na tela e os gráficos continuam respondendo ao mouse no ponto certo.
+- No computador, as plaquinhas do placar crescem para ocupar o painel.
+- No celular e no tablet nada muda.
+
 ## 1.12.2
 
 - **Placar do patrimônio chamativo**, como o caderno do ResolvIA: o painel inteiro na cor do app (Ouro, Azul, Vermelho, Verde…), com as plaquinhas por cima, o texto escuro e o **Por mês** num selo aceso. No tema claro as plaquinhas ficam brancas. Troque a cor em Mais › Aparência › Cor do app.

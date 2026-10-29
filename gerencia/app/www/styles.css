@@ -981,3 +981,26 @@ details summary { list-style-position: inside; }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .side-tile { color: color-mix(in srgb, var(--c) 55%, #000); background: color-mix(in srgb, var(--c) 26%, transparent); }
 }
+
+/* ---------- telas grandes (monitor Full HD, 2K, 4K): mais largo e tudo maior, para aproveitar a tela.
+   O zoom no html aumenta letras, plaquinhas e gráficos na mesma proporção; o --z corrige o que usa altura da tela. */
+:root { --z: 1; }
+@media (min-width: 1000px) {
+  /* no computador as plaquinhas podem crescer até ocupar o placar */
+  .flap { max-width: 116px; height: min(150px, calc(100cqw / var(--n) * 1.5)); font-size: min(116px, calc(100cqw / var(--n) * 1.18)); }
+}
+@media (min-width: 1500px) {
+  #app { max-width: 1320px; }
+  .inv-lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ini-g { gap: 0 48px; }
+  .cx-duas { gap: 0 48px; }
+}
+@media (min-width: 1900px) { :root { --z: 1.15; } }
+@media (min-width: 2300px) { :root { --z: 1.35; } }
+@media (min-width: 2800px) { :root { --z: 1.6; } }
+@media (min-width: 3300px) { :root { --z: 1.85; } }
+@media (min-width: 1900px) {
+  html { zoom: var(--z); }
+  .folha { max-height: calc(86vh / var(--z)); }
+  .mais-painel { min-height: 0; }
+}
