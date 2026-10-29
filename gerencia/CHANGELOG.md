@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.12.2
+
+- **Placar do patrimônio chamativo**, como o caderno do ResolvIA: o painel inteiro na cor do app (Ouro, Azul, Vermelho, Verde…), com as plaquinhas por cima, o texto escuro e o **Por mês** num selo aceso. No tema claro as plaquinhas ficam brancas. Troque a cor em Mais › Aparência › Cor do app.
+
 ## 1.12.1
 
 - **Placar do patrimônio mais colorido**: um brilho da cor do app no alto e um verde de dinheiro embaixo, a borda na cor do app, e os números de baixo com cor: **Seu** em verde, **Terceiros** em âmbar e **Por mês** na cor do app (sem investimentos: Entrou em verde e Saiu em vermelho). Vale no tema escuro e no claro.

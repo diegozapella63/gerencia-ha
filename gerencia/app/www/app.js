@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.12.1';
+const VERSAO = '1.12.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo

@@ -29,7 +29,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 
 ## O que tem
 
-- **Início** com um placar de plaquinhas que viram, como num painel de cotações: patrimônio, seu dinheiro, o de terceiros e quanto rende por mês. Fica escuro ou claro conforme o tema.
+- **Início** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: patrimônio, seu dinheiro, o de terceiros e quanto rende por mês.
 - **Caixa do mês**: quanto entrou, quanto saiu, o que falta pagar e o saldo previsto para o fim do mês.
 - **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.

@@ -11,7 +11,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ## Telas
 
-- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O placar segue o tema: escuro no tema escuro, claro no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
+- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence.
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6 ou 12 à frente.

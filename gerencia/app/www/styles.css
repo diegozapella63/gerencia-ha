@@ -115,25 +115,24 @@ svg { display: block; }
 .placar {
   --tile-a: var(--placar-tile-a); --tile-b: var(--placar-tile-b); --fresta: var(--placar-fresta);
   position: relative; margin: 4px 0 26px; padding: 16px 16px 14px; border-radius: 18px;
-  /* mais colorido: um brilho da cor do app no alto e um verde de dinheiro embaixo */
+  /* chamativo, como o caderno do ResolvIA: o painel inteiro na cor do app, com as plaquinhas por cima */
+  --pk: var(--on-accent);
   background:
-    radial-gradient(120% 110% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 58%),
-    radial-gradient(110% 120% at 100% 100%, color-mix(in srgb, var(--good) 16%, transparent), transparent 55%),
-    var(--placar-bg);
-  color: var(--placar-ink); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--placar-borda));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent), var(--shadow);
+    linear-gradient(155deg, color-mix(in srgb, var(--accent) 78%, #fff) 0%, var(--accent) 42%, color-mix(in srgb, var(--accent) 84%, #000) 100%);
+  color: var(--pk); border: 1px solid color-mix(in srgb, var(--accent) 70%, #000);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 30px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow);
 }
 .placar::before, .placar::after { /* parafusos do painel */
   content: ""; position: absolute; top: 9px; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--placar-borda); box-shadow: inset 0 1px 1px var(--placar-sombra);
+  background: color-mix(in srgb, var(--pk) 28%, transparent); box-shadow: inset 0 1px 1px rgba(0, 0, 0, .35);
 }
 .placar::before { left: 9px; }
 .placar::after { right: 9px; }
-.placar-cab { display: flex; align-items: center; gap: 9px; margin: 0 6px 12px; font: 600 12px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--placar-muted); }
-.placar-cab .led { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 10px var(--accent); flex: none; }
+.placar-cab { display: flex; align-items: center; gap: 9px; margin: 0 6px 12px; font: 600 12px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--pk) 72%, transparent); }
+.placar-cab .led { width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--pk) 16%, transparent), 0 0 9px rgba(255, 255, 255, .95); flex: none; }
 .placar-cab .dt { margin-left: auto; font: 600 14px/1 var(--font-d); letter-spacing: .06em; }
 .placar-num { container-type: inline-size; display: flex; align-items: stretch; gap: 4px; }
-.placar-num .moeda { align-self: center; font: 600 clamp(18px, 6cqw, 26px)/1 var(--font-d); color: var(--accent-text); margin-right: 4px; }
+.placar-num .moeda { align-self: center; font: 700 clamp(18px, 6cqw, 26px)/1 var(--font-d); color: var(--pk); margin-right: 4px; }
 .flap {
   position: relative; flex: 1 1 0; min-width: 0; max-width: 62px; display: grid; place-items: center;
   height: min(86px, calc(100cqw / var(--n) * 1.5));
@@ -152,7 +151,7 @@ svg { display: block; }
   flex: 0 0 auto; width: max(10px, calc(100cqw / var(--n) * .32)); height: auto; align-self: stretch; background: none; box-shadow: none;
   display: flex; align-items: flex-end; justify-content: center; padding: 0 0 10px; font-size: 0; overflow: visible;
 }
-.flap.ponto > span { width: 7px; height: 7px; border-radius: 2px; background: var(--placar-ink); }
+.flap.ponto > span { width: 7px; height: 7px; border-radius: 2px; background: var(--pk); }
 .flap.ponto::before, .flap.ponto::after { display: none; }
 .flap > span { display: block; }
 .placar.vira .flap > span { animation: vira .55s cubic-bezier(.25, .8, .3, 1) both; animation-delay: calc(var(--i) * 55ms); transform-origin: 50% 50%; }
@@ -161,18 +160,14 @@ svg { display: block; }
   60% { transform: perspective(240px) rotateX(12deg); opacity: 1; }
   100% { transform: none; opacity: 1; }
 }
-.placar-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; border-top: 1px solid var(--placar-borda); }
+.placar-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; border-top: 1px solid color-mix(in srgb, var(--pk) 20%, transparent); }
 .placar-cols > div { padding: 11px 6px 2px; min-width: 0; }
-.placar-cols > div + div { border-left: 1px solid var(--placar-borda); padding-left: 11px; }
-.placar-cols span { display: block; font: 600 12px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--placar-muted); }
-.placar-cols b { display: block; margin-top: 4px; font: 600 19px/1.1 var(--font-d); white-space: nowrap; color: var(--placar-ink); }
-.placar-cols b.acento { color: var(--accent-text); }
-.placar-cols b.meu, .placar-cols b.ent { color: var(--good); }
-.placar-cols b.terc { color: var(--terc); }
-.placar-cols b.sai { color: var(--danger); }
-.placar-cols { border-top-color: color-mix(in srgb, var(--accent) 22%, var(--placar-borda)); }
-.placar-cols > div + div { border-left-color: color-mix(in srgb, var(--accent) 22%, var(--placar-borda)); }
-.placar-txt { margin: 12px 6px 2px; color: var(--placar-muted); font-size: 15px; }
+.placar-cols > div + div { border-left: 1px solid color-mix(in srgb, var(--pk) 20%, transparent); padding-left: 11px; }
+.placar-cols span { display: block; font: 600 12px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: color-mix(in srgb, var(--pk) 68%, transparent); }
+.placar-cols b { display: block; margin-top: 4px; font: 700 20px/1.1 var(--font-d); white-space: nowrap; color: var(--pk); }
+/* Por mês num selo escuro, como um placar aceso */
+.placar-cols b.acento { display: inline-block; padding: 2px 7px; border-radius: 6px; background: var(--pk); color: var(--accent); }
+.placar-txt { margin: 12px 6px 2px; color: color-mix(in srgb, var(--pk) 78%, transparent); font-size: 15px; }
 
 /* ---------- destaques em lista (padrão InventarIA) */
 .hl { border-top: 1px solid var(--line); margin-bottom: 26px; }
