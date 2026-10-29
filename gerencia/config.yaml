@@ -1,5 +1,5 @@
 name: GerencIA
-version: "1.12.0"
+version: "1.12.1"
 slug: gerencia
 description: Seu caixa (recebimentos, despesas, fixos e cartões) e seus investimentos, com fluxo de caixa, projeções e leitura por IA.
 url: https://github.com/diegozapella63/gerencia-ha

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.12.0';
+const VERSAO = '1.12.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -567,7 +567,7 @@ function placar({ cab, data, valor, palavra, cols, texto, rotulo }) {
     <div class="placar-cab"><span class="led" aria-hidden="true"></span><span>${cab}</span><span class="dt">${data}</span></div>
     <div class="placar-num" style="--n:${n.toFixed(2)}" role="img" aria-label="${esc(rotulo || valor)}">${palavra ? '' : '<span class="moeda" aria-hidden="true">R$</span>'}${plaquinhas}</div>
     ${texto ? `<p class="placar-txt">${texto}</p>`
-      : `<div class="placar-cols">${cols.map(([k, v, ac]) => `<div><span>${k}</span><b${ac ? ' class="acento"' : ''}>${v}</b></div>`).join('')}</div>`}
+      : `<div class="placar-cols">${cols.map(([k, v, ac]) => `<div><span>${k}</span><b${ac ? ` class="${ac === true ? 'acento' : ac}"` : ''}>${v}</b></div>`).join('')}</div>`}
   </section>`;
 }
 
@@ -597,15 +597,15 @@ function telaInicio() {
   if (!d.investimentos.length) {
     const r = resumoMes(ymHoje());
     html += placar({ cab: 'Saldo em caixa', data: fData(h), valor: numf(saldoCaixa(), 0), rotulo: `Saldo em caixa de ${brl(saldoCaixa(), 0)}`,
-      cols: [['Entrou', brl(r.entrou, 0)], ['Saiu', brl(r.saiu, 0)], ['Sobrou', brl(r.sobra, 0), true]] });
+      cols: [['Entrou', brl(r.entrou, 0), 'ent'], ['Saiu', brl(r.saiu, 0), 'sai'], ['Sobrou', brl(r.sobra, 0), true]] });
     return html.replace('<section class="placar', '<div class="ini-g so-caixa"><section class="placar') + `<div class="ini-ga">${cardDicas()}</div><div class="ini-gb">${avisosInicio(h)}</div></div>`;
   }
 
   html += '<div class="ini-g">' + placar({
     cab: 'Patrimônio', data: fData(h), valor: numf(t.total, 0), rotulo: `Patrimônio de ${brl(t.total, 0)}`,
     cols: [
-      ['Seu', brl(t.meu, 0)],
-      t.terc > 0 ? ['Terceiros', brl(t.terc, 0)] : ['Bancos', String(nBancos)],
+      ['Seu', brl(t.meu, 0), 'meu'],
+      t.terc > 0 ? ['Terceiros', brl(t.terc, 0), 'terc'] : ['Bancos', String(nBancos)],
       ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
     ],
   });

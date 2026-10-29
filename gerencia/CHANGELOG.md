@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.12.1
+
+- **Placar do patrimônio mais colorido**: um brilho da cor do app no alto e um verde de dinheiro embaixo, a borda na cor do app, e os números de baixo com cor: **Seu** em verde, **Terceiros** em âmbar e **Por mês** na cor do app (sem investimentos: Entrou em verde e Saiu em vermelho). Vale no tema escuro e no claro.
+
 ## 1.12.0
 
 - **Aporte aplicado vai para um investimento**: ao tocar em **Apliquei** num aporte (ou marcar **Aplicado** no formulário), escolha em qual investimento foi o dinheiro; o valor soma ao valor de hoje dele. É obrigatório quando há investimentos, e o app lembra a escolha nos próximos meses. Para cadastrar o compromisso, não precisa: o aporte novo nasce **A aplicar**.
