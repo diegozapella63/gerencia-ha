@@ -68,7 +68,10 @@ O aporte é um **tipo de conta a pagar**: o compromisso de aplicar nos seus inve
 - O **aporte por mês da projeção**, em **Invest › Evolução**, é a soma dos aportes fixos (todo mês; os de todo ano contam divididos por 12). Ali não se digita: aparece o valor, com **Mudar o aporte** e **Outro aporte**. Sem aporte cadastrado, a projeção é sem aporte.
 - Um aporte de uma vez só é um compromisso daquele mês e não entra no aporte por mês da projeção.
 - Vale só para o seu dinheiro: com o filtro *De terceiros*, o aporte não entra na projeção.
-- No mês em que aplicar, toque em **Apliquei** e confirme quanto foi. Se um mês for diferente, o padrão continua o mesmo.
+- O aporte novo nasce **A aplicar**: para cadastrar o compromisso não precisa dizer o investimento.
+- Para dar como aplicado (no **Apliquei** da lista, ou marcando **Aplicado** no formulário), diga **em qual investimento** foi o dinheiro e quanto: o valor soma ao valor de hoje desse investimento. O app lembra o investimento para os próximos meses. Se um mês for diferente, o padrão continua o mesmo.
+
+**Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Inter" também soma ao CDB que já existe e lança a saída como aporte.
 
 ### Dia a dia
 

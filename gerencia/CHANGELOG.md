@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.12.0
+
+- **Aporte aplicado vai para um investimento**: ao tocar em **Apliquei** num aporte (ou marcar **Aplicado** no formulário), escolha em qual investimento foi o dinheiro; o valor soma ao valor de hoje dele. É obrigatório quando há investimentos, e o app lembra a escolha nos próximos meses. Para cadastrar o compromisso, não precisa: o aporte novo nasce **A aplicar**.
+- **Aplicar mais** no investimento: diga quanto aplicou e a data. Soma ao valor de hoje e, no caixa, dá baixa no aporte do mês a aplicar, lança um aporte à parte (escolhendo a conta) ou não lança nada.
+- Na leitura por IA, "apliquei 3 mil no CDB" soma ao investimento que já existe (em vez de trocar o saldo) e lança a saída como aporte.
+
 ## 1.11.0
 
 - **Ler com IA e Falar sem escolher antes**: saiu o "Gastos e recebimentos / Investimentos". A IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e o app mostra tudo na mesma janela para conferir, com um botão que salva o que estiver marcado.

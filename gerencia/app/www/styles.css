@@ -801,6 +801,11 @@ details summary { list-style-position: inside; }
 .card .nota a { color: var(--accent-text); }
 @media (prefers-reduced-motion: reduce) { .uso-bar i, .uso-ult summary .ic-s { transition: none; } }
 
+/* Investimento cadastrado: Aplicar mais (aporte que soma ao valor de hoje) */
+.inv-aplicar { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.inv-aplicar .btn { flex: none; }
+.inv-aplicar span { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+
 /* Conferir o que a IA leu: lançamentos e investimentos na mesma janela */
 .ia-sec { display: flex; align-items: center; gap: 8px; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); font: 600 19px/1.2 var(--font-d); }
 .ia-sec:first-of-type { margin-top: 4px; padding-top: 0; border-top: 0; }

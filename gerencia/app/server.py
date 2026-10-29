@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.11.0"
+VERSAO = "1.12.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -819,6 +819,7 @@ IA_REGRAS_AUTO = """Separe tudo em dois grupos. Um mesmo conteúdo pode ter os d
 - "situacao": "feito" se já foi pago ou recebido; "pendente" se é conta, boleto ou parcela a pagar, ou valor que ainda vai receber; "" se não der para saber.
 - "confianca": "alta", "media" ou "baixa".
 Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas. Em conversas, cada valor citado como gasto, conta ou ganho vira um item.
+Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixinha") entra nos dois grupos: aqui, como despesa na categoria de investimentos, já feita; e em "investimentos", com o "aporte".
 
 "investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
@@ -832,12 +833,13 @@ Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior",
 - "vencimento": AAAA-MM-DD, se aparecer; senão "".
 - "liquidez": "diaria" se der para resgatar a qualquer momento; senão "vencimento".
 - "existente": se for o mesmo investimento de um já cadastrado (lista abaixo), o id dele; senão "".
+- "aporte": valor aplicado agora, quando o conteúdo fala de uma aplicação nova; 0 se não. Se só falar da aplicação, sem o saldo, deixe "valor" em 0: o app soma o aporte ao que já tinha.
 - "confianca": "alta", "media" ou "baixa".
 Ignore saldo parado em conta corrente, cartões, limites e empréstimos.
 
 Não invente números: se não der para ler, use 0 ou "".
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
-{{"lancamentos":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","situacao":"","confianca":"media"}}],"investimentos":[{{"nome":"","banco":"","tipo":"cdb","valor":0,"aplicado":0,"data_valor":"","indexador":"cdi_pct","taxa":100,"vencimento":"","liquidez":"vencimento","existente":"","confianca":"media"}}]}}"""
+{{"lancamentos":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","situacao":"","confianca":"media"}}],"investimentos":[{{"nome":"","banco":"","tipo":"cdb","valor":0,"aplicado":0,"data_valor":"","indexador":"cdi_pct","taxa":100,"vencimento":"","liquidez":"vencimento","existente":"","aporte":0,"confianca":"media"}}]}}"""
 
 
 IA_REGRAS_HOLERITE = """Devolva:
@@ -943,9 +945,18 @@ def ia_limpar(parsed, d):
             "vencimento": _data_ou_vazio(it.get("vencimento")),
             "liquidez": "diaria" if str(it.get("liquidez")).lower().startswith("diar") else "vencimento",
             "existente": it.get("existente") if it.get("existente") in ids else "",
+            "aporte": round(max(0.0, calc.num_br(it.get("aporte"))), 2),
             "confianca": it.get("confianca") if it.get("confianca") in ("alta", "media", "baixa") else "media",
         })
     return saida
+
+
+def _aporte_sem_saldo(lista):
+    # investimento novo que só veio com o aporte: o aporte é o valor
+    for it in lista:
+        if not it["existente"] and not it["valor"] and it.get("aporte"):
+            it["valor"] = it["aporte"]
+    return lista
 
 
 def ia_limpar_caixa(parsed, d):
@@ -980,7 +991,7 @@ def ia_limpar_auto(parsed, d):
         lista = _lista(p)
         eh_inv = [x for x in lista if isinstance(x, dict) and ("indexador" in x or "nome" in x and "descricao" not in x)]
         inv, lanc = eh_inv, [x for x in lista if x not in eh_inv]
-    return {"lancamentos": ia_limpar_caixa({"itens": lanc or []}, d), "investimentos": ia_limpar({"itens": inv or []}, d)}
+    return {"lancamentos": ia_limpar_caixa({"itens": lanc or []}, d), "investimentos": _aporte_sem_saldo(ia_limpar({"itens": inv or []}, d))}
 
 
 def ia_limpar_holerite(parsed, d=None):
@@ -1017,8 +1028,15 @@ IA_SIMULADA = {"itens": [
     {"nome": "Tesouro Selic 2029", "banco": "XP", "tipo": "tesouro", "valor": 8350.10, "aplicado": 8000,
      "data_valor": "", "indexador": "selic_mais", "taxa": 0.05, "vencimento": "2029-03-01", "liquidez": "diaria", "confianca": "media"},
 ]}
-def ia_simulada_auto(texto, dica):
+def ia_simulada_auto(texto, dica, d=None):
     t = (texto or "").lower()
+    m = re.search(r"apliquei (\d+(?:[.,]\d+)?)( mil)?", t)
+    cdb = next((i for i in (d or {}).get("investimentos", []) if i.get("tipo") == "cdb"), None)
+    if m and cdb:  # "apliquei 3000 no cdb": aporte num investimento que já existe
+        v = calc.num_br(m.group(1)) * (1000 if m.group(2) else 1)
+        return {"lancamentos": [{"tipo": "despesa", "descricao": "Aporte no CDB", "valor": v, "data": "", "categoria": "c-investimentos", "situacao": "feito"}],
+                "investimentos": [{"nome": cdb.get("nome"), "banco": "", "tipo": "cdb", "valor": 0, "aporte": v, "existente": cdb.get("id"),
+                                   "indexador": cdb.get("indexador"), "taxa": cdb.get("taxa"), "liquidez": cdb.get("liquidez"), "confianca": "alta"}]}
     inv = re.search(r"cdb|tesouro|\blc[ia]\b|invest|apliquei|aplica[çc]|% do cdi|caixinha|rende", t)
     cx = re.search(r"gast|receb|pagu|pagar|compr|fatura|pix|mercado|boleto|conta de|sal[áa]rio", t)
     if not inv and not cx:
@@ -1089,7 +1107,7 @@ def ia_ler(corpo):
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         if modo == "auto":
-            return dict(ia_limpar_auto(json.loads(json.dumps(ia_simulada_auto(texto, corpo.get("dica")))), d), entidade="ai_task.simulada")
+            return dict(ia_limpar_auto(json.loads(json.dumps(ia_simulada_auto(texto, corpo.get("dica"), d))), d), entidade="ai_task.simulada")
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
                 "entidade": "ai_task.simulada"}
     ent = d["ajustes"].get("ia_entidade") or ""

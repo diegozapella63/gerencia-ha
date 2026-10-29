@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.11.0';
+const VERSAO = '1.12.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1723,14 +1723,29 @@ function abrirLancamento(id, preset) {
       data: l.data, pago: !!l.pago, pagoMexido: true, conta: l.conta || '', cartao: !!l.cartao, obs: l.obs || '', obsAberta: !!l.obs,
       repete: 'nao', vezes: 12, erros: {}, novaCat: null, catsNovas: [],
       partes: clone(l.partes || []), descontos: clone(l.descontos || []), descAberto: String(id).startsWith('d:'), recibo: null, lendoRecibo: false,
-      vinculo: l.vinculo || '', ligadosNovos: [], aporte: ehAporte(l) };
+      vinculo: l.vinculo || '', ligadosNovos: [], aporte: ehAporte(l), pagoOrig: !!l.pago,
+      investimento: l.investimento || (l.recorrencia && recPorId().get(l.recorrencia)?.investimento) || '' };
   } else {
     const tipo = preset?.tipo || 'despesa';
     LF = Object.assign({ id: null, tipo, valor: 0, descricao: '', categoria: '', data: iso(hoje()), pago: true, pagoMexido: false,
       obs: '', obsAberta: false, repete: 'nao', vezes: 10, erros: {}, novaCat: null, catsNovas: [],
-      partes: [], descontos: [], descAberto: false, recibo: null, lendoRecibo: false, vinculo: '', ligadosNovos: [] }, ultimaConta(tipo), preset || {});
+      partes: [], descontos: [], descAberto: false, recibo: null, lendoRecibo: false, vinculo: '', ligadosNovos: [], pagoOrig: false, investimento: '' }, ultimaConta(tipo), preset || {});
   }
   abrirFolha(montarFormLanc);
+}
+
+// Aporte aplicado: para onde foi o dinheiro. No cadastro do compromisso (a aplicar) não precisa;
+// para dar como aplicado, sim (se houver investimentos), e o valor soma a ele.
+function invsDoAporte() { return porEscopo('meu'); }
+function campoInvestimentoAporte(o, chave = 'lf-inv') {
+  const lista = invsDoAporte();
+  if (!lista.length) return `<div class="campo"><div class="lbl">Em qual investimento</div><p class="ajuda" style="margin:0">Cadastre o investimento em Invest para o valor do aporte somar a ele.</p></div>`;
+  if (!o.investimento && lista.length === 1) o.investimento = lista[0].id;
+  const sel = lista.find(i => i.id === o.investimento);
+  return `<div class="campo"><div class="lbl">Em qual investimento</div><div class="chips" style="margin:0">
+    ${lista.map(i => `<button class="chip${o.investimento === i.id ? ' on' : ''}" data-a="${chave}" data-v="${esc(i.id)}" style="--c:${corOk(bancoDe(i.banco)?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(i.nome)}</button>`).join('')}</div>
+    ${o.erroInv ? `<div class="msg-erro">${esc(o.erroInv)}</div>` : ''}
+    <div class="ajuda">${sel ? `O valor soma a ${esc(sel.nome)}: ${brl(valorHoje(sel))} → ${brl(valorHoje(sel) + (+o.valor || 0))}.` : 'Escolha para onde foi o dinheiro: o valor soma ao investimento.'} É um investimento novo? Cadastre em Invest e volte aqui.</div></div>`;
 }
 
 // Adicionar › Nova despesa e Novo investimento: trazer de mensagem, arquivo ou fala, em quadrinhos tracejados
@@ -1753,7 +1768,7 @@ function montarFormLanc() {
   const vinc = !rec && f.vinculo ? recPorId().get(f.vinculo) : null;
   const noCartao = !rec && !vinc && f.cartao && conta?.cartao;
   const dc = dataCaixa({ data: f.data, conta: f.conta, cartao: noCartao });
-  if (!f.pagoMexido) f.pago = dc <= hj;
+  if (!f.pagoMexido) f.pago = !f.id && !rec && f.aporte ? false : dc <= hj;
   const r = f.recorrencia ? S.d.recorrencias.find(x => x.id === f.recorrencia) : null;
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
@@ -1798,6 +1813,7 @@ function montarFormLanc() {
     <div class="campo"><div class="lbl">Situação</div>${vinc ? `<p class="vinc-st">${ic('repeat', 'ic-s')}Baixa com ${esc(vinc.descricao)}</p>` : `<div class="seg mini" style="margin:0">
       <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago'}</button>
       <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div></div>`;
+  if (apo && f.pago && !f.pagoOrig) c += campoInvestimentoAporte(f);
   const recsFixos = rec || apo || f.ajuste ? [] : recebimentosFixos();
   if (recsFixos.length || vinc) {
     c += `<div class="campo"><label for="lf-vinc">Como é pago</label><select id="lf-vinc" class="inp" data-lfv="1">
@@ -1847,6 +1863,9 @@ function salvarLanc(alcance, eOutro) {
   if (!(f.valor > 0)) f.erros.valor = 'Coloque o valor.';
   if (!f.id && f.repete === 'parcelado' && !(+f.vezes >= 2 && +f.vezes <= 120)) f.erros.vezes = 'De 2 a 120 vezes.';
   if (!pData(f.data)) f.erros.valor = f.erros.valor || 'Data inválida.';
+  const aplicando = f.tipo !== 'receita' && !!f.aporte && !!f.pago && !f.pagoOrig;
+  f.erroInv = aplicando && invsDoAporte().length && !invsDoAporte().some(i => i.id === f.investimento) ? 'Escolha em qual investimento o aporte foi aplicado.' : '';
+  if (f.erroInv) f.erros.investimento = f.erroInv;
   if (Object.keys(f.erros).length) { pintarFolha(); return; }
   const rec = f.tipo === 'receita';
   const cats = [...S.d.categorias, ...f.catsNovas];
@@ -1857,6 +1876,11 @@ function salvarLanc(alcance, eOutro) {
     cartao: !rec && !apo && !!f.cartao && !!contaDe(f.conta)?.cartao, data: f.data, pago: !!f.pago, obs: (f.obs || '').trim(),
   };
   if (apo) base.aporte = true;
+  const invAp = aplicando ? S.d.investimentos.find(i => i.id === f.investimento) : null;
+  if (apo && invAp) base.investimento = invAp.id;
+  // o valor que entra no investimento agora: a parcela paga, ou o valor todo
+  const valorAp = !invAp ? 0 : !f.id && f.repete === 'parcelado' ? Math.floor(base.valor * 100 / (+f.vezes || 1)) / 100 : base.valor;
+  const novoValorInv = invAp ? round2(valorHoje(invAp) + valorAp) : 0;
   if (rec && f.repete !== 'parcelado') {
     const ld = limparDescontos(f);
     if (ld.partes.length) { base.partes = ld.partes; base.valor = somaPartes(ld.partes); }
@@ -1873,6 +1897,12 @@ function salvarLanc(alcance, eOutro) {
   persistir(d => {
     d.categorias.push(...catsNovas);
     if (apo && !d.categorias.some(c => c.id === 'c-investimentos')) d.categorias.push(clone(CATEGORIAS_PADRAO.find(c => c.id === 'c-investimentos')));
+    if (invAp) {
+      const inv = d.investimentos.find(i => i.id === invAp.id);
+      if (inv) Object.assign(inv, { valor: novoValorInv, data_valor: iso(hoje()), atualizado_em: new Date().toISOString() });
+      const rr = f.recorrencia && d.recorrencias.find(x => x.id === f.recorrencia);
+      if (rr) rr.investimento = invAp.id;
+    }
     if (novo) {
       if (f.repete === 'mensal' || f.repete === 'anual') {
         const r = { id: 'r-' + uid(), tipo: base.tipo, descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta,
@@ -1882,6 +1912,7 @@ function salvarLanc(alcance, eOutro) {
         if (base.descontos) r.descontos = clone(base.descontos);
         if (base.vinculo) r.vinculo = base.vinculo;
         if (apo) r.aporte = true;
+        if (invAp) r.investimento = invAp.id;
         d.recorrencias.push(r);
         const mat = Object.assign({}, base, { recorrencia: r.id, competencia: ymDe(f.data) });
         if (base.pago) d.lancamentos.push(recFinal = materializar(mat)); else recFinal = mat;
@@ -1959,24 +1990,36 @@ function abrirPagar(id) {
   const l = acharLanc(id);
   if (!l) return;
   const r = l.recorrencia ? S.d.recorrencias.find(x => x.id === l.recorrencia) : null;
-  PG = { l, valor: +l.valor || 0 };
+  PG = { l, valor: +l.valor || 0, inv: l.investimento || r?.investimento || '' };
+  if (PG.inv && !S.d.investimentos.some(i => i.id === PG.inv)) PG.inv = '';
   abrirFolha(() => ({
     titulo: ehRec(l) ? 'Confirmar recebimento' : ehAporte(l) ? 'Confirmar aporte' : 'Confirmar pagamento',
     corpo: `<p style="margin:0 0 16px;color:var(--text-2)"><b style="color:var(--text)">${esc(l.descricao)}</b> · ${fData(pData(l.dc || l.data))}${r ? ` · fixo, padrão ${brl(r.valor)}` : ''}</p>
       <div class="campo"><label for="pg-v">Quanto ${ehRec(l) ? 'entrou' : ehAporte(l) ? 'você aplicou' : 'saiu'}</label><div class="pref grande"><span>R$</span><input id="pg-v" data-pg="valor" inputmode="numeric" value="${NF2.format(PG.valor)}"></div>
-      ${r ? `<div class="ajuda">Foi diferente este mês? Corrija aqui. O valor padrão continua ${brl(r.valor)} nos próximos meses.</div>` : ''}</div>`,
+      ${r ? `<div class="ajuda">Foi diferente este mês? Corrija aqui. O valor padrão continua ${brl(r.valor)} nos próximos meses.</div>` : ''}</div>
+      ${ehAporte(l) ? campoInvestimentoAporte({ get investimento() { return PG.inv; }, set investimento(x) { PG.inv = x; }, valor: PG.valor, erroInv: PG.erroInv }, 'pg-inv') : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
   }));
 }
 function confirmarPagar() {
   const { l, valor } = PG;
   if (!(valor > 0)) { toast('Coloque o valor.'); return; }
+  const apo = ehAporte(l), inv0 = apo && PG.inv ? S.d.investimentos.find(i => i.id === PG.inv) : null;
+  if (apo && !inv0 && invsDoAporte().length) { PG.erroInv = 'Escolha em qual investimento o aporte foi aplicado.'; pintarFolha(); return; }
+  const novoValor = inv0 ? round2(valorHoje(inv0) + valor) : 0;
   persistir(d => {
     let x;
-    if (l.virtual) d.lancamentos.push(x = materializar(l, { valor: round2(valor), pago: true }));
-    else { x = d.lancamentos.find(y => y.id === l.id); if (x) { x.pago = true; x.valor = round2(valor); } }
+    const extra = inv0 ? { investimento: inv0.id } : {};
+    if (l.virtual) d.lancamentos.push(x = materializar(l, Object.assign({ valor: round2(valor), pago: true }, extra)));
+    else { x = d.lancamentos.find(y => y.id === l.id); if (x) Object.assign(x, { pago: true, valor: round2(valor) }, extra); }
     baixaVinculados(d, x);
-  }, ehRec(l) ? 'Recebimento confirmado' : 'Pagamento confirmado').then(ok => { if (ok) fecharFolha(); });
+    if (inv0) {
+      const inv = d.investimentos.find(i => i.id === inv0.id);
+      if (inv) Object.assign(inv, { valor: novoValor, data_valor: iso(hoje()), atualizado_em: new Date().toISOString() });
+      const r = l.recorrencia && d.recorrencias.find(y => y.id === l.recorrencia);
+      if (r) r.investimento = inv0.id;
+    }
+  }, ehRec(l) ? 'Recebimento confirmado' : inv0 ? `Aplicado em ${inv0.nome}` : apo ? 'Aporte confirmado' : 'Pagamento confirmado').then(ok => { if (ok) fecharFolha(); });
 }
 function pagarFatura(k) {
   const [conta, dc] = k.split('|');
@@ -2418,6 +2461,8 @@ function aplicarIACaixa(d, itens) {
     for (const it of itens) {
       const cartao = iaNoCartao(it);
       const base = { tipo: it.tipo, descricao: it.descricao, valor: it.valor, categoria: it.categoria, conta: s.conta, cartao, obs: '' };
+      // aplicação nos investimentos vira uma saída do tipo Aporte
+      if (it.tipo === 'despesa' && it.categoria === 'c-investimentos') Object.assign(base, { aporte: true, cartao: false });
       const pago = data => iaPago(it, data);
       if (it.parcelas_total && it.parcela_atual) {
         const g = 'g-' + uid();
@@ -2440,10 +2485,11 @@ function revisaoInvest() {
         <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca-inv" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
         <div class="ia-item-t"><b>${esc(it.nome)}</b>
           <span>${esc([it.banco, tipoDe(it.tipo).nome, rotuloTaxa(it), it.vencimento ? 'vence ' + fData(pData(it.vencimento)) : ''].filter(Boolean).join(' · '))}</span>
-          ${ex ? `<span class="ia-atualiza">Atualiza ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(it.valor)}</span>` : '<span class="ia-atualiza novo">Novo investimento</span>'}
+          ${ex ? (it.aporte > 0 && !(it.valor > 0) ? `<span class="ia-atualiza">Aplica ${brl(it.aporte)} em ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(valorHoje(ex) + it.aporte)}</span>`
+            : `<span class="ia-atualiza">Atualiza ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(it.valor)}</span>`) : '<span class="ia-atualiza novo">Novo investimento</span>'}
           ${it.confianca === 'baixa' ? '<span><em>Confira os números</em></span>' : ''}
           <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div>
-        <b>${brl(it.valor)}</b></div>`;
+        <b>${brl(it.aporte > 0 && !(it.valor > 0) ? it.aporte : it.valor)}</b></div>`;
     }).join('')}</div>`;
 }
 function aplicarIAInvest(d, itens) {
@@ -2453,7 +2499,9 @@ function aplicarIAInvest(d, itens) {
     for (const it of itens) {
       const ex = it.existente && d.investimentos.find(i => i.id === it.existente);
       if (ex) {
-        Object.assign(ex, { valor: it.valor, data_valor: it.data_valor || hj, atualizado_em: new Date().toISOString() });
+        // "apliquei 3 mil no CDB": a IA manda o aporte sem o saldo, e ele soma ao valor de hoje
+        const valor = it.aporte > 0 && !(it.valor > 0) ? round2(valorHoje(ex) + it.aporte) : it.valor;
+        Object.assign(ex, { valor, data_valor: it.aporte > 0 && !(it.valor > 0) ? hj : it.data_valor || hj, atualizado_em: new Date().toISOString() });
         if (!ex.vencimento && it.vencimento) ex.vencimento = it.vencimento;
         if (foto) ex.fotos = [...(ex.fotos || []), foto];
         continue;
@@ -3266,6 +3314,74 @@ function abrirInvestimento(id, preset) {
   abrirFolha(montarFormInv);
 }
 
+// Aplicar num investimento já cadastrado: soma ao valor de hoje e, se quiser, lança no caixa como aporte
+// (dando baixa no aporte do mês, quando houver um a aplicar, ou como um aporte à parte).
+let AP = null;
+function aportesPendentes() {
+  const h = iso(hoje());
+  // o aporte deste mês (ou o do mês passado, se ficou para trás) ainda a aplicar; o do mês que vem não
+  return lancamentosEntre(addYm(ymHoje(), -1), ymHoje()).filter(l => ehAporte(l) && !l.pago && (l.competencia || ymDe(l.data)) <= ymHoje())
+    .sort((a, b) => Math.abs(diasEntre(pData(a.data), pData(h))) - Math.abs(diasEntre(pData(b.data), pData(h))));
+}
+function abrirAplicar(invId) {
+  const inv = S.d.investimentos.find(i => i.id === invId);
+  if (!inv) return;
+  const pend = inv.titular === 'terceiros' ? [] : aportesPendentes();
+  const conta = (contas().find(c => c.id === ultimaConta('despesa').conta && !c.cartao) || contas().find(c => !c.cartao) || contas()[0])?.id || '';
+  AP = { inv: invId, valor: 0, data: iso(hoje()), destino: pend[0] ? pend[0].id : inv.titular === 'terceiros' ? 'nenhum' : 'novo', conta, erro: '' };
+  abrirFolha(montarAplicar);
+  requestAnimationFrame(() => { const v = $('#ap-v'); if (v) v.focus(); });
+}
+function montarAplicar() {
+  const a = AP, inv = S.d.investimentos.find(i => i.id === a.inv);
+  if (!inv) return { titulo: 'Aplicar', corpo: '' };
+  const pend = inv.titular === 'terceiros' ? [] : aportesPendentes();
+  const atual = valorHoje(inv);
+  const chip = (v, txt) => `<button class="chip${a.destino === v ? ' on' : ''}" data-a="ap-destino" data-v="${esc(v)}">${txt}</button>`;
+  const pl = pend.find(l => l.id === a.destino);
+  return {
+    titulo: `Aplicar em ${esc(inv.nome)}`,
+    corpo: `<div class="campo"><label for="ap-v">Quanto você aplicou</label><div class="pref grande${a.erro ? ' erro' : ''}"><span>R$</span><input id="ap-v" data-ap="valor" inputmode="numeric" value="${a.valor ? NF2.format(a.valor) : ''}" placeholder="0,00"></div>
+        ${a.erro ? `<div class="msg-erro">${esc(a.erro)}</div>` : ''}
+        <div class="ajuda" id="ap-ajuda">${aplicarAjuda(atual)}</div></div>
+      <div class="campo"><label for="ap-data">Data</label><input id="ap-data" class="inp" type="date" data-ap="data" value="${esc(a.data)}" max="${iso(hoje())}"></div>
+      <div class="campo"><div class="lbl">No caixa</div><div class="chips" style="margin:0">
+        ${pend.map(l => chip(l.id, `Baixa no ${esc(l.descricao.toLowerCase().startsWith('aporte') ? 'aporte' : l.descricao)} de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]} (${brl(+l.valor || 0, 0)})`)).join('')}
+        ${chip('novo', pend.length ? 'Lançar à parte' : 'Lançar como aporte')}${chip('nenhum', 'Não lançar')}</div>
+        <div class="ajuda">${pl ? `O aporte ${l2mes(pl)} fica aplicado com este valor, saindo de ${esc(nomeConta(contaDe(pl.conta)) || 'sem conta')}.`
+          : a.destino === 'novo' ? 'Entra no caixa como uma saída do tipo Aporte, já aplicada.' : inv.titular === 'terceiros' ? 'Dinheiro de terceiros: não mexe no seu caixa.' : 'Só o valor do investimento muda; o caixa fica como está.'}</div>
+        ${a.destino === 'novo' ? `<div class="chips" style="margin:10px 0 0">${contas().map(k => `<button class="chip${a.conta === k.id ? ' on' : ''}" data-a="ap-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>` : ''}</div>`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ap-ok">Aplicar${a.valor ? ' ' + brl(a.valor, 0) : ''}</button>`,
+  };
+}
+const l2mes = l => `de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]}`;
+function aplicarAjuda(atual) {
+  return AP.valor > 0 ? `O investimento passa de <b>${brl(atual)}</b> para <b>${brl(atual + AP.valor)}</b>.` : `Hoje ele está em ${brl(atual)}. O valor aplicado soma a isso.`;
+}
+function confirmarAplicar() {
+  const a = AP, inv0 = S.d.investimentos.find(i => i.id === a.inv);
+  if (!inv0) return;
+  if (!(a.valor > 0)) { a.erro = 'Coloque o valor.'; pintarFolha(); return; }
+  const novoValor = round2(valorHoje(inv0) + a.valor);
+  const pl = aportesPendentes().find(l => l.id === a.destino);
+  const hj = iso(hoje());
+  persistir(d => {
+    const inv = d.investimentos.find(i => i.id === a.inv);
+    if (!inv) return;
+    Object.assign(inv, { valor: novoValor, data_valor: hj, atualizado_em: new Date().toISOString() });
+    if (pl) {
+      if (pl.virtual) d.lancamentos.push(materializar(pl, { valor: round2(a.valor), pago: true, investimento: inv.id }));
+      else { const x = d.lancamentos.find(y => y.id === pl.id); if (x) Object.assign(x, { valor: round2(a.valor), pago: true, investimento: inv.id }); }
+      const r = pl.recorrencia && d.recorrencias.find(x => x.id === pl.recorrencia);
+      if (r && !r.investimento) r.investimento = inv.id;
+    } else if (a.destino === 'novo') {
+      if (!d.categorias.some(c => c.id === 'c-investimentos')) d.categorias.push(clone(CATEGORIAS_PADRAO.find(c => c.id === 'c-investimentos')));
+      d.lancamentos.push({ id: uid(), tipo: 'despesa', aporte: true, descricao: `Aporte: ${inv.nome}`, valor: round2(a.valor), categoria: 'c-investimentos',
+        conta: a.conta || '', cartao: false, data: a.data || hj, pago: (a.data || hj) <= hj, obs: '', investimento: inv.id });
+    }
+  }, `Aplicado ${brl(a.valor, 0)} em ${inv0.nome}`).then(ok => { if (ok) { AP = null; fecharFolha(); } });
+}
+
 function montarFormInv() {
   const f = F;
   const ix = idxDe(f.indexador);
@@ -3274,7 +3390,9 @@ function montarFormInv() {
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
   const titulo = f.id ? 'Editar investimento' : f.duplicando ? 'Duplicar investimento' : 'Novo investimento';
-  let c = `${!f.id && !f.duplicando && !f.daIA ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
+  const aplicar = f.id ? `<div class="inv-aplicar"><button class="btn out" data-a="inv-aplicar" data-v="${esc(f.id)}">${ic('plus', 'ic-s')}Aplicar mais</button>
+    <span>Fez um aporte? Diga quanto: soma ao valor de hoje e, se quiser, entra no caixa.</span></div>` : '';
+  let c = `${aplicar}${!f.id && !f.duplicando && !f.daIA ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
     <div class="seg dono-seg" style="margin-bottom:10px">
       <button class="${f.titular !== 'terceiros' ? 'on' : ''}" data-a="f-set" data-k="titular" data-v="meu">${ic('user', 'ic-s')}Meu</button>
       <button class="${f.titular === 'terceiros' ? 'on terc' : ''}" data-a="f-set" data-k="titular" data-v="terceiros">${ic('users', 'ic-s')}De terceiros</button></div>`;
@@ -3539,6 +3657,12 @@ document.addEventListener('click', ev => {
       break;
     }
     case 'pg-ok': confirmarPagar(); break;
+    case 'inv-aplicar': abrirAplicar(v); break;
+    case 'ap-destino': AP.destino = v; pintarFolha(); break;
+    case 'ap-conta': AP.conta = v; pintarFolha(); break;
+    case 'ap-ok': confirmarAplicar(); break;
+    case 'pg-inv': PG.inv = v; PG.erroInv = ''; pintarFolha(); break;
+    case 'lf-inv': LF.investimento = v; LF.erroInv = ''; delete LF.erros.investimento; pintarFolha(); break;
     case 'fatura-abrir': S.ui.faturaAberta = S.ui.faturaAberta === v ? null : v; render(); break;
     case 'fatura-pagar': pagarFatura(v); break;
     case 'cx-ajuste': abrirAjuste(); break;
@@ -3814,6 +3938,17 @@ document.addEventListener('input', ev => {
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
   if (el.dataset.ias && IAS) { IAS[el.dataset.ias] = el.value; const b = $('[data-a="ia-ler"]'); if (b) b.disabled = !IAS.arquivo && !IAS.texto.trim(); return; }
   if (el.dataset.iai && IAS) { IAS.itens[+el.dataset.i][el.dataset.iai] = el.value; return; }
+  if (el.dataset.ap && AP) {
+    if (el.dataset.ap === 'valor') {
+      const dig = el.value.replace(/\D/g, '').slice(0, 13);
+      AP.valor = dig ? parseInt(dig, 10) / 100 : 0; AP.erro = '';
+      el.value = dig ? NF2.format(AP.valor) : '';
+      const inv = S.d.investimentos.find(i => i.id === AP.inv), aj = $('#ap-ajuda'), b = $('[data-a="ap-ok"]');
+      if (inv && aj) aj.innerHTML = aplicarAjuda(valorHoje(inv));
+      if (b) b.textContent = 'Aplicar' + (AP.valor ? ' ' + brl(AP.valor, 0) : '');
+    } else AP.data = el.value;
+    return;
+  }
   if ((el.dataset.pg && PG) || (el.dataset.aj && AJ)) {
     const alvo = el.dataset.pg ? PG : AJ;
     const dig = el.value.replace(/\D/g, '').slice(0, 13);
