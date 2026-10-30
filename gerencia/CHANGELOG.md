@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.15.0
+
+- **Botões do mesmo tamanho**, como no EconomIA, no ResolvIA e no CronologIA: as escolhas ficam em colunas, com o texto no meio (categorias, bancos para cadastrar, contas, tipo, rendimento, investimento do aporte e as dos formulários). As curtas (filtros do caixa, período do fluxo, horizonte, divisão) ficam três ou quatro por linha. As fileiras que rolam para o lado continuam como estavam.
+- **Apagar um fixo** ficou claro: **Só o de outubro** (ou só o deste ano), **Parar a partir de** (o que já foi lançado continua) e **Apagar o fixo e o que ele já lançou**. Um fixo parado sai da lista de Fixos (antes continuava aparecendo até o fim, e parecia que não apagava).
+- O **ícone do app** ao lado do nome, no alto e na barra lateral, na cor escolhida em Aparência: as plaquinhas "R$".
+
 ## 1.14.0
 
 - **Arrastar para o lado** troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais, com a tela nova entrando pelo lado. Não vale começando na borda da tela (é o Voltar do celular), num campo, num gráfico (lá o dedo mostra os valores), numa fileira que rola para o lado ou com uma janela aberta.

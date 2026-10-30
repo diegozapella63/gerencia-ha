@@ -36,6 +36,8 @@ Com a tela larga (1000 pixels ou mais, como no ResolvIA, no CronologIA e no Inve
 
 ### Fixos
 
+Para apagar um fixo, abra ele (no caixa ou em Mais › Caixa › Fixos) e toque na lixeira: **só o daquele mês** (ou ano), **parar a partir dali** (o que já foi lançado continua no caixa) ou **apagar o fixo e o que ele já lançou**. Um fixo parado sai da lista de Fixos.
+
 Ao lançar uma despesa ou recebimento, escolha **Repetir: Todo mês**. O fixo aparece em todos os meses à frente, inclusive nos gráficos, com o valor padrão.
 
 Para o que vence uma vez por ano (anuidade, IPVA, seguro, plano anual), escolha **Todo ano**: o fixo aparece só no mês da data escolhida, todo ano.

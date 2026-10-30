@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.14.0';
+const VERSAO = '1.15.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -534,9 +534,17 @@ function syncInfo() {
   if (I.fonte === 'bcb' && q) return ['', iso(q) === iso(hoje()) ? `Índices do Banco Central de hoje, ${hora}` : `Índices do Banco Central de ${fDataC(q)}`];
   return ['manual', DEMO ? 'Exemplo com os índices de outubro de 2026' : 'Esperando os índices do Banco Central'];
 }
+// O ícone do app ao lado do nome (no alto e na barra lateral), na cor escolhida em Aparência, como no ResolvIA e no CronologIA:
+// as duas plaquinhas "R$" do placar.
+const iconeApp = () => `<svg class="app-ic" viewBox="0 0 32 32" aria-hidden="true">
+  <rect x="2" y="5" width="13.2" height="22" rx="3.2" fill="var(--accent)"/><rect x="16.8" y="5" width="13.2" height="22" rx="3.2" fill="var(--accent)"/>
+  <rect x="2" y="5" width="28" height="11" rx="3.2" fill="#fff" fill-opacity=".16"/>
+  <path d="M2 16h2.4M12.8 16h2.4M16.8 16h2.4M27.6 16h2.4" stroke="var(--bg)" stroke-width="1.6"/>
+  <text x="8.6" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">R</text>
+  <text x="23.4" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">$</text></svg>`;
 function cabecalho(titulo, acoes = '', status = null) {
   const [cls, txt] = status || syncInfo();
-  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoFalar()}</div>
+  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">${iconeApp()}Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoFalar()}</div>
     <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
 }
@@ -816,7 +824,7 @@ function invGraficos() {
   let html = '';
   const temTerc = porEscopo('terc').length > 0;
   if (temTerc) {
-    html += `<div class="chips">${[['tudo', 'Tudo'], ['meu', 'Só o meu'], ['terc', 'De terceiros']].map(([k, n]) =>
+    html += `<div class="chips c3">${[['tudo', 'Tudo'], ['meu', 'Só o meu'], ['terc', 'De terceiros']].map(([k, n]) =>
       `<button class="chip${u.gEscopo === k ? ' on' : ''}" data-a="g" data-k="gEscopo" data-v="${k}">${n}</button>`).join('')}</div>`;
   } else if (u.gEscopo !== 'tudo') u.gEscopo = 'tudo';
   const lista = porEscopo(u.gEscopo);
@@ -844,7 +852,7 @@ function grafEvolucao(lista) {
       <span><i class="k" style="--kc:var(--c0)"></i>${ap ? 'Investido + aportes' : 'Valor investido'}</span>
       <span><i class="k" style="--kc:var(--c2)"></i>Em dinheiro de hoje</span>
     </div></div>`;
-  html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips">${[1, 2, 5, 10].map(a =>
+  html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c4">${[1, 2, 5, 10].map(a =>
     `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}</div>
     ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteInfo(ap)}
     <div class="sep" style="margin:18px 0"></div>
@@ -1009,7 +1017,7 @@ function grafComposicao(lista) {
   const total = gs.reduce((s, g) => s + g.v, 0) || 1;
   const sel = gs.find(g => g.k === u.gSel);
   const opts = [['banco', 'Banco'], ['dono', 'De quem'], ['tipo', 'Tipo'], ['liq', 'Liquidez']];
-  let html = `<div class="chips">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${n}</button>`).join('')}</div>`;
+  let html = `<div class="chips c4">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card" style="padding:18px 18px 8px">
     <div class="stat-duo" style="margin:0 0 10px"><div><span>Total</span><b>${brl(total, 0)}</b></div><div><span>Rende por mês</span><b>${brl(gs.reduce((s, g) => s + g.mes, 0), 0)}</b></div></div>
     <div class="pilha-cap">${sel ? `<b>${esc(sel.nome)}</b> · ${brl(sel.v, 0)} · ${pct(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
@@ -1392,7 +1400,7 @@ function caixaLista() {
   const saldoV = atual ? saldoCaixa() : ym < ymHoje() ? saldoCaixa(dataNoMes(ym, 31)) : saldoPrevisto(ym);
   html += `<div class="cx-saldo"><div><span>${saldoTxt}</span><b>${brl(saldoV)}</b>${atual ? `<small>No fim do mês: ${brl(saldoPrevisto(ym), 0)}</small>` : ''}</div>
     ${atual ? `<button class="btn peq" data-a="cx-ajuste">Ajustar saldo</button>` : ''}</div></div><div class="cx-lista">`;
-  html += `<div class="chips">${[['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['pendentes', 'A pagar e receber']].map(([k, n]) =>
+  html += `<div class="chips c4">${[['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['pendentes', 'A pagar e receber']].map(([k, n]) =>
     `<button class="chip${u.cxFiltro === k ? ' on' : ''}" data-a="cx-filtro" data-v="${k}">${n}</button>`).join('')}</div>`;
   let lista = lancamentosEntre(ym, ym);
   if (u.cxFiltro === 'entradas') lista = lista.filter(ehRec);
@@ -1497,7 +1505,7 @@ function caixaFluxo() {
   CACHE.fluxo = serie;
   const passado = serie.filter(m => !m.prev), futuro = serie.filter(m => m.prev);
   const soma = (l, k) => l.reduce((s, m) => s + m[k], 0);
-  let html = `<div class="chips">${[['passado', '12 meses atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente']].map(([k, n]) =>
+  let html = `<div class="chips c3">${[['passado', '12 meses atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente']].map(([k, n]) =>
     `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}">${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card"><h3 class="g-tit">${rotIc('chart')}<span>Fluxo de caixa mensal</span></h3>
     <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
@@ -1955,19 +1963,29 @@ function excluirLanc() {
   const f = LF;
   const removerReal = (d, id) => { d.lancamentos = d.lancamentos.filter(x => x.id !== id); };
   if (f.recorrencia) {
-    const ym = f.competencia;
+    // apagar um fixo: só esta vez, parar daqui para frente (fica o que já foi) ou apagar o fixo inteiro com o que ele lançou
+    const ym = f.competencia, rid = f.recorrencia;
+    const r0 = S.d.recorrencias.find(x => x.id === rid), anual = r0?.freq === 'anual';
+    const lancados = S.d.lancamentos.filter(x => x.recorrencia === rid && !x.pulado).length;
+    const mes = anual ? `${MESES_LONGOS[+ym.slice(5) - 1]} de ${ym.slice(0, 4)}` : MESES_LONGOS[+ym.slice(5) - 1];
     escolher({
-      titulo: 'Apagar fixo', texto: `<b>${esc(f.descricao)}</b> é ${f.tipo === 'receita' ? 'um recebimento' : 'um gasto'} fixo. O que você quer apagar?`,
+      titulo: 'Apagar fixo', texto: `<b>${esc(f.descricao)}</b> é ${f.tipo === 'receita' ? 'um recebimento' : 'um gasto'} fixo, ${anual ? 'todo ano' : 'todo mês'}. O que você quer apagar?`,
       opcoes: [
-        { rotulo: S.d.recorrencias.find(x => x.id === f.recorrencia)?.freq === 'anual' ? `Só em ${ym.slice(0, 4)}` : `Só ${MESES_LONGOS[+ym.slice(5) - 1]}`, acao: () => persistir(d => {
-          if (f.virtual) d.lancamentos.push(materializar(Object.assign({}, f, { recorrencia: f.recorrencia, competencia: ym }), { pulado: true }));
+        { rotulo: anual ? `Só o de ${ym.slice(0, 4)}` : `Só o de ${mes}`, acao: () => persistir(d => {
+          if (f.virtual) d.lancamentos.push(materializar(Object.assign({}, f, { recorrencia: rid, competencia: ym }), { pulado: true }));
           else { const x = d.lancamentos.find(y => y.id === f.id); if (x) x.pulado = true; }
-        }, 'Apagado deste mês') },
-        { rotulo: `Parar a partir de ${MESES_LONGOS[+ym.slice(5) - 1]}`, perigo: true, acao: () => persistir(d => {
-          const r = d.recorrencias.find(x => x.id === f.recorrencia);
+        }, anual ? 'Apagado deste ano' : 'Apagado deste mês') },
+        { rotulo: `Parar a partir de ${mes}`, acao: () => persistir(d => {
+          const r = d.recorrencias.find(x => x.id === rid);
           if (r) { if (ym <= r.inicio) d.recorrencias = d.recorrencias.filter(x => x.id !== r.id); else r.fim = addYm(ym, -1); }
-          d.lancamentos = d.lancamentos.filter(x => !(x.recorrencia === f.recorrencia && x.competencia >= ym && !x.pago));
-        }, 'Fixo encerrado') },
+          d.lancamentos = d.lancamentos.filter(x => !(x.recorrencia === rid && x.competencia >= ym && !x.pago));
+        }, 'Fixo encerrado: o que já foi lançado continua') },
+        { rotulo: lancados ? `Apagar o fixo e o que ele já lançou (${lancados})` : 'Apagar o fixo', perigo: true, acao: () => persistir(d => {
+          d.recorrencias = d.recorrencias.filter(x => x.id !== rid);
+          d.lancamentos = d.lancamentos.filter(x => x.recorrencia !== rid);
+          // despesas descontadas deste recebimento ficam por conta própria
+          for (const x of [...d.recorrencias, ...d.lancamentos]) if (x.vinculo === rid) delete x.vinculo;
+        }, 'Fixo apagado') },
       ],
     });
   } else if (f.grupo) {
@@ -2917,7 +2935,8 @@ function cardCategorias() {
 }
 function cardFixos() {
   const ym = ymHoje();
-  const ativos = S.d.recorrencias.filter(r => !r.fim || r.fim >= ym);
+  // só os que ainda vão acontecer (um fixo parado some da lista; o que ele já lançou continua no caixa)
+  const ativos = S.d.recorrencias.filter(r => { for (let k = 1; k <= 12; k++) if (ativaEm(r, addYm(ym, k))) return true; return false; });
   if (!ativos.length) return '';
   const quando = r => (r.freq === 'anual' ? `Todo ano, ${r.dia} de ${MESES_LONGOS[+String(r.inicio).slice(5) - 1]}` : `Todo dia ${r.dia}`) + (r.fim ? ` · até ${nomeMes(r.fim, true)}` : '');
   const linha = r => `<button class="banco-row" data-a="fixo" data-id="${esc(r.id)}"><span class="ini" style="--c:${corCat(r)}">${esc((r.descricao || '?').slice(0, 1).toUpperCase())}</span>
@@ -3561,7 +3580,7 @@ function pintarLado() {
   const itemAberto = naCarteira && ((u.banco && u.filtro === 'todos') || (u.filtro === 'terc' && u.pessoa && !u.banco));
   const link = (k, n, i, extra = '') => `<button class="side-link" data-a="tab" data-v="${k}"${tab === k && !(k === 'investimentos' && itemAberto) ? ' aria-current="page"' : ''}>${ic(i)}<span>${n}</span>${extra}</button>`;
   const nAtr = temCaixa() ? memo('nAtr', () => { avisosCaixa(hoje()); return S.nAtrasadas || 0; }) : 0;
-  let h = `<div class="side-brand">Gerenc<span>IA</span></div><nav class="side-nav" aria-label="Seções">
+  let h = `<div class="side-brand">${iconeApp()}Gerenc<span>IA</span></div><nav class="side-nav" aria-label="Seções">
     ${link('inicio', 'Início', 'home')}
     ${d.investimentos.length ? `<button class="side-link" data-a="buscar">${ic('search')}<span>Buscar</span><kbd aria-hidden="true">/</kbd></button>` : ''}
     ${link('caixa', 'Caixa', 'fluxo', nAtr ? `<span class="side-badge" title="${plural(nAtr, 'conta atrasada', 'contas atrasadas')}">${nAtr}</span>` : '')}
