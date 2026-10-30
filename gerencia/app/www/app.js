@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.13.0';
+const VERSAO = '1.14.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3631,6 +3631,14 @@ function irPara(tab, ancora) {
   S.ui.tab = tab;
   salvarUI();
   render();
+  if (entraDe) { // arrastou para o lado: a tela nova entra pelo lado para onde o dedo foi
+    const d = entraDe;
+    entraDe = 0;
+    const app = $('#app');
+    if (app.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      app.animate([{ opacity: 0, transform: `translateX(${d > 0 ? 40 : -40}px)` }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    }
+  }
   if (ancora) { const el = document.getElementById(ancora); if (el) { el.scrollIntoView({ block: 'start' }); return; } }
   window.scrollTo(0, 0);
 }
@@ -4010,6 +4018,37 @@ document.addEventListener('input', ev => {
   }
   if (el.dataset.ui === 'busca') { S.ui.busca = el.value; render(); return; }
 });
+
+// Arrastar para o lado troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais.
+// Não vale começando na borda da tela (é o Voltar do celular), num campo, num gráfico (lá o dedo mostra os valores),
+// numa fileira que rola para o lado, com uma janela aberta ou no computador (lá há a barra lateral).
+const ABAS_ARRASTE = ['inicio', 'caixa', 'investimentos', 'mais'];
+let arraste = null, entraDe = 0;
+document.addEventListener('touchstart', ev => {
+  arraste = null;
+  if (!S.d || FOLHA || !ev.touches || ev.touches.length !== 1 || matchMedia('(min-width: 1000px)').matches) return;
+  const t = ev.touches[0];
+  if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return;
+  for (let el = ev.target instanceof Element ? ev.target : ev.target.parentElement; el && el !== document.body; el = el.parentElement) {
+    if (el.matches('input, textarea, select, [contenteditable], [data-noswipe], .chart, #nav')) return;
+    const st = getComputedStyle(el);
+    if ((st.overflowX === 'auto' || st.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 2) return;
+  }
+  arraste = { x: t.clientX, y: t.clientY, at: Date.now() };
+}, { passive: true });
+document.addEventListener('touchend', ev => {
+  const s = arraste;
+  arraste = null;
+  if (!s || FOLHA || !ev.changedTouches || !ev.changedTouches.length) return;
+  const t = ev.changedTouches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+  if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.at > 800) return;
+  const d = dx < 0 ? 1 : -1; // dedo para a esquerda: a próxima aba
+  const i = ABAS_ARRASTE.indexOf(S.ui.tab), j = i + d;
+  if (i < 0 || j < 0 || j >= ABAS_ARRASTE.length) return;
+  entraDe = d;
+  irPara(ABAS_ARRASTE[j]);
+}, { passive: true });
+document.addEventListener('touchcancel', () => { arraste = null; }, { passive: true });
 
 document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && FOLHA) fecharFolha();

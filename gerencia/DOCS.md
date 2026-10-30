@@ -18,6 +18,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
 - **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
 - **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
+- No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado).
 - **Mais**, em abas no alto, como no ResolvIA, no CronologIA e no InventarIA:
   - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
   - *Caixa*: fixos, categorias e dicas de economia.

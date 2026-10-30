@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.14.0
+
+- **Arrastar para o lado** troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais, com a tela nova entrando pelo lado. Não vale começando na borda da tela (é o Voltar do celular), num campo, num gráfico (lá o dedo mostra os valores), numa fileira que rola para o lado ou com uma janela aberta.
+
 ## 1.13.0
 
 - **Monitores grandes (Full HD, 2K, 4K)**: o app aproveita a tela. Fica mais largo (a Carteira em três colunas) e tudo cresce na mesma proporção conforme a largura: letras, placar, botões e gráficos (15% a mais em Full HD, 35% em 2K, até 85% em 4K). As janelas cabem na tela e os gráficos continuam respondendo ao mouse no ponto certo.
