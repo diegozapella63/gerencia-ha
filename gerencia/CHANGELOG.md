@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.18.2
+
+- **Revisar antes** não sai mais da conferência da IA (Ler com IA e Atualizar saldos): abre ali mesmo os dados do que a IA leu. No investimento novo: valor, nome, banco, tipo, rendimento, taxa, vencimento e liquidez. No que já existe: o saldo. **Pronto** ou **Voltar** retornam para a lista, com o resto como estava.
+
 ## 1.18.1
 
 - **Menos texto**: as explicações do app foram enxugadas, sem os porquês do óbvio. Ficou o que ajuda a decidir (valores, datas, o que muda no caixa); saíram as frases que repetiam o que o botão ou o campo já dizem. Vale para Mais (todas as abas), Opções, Ler com IA, Atualizar saldos, aporte, transferir, fixos, fluxo, categorias e exportar.

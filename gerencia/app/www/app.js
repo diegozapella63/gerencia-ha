@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.1';
+const VERSAO = '1.18.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2235,15 +2235,6 @@ function bancoPorNome(nome, d = S.d) {
   return d.bancos.find(b => semAcento(b.nome) === n) || d.bancos.find(b => semAcento(b.nome).includes(n) || n.includes(semAcento(b.nome)));
 }
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-function preencherForm(it) {
-  Object.assign(F, { nome: it.nome || F.nome, tipo: it.tipo || F.tipo, valor: it.valor || F.valor, indexador: it.indexador || F.indexador,
-    taxa: it.indexador === 'poupanca' || it.indexador === 'parado' ? 0 : it.taxa, liquidez: it.liquidez || F.liquidez,
-    vencimento: it.vencimento || F.vencimento, data_valor: it.data_valor || iso(hoje()), idxEditado: true });
-  const b = bancoPorNome(it.banco);
-  if (b) F.banco = b.id;
-  else if (it.banco) { const nb = { id: 'b-' + uid(), nome: it.banco, cor: CORES_BANCO.find(c => !S.d.bancos.some(x => x.cor === c)) || CORES_BANCO[0] }; F.bancosNovos.push(nb); F.banco = nb.id; }
-  if (it.aplicado && !F.obs) { F.obs = `Valor aplicado: ${brl(it.aplicado)}`; F.obsAberta = true; }
-}
 
 /* --------- leitor por IA (caixa e investimentos) */
 let IAS = null;
@@ -2407,6 +2398,7 @@ function montarIA() {
   if (s.etapa === 'transcrevendo') return { titulo: 'Falar', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Transcrevendo o que você disse…</p></div>` };
   if (s.etapa === 'revisao' && s.ouvido) { const r = revisaoIA(); r.corpo = ouvidoHTML(s) + r.corpo; return r; }
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${s.arquivo ? (s.arquivo.pdf ? 'o PDF' : 'a imagem') : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
+  if (s.etapa === 'item') return revisarItemHTML();
   if (s.etapa === 'revisao') return revisaoIA();
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais &gt; Leitura por IA.</span></div>` : '';
   const arq = s.arquivo;
@@ -2691,13 +2683,27 @@ function aplicarIAInvest(d, itens) {
     }
   }
 }
+// Revisar antes: corrige o que a IA leu sem sair da conferência (Voltar ou Pronto voltam para a lista)
 function revisarItemInvest(k) {
-  const it = IAS.invs[k], foto = IAS.arquivo?.foto;
-  const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
-  if (ex) { abrirInvestimento(ex.id); preencherForm(it); if (foto) F.fotos = [...(F.fotos || []), foto]; pintarFolha(); return; }
-  abrirInvestimento(null, { fotos: foto ? [foto] : [], daIA: true });
-  preencherForm(it);
+  IAS.edit = { k, r: Object.assign({}, IAS.invs[k]) };
+  IAS.etapa = 'item';
   pintarFolha();
+}
+function revisarItemHTML() {
+  const r = IAS.edit.r, ex = r.existente && S.d.investimentos.find(i => i.id === r.existente), ix = idxDe(r.indexador);
+  const valor = `<div class="campo"><label for="iae-v">${ex ? 'Saldo de agora' : 'Valor de hoje'}</label><div class="pref grande"><span>R$</span><input id="iae-v" data-iae="valor" inputmode="numeric" value="${r.valor ? NF2.format(r.valor) : ''}" placeholder="0,00"></div>
+      ${ex ? `<div class="ajuda">${esc(ex.nome)}: ${brl(valorHoje(ex))} hoje.</div>` : ''}</div>`;
+  let corpo = valor;
+  if (!ex) corpo += `<div class="campo"><label for="iae-nome">Nome</label><input id="iae-nome" class="inp" data-iae="nome" value="${esc(r.nome)}" autocomplete="off"></div>
+      <div class="campo"><label for="iae-banco">Banco</label><input id="iae-banco" class="inp" data-iae="banco" value="${esc(r.banco)}" list="dl-iae-bancos" autocomplete="off">
+        <datalist id="dl-iae-bancos">${[...new Set([...S.d.bancos.map(b => b.nome), ...BANCOS_COMUNS])].map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
+        <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
+      ${ix.taxa ? `<div class="campo"><label for="iae-taxa">Taxa (${esc(ix.suf)})</label><input id="iae-taxa" class="inp" data-iae="taxa" inputmode="decimal" value="${r.taxa || r.taxa === 0 ? String(r.taxa).replace('.', ',') : ''}" placeholder="${ix.ph}"></div>` : ''}
+      <div class="campos-2"><div class="campo"><label for="iae-venc">Vencimento</label><input id="iae-venc" class="inp" type="date" data-iae="vencimento" value="${esc(r.vencimento || '')}"></div>
+        <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">No venc.</button></div></div></div>`;
+  return { titulo: ex ? `Revisar ${esc(ex.nome)}` : 'Revisar investimento novo', corpo,
+    pe: `<button class="btn" data-a="iae-voltar">Voltar</button><button class="btn pri" data-a="iae-ok">Pronto</button>` };
 }
 document.addEventListener('paste', ev => {
   if (!iaOn()) return;
@@ -4034,6 +4040,11 @@ document.addEventListener('click', ev => {
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
 
     case 'iai-revisar': revisarItemInvest(+el.dataset.i); break;
+    case 'iae-liq': IAS.edit.r.liquidez = v; pintarFolha(); break;
+    case 'iae-voltar': IAS.edit = null; IAS.etapa = 'revisao'; pintarFolha(); break;
+    case 'iae-ok': { const r = IAS.edit.r; if (!(r.valor > 0)) { toast('Coloque o valor.'); break; }
+      r.nome = String(r.nome || '').trim() || r.banco || 'Investimento'; r.taxa = Number(String(r.taxa ?? '').replace(',', '.')) || 0;
+      IAS.invs[IAS.edit.k] = Object.assign(r, { marcado: true, confianca: 'alta' }); IAS.edit = null; IAS.etapa = 'revisao'; pintarFolha(); break; }
     case 'ia-verificar': S.ia = null; carregarVoz(); render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
     case 'f-foto-add':
       escolherArquivo('image/*').then(async file => {
@@ -4212,6 +4223,15 @@ document.addEventListener('input', ev => {
   if (el.dataset.iai === 'contasel' && IAS) { const it = IAS.itens[+el.dataset.i], [c, cart] = el.value.split('|'); it.conta = c; it.noCartao = cart === 'c'; pintarFolha(); return; }
   if (el.dataset.iai && IAS) { IAS.itens[+el.dataset.i][el.dataset.iai] = el.value; return; }
   if (el.dataset.iav && IAS) { IAS.invs[+el.dataset.i][el.dataset.iav] = el.value; pintarFolha(); return; }
+  if (el.dataset.iae && IAS && IAS.edit) {
+    const r = IAS.edit.r, k = el.dataset.iae;
+    if (k === 'valor') { const dig = el.value.replace(/\D/g, '').slice(0, 13); r.valor = dig ? parseInt(dig, 10) / 100 : 0; el.value = dig ? NF2.format(r.valor) : ''; return; }
+    r[k] = el.value;
+    // trocar o tipo traz o rendimento e a liquidez de costume; trocar o rendimento mostra ou esconde a taxa
+    if (k === 'tipo') Object.assign(r, tipoDe(el.value).p);
+    if (k === 'tipo' || k === 'indexador') pintarFolha();
+    return;
+  }
   if (el.dataset.tr && TR) {
     const dig = el.value.replace(/\D/g, '').slice(0, 13);
     const antes = TR.valor;
