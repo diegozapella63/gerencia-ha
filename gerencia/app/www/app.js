@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.0';
+const VERSAO = '1.18.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -764,7 +764,7 @@ function telaBoasVindas() {
   return `${cabecalho('Início')}
     ${placar({ cab: 'Bem-vindo', data: fData(hoje()), valor: 'GERENCIA', palavra: true, rotulo: 'GerencIA', texto: 'Seu dinheiro, seus investimentos e quanto eles vão render.' })}
     <div class="comeco"><h2>Vamos começar</h2>
-    <p>Comece pelo que entra e sai todo mês e pelos seus investimentos. Já tem um backup? Importe o arquivo .zip e tudo volta.</p>
+    <p>Comece pelo que entra e sai todo mês e pelos seus investimentos.</p>
     <div class="btns">
       <button class="btn pri" data-a="lanc-novo" data-v="receita">${ic('plus')}Cadastrar salário e gastos fixos</button>
       <button class="btn" data-a="novo-inv">${ic('wallet')}Cadastrar investimento</button>
@@ -880,12 +880,12 @@ function grafEvolucao(lista) {
   const outroAnos = !HZ_FIXOS.includes(u.gAnos);
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c5">${HZ_FIXOS.map(a =>
     `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}<button class="chip${outroAnos ? ' on' : ''}" data-a="g-anos-outro" aria-label="Outro horizonte">${outroAnos ? u.gAnos + ' anos' : 'Outro'}</button></div>
-    ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteInfo(ap)}
+    ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Aportes contam só nos seus investimentos.</p>` : aporteInfo(ap)}
     <div class="sep" style="margin:18px 0"></div>
     <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
       <button class="sw${u.gIR ? ' on' : ''}" data-a="g" data-k="gIR" data-v="${u.gIR ? '' : '1'}" aria-label="Descontar IR"></button></div>
   </div>
-  <p class="nota">A projeção usa os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%) mantidos no período, com rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação. É uma estimativa, não uma promessa.</p>
+  <p class="nota">Com os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%): rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação.</p>
   <details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Ver tabela por ano</summary>
   <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th></tr></thead><tbody>
   ${Array.from({ length: u.gAnos }, (_, k) => pj.pts[(k + 1) * 12]).map(p =>
@@ -899,7 +899,7 @@ function abrirHorizonte() {
   const pre = [3, 15, 20, 25, 30, 40];
   abrirFolha(() => ({
     titulo: 'Horizonte da projeção',
-    corpo: `<p class="ajuda" style="margin:0 0 12px">Por quantos anos projetar o dinheiro. De 1 a ${HZ_MAX}.</p>
+    corpo: `<p class="ajuda" style="margin:0 0 12px">De 1 a ${HZ_MAX} anos.</p>
       <div class="chips c3">${pre.map(a => `<button class="chip${S.ui.gAnos === a ? ' on' : ''}" data-a="g-anos-pre" data-v="${a}">${a} anos</button>`).join('')}</div>
       <div class="campo"><label class="lbl" for="hz-anos">Anos</label><input id="hz-anos" class="inp" type="number" inputmode="numeric" min="1" max="${HZ_MAX}" step="1" value="${HZ_FIXOS.includes(S.ui.gAnos) ? 20 : S.ui.gAnos}"></div>`,
     pe: `<button class="btn pri larga" data-a="g-anos-ok">Ver a projeção</button>`,
@@ -916,13 +916,13 @@ function aporteInfo(ap) {
   const fx = aportesFixos();
   if (!fx.length) {
     return `<div class="lbl">Aporte por mês nos seus investimentos</div>
-      <p class="ajuda" style="margin:0 0 10px">Nenhum. Para a projeção contar com um aporte, cadastre o compromisso no Caixa: uma conta a pagar do tipo <b>Aporte</b>, todo mês.</p>
+      <p class="ajuda" style="margin:0 0 10px">Nenhum. Cadastre uma conta a pagar do tipo <b>Aporte</b>, todo mês.</p>
       <div class="btns-2"><button class="btn out" data-a="aporte-novo">${ic('plus', 'ic-s')}Cadastrar aporte</button></div>`;
   }
   const r = fx[0], conta = r.conta ? contaDe(r.conta) : null;
   const quando = fx.length > 1 ? `${fx.length} aportes fixos nas contas a pagar` : `${r.freq === 'anual' ? `todo ano em ${MESES_LONGOS[+String(r.inicio).slice(5, 7) - 1]}, dividido por 12` : `todo dia ${r.dia}`}${conta ? `, saindo de ${esc(nomeConta(conta))}` : ''}`;
   return `<div class="lbl">Aporte por mês nos seus investimentos</div>
-    <div class="aporte-info"><b>${brl(ap)}</b><span>Das contas a pagar do tipo Aporte: ${quando}.</span></div>
+    <div class="aporte-info"><b>${brl(ap)}</b><span>${quando[0].toUpperCase() + quando.slice(1)}.</span></div>
     <div class="btns-2" style="margin-top:10px"><button class="btn" data-a="aporte-ajustar">${ic('edit', 'ic-s')}${fx.length > 1 ? 'Ver os aportes' : 'Mudar o aporte'}</button>
       <button class="btn" data-a="aporte-novo">${ic('plus', 'ic-s')}Outro aporte</button></div>`;
 }
@@ -1418,7 +1418,7 @@ function telaCaixa() {
   html += `<div class="seg">${[['lista', 'Lançamentos'], ['fluxo', 'Fluxo'], ['categorias', 'Categorias']].map(([k, n]) =>
     `<button class="${u.cxModo === k ? 'on' : ''}" data-a="cx-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (!temCaixa()) {
-    return html + `<div class="vazio"><b>Comece pelo que entra e sai todo mês.</b><br>Cadastre o salário e os gastos fixos uma vez só; eles aparecem sozinhos nos próximos meses.<br><br>
+    return html + `<div class="vazio"><b>Comece pelo que entra e sai todo mês.</b><br><br>
       <div class="btns" style="justify-content:center"><button class="btn pri" data-a="lanc-novo" data-v="despesa">${ic('minus')}Despesa</button>
       <button class="btn" data-a="lanc-novo" data-v="receita">${ic('plus')}Recebimento</button>
       <button class="btn" data-a="ia" data-v="caixa">${ic('ia')}Ler com IA</button></div></div>`;
@@ -1544,7 +1544,7 @@ function abrirPeriodo() {
   const pre = [[24, 0], [12, 12], [0, 24], [36, 0], [24, 12], [0, 36]];
   abrirFolha(() => ({
     titulo: 'Período do fluxo',
-    corpo: `<p class="ajuda" style="margin:0 0 12px">Quantos meses ver. Os meses para trás contam com o mês atual; os à frente vêm depois dele. Até ${PER_MAX} de cada lado.</p>
+    corpo: `<p class="ajuda" style="margin:0 0 12px">Para trás conta o mês atual. Até ${PER_MAX} de cada lado.</p>
       <div class="chips c3">${pre.map(([a, f]) => `<button class="chip${S.ui.cxPeriodo === 'outro' && a === a0 && f === f0 ? ' on' : ''}" data-a="cx-per-pre" data-v="${a},${f}">${rotPeriodo(a, f)}</button>`).join('')}</div>
       <div class="campos-2">
         <div class="campo"><label class="lbl" for="per-atras">Meses para trás</label><input id="per-atras" class="inp" type="number" inputmode="numeric" min="0" max="${PER_MAX}" step="1" value="${a0}"></div>
@@ -1599,14 +1599,14 @@ function caixaFluxo() {
       ${serie.some(m => m.apo > 0) ? '<span><i class="sw-q" style="--kc:var(--apo)"></i>Aportes</span>' : ''}
       ${S.d.ajustes.prever_dia !== false ? '<span><i class="sw-q est"></i>Dia a dia (média)</span>' : ''}<span><i class="pt-q"></i>Sobrou</span><span><i class="sw-q prev"></i>Previsto</span></div>
     <div class="sep" style="margin:14px 6px"></div>
-    <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Soma nos próximos meses a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.</span></div>
+    <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Média dos gastos que não são fixos nem parcelas: ${brl(mediaVariaveis(), 0)} por mês.</span></div>
       ${chave('prever_dia', S.d.ajustes.prever_dia !== false, 'Prever o dia a dia')}</div></div>`;
   html += `<div class="graf-card"><h3 class="g-tit">${rotIc('wallet', 'bom')}<span>Saldo em caixa</span></h3>
     <div class="stat-duo"><div><span>Hoje</span><b>${brl(saldoCaixa(), 0)}</b></div>
       <div><span>Em ${nomeMes(serie[serie.length - 1].ym, true)}</span><b>${brl(serie[serie.length - 1].saldo, 0)}</b></div></div>
     <div class="chart" id="ch-saldo" role="img" aria-label="Saldo em caixa no fim de cada mês"></div>
     <div class="leg"><span><i class="k" style="--kc:var(--accent)"></i>Fechado</span><span><i class="k tr" style="--kc:var(--accent)"></i>Previsto</span></div></div>`;
-  html += `<p class="nota">Compras no cartão entram no mês em que a fatura vence. Fixos aparecem nos meses em que acontecem (todo mês ou todo ano) com o valor padrão, até você confirmar o valor real.</p>
+  html += `<p class="nota">Compras no cartão entram no mês em que a fatura vence.</p>
   <details class="card" style="margin-top:16px"><summary>Ver tabela por mês</summary>
   <div class="tabela-rola"><table class="tabela"><thead><tr><th>Mês</th><th class="n">Entrou</th><th class="n">Saiu</th><th class="n">Sobrou</th><th class="n">Saldo</th></tr></thead><tbody>
   ${serie.map(m => `<tr><td>${nomeMes(m.ym, true)}${m.prev ? ' *' : ''}</td><td class="n">${brl(m.ent, 0)}</td><td class="n">${brl(m.sai, 0)}</td><td class="n">${brl(m.net, 0)}</td><td class="n">${brl(m.saldo, 0)}</td></tr>`).join('')}
@@ -1772,7 +1772,7 @@ function caixaCategorias() {
         <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%${dif != null && Math.abs(dif) >= 10 ? ` · ${dif > 0 ? '▲' : '▼'} ${pct(Math.round(Math.abs(dif)))}%` : ''}</small></div>
         <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`;
     }).join('')}</div></div>
-    <p class="nota">Pela data da compra. Fixos entram com o valor padrão até você confirmar o valor do mês.</p>`;
+    <p class="nota">Pela data da compra.</p>`;
   return html;
 }
 
@@ -1836,13 +1836,13 @@ function abrirLancamento(id, preset) {
 function invsDoAporte() { return porEscopo('meu'); }
 function campoInvestimentoAporte(o, chave = 'lf-inv') {
   const lista = invsDoAporte();
-  if (!lista.length) return `<div class="campo"><div class="lbl">Em qual investimento</div><p class="ajuda" style="margin:0">Cadastre o investimento em Invest para o valor do aporte somar a ele.</p></div>`;
+  if (!lista.length) return `<div class="campo"><div class="lbl">Em qual investimento</div><p class="ajuda" style="margin:0">Cadastre o investimento em Invest primeiro.</p></div>`;
   if (!o.investimento && lista.length === 1) o.investimento = lista[0].id;
   const sel = lista.find(i => i.id === o.investimento);
   return `<div class="campo"><div class="lbl">Em qual investimento</div><div class="chips" style="margin:0">
     ${lista.map(i => `<button class="chip${o.investimento === i.id ? ' on' : ''}" data-a="${chave}" data-v="${esc(i.id)}" style="--c:${corOk(bancoDe(i.banco)?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(i.nome)}</button>`).join('')}</div>
     ${o.erroInv ? `<div class="msg-erro">${esc(o.erroInv)}</div>` : ''}
-    <div class="ajuda">${sel ? `O valor soma a ${esc(sel.nome)}: ${brl(valorHoje(sel))} → ${brl(valorHoje(sel) + (+o.valor || 0))}.` : 'Escolha para onde foi o dinheiro: o valor soma ao investimento.'} É um investimento novo? Cadastre em Invest e volte aqui.</div></div>`;
+    ${sel ? `<div class="ajuda">${esc(sel.nome)}: ${brl(valorHoje(sel))} → ${brl(valorHoje(sel) + (+o.valor || 0))}.</div>` : ''}</div>`;
 }
 
 // Adicionar › Nova despesa e Novo investimento: trazer de mensagem, arquivo ou fala, em quadrinhos tracejados
@@ -1853,10 +1853,8 @@ function tilesIA(modo) {
   const t = (inicio, icone, txt) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}</span></button>`;
   return `<div class="campo imp-campo"><div class="lbl">Trazer de mensagem ou imagem</div>
     <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
-    <p class="imp-ajuda">${caixa
-      ? 'Cole a mensagem do WhatsApp ou mande a fatura, o print ou a foto do papel (dá para colar a imagem direto aqui). A IA separa cada gasto e recebimento e você confere antes de lançar.'
-      : 'Cole a mensagem do WhatsApp ou do e-mail, ou mande a imagem do app do banco (dá para colar a imagem direto aqui). A IA acha cada investimento e você confere antes de salvar.'}</p>
-    ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Tem uma lista com o valor de agora de vários? Atualizar saldos</button>` : ''}</div>`;
+    <p class="imp-ajuda">Dá para colar a imagem direto aqui.</p>
+    ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Atualizar saldos de vários</button>` : ''}</div>`;
 }
 
 function montarFormLanc() {
@@ -1878,7 +1876,7 @@ function montarFormLanc() {
     c += `<div class="seg tipo-seg"><button class="${!rec && !apo ? 'on sai-on' : ''}" data-a="lf-tipo" data-v="despesa">${ic('minus', 'ic-s')}Despesa</button>
       <button class="${rec ? 'on ent-on' : ''}" data-a="lf-tipo" data-v="receita">${ic('plus', 'ic-s')}Recebimento</button>
       <button class="${apo ? 'on apo-on' : ''}" data-a="lf-tipo" data-v="aporte">${ic('wallet', 'ic-s')}Aporte</button></div>`;
-    if (apo) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Um compromisso de aplicar nos seus investimentos, como uma conta a pagar. ${f.repete === 'mensal' || f.repete === 'anual' ? 'Fixo, ele soma o aporte por mês da projeção na aba Invest.' : 'Uma vez só, ele não entra no aporte por mês da projeção; para isso, escolha Todo mês.'}</span></div>`;
+    if (apo) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>${f.repete === 'mensal' || f.repete === 'anual' ? 'Entra no aporte por mês da projeção.' : 'Para entrar na projeção, escolha Todo mês.'}</span></div>`;
   }
   const anualR = r && r.freq === 'anual';
   if (r && r.aporte) c += `<div class="aviso-fixo">${ic('wallet', 'ic-s')}<span>Aporte nos seus investimentos, ${anualR ? `todo ano em ${MESES_LONGOS[+r.inicio.slice(5) - 1]}, dia ${r.dia}` : `todo dia ${r.dia}`}. Valor padrão ${brl(r.valor)}; ele soma o aporte por mês da projeção na aba Invest.</span></div>`;
@@ -1916,7 +1914,7 @@ function montarFormLanc() {
   if (recsFixos.length || vinc) {
     c += `<div class="campo"><label for="lf-vinc">Como é pago</label><select id="lf-vinc" class="inp" data-lfv="1">
       <option value="">Por conta própria (conta, Pix ou cartão)</option>${recsFixos.map(x => `<option value="${esc(x.id)}"${f.vinculo === x.id ? ' selected' : ''}>Descontado de: ${esc(x.descricao)} (dia ${x.dia})</option>`).join('')}</select>
-      ${vinc ? `<div class="ajuda">A baixa acontece junto com ${esc(vinc.descricao)}: quando ele for confirmado, este gasto fica pago no mesmo dia e na mesma conta. Se o valor mudar num mês, edite só aquele mês.</div>` : ''}</div>`;
+      ${vinc ? `<div class="ajuda">Fica pago junto com ${esc(vinc.descricao)}.</div>` : ''}</div>`;
   }
   if (!vinc) {
   c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : apo ? 'De onde sai' : 'Como pagou'}</div><div class="chips" style="margin:0">
@@ -1935,8 +1933,8 @@ function montarFormLanc() {
       <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">Todo mês</button>
       <button class="${f.repete === 'anual' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="anual">Todo ano</button>
       <button class="${f.repete === 'parcelado' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="parcelado">Parcelado</button></div>`;
-    if (f.repete === 'mensal') c += `<div class="ajuda">Fica fixo: aparece todo dia ${+f.data.slice(8, 10)} a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, inclusive nos gráficos dos próximos meses. O valor acima é o padrão; quando ${rec ? 'receber' : apo ? 'aplicar' : 'pagar'}, você confirma o valor real do mês.</div>`;
-    if (f.repete === 'anual') c += `<div class="ajuda">Fica fixo: aparece todo ano em ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}, dia ${+f.data.slice(8, 10)}, inclusive nos gráficos. Serve para anuidade, IPVA, seguro e planos anuais.</div>`;
+    if (f.repete === 'mensal') c += `<div class="ajuda">Todo dia ${+f.data.slice(8, 10)}, a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}.</div>`;
+    if (f.repete === 'anual') c += `<div class="ajuda">Todo ano em ${+f.data.slice(8, 10)} de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}.</div>`;
     if (f.repete === 'parcelado') {
       const n = +f.vezes || 0;
       c += `<div class="duo" style="margin-top:10px"><div class="pref${err('vezes')}"><input data-lf="vezes" inputmode="numeric" value="${f.vezes || ''}" placeholder="10"><span>vezes</span></div>
@@ -2104,7 +2102,7 @@ function abrirPagar(id) {
     titulo: ehRec(l) ? 'Confirmar recebimento' : ehAporte(l) ? 'Confirmar aporte' : 'Confirmar pagamento',
     corpo: `<p style="margin:0 0 16px;color:var(--text-2)"><b style="color:var(--text)">${esc(l.descricao)}</b> · ${fData(pData(l.dc || l.data))}${r ? ` · fixo, padrão ${brl(r.valor)}` : ''}</p>
       <div class="campo"><label for="pg-v">Quanto ${ehRec(l) ? 'entrou' : ehAporte(l) ? 'você aplicou' : 'saiu'}</label><div class="pref grande"><span>R$</span><input id="pg-v" data-pg="valor" inputmode="numeric" value="${NF2.format(PG.valor)}"></div>
-      ${r ? `<div class="ajuda">Foi diferente este mês? Corrija aqui. O valor padrão continua ${brl(r.valor)} nos próximos meses.</div>` : ''}</div>
+      ${r ? `<div class="ajuda">Os próximos meses continuam com ${brl(r.valor)}.</div>` : ''}</div>
       ${ehAporte(l) ? campoInvestimentoAporte({ get investimento() { return PG.inv; }, set investimento(x) { PG.inv = x; }, valor: PG.valor, erroInv: PG.erroInv }, 'pg-inv') : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
   }));
@@ -2151,7 +2149,7 @@ function abrirAjuste() {
   abrirFolha(() => ({
     titulo: 'Ajustar saldo',
     corpo: `<div class="campo"><label for="aj-v">Quanto você tem em conta hoje, somando tudo</label><div class="pref grande"><span>R$</span><input id="aj-v" data-aj="valor" inputmode="numeric" value="${NF2.format(Math.abs(AJ.valor))}"></div>
-      <div class="ajuda">O app lança a diferença como "Ajuste de saldo". Ele muda o saldo, mas não entra nas entradas, saídas nem nos gráficos de categoria.</div></div>`,
+      <div class="ajuda">A diferença entra como "Ajuste de saldo", fora das entradas, saídas e categorias.</div></div>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="aj-ok">Ajustar</button>`,
   }));
 }
@@ -2226,7 +2224,7 @@ function fotosFormHTML() {
     ${fotos.map(n => `<div class="foto"><img src="${fotoSrc(n)}" alt="Imagem do investimento" data-a="foto-ver" data-v="${esc(n)}">
       <button class="foto-x" data-a="f-foto-rm" data-v="${esc(n)}" aria-label="Remover imagem">${ic('x', 'ic-s')}</button></div>`).join('')}
     <button class="foto add" data-a="f-foto-add">${ic('camera')}<span>Guardar</span></button></div>
-    <div class="ajuda">Comprovante, print ou extrato para guardar junto com o investimento. A imagem só fica guardada; a IA não lê.</div></div>`;
+    <div class="ajuda">Comprovante, print ou extrato.</div></div>`;
 }
 function verFoto(n) {
   abrirFolha(() => ({ titulo: 'Imagem', corpo: `<img class="foto-grande" src="${fotoSrc(n)}" alt="Imagem do investimento">` }), null, true);
@@ -2384,7 +2382,7 @@ function telaFala() {
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
-      <p class="nota" style="text-align:center">A fala para texto${v.nome ? ` “${esc(v.nome)}”` : ' do Home Assistant'} transcreve e ${S.d.ajustes.ia_entidade ? esc(nomeIA(S.d.ajustes.ia_entidade)) : 'a IA do app'} separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos. Você confere antes de lançar.</p>`,
+      <p class="nota" style="text-align:center">Você confere antes de lançar.</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
@@ -2423,12 +2421,12 @@ function montarIA() {
     titulo: 'Colar mensagem',
     corpo: `${aviso}${prevArq}<div class="campo"><label for="ia-txt">Mensagem</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="8" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028” ou o e-mail da corretora' : 'Ex.: “gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”'}">${esc(s.texto)}</textarea>
-        <div class="ajuda">${inv ? 'Cole a mensagem do WhatsApp ou o e-mail do banco. A IA acha cada investimento e você confere antes de salvar.' : 'Cole a mensagem do WhatsApp, o extrato ou o e-mail. A IA separa cada gasto e recebimento e você confere antes de lançar.'}</div></div>${erro}`,
+      </div>${erro}`,
     pe };
   if (s.so === 'arquivo') return {
     titulo: inv ? 'Imagem ou print' : 'Fatura, print ou foto',
     corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('camera')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button></div>`}
-      <p class="ajuda" style="margin:10px 0 0">${inv ? 'A IA lê cada investimento da imagem (banco, tipo, taxa, vencimento e saldo); a imagem fica guardada com ele.' : 'A IA lê cada gasto e recebimento da imagem ou do PDF e você confere antes de lançar.'} Dá também para colar a imagem aqui.</p>${erro}`,
+      <p class="ajuda" style="margin:10px 0 0">Dá também para colar a imagem aqui.</p>${erro}`,
     pe };
   return {
     titulo: inv ? 'Ler investimento com IA' : 'Ler com IA',
@@ -2439,8 +2437,7 @@ function montarIA() {
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”, e-mail da corretora, nota de aplicação ou extrato'
           : 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco'}">${esc(s.texto)}</textarea>
-        <div class="ajuda">${inv ? 'Você também pode colar um print aqui. A IA lê cada investimento (banco, tipo, taxa, vencimento e saldo) e você confere antes de salvar. Os que já existem têm o valor atualizado.'
-          : 'Você também pode colar um print aqui. Não precisa dizer o que é: a IA separa os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e você confere antes de salvar.'}</div></div>
+        <div class="ajuda">${inv ? 'Dá para colar um print aqui.' : 'Dá para colar um print aqui. A IA separa sozinha o que é cada coisa.'}</div></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
@@ -2451,7 +2448,7 @@ function entradaSaldos(aviso) {
   const de = s.pessoa === 'meu' ? 'seus investimentos' : s.pessoa ? `os investimentos de ${esc(s.pessoa)}` : 'os investimentos de cada um';
   return {
     titulo: s.pessoa && s.pessoa !== 'meu' ? `Atualizar saldos de ${esc(s.pessoa)}` : 'Atualizar saldos',
-    corpo: `${aviso}<p class="da-intro" style="margin:0 0 14px">Mande a listinha com o valor de agora de cada investimento (print ou mensagem do WhatsApp). A IA acha cada um entre ${de} e o aporte é a diferença para o valor de hoje. Você confere antes de salvar.</p>
+    corpo: `${aviso}<p class="da-intro" style="margin:0 0 14px">O valor de agora de cada investimento. O aporte é a diferença para o valor de hoje.</p>
       <div class="campo"><div class="lbl">De quem são</div><div class="chips" style="margin:0">${donosSaldos().map(([k, n]) =>
         `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${esc(n)}</button>`).join('')}</div></div>
       <div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
@@ -2459,7 +2456,7 @@ function entradaSaldos(aviso) {
         : `<button class="btn larga" data-a="ia-arq">${ic('camera')}Print, foto ou PDF</button>`}</div>
       <div class="campo"><label for="ia-txt">Ou cole a lista</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.:&#10;Nubank, valor atualizado, R$ 500&#10;Serasa, valor atualizado, R$ 600">${esc(s.texto)}</textarea>
-        <div class="ajuda">Você também pode colar um print aqui.</div></div>
+      </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler os saldos</button>`,
   };
@@ -2535,7 +2532,7 @@ function revisaoIA() {
   const s = IAS, nl = s.itens.length, ni = s.invs.length;
   const ml = s.itens.filter(i => i.marcado), mi = s.invs.filter(i => i.marcado);
   const achou = [nl ? plural(nl, 'lançamento', 'lançamentos') : '', ni ? plural(ni, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ');
-  let corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${s.saldos ? plural(ni, 'saldo', 'saldos') : achou}</b>. Confira ${s.saldos ? 'para qual investimento vai cada um' : ''} e desmarque o que não quiser.</p>`;
+  let corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${s.saldos ? plural(ni, 'saldo', 'saldos') : achou}</b>. Desmarque o que não quiser.</p>`;
   if (nl) corpo += `${ni ? `<h3 class="ia-sec">${ic('fluxo', 'ic-s')}Lançamentos</h3>` : ''}${revisaoCaixa()}`;
   if (ni) corpo += `${nl ? `<h3 class="ia-sec">${ic('wallet', 'ic-s')}Investimentos</h3>` : ''}${revisaoInvest()}`;
   const total = ml.reduce((a, i) => a + (i.tipo === 'receita' ? i.valor : -i.valor), 0);
@@ -2574,13 +2571,12 @@ function revisaoCaixa() {
   return `<div class="campo"><div class="lbl">Lançar todos em</div><div class="chips" style="margin:0">
       <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
       ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>
-      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}
-      <div class="ajuda">${uma == null ? 'As linhas estão em contas diferentes; ' : ''}em cada linha dá para escolher a conta e, se ela tiver cartão, se foi no cartão de crédito.</div></div>
+      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
       <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
       <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">Tudo pago</button>
       <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">Tudo pendente</button></div>
-      ${s.situacao === 'auto' ? `<div class="ajuda">O que a IA viu como conta a pagar ou valor a receber fica pendente; o resto, pela data.${s.itens.some(iaNoCartao) ? ' Compras no cartão seguem a fatura.' : ''}</div>` : ''}</div>
+      ${s.situacao === 'auto' ? `<div class="ajuda">Contas a pagar e a receber ficam pendentes; o resto, pela data.</div>` : ''}</div>
     ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div><b>Lançar as próximas parcelas</b><span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
     <div class="ia-itens">${s.itens.map((it, k) => {
       const cats = S.d.categorias.filter(c => c.tipo === it.tipo);
@@ -2653,8 +2649,8 @@ function revisaoInvest() {
   const difs = s.invs.filter(i => i.marcado).map(difSaldo).filter(Boolean);
   const ap = difs.filter(x => x.dif > 0).reduce((a, x) => a + x.dif, 0), rs = difs.filter(x => x.dif < 0).reduce((a, x) => a - x.dif, 0);
   const novoDe = s.pessoa && s.pessoa !== 'meu' ? ` de ${esc(s.pessoa)}` : '';
-  return `${difs.length ? `<div class="ia-saldos-res"><span>Aportes <b class="ent">${brl(ap)}</b></span>${rs > 0.005 ? `<span>Resgates <b class="sai">${brl(rs)}</b></span>` : ''}<small>diferença entre o saldo novo e o valor de hoje de cada investimento</small></div>`
-      : `<p class="ajuda" style="margin:0 0 10px">Os investimentos que já existem têm o valor atualizado.</p>`}
+  return `${difs.length ? `<div class="ia-saldos-res"><span>Aportes <b class="ent">${brl(ap)}</b></span>${rs > 0.005 ? `<span>Resgates <b class="sai">${brl(rs)}</b></span>` : ''}</div>`
+      : ''}
     <div class="ia-itens">${s.invs.map((it, k) => {
       const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente), df = difSaldo(it);
       const linha = df ? (df.dif > 0.005 ? `Aporte de <b>${brl(df.dif)}</b>: ${brl(df.antes)} → ${brl(it.valor)}` : df.dif < -0.005 ? `Resgate de <b>${brl(-df.dif)}</b>: ${brl(df.antes)} → ${brl(it.valor)}` : `Sem mudança: ${brl(it.valor)}`)
@@ -2858,10 +2854,10 @@ function cardDicasMais() {
   const fora = (S.d.ajustes.dicas_fora || []).length;
   const subs = (st && st.assinaturas) || [];
   let h = `<section class="card" id="dicas">${maisCab('percent', 'Dicas de economia')}
-    ${maisLead(`O app procura assinaturas nos seus fixos e faturas e confere o preço do plano anual na página oficial de cada serviço, lida pela IA do Home Assistant. A dica só aparece quando o valor que você paga bate com um plano e o preço está escrito na página. Reconhece ${esc(juntarE(catalogo))}.`)}`;
+    ${maisLead(`Assinaturas dos fixos e faturas com plano anual mais barato, pelo preço da página oficial. Reconhece ${esc(juntarE(catalogo))}.`)}`;
   if (S.d.ajustes.dicas === false) return h + `<div class="status manual">Desligadas em Mais › Opções.</div></section>`;
   // conferir o plano anual depende da IA; as dicas de categoria acima da média, não
-  if (!iaOn()) return h + `<div class="status manual">A IA está desligada em Mais › Integrações, então o app não confere os planos anuais das assinaturas. As dicas de categoria acima da média continuam no Início.</div></section>`;
+  if (!iaOn()) return h + `<div class="status manual">Com a IA desligada, os planos anuais não são conferidos.</div></section>`;
   if (!st) h += `<div class="status manual">Carregando…</div>`;
   else if (!subs.length) h += `<div class="status manual">Nenhuma dessas assinaturas nos seus fixos ou faturas.</div>`;
   else {
@@ -2880,7 +2876,7 @@ function cardDicasMais() {
   if (st) h += `<p class="dica-quando">${ic('clock', 'ic ic-s')}<span>${st.conferindo ? 'Conferindo agora…' : st.atualizado ? `Última verificação: ${quandoLongo(st.atualizado)}.` : 'Ainda não verificado. Toque em Conferir agora.'}</span></p>`;
   h += `<div class="dica-btns"><button class="btn out" data-a="dicas-conferir"${st && st.conferindo ? ' disabled' : ''}>${ic('refresh')}${st && st.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
     ${fora ? `<button class="btn" data-a="dicas-voltar">Mostrar dispensadas (${fora})</button>` : ''}</div>`;
-  if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar são comparados com o dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão. A economia em reais é estimada pelo que você paga hoje.</p>`;
+  if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar: dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão.</p>`;
   return h + `</section>`;
 }
 
@@ -2912,13 +2908,13 @@ function ecoDA() {
 }
 function montarDicaAnual() {
   const { x } = DA, mes = MESES_LONGOS[+DA.data.slice(5, 7) - 1];
-  const corpo = `<p class="da-intro">Primeiro troque para o plano anual em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a>. Depois confirme aqui para o GerencIA ajustar o seu fluxo: ${x.origem === 'fixo' ? 'o fixo mensal para e entra um fixo anual.' : 'entra um fixo anual, que aparece todo ano.'}</p>
+  const corpo = `<p class="da-intro">Troque para o plano anual em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a> e confirme aqui: ${x.origem === 'fixo' ? 'o fixo mensal para e entra um anual.' : 'entra um fixo anual.'}</p>
     <div class="cmp-anual"><div><span>Hoje</span><b>${brl(x.valor)}</b><small>por mês · ${brl(12 * x.valor, 0)} por ano</small></div>
       <div><span>No anual</span><b>${fmtPreco(x.anual, x.moeda)}</b><small>por ano, na página oficial</small></div></div>
     <div class="campo"><label for="da-valor">Valor da cobrança anual</label><div class="pref grande${DA.erro ? ' erro' : ''}"><span>R$</span><input id="da-valor" data-da="valor" inputmode="numeric" value="${DA.valor ? NF2.format(DA.valor) : ''}"></div>
-      <div class="ajuda">${x.estimado ? `Estimado: ${fmtPreco(x.anual, x.moeda)} no câmbio que o seu cartão cobra hoje. Ajuste quando vier a cobrança.` : `Preço da página oficial.`}</div>${DA.erro ? `<div class="msg-erro">${DA.erro}</div>` : ''}</div>
+      <div class="ajuda">${x.estimado ? `Estimado no câmbio de hoje: ${fmtPreco(x.anual, x.moeda)}.` : `Preço da página oficial.`}</div>${DA.erro ? `<div class="msg-erro">${DA.erro}</div>` : ''}</div>
     <div class="campo"><label for="da-data">Primeira cobrança anual</label><input id="da-data" class="inp" type="date" data-da="data" value="${esc(DA.data)}">
-      <div class="ajuda">${x.origem === 'fixo' ? `O fixo mensal vai até o mês anterior. ` : ''}Depois, a cobrança entra todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.</div></div>
+      <div class="ajuda">Todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.</div></div>
     <div class="eco-linha" id="da-eco">${ecoDA()}</div>`;
   return { titulo: `${esc(x.nome)} no plano anual`, corpo, pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="da-ok">Mudar para anual</button>` };
 }
@@ -2987,15 +2983,15 @@ function secaoDescontos(f) {
     <b class="desc-v" id="lfd-v-${i}">− ${brl(valorDesc(l, x))}</b></div>`).join('');
   h += `<div class="chips" style="margin:6px 0 0">${DESC_RAPIDOS.map(([n], k) => [n, k]).filter(([n]) => n === 'Outro imposto' || !f.descontos.some(x => semAcento(x.descricao) === semAcento(n))).map(([n, k]) =>
     `<button class="chip add" data-a="lf-desc-add" data-v="${k}">${ic('plus', 'ic-s')}${n}</button>`).join('')}</div>`;
-  h += `<div class="ajuda">Porcentagem do bruto. O imposto sai do caixa junto com o recebimento, já pago, na categoria Impostos e taxas.</div>`;
+  h += `<div class="ajuda">Porcentagem do bruto, lançada em Impostos e taxas.</div>`;
   h += `<div class="sub-lbl">Outros descontos ligados</div>`;
   if (lig.length) {
     h += lig.map(o => `<div class="lig-l">${o.existe ? ic('repeat', 'ic-s') : `<input type="checkbox" data-lfn="${o.i}"${o.sel ? ' checked' : ''} aria-label="Criar ${esc(o.descricao)}">`}
       <span>${esc(o.descricao)}${o.existe ? (o.atualiza ? ' · valor do recibo neste mês' : '') : ' · nova despesa fixa ligada'}</span><b>− ${brl(o.valor)}</b></div>`).join('');
   }
   h += `<div class="ajuda">${f.recorrencia || f.repete === 'mensal'
-    ? 'Plano de saúde e outros: cadastre a despesa e, em "Como é pago", escolha este recebimento. A baixa dela acontece junto com a dele.'
-    : 'Para ligar o plano de saúde e outros descontos, o recebimento precisa ser fixo (Repetir: Todo mês).'}</div>`;
+    ? 'Outros descontos (plano de saúde…): na despesa, em "Como é pago", escolha este recebimento.'
+    : 'Para ligar outros descontos, o recebimento precisa ser fixo (Repetir: Todo mês).'}</div>`;
   h += `<div class="desc-res" id="lf-desc-res">${resumoDescHTML(f)}</div></div>`;
   return h;
 }
@@ -3104,7 +3100,7 @@ function cardCategorias() {
   const grupo = tipo => S.d.categorias.filter(c => c.tipo === tipo).map(c =>
     `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
   return `<section class="card" id="categorias">${maisCab('layers', 'Categorias')}
-    ${maisLead('Para onde vai e de onde vem o dinheiro. Toque numa categoria para mudar o nome ou a cor.')}
+    ${maisLead('Toque numa categoria para mudar o nome ou a cor.')}
     <h3>Gastos</h3><div class="chips">${grupo('despesa')}<button class="chip add" data-a="categoria-nova" data-v="despesa">${ic('plus', 'ic-s')}Nova</button></div>
     <h3>Recebimentos</h3><div class="chips" style="margin:0">${grupo('receita')}<button class="chip add" data-a="categoria-nova" data-v="receita">${ic('plus', 'ic-s')}Nova</button></div></section>`;
 }
@@ -3121,7 +3117,7 @@ function cardFixos() {
   const rec = mensais.filter(r => r.tipo === 'receita'), des = mensais.filter(r => r.tipo !== 'receita');
   const soma = l => l.reduce((s, r) => s + (+r.valor || 0), 0);
   return `<section class="card" id="fixos">${maisCab('repeat', 'Fixos', brl(soma(rec) - soma(des), 0) + ' por mês')}
-    ${maisLead('Entram sozinhos nos próximos meses, com o valor padrão. Toque para mudar o padrão ou parar.')}
+    ${maisLead('Entram sozinhos nos próximos meses. Toque para mudar ou parar.')}
     ${rec.length ? `<h3>Recebimentos · ${brl(soma(rec), 0)}</h3>${rec.map(linha).join('')}` : ''}
     ${des.length ? `<h3 style="margin-top:14px">Gastos · ${brl(soma(des), 0)}</h3>${des.map(linha).join('')}` : ''}
     ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}</section>`;
@@ -3129,10 +3125,10 @@ function cardFixos() {
 function cardIA() {
   const on = iaOn();
   const chaveIA = linhaChave('ia', on, 'Usar IA', on
-    ? 'Ligado: aparecem Ler com IA (fatura, print, foto de papel e WhatsApp), Ler recibo no salário e Falar; as dicas de economia conferem preços com a IA.'
-    : 'Desligado: os botões de IA somem e as dicas não conferem preços. Vale para todos os aparelhos; nada do que já foi lançado muda.');
+    ? 'Ligado: Ler com IA, Ler recibo, Falar e os preços das dicas.'
+    : 'Desligado: os botões de IA somem em todos os aparelhos.');
   const cab = `<section class="card" id="ia">${maisCab('ia', 'Leitura por IA')}
-    ${maisLead('Lê faturas em PDF, prints, fotos de papel, textos do WhatsApp e recibos de pagamento, e prints do banco para cadastrar investimentos. Usa a integração de IA configurada no Home Assistant (Anthropic Claude, OpenAI, Google Gemini ou um modelo local); o app não guarda nenhuma chave.')}
+    ${maisLead('Usa a IA configurada no Home Assistant; o app não guarda chave.')}
     ${chaveIA}`;
   if (!on) return cab + `</section>`;
   const s = S.ia;
@@ -3152,7 +3148,7 @@ function cardIA() {
     ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
       <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
-    <p class="nota" style="margin:12px 0 0">Para ler imagem e PDF, a IA precisa aceitar anexos; Google Gemini, OpenAI e Anthropic aceitam. Se a IA não aceitar PDF, o app manda só o texto do arquivo.</p></section>`;
+    <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p></section>`;
 }
 
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
@@ -3248,14 +3244,14 @@ function telaMais() {
     <div class="mais-abas" role="tablist" aria-label="Seções de Mais">${MAIS_ABAS.map(([k, n, i]) =>
       `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
     <div class="mais-painel" role="tabpanel" aria-label="${MAIS_ABAS.find(([k]) => k === aba)[1]}">${corpo}</div>
-    <p class="foot"><b>GerencIA</b><br>v${VERSAO} · ${DEMO ? 'prévia do app do Home Assistant: as alterações ficam só nesta tela.' : 'seus dados ficam em arquivos abertos (JSON) dentro do Home Assistant.'}</p>`;
+    <p class="foot"><b>GerencIA</b><br>v${VERSAO}${DEMO ? ' · prévia: as alterações ficam só nesta tela' : ''}</p>`;
 }
 
 /* --------- Bancos */
 function maisBancos() {
   const d = S.d;
   let h = `<section class="card" id="bancos">${maisCab('bank', 'Bancos e contas')}
-    ${maisLead('Os bancos e corretoras, quem tem conta em cada um e quem tem cartão de crédito, com o dia em que a fatura fecha e vence. Cada banco ganha uma cor para as listas e os gráficos.')}`;
+    ${maisLead('Quem tem conta em cada banco e os cartões, com fechamento e vencimento.')}`;
   for (const b of d.bancos) {
     const l = d.investimentos.filter(i => i.banco === b.id);
     const v = l.reduce((s, i) => s + valorHoje(i), 0);
@@ -3271,7 +3267,7 @@ function maisBancos() {
 /* --------- Caixa: fixos, categorias e dicas */
 function maisCaixa() {
   const fixos = cardFixos();
-  return (fixos || `<section class="card" id="fixos">${maisCab('repeat', 'Fixos')}${maisLead('Salário, aluguel, assinaturas e o que mais se repete. Ao lançar, escolha Repetir: Todo mês ou Todo ano, e eles aparecem sozinhos nos próximos meses.')}
+  return (fixos || `<section class="card" id="fixos">${maisCab('repeat', 'Fixos')}${maisLead('Ao lançar, escolha Repetir: Todo mês ou Todo ano.')}
     <button class="btn out" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar um fixo</button></section>`) + cardCategorias() + cardDicasMais();
 }
 
@@ -3282,9 +3278,9 @@ function maisInvest() {
   const st = I.erro ? ['erro', `${esc(I.erro)}. Usando os últimos valores.`]
     : I.fonte === 'manual' ? ['manual', `Valores digitados à mão${quando ? ' em ' + fData(quando) : ''}.`]
       : I.fonte === 'bcb' && quando ? ['', `Atualizado pelo Banco Central em ${fData(quando)} às ${quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`]
-        : ['manual', 'Valores de partida (outubro de 2026). Toque em atualizar para buscar os de hoje.'];
+        : ['manual', 'Valores de partida (outubro de 2026).'];
   return `<section class="card" id="indices">${maisCab('trend', 'Índices de mercado')}
-    ${maisLead('Usados para calcular quanto cada investimento rende. Toque num valor para mudar à mão.')}
+    ${maisLead('Toque num valor para mudar à mão.')}
     ${[['cdi', 'CDI', 'Taxa DI, ao ano'], ['selic', 'Selic', 'Meta do Copom, ao ano'], ['ipca', 'IPCA', 'Inflação dos últimos 12 meses'], ['tr', 'TR', 'Taxa referencial, ao mês (poupança)']].map(([k, n, s]) =>
       `<button class="idx-row" data-a="indice" data-v="${k}"><div><b>${n}</b><span>${s}</span></div><span class="vl">${pct(+I[k] || 0)}%</span>${ic('chev', 'chev')}</button>`).join('')}
     <div class="status ${st[0]}">${st[1]}</div>
@@ -3299,11 +3295,11 @@ function maisIntegracoes() {
   const a = S.d.ajustes;
   return cardOutrosApps(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
-      ${maisLead('Para painéis e automações: patrimônio, seu dinheiro, de terceiros, rendimento por mês, saldo em caixa, entradas e saídas do mês e as chamadas de IA de hoje.')}
+      ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', a.sensores === true, 'Criar os sensores', a.sensores === true
         ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code> e <code>_ia_hoje</code>. Atualizam a cada mudança e a cada 15 minutos.'
-        : 'Desligado: o app não cria sensores no Home Assistant, e apaga os que tinha criado.')}
-      ${iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>${a.sensores === true ? '' : ' (com a chave ligada)'}: as chamadas de IA de hoje, com erros, cota e tokens estimados, para pôr num painel ou numa automação (por exemplo, avisar quando passar de 50 no dia).</p>` : ''}
+        : 'Desligado: nenhum sensor no Home Assistant.')}
+      ${iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
     </section>`;
 }
 
@@ -3355,10 +3351,10 @@ function cardUsoIA() {
       <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
       <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
-      <p class="nota">O consumo exato, o custo e os limites ficam no painel do provedor da IA que você usa. A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>`;
+      <p class="nota">Tokens estimados pelo texto. Custo e limites exatos ficam no painel do provedor.</p>`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
-    ${maisLead('Cada leitura de fatura, print ou recibo, cada fala e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}
+    ${maisLead('Chamadas do app à IA do Home Assistant.')}
     ${corpo}</section>`;
 }
 
@@ -3376,25 +3372,24 @@ function maisDados() {
         <button class="btn peq" data-a="bk-restaurar" data-v="${esc(b.nome)}">${ic('archive-restore', 'ic-s')}Restaurar</button></div>`;
     }).join('')}</div>` : `<p class="nota" style="margin:12px 0 0">Nenhum backup na pasta ainda.</p>`;
   return `<section class="card" id="exportar">${maisCab('download', 'Exportar')}
-      ${maisLead('Baixe para guardar ou levar para outro programa. Os arquivos são abertos e legíveis.')}
-      <ul class="opts">
-        ${exp('lancamentos', 'Lançamentos (CSV)', 'Abre no Excel e no Google Planilhas, com um lançamento por linha: data, data no caixa, categoria, conta, valor e se está pago. Traz também os fixos e os descontos do salário.', 'Baixar CSV')}
-        ${exp('csv', 'Investimentos (CSV)', 'Um investimento por linha, com banco, de quem é, rendimento, valor de hoje, quanto rende por mês e liquidez.', 'Baixar CSV')}
-        ${exp('json', 'Dados completos (JSON)', 'Todos os campos, para backup ou para outro sistema.', 'Baixar JSON')}
-        ${exp('zip', 'Tudo (ZIP)', 'Os dados completos, as duas planilhas e as imagens dos lançamentos e investimentos num arquivo só. É o arquivo que o Importar traz de volta.', 'Baixar ZIP')}
-        <li id="relatorio"><div class="ot"><b>Relatório de patrimônio</b><span>Os investimentos por dono e por banco, com os totais, pronto para imprimir ou salvar em PDF.</span></div><button class="btn peq" data-a="relatorio">${ic('file', 'ic-s')}Abrir relatório</button></li>
+            <ul class="opts">
+        ${exp('lancamentos', 'Lançamentos (CSV)', 'Um lançamento por linha, para Excel ou Google Planilhas.', 'Baixar CSV')}
+        ${exp('csv', 'Investimentos (CSV)', 'Um investimento por linha.', 'Baixar CSV')}
+        ${exp('json', 'Dados completos (JSON)', 'Todos os campos.', 'Baixar JSON')}
+        ${exp('zip', 'Tudo (ZIP)', 'Dados, planilhas e imagens. É o que o Importar traz de volta.', 'Baixar ZIP')}
+        <li id="relatorio"><div class="ot"><b>Relatório de patrimônio</b><span>Por dono e por banco, para imprimir ou salvar em PDF.</span></div><button class="btn peq" data-a="relatorio">${ic('file', 'ic-s')}Abrir relatório</button></li>
       </ul></section>
     <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
-      ${maisLead('Cria uma cópia completa em <code>share/gerencia</code>, que você acessa pela rede do Home Assistant. Os backups do próprio Home Assistant também incluem o GerencIA.')}
+      ${maisLead('Cópia completa em <code>share/gerencia</code>. O backup do Home Assistant também inclui o app.')}
       <button class="btn pri" data-a="backup">${ic('archive')}Criar backup</button>${listaBk}</section>
     <section class="card" id="importar">${maisCab('upload', 'Importar')}
-      ${maisLead('Traz os dados de um .zip ou .json exportado pelo GerencIA: lançamentos, fixos, investimentos, bancos e imagens. Antes de importar, o app guarda uma cópia do que existe hoje.')}
+      ${maisLead('Um .zip ou .json exportado pelo GerencIA. Antes, o app guarda uma cópia do que existe.')}
       <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></section>
     <section class="card" id="versoes">${maisCab('clock', 'Versões anteriores')}
-      ${maisLead('O app guarda sozinho uma cópia dos dados a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes. Se algo sair errado, volte para uma delas.')}
+      ${maisLead('Cópia automática a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.')}
       <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></section>
     <section class="card" id="onde">${maisCab('database', 'Onde ficam os dados')}
-      ${maisLead('Tudo fica em <code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, dentro do app, e entra no backup do Home Assistant. O app funciona sem internet: só os índices do Banco Central, a leitura por IA e as dicas de economia precisam dela. Valores e projeções são estimativas.')}</section>
+      ${maisLead('<code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, no backup do Home Assistant. Sem internet, só os índices, a IA e as dicas param.')}</section>
     <section class="card" id="zerar">${maisCab('trash', 'Começar do zero')}
       ${maisLead('Apaga lançamentos, fixos, investimentos e bancos. Índices, categorias e preferências continuam. Uma cópia fica em Versões anteriores.')}
       <button class="btn perigo" data-a="apagar-tudo">${ic('trash')}Apagar tudo</button></section>`;
@@ -3405,11 +3400,11 @@ const tamanhoTxt = n => n >= 1048576 ? `${(n / 1048576).toLocaleString('pt-BR', 
 function maisAparencia() {
   const a = S.d.ajustes, cor = corAppAtual();
   return `<section class="card" id="tema">${maisCab('contrast', 'Tema')}
-      ${maisLead('Automático segue o modo claro ou escuro do Home Assistant. Vale para todos os aparelhos.')}
+      ${maisLead('Automático segue o Home Assistant.')}
       <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Automático', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
         `<button role="radio" aria-checked="${a.tema === k}" class="${a.tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
     <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
-      ${maisLead('Muda os botões principais, a aba escolhida e os destaques. Vale para todos os aparelhos.')}
+
       <div class="tag-cores" role="radiogroup" aria-label="Cor do app">${CORES_APP.map(([n, hex]) =>
         `<button class="tsw${cor === hex ? ' on' : ''}" role="radio" aria-checked="${cor === hex}" style="--a:${hex}" data-a="cor" data-v="${hex}">
           <svg viewBox="-5 -5 40 30" aria-hidden="true"><path class="sw-ring" d="${TAG_SW}"/><path class="sw-gap" d="${TAG_SW}"/><path class="sw-fill" d="${TAG_SW}${FURO_SW}"/><path class="sw-check" d="m14.6 10.3 3.2 3.2 6.5-6.9"/></svg>
@@ -3421,15 +3416,15 @@ function maisOpcoes() {
   const a = S.d.ajustes;
   return `<section class="card" id="op-inicio">${maisCab('home', 'Início')}
       ${linhaChave('dicas', a.dicas !== false, 'Dicas de economia', a.dicas === false
-        ? 'Desligado: o Início não mostra dicas e o app não confere preços de assinaturas.'
-        : iaOn() ? 'Ligado: o Início mostra quando uma assinatura tem plano anual mais barato e quando uma categoria passa da média. O preço é conferido na página oficial, com a IA.'
-          : 'Ligado: o Início mostra quando uma categoria passa da média. Os planos anuais das assinaturas precisam da IA, que está desligada em Mais › Integrações.')}</section>
+        ? 'Desligado: sem dicas.'
+        : iaOn() ? 'Ligado: no Início, planos anuais mais baratos e categorias acima da média.'
+          : 'Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.')}</section>
     <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
       ${linhaChave('prever_dia', a.prever_dia !== false, 'Prever o dia a dia', a.prever_dia !== false
-        ? `Ligado: os próximos meses somam a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.`
-        : 'Desligado: os próximos meses mostram só fixos, parcelas e faturas já lançados.')}</section>
+        ? `Ligado: os próximos meses somam a média do dia a dia, ${brl(mediaVariaveis(), 0)} por mês.`
+        : 'Desligado: só fixos, parcelas e faturas.')}</section>
     <section class="card" id="op-invest">${maisCab('wallet', 'Investimentos')}
-      ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje a partir do último valor informado, contando dias úteis. Renda variável e dinheiro parado não mudam.')}</section>`;
+      ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje desde o último informado. Renda variável não muda.')}</section>`;
 }
 
 /* ------------------------------------------------------------------ folhas (bottom sheets) */
@@ -3535,8 +3530,7 @@ function montarAplicar() {
       <div class="campo"><div class="lbl">No caixa</div><div class="chips" style="margin:0">
         ${pend.map(l => chip(l.id, `Baixa no ${esc(l.descricao.toLowerCase().startsWith('aporte') ? 'aporte' : l.descricao)} de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]} (${brl(+l.valor || 0, 0)})`)).join('')}
         ${chip('novo', pend.length ? 'Lançar à parte' : 'Lançar como aporte')}${chip('nenhum', 'Não lançar')}</div>
-        <div class="ajuda">${pl ? `O aporte ${l2mes(pl)} fica aplicado com este valor, saindo de ${esc(nomeConta(contaDe(pl.conta)) || 'sem conta')}.`
-          : a.destino === 'novo' ? 'Entra no caixa como uma saída do tipo Aporte, já aplicada.' : inv.titular === 'terceiros' ? 'Dinheiro de terceiros: não mexe no seu caixa.' : 'Só o valor do investimento muda; o caixa fica como está.'}</div>
+        ${pl ? `<div class="ajuda">Sai de ${esc(nomeConta(contaDe(pl.conta)) || 'sem conta')}.</div>` : inv.titular === 'terceiros' && a.destino === 'nenhum' ? '<div class="ajuda">Dinheiro de terceiros não mexe no caixa.</div>' : ''}
         ${a.destino === 'novo' ? `<div class="chips" style="margin:10px 0 0">${contas().map(k => `<button class="chip${a.conta === k.id ? ' on' : ''}" data-a="ap-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>` : ''}</div>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ap-ok">Aplicar${a.valor ? ' ' + brl(a.valor, 0) : ''}</button>`,
   };
@@ -3544,11 +3538,11 @@ function montarAplicar() {
 const l2mes = l => `de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]}`;
 function aplicarAjuda(atual) {
   if (AP.modo === 'total') {
-    if (!(AP.total > 0)) return `Hoje ele está em ${brl(atual)}. Digite o total que o banco mostra agora: o aporte é a diferença.`;
+    if (!(AP.total > 0)) return `Hoje: ${brl(atual)}. O aporte é a diferença.`;
     return AP.total > atual + 0.005 ? `Aporte de <b>${brl(AP.total - atual)}</b>: de ${brl(atual)} para ${brl(AP.total)}.`
-      : `É menos que os ${brl(atual)} de hoje, então não é aporte. Para só corrigir o valor, edite o investimento.`;
+      : `É menos que os ${brl(atual)} de hoje. Para corrigir o valor, edite o investimento.`;
   }
-  return AP.valor > 0 ? `O investimento passa de <b>${brl(atual)}</b> para <b>${brl(atual + AP.valor)}</b>.` : `Hoje ele está em ${brl(atual)}. O valor aplicado soma a isso.`;
+  return AP.valor > 0 ? `${brl(atual)} → <b>${brl(atual + AP.valor)}</b>.` : `Hoje: ${brl(atual)}.`;
 }
 function confirmarAplicar() {
   const a = AP, inv0 = S.d.investimentos.find(i => i.id === a.inv);
@@ -3588,7 +3582,7 @@ function transferirAjuda() {
   const de = S.d.investimentos.find(i => i.id === TR.de), para = S.d.investimentos.find(i => i.id === TR.para);
   if (!de) return '';
   const a = valorHoje(de);
-  if (!(TR.valor > 0)) return `Hoje ${esc(de.nome)} está em ${brl(a)}.`;
+  if (!(TR.valor > 0)) return `Hoje: ${brl(a)}.`;
   return `${esc(de.nome)} fica com <b>${brl(Math.max(0, a - TR.valor))}</b>${para ? ` e ${esc(para.nome)} passa de ${brl(valorHoje(para))} para <b>${brl(valorHoje(para) + TR.valor)}</b>` : ''}.`;
 }
 function montarTransferir() {
@@ -3610,12 +3604,12 @@ function montarTransferir() {
         <div class="chips tr-para${t.erro === 'para' ? ' erro' : ''}" style="margin:0">${outros.map(i => { const b = bancoDe(i.banco);
           return `<button class="chip${t.para === i.id ? ' on' : ''}" data-a="tr-para" data-v="${esc(i.id)}" style="--c:${corOk(b?.cor) || '#B8B0B0'}"><span class="bol"></span><span>${esc(i.nome)}${dono(i) ? ` <small>· ${esc(dono(i))}</small>` : ''}</span></button>`; }).join('')}</div>
         ${t.erro === 'para' ? '<div class="msg-erro">Escolha para onde vai o dinheiro.</div>' : ''}
-        ${para && (para.titular === 'terceiros') !== (de.titular === 'terceiros') ? `<div class="ajuda">${de.titular === 'terceiros' ? 'Sai de um dinheiro de terceiros e entra num seu.' : 'Sai de um dinheiro seu e entra num de terceiros.'} O seu patrimônio muda.</div>` : ''}</div>
+        ${para && (para.titular === 'terceiros') !== (de.titular === 'terceiros') ? `<div class="ajuda">${de.titular === 'terceiros' ? 'Sai de um dinheiro de terceiros e entra num seu.' : 'Sai de um dinheiro seu e entra num de terceiros.'} </div>` : ''}</div>
       ${tudo ? `<div class="campo"><div class="lbl">${esc(de.nome)} fica zerado</div><div class="chips c2" style="margin:0">
         <button class="chip${!t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="">Manter na carteira</button>
         <button class="chip${t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="1">Tirar da carteira</button></div>
         ${t.apagar ? '<div class="ajuda">Uma cópia fica em Mais › Dados › Versões anteriores.</div>' : ''}</div>` : ''}
-      <p class="nota" style="margin:4px 0 0">O caixa não muda: o dinheiro só troca de investimento.</p>`,
+      <p class="nota" style="margin:4px 0 0">Não mexe no caixa.</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="tr-ok">Transferir${t.valor ? ' ' + brl(t.valor, 0) : ''}</button>`,
   };
 }
@@ -3647,7 +3641,7 @@ function montarFormInv() {
   const titulo = f.id ? 'Editar investimento' : f.duplicando ? 'Duplicar investimento' : 'Novo investimento';
   const aplicar = f.id ? `<div class="inv-aplicar"><div class="inv-acoes"><button class="btn out" data-a="inv-aplicar" data-v="${esc(f.id)}">${ic('plus', 'ic-s')}Aplicar mais</button>
     ${S.d.investimentos.length > 1 ? `<button class="btn out" data-a="inv-transferir" data-v="${esc(f.id)}">${ic('swap', 'ic-s')}Transferir</button>` : ''}</div>
-    <span>${S.d.investimentos.length > 1 ? 'Aplicar mais soma um aporte ao valor de hoje (e, se quiser, entra no caixa). Transferir passa um valor deste para outro investimento.' : 'Fez um aporte? Diga quanto: soma ao valor de hoje e, se quiser, entra no caixa.'}</span></div>` : '';
+</div>` : '';
   let c = `${aplicar}${!f.id && !f.duplicando && !f.daIA ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
     <div class="seg dono-seg" style="margin-bottom:10px">
       <button class="${f.titular !== 'terceiros' ? 'on' : ''}" data-a="f-set" data-k="titular" data-v="meu">${ic('user', 'ic-s')}Meu</button>
@@ -3766,7 +3760,7 @@ function abrirIndice(k) {
   abrirFolha(() => ({
     titulo: n,
     corpo: `<div class="campo"><label for="i-v">Valor</label><div class="pref"><input id="i-v" inputmode="decimal" value="${String(S.d.indices[k]).replace('.', ',')}"><span>${suf}</span></div>
-      <div class="ajuda" style="color:var(--muted);font-size:14.5px;margin-top:8px">Ao mudar à mão, a atualização automática pelo Banco Central é desligada. Dá para religar em Mais.</div></div>`,
+      <div class="ajuda" style="color:var(--muted);font-size:14.5px;margin-top:8px">Mudar à mão desliga a atualização pelo Banco Central.</div></div>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="i-salvar" data-v="${k}">Salvar</button>`,
   }));
 }
@@ -3777,7 +3771,7 @@ function abrirVersoes() {
   abrirFolha(() => ({
     titulo: 'Versões anteriores',
     corpo: erro ? `<p class="msg-erro">${esc(erro)}</p>` : lista == null ? '<p style="color:var(--muted)">Carregando…</p>'
-      : !lista.length ? '<p style="color:var(--muted)">Ainda não há versões anteriores. Elas aparecem depois das primeiras alterações.</p>'
+      : !lista.length ? '<p style="color:var(--muted)">Nenhuma versão anterior ainda.</p>'
         : lista.map(v => {
           const q = v.quando ? new Date(v.quando) : null;
           const motivo = { 'antes-de-importar': 'antes de importar', 'antes-de-restaurar': 'antes de restaurar' }[v.motivo] || 'automática';
@@ -4078,7 +4072,7 @@ document.addEventListener('click', ev => {
       break;
     }
     case 'apagar-exemplo':
-      confirmar({ titulo: 'Apagar exemplo?', texto: 'Os investimentos e bancos de demonstração saem. Depois é só cadastrar os seus.', botao: 'Apagar exemplo', perigo: true,
+      confirmar({ titulo: 'Apagar exemplo?', texto: 'Os dados de demonstração saem.', botao: 'Apagar exemplo', perigo: true,
         acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.categorias = clone(CATEGORIAS_PADRAO); d.exemplo = false; d._hist = []; }, 'Exemplo apagado') });
       break;
     case 'apagar-tudo':
@@ -4111,7 +4105,7 @@ document.addEventListener('click', ev => {
     case 'importar': $('#arquivo').click(); break;
     case 'versoes': abrirVersoes(); break;
     case 'restaurar':
-      confirmar({ titulo: 'Restaurar esta versão?', texto: 'Os dados de agora são trocados por essa versão. Antes, o app guarda uma cópia do que existe hoje.', botao: 'Restaurar',
+      confirmar({ titulo: 'Restaurar esta versão?', texto: 'Os dados de agora são trocados por essa versão. Uma cópia de hoje fica guardada.', botao: 'Restaurar',
         acao: () => api.restaurar(v).then(d => { S.d = normalizar(d); render(); toast('Versão restaurada'); }).catch(e => toast(e.message)) });
       break;
     case 'fechar': fecharFolha(); break;
@@ -4387,7 +4381,7 @@ function cardOutrosApps(a) {
     quando = `${esc(u.app)} usou ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
   }
   return `<section class="card" id="outros-apps">${maisCab('calendar', 'Contas no CronologIA')}
-    ${maisLead('O CronologIA, no mesmo Home Assistant, mostra as contas a pagar e as faturas na agenda, dá baixa com o Paguei e cria contas novas. A ligação é automática, pela pasta <code>share/gerencia</code>.')}
+    ${maisLead('O CronologIA mostra as contas a pagar e as faturas na agenda e dá baixa com o Paguei.')}
     ${linhaChave('integracao', lig, 'Usar a integração', lig ? 'Ligado: o CronologIA lê e dá baixa nas contas daqui.' : 'Desligado: o CronologIA não vê as contas do GerencIA.')}
     ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhum app conectou ainda.'}</div>` : ''}</section>`;
 }

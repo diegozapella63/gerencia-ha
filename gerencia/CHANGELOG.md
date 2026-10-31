@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.18.1
+
+- **Menos texto**: as explicações do app foram enxugadas, sem os porquês do óbvio. Ficou o que ajuda a decidir (valores, datas, o que muda no caixa); saíram as frases que repetiam o que o botão ou o campo já dizem. Vale para Mais (todas as abas), Opções, Ler com IA, Atualizar saldos, aporte, transferir, fixos, fluxo, categorias e exportar.
+
 ## 1.18.0
 
 - **Atualizar saldos com IA**: para a listinha com o valor de agora de cada investimento (de um terceiro no WhatsApp, num print: "Nubank, valor atualizado, R$ 500"). Fica em Adicionar, no Novo investimento e na Carteira › Terceiros (já com a pessoa). A IA acha cada investimento pelo banco, nome e dono; a conferência mostra o aporte de cada um (a diferença para o valor de hoje), o total dos aportes e deixa trocar o investimento de cada linha. O que não tiver correspondente vira investimento novo da pessoa. Conta como **Atualizar saldos** no Uso da IA.
