@@ -1,5 +1,20 @@
 # Mudanças
 
+## 1.17.0
+
+- **Pago fica verde**, como no CronologIA: no Caixa, o que já foi pago ou recebido (e a fatura paga) fica com o fundo verde e o visto. O que falta tem um **círculo do lado** do valor: toque para dar baixa (Paguei, Recebi, Apliquei), no lugar do botãozinho de antes.
+- **Período à escolha no Fluxo**: além de 12 atrás, 6 + 6 e 12 à frente, o **Outro** abre os meses para trás e à frente (atalhos 24 atrás, 12 + 12, 24 à frente, 36…; até 60 de cada lado). Com muitos meses, o gráfico mostra menos nomes embaixo e o ano no lugar de janeiro. A média do que sobrou começa no primeiro mês com lançamentos.
+- **Horizonte à escolha no Invest**: **Outro**, de 1 a 50 anos (atalhos 3, 15, 20, 25, 30 e 40).
+- **Transferir entre investimentos**: no investimento, ao lado de Aplicar mais. Quanto (ou Tudo) e para onde; sai de um e soma no outro, sem mexer no caixa. Passando tudo, escolha manter zerado ou tirar da carteira.
+- **Buscar no alto** do Invest, acima de Carteira, Evolução e Divisão.
+- **Categorias alinhadas**: o valor do mês e a média ficam na mesma linha mesmo quando o rótulo quebra; as barras têm todas a mesma largura; os percentuais com uma casa (30,1%, 15,5%).
+- **Tabelas cabem no celular** (tabela por ano e do fluxo): o cabeçalho quebra em duas linhas e os números ficam do mesmo tamanho.
+- **Botões do aporte** do mesmo tamanho, alinhados com as escolhas do Horizonte.
+- **Dicas com a IA desligada**: o quadro e a opção dizem que os planos anuais precisam da IA; as dicas de categoria continuam.
+- **Uso da IA** sem o texto só do Google: uma linha para qualquer provedor.
+- **Botões do mesmo tamanho em Mais**: no celular ocupam a largura toda (Exportar, Importar, Versões, Backup, Dicas, Índices, IA…); do tablet para cima, todos com a mesma largura.
+- A lista **Fala para texto** ficou como a da IA: **Padrão do Home Assistant** e o nome de cada uma (Home Assistant Cloud, Google AI STT…), sem o nome do assistente de voz junto.
+
 ## 1.16.1
 
 - O campo de escolha em Leitura por IA se chama só **Fala para texto**.
@@ -7,7 +22,7 @@
 ## 1.16.0
 
 - **Dicas de economia** mostram a **data da última verificação** ("Última verificação: hoje às 15:45", "ontem às…" ou o dia). O app verifica sozinho uma vez por dia, mesmo sem nenhuma assinatura nos fixos, e na hora no **Conferir agora**.
-- **Falar com escolha**, igual à IA: em **Mais › Leitura por IA** há a lista **Fala para texto**, com todas as do Home Assistant (por exemplo Home Assistant Cloud, Google AI STT, faster-whisper) e o assistente de voz de cada uma. No **Padrão** fica a do assistente de voz preferido, como antes. O nome que aparecia (por exemplo "Gemini") era só o assistente de voz que transforma a voz em texto; quem entende e separa os lançamentos continua sendo a **IA usada pelo app**.
+- **Falar com escolha**, igual à IA: em **Mais › Leitura por IA** há a lista **Fala para texto**, com todas as do Home Assistant (por exemplo Home Assistant Cloud, Google AI STT, faster-whisper) No **Padrão do Home Assistant** fica a que ele já usava, como antes. O nome que aparecia (por exemplo "Gemini") era só o assistente de voz que transforma a voz em texto; quem entende e separa os lançamentos continua sendo a **IA usada pelo app**.
 
 ## 1.15.0
 

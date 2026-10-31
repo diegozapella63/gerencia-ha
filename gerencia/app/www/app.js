@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.16.1';
+const VERSAO = '1.17.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -76,6 +76,9 @@ const OC = '•••••';
 const brl = (v, c = 2) => S.oculto ? `R$ ${OC}` : 'R$ ' + (c ? NF2 : NF0).format(v);
 const numf = (v, c = 2) => S.oculto ? OC : (c ? NF2 : NF0).format(v);
 const pct = v => NFP.format(v);
+// fatias (categorias, divisão da carteira): sempre uma casa, para os números ficarem do mesmo tamanho
+const NF1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const pct1 = v => NF1.format(v);
 const brlS = (v, c = 2) => (v < -0.005 ? '−' : '') + brl(Math.abs(v), c);
 const compacto = v => S.oculto ? '•••' : NFC.format(v);
 const parseNum = t => { const s = String(t ?? '').trim().replace(/\s/g, ''); if (!s) return NaN; return parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s); };
@@ -122,6 +125,7 @@ const P = {
   moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>',
   auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  swap: '<path d="M4 8h15l-4-4M20 16H5l4 4"/>',
   alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
   trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
@@ -145,14 +149,14 @@ const S = {
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
     invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gAgrup: 'banco', gSel: null,
-    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
+    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
   }, store.get('ui', {})),
   ia: null,
   dicas: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxCatTipo, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
 };
 
 function normalizar(d) {
@@ -775,13 +779,13 @@ function telaInvest() {
   }
   const nMeu = porEscopo('meu').length, nTerc = porEscopo('terc').length;
   let html = cabecalho('Investimentos');
+  // Buscar no alto, sempre à mostra, como no ResolvIA (digitar nele volta para a Carteira); no computador, a tecla / põe o cursor nele
+  html += `<div class="busca inv-busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
+    ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
   html += `<div class="seg">${[['carteira', 'Carteira'], ['evolucao', 'Evolução'], ['divisao', 'Divisão']].map(([k, n]) =>
     `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
   if (u.invModo !== 'carteira') return html + invGraficos();
-  // Buscar sempre à mostra, como no ResolvIA; no computador, a tecla / põe o cursor nele
-  html += `<div class="inv-filtros"><div class="busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
-    ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
-  html += `<div class="seg">
+  html += `<div class="inv-filtros"><div class="seg">
     <button class="${u.filtro === 'todos' ? 'on' : ''}" data-a="filtro" data-v="todos">Todos <small>${d.investimentos.length}</small></button>
     <button class="${u.filtro === 'meus' ? 'on' : ''}" data-a="filtro" data-v="meus">Meus <small>${nMeu}</small></button>
     <button class="${u.filtro === 'terc' ? 'on' : ''}" data-a="filtro" data-v="terc">Terceiros <small>${nTerc}</small></button></div></div>`;
@@ -857,8 +861,9 @@ function grafEvolucao(lista) {
       <span><i class="k" style="--kc:var(--c0)"></i>${ap ? 'Investido + aportes' : 'Valor investido'}</span>
       <span><i class="k" style="--kc:var(--c2)"></i>Em dinheiro de hoje</span>
     </div></div>`;
-  html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c4">${[1, 2, 5, 10].map(a =>
-    `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}</div>
+  const outroAnos = !HZ_FIXOS.includes(u.gAnos);
+  html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c5">${HZ_FIXOS.map(a =>
+    `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}<button class="chip${outroAnos ? ' on' : ''}" data-a="g-anos-outro" aria-label="Outro horizonte">${outroAnos ? u.gAnos + ' anos' : 'Outro'}</button></div>
     ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Os aportes entram só nos seus investimentos. Veja em Tudo ou Só o meu.</p>` : aporteInfo(ap)}
     <div class="sep" style="margin:18px 0"></div>
     <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
@@ -866,11 +871,28 @@ function grafEvolucao(lista) {
   </div>
   <p class="nota">A projeção usa os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%) mantidos no período, com rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação. É uma estimativa, não uma promessa.</p>
   <details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Ver tabela por ano</summary>
-  <table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th></tr></thead><tbody>
+  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th></tr></thead><tbody>
   ${Array.from({ length: u.gAnos }, (_, k) => pj.pts[(k + 1) * 12]).map(p =>
     `<tr><td>${fMesAno(new Date(p.t))}</td><td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td></tr>`).join('')}
-  </tbody></table></details>`;
+  </tbody></table></div></details>`;
   return html;
+}
+
+const HZ_FIXOS = [1, 2, 5, 10], HZ_MAX = 50;
+function abrirHorizonte() {
+  const pre = [3, 15, 20, 25, 30, 40];
+  abrirFolha(() => ({
+    titulo: 'Horizonte da projeção',
+    corpo: `<p class="ajuda" style="margin:0 0 12px">Por quantos anos projetar o dinheiro. De 1 a ${HZ_MAX}.</p>
+      <div class="chips c3">${pre.map(a => `<button class="chip${S.ui.gAnos === a ? ' on' : ''}" data-a="g-anos-pre" data-v="${a}">${a} anos</button>`).join('')}</div>
+      <div class="campo"><label class="lbl" for="hz-anos">Anos</label><input id="hz-anos" class="inp" type="number" inputmode="numeric" min="1" max="${HZ_MAX}" step="1" value="${HZ_FIXOS.includes(S.ui.gAnos) ? 20 : S.ui.gAnos}"></div>`,
+    pe: `<button class="btn pri larga" data-a="g-anos-ok">Ver a projeção</button>`,
+  }));
+}
+function aplicarHorizonte(v) {
+  const a = Math.round(+v);
+  if (!Number.isFinite(a) || a < 1 || a > HZ_MAX) return toast(`Escolha de 1 a ${HZ_MAX} anos.`);
+  S.ui.gAnos = a; salvarUI(); fecharFolha(); render();
 }
 
 // O aporte por mês não se digita aqui: vem das contas a pagar do tipo Aporte (o compromisso de aplicar).
@@ -879,14 +901,14 @@ function aporteInfo(ap) {
   if (!fx.length) {
     return `<div class="lbl">Aporte por mês nos seus investimentos</div>
       <p class="ajuda" style="margin:0 0 10px">Nenhum. Para a projeção contar com um aporte, cadastre o compromisso no Caixa: uma conta a pagar do tipo <b>Aporte</b>, todo mês.</p>
-      <button class="btn out peq" data-a="aporte-novo">${ic('plus', 'ic-s')}Cadastrar aporte</button>`;
+      <div class="btns-2"><button class="btn out" data-a="aporte-novo">${ic('plus', 'ic-s')}Cadastrar aporte</button></div>`;
   }
   const r = fx[0], conta = r.conta ? contaDe(r.conta) : null;
   const quando = fx.length > 1 ? `${fx.length} aportes fixos nas contas a pagar` : `${r.freq === 'anual' ? `todo ano em ${MESES_LONGOS[+String(r.inicio).slice(5, 7) - 1]}, dividido por 12` : `todo dia ${r.dia}`}${conta ? `, saindo de ${esc(nomeConta(conta))}` : ''}`;
   return `<div class="lbl">Aporte por mês nos seus investimentos</div>
     <div class="aporte-info"><b>${brl(ap)}</b><span>Das contas a pagar do tipo Aporte: ${quando}.</span></div>
-    <div class="btns" style="margin-top:10px"><button class="btn peq" data-a="aporte-ajustar">${ic('edit', 'ic-s')}${fx.length > 1 ? 'Ver os aportes' : 'Mudar o aporte'}</button>
-      <button class="btn peq" data-a="aporte-novo">${ic('plus', 'ic-s')}Outro aporte</button></div>`;
+    <div class="btns-2" style="margin-top:10px"><button class="btn" data-a="aporte-ajustar">${ic('edit', 'ic-s')}${fx.length > 1 ? 'Ver os aportes' : 'Mudar o aporte'}</button>
+      <button class="btn" data-a="aporte-novo">${ic('plus', 'ic-s')}Outro aporte</button></div>`;
 }
 
 function niceStep(x) {
@@ -928,7 +950,7 @@ function desenharEvolucao() {
     let d = new Date(xMin); d.setDate(1); d.setMonth(Math.ceil(d.getMonth() / passoM) * passoM);
     while (d.getTime() <= xMax) { if (d.getTime() >= xMin) marcas.push({ t: d.getTime(), txt: fMesAno(d) }); d = addMeses(d, passoM); }
   } else {
-    const passoA = span > 7 ? 2 : 1;
+    const passoA = span <= 7 ? 1 : Math.ceil(span / 6);
     for (let a = new Date(xMin).getFullYear() + 1; a <= new Date(xMax).getFullYear(); a += passoA) marcas.push({ t: new Date(a, 0, 1).getTime(), txt: String(a) });
   }
   for (const m of marcas) {
@@ -1025,13 +1047,13 @@ function grafComposicao(lista) {
   let html = `<div class="chips c4">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card" style="padding:18px 18px 8px">
     <div class="stat-duo" style="margin:0 0 10px"><div><span>Total</span><b>${brl(total, 0)}</b></div><div><span>Rende por mês</span><b>${brl(gs.reduce((s, g) => s + g.mes, 0), 0)}</b></div></div>
-    <div class="pilha-cap">${sel ? `<b>${esc(sel.nome)}</b> · ${brl(sel.v, 0)} · ${pct(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
+    <div class="pilha-cap">${sel ? `<b>${esc(sel.nome)}</b> · ${brl(sel.v, 0)} · ${pct1(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
     <div class="pilha" role="img" aria-label="Divisão do dinheiro por ${opts.find(o => o[0] === u.gAgrup)[1].toLowerCase()}">
       ${gs.map(g => `<i data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor};flex:${g.v / total} 1 0"></i>`).join('')}</div>
     <div style="margin-top:8px">${gs.map(g => `<div class="comp${u.gSel === g.k ? ' on' : ''}" data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor}">
-      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${plural(g.n, 'investimento', 'investimentos')} · ≈ ${brl(g.mes, 0)}/mês</span>
-      <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>
-      <div class="vl">${brl(g.v, 0)}<small>${pct(g.v / total * 100)}%</small></div></div>`).join('')}</div>
+      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${plural(g.n, 'investimento', 'investimentos')} · ≈ ${brl(g.mes, 0)}/mês</span></div>
+      <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
+      <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;
   return html;
 }
@@ -1457,11 +1479,15 @@ function linhaLanc(l, dentroFatura) {
     l.desconto ? 'descontado de ' + (l.paiDesc || 'recebimento') : '', l.vinculo && !ehRec(l) ? 'baixa com ' + nomeVinculo(l) : ''].filter(Boolean);
   const apo = ehAporte(l);
   const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec || apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
-  return `<div class="lanc${dentroFatura ? ' sub' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
+  // como no CronologIA: o que já foi pago fica verde, com o visto; o que falta tem o círculo do lado para dar baixa
+  const baixa = !dentroFatura && !l.desconto && !l.vinculo && !l.ajuste;
+  const verbo = rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei', feito = rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago';
+  const marca = !baixa ? '' : l.pago ? `<span class="visto on" role="img" aria-label="${feito}" title="${feito}">${ic('check')}</span>`
+    : `<button class="visto${atras ? ' atras' : ''}" data-a="lanc-pagar" data-id="${esc(l.id)}" aria-label="${verbo}: ${esc(l.descricao)}" title="${verbo}">${ic('check')}</button>`;
+  return `<div class="lanc${dentroFatura ? ' sub' : ''}${baixa && l.pago ? ' feito' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
-    <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}
-      ${!l.pago && !dentroFatura && !l.desconto && !l.vinculo ? `<button class="pagar" data-a="lanc-pagar" data-id="${esc(l.id)}">${rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei'}</button>` : ''}</span>
+    <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}</span>${marca}
   </div>`;
 }
 
@@ -1470,20 +1496,54 @@ function linhaFatura(f) {
   const aberta = S.ui.faturaAberta === f.k;
   const atras = !f.pago && f.dc < iso(hoje());
   const itens = f.itens.slice().sort((a, b) => a.data < b.data ? -1 : 1);
-  return `<div class="lanc fatura${aberta ? ' aberta' : ''}" data-a="fatura-abrir" data-v="${esc(f.k)}" role="button" tabindex="0" aria-expanded="${aberta}">
+  return `<div class="lanc fatura${aberta ? ' aberta' : ''}${f.pago ? ' feito' : ''}" data-a="fatura-abrir" data-v="${esc(f.k)}" role="button" tabindex="0" aria-expanded="${aberta}">
     <span class="ini" style="--c:${corOk(bancoDe(c?.banco)?.cor) || '#B8B0B0'}">${ic('card', 'ic-s')}</span>
     <span class="lanc-t"><b>Fatura ${esc(nomeConta(c))}</b><span>${plural(f.itens.length, 'compra', 'compras')} · vence ${fDataC(pData(f.dc))} · ${aberta ? 'toque para fechar' : 'toque para ver'}</span></span>
-    <span class="lanc-d"><b class="sai">− ${brl(f.total)}</b>${f.pago ? '<span class="tag">Paga</span>' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? 'Atrasada' : 'Aberta'}</span>`}
-      ${!f.pago ? `<button class="pagar" data-a="fatura-pagar" data-v="${esc(f.k)}">Paguei</button>` : ''}</span>
+    <span class="lanc-d"><b class="sai">− ${brl(f.total)}</b>${f.pago ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? 'Atrasada' : 'Aberta'}</span>`}</span>
+    ${f.pago ? `<span class="visto on" role="img" aria-label="Paga" title="Paga">${ic('check')}</span>` : `<button class="visto${atras ? ' atras' : ''}" data-a="fatura-pagar" data-v="${esc(f.k)}" aria-label="Paguei a fatura ${esc(nomeConta(c))}" title="Paguei">${ic('check')}</button>`}
   </div>${aberta ? `<div class="fatura-itens">${itens.map(l => linhaLanc(l, true)).join('')}</div>` : ''}`;
 }
 
 /* --------- fluxo de caixa */
+// Período escolhido: "atrás" conta o mês atual (12 atrás = os últimos 12 meses, com este); "à frente" vem depois dele.
+// Sem nenhum mês atrás, o mês atual é o primeiro dos "à frente" (12 à frente = este e os 11 seguintes), como antes.
+const PER_MAX = 60;
+function mesesFluxo() {
+  const p = S.ui.cxPeriodo;
+  if (p === 'passado') return [12, 0];
+  if (p === 'futuro') return [0, 12];
+  if (p === 'outro') {
+    const a = Math.max(0, Math.min(PER_MAX, Math.round(+S.ui.cxAtras || 0))), f = Math.max(0, Math.min(PER_MAX, Math.round(+S.ui.cxFrente || 0)));
+    if (a + f >= 2) return [a, f];
+  }
+  return [6, 6];
+}
 function periodoFluxo() {
-  const p = S.ui.cxPeriodo, a = ymHoje();
-  if (p === 'passado') return [addYm(a, -11), a];
-  if (p === 'futuro') return [a, addYm(a, 11)];
-  return [addYm(a, -5), addYm(a, 6)];
+  const [at, fr] = mesesFluxo(), a = ymHoje();
+  return at ? [addYm(a, -(at - 1)), addYm(a, fr)] : [a, addYm(a, fr - 1)];
+}
+const rotPeriodo = (a, f) => a && f ? `${a} + ${f}` : a ? `${a} atrás` : `${f} à frente`;
+function abrirPeriodo() {
+  const [a0, f0] = S.ui.cxPeriodo === 'outro' ? mesesFluxo() : [24, 0];
+  const pre = [[24, 0], [12, 12], [0, 24], [36, 0], [24, 12], [0, 36]];
+  abrirFolha(() => ({
+    titulo: 'Período do fluxo',
+    corpo: `<p class="ajuda" style="margin:0 0 12px">Quantos meses ver. Os meses para trás contam com o mês atual; os à frente vêm depois dele. Até ${PER_MAX} de cada lado.</p>
+      <div class="chips c3">${pre.map(([a, f]) => `<button class="chip${S.ui.cxPeriodo === 'outro' && a === a0 && f === f0 ? ' on' : ''}" data-a="cx-per-pre" data-v="${a},${f}">${rotPeriodo(a, f)}</button>`).join('')}</div>
+      <div class="campos-2">
+        <div class="campo"><label class="lbl" for="per-atras">Meses para trás</label><input id="per-atras" class="inp" type="number" inputmode="numeric" min="0" max="${PER_MAX}" step="1" value="${a0}"></div>
+        <div class="campo"><label class="lbl" for="per-frente">Meses à frente</label><input id="per-frente" class="inp" type="number" inputmode="numeric" min="0" max="${PER_MAX}" step="1" value="${f0}"></div>
+      </div>`,
+    pe: `<button class="btn pri larga" data-a="cx-per-ok">Ver no fluxo</button>`,
+  }));
+}
+function aplicarPeriodo(a, f) {
+  a = Math.round(+a); f = Math.round(+f);
+  if (!Number.isFinite(a) || !Number.isFinite(f) || a < 0 || f < 0) return toast('Use números de 0 a ' + PER_MAX + '.');
+  if (a > PER_MAX || f > PER_MAX) return toast(`Até ${PER_MAX} meses de cada lado.`);
+  if (a + f < 2) return toast('Escolha pelo menos 2 meses.');
+  Object.assign(S.ui, { cxPeriodo: 'outro', cxAtras: a, cxFrente: f });
+  salvarUI(); fecharFolha(); render();
 }
 // Gastos do dia a dia: o que não é fixo nem parcela (mercado, restaurante, combustível...)
 const ehVariavel = l => !ehRec(l) && !l.ajuste && !l.recorrencia && !l.grupo && !l.desconto;
@@ -1508,10 +1568,13 @@ function caixaFluxo() {
   const u = S.ui;
   const serie = serieFluxo();
   CACHE.fluxo = serie;
-  const passado = serie.filter(m => !m.prev), futuro = serie.filter(m => m.prev);
+  // a média do que sobrou começa no primeiro mês com algum lançamento (num período longo, os meses antes do app não puxam a média para baixo)
+  const ini = serie.findIndex(m => !m.prev && (m.ent || m.sai || m.apo));
+  const passado = ini < 0 ? [] : serie.filter((m, k) => !m.prev && k >= ini), futuro = serie.filter(m => m.prev);
   const soma = (l, k) => l.reduce((s, m) => s + m[k], 0);
-  let html = `<div class="chips c3">${[['passado', '12 meses atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente']].map(([k, n]) =>
-    `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}">${n}</button>`).join('')}</div>`;
+  const outroOn = u.cxPeriodo === 'outro';
+  let html = `<div class="chips c4">${[['passado', '12 atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente'], ['outro', outroOn ? rotPeriodo(...mesesFluxo()) : 'Outro']].map(([k, n]) =>
+    `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}"${k === 'outro' ? ' aria-label="Outro período"' : ''}>${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card"><h3 class="g-tit">${rotIc('chart')}<span>Fluxo de caixa mensal</span></h3>
     <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
       ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${S.d.ajustes.prever_dia !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
@@ -1529,9 +1592,9 @@ function caixaFluxo() {
     <div class="leg"><span><i class="k" style="--kc:var(--accent)"></i>Fechado</span><span><i class="k tr" style="--kc:var(--accent)"></i>Previsto</span></div></div>`;
   html += `<p class="nota">Compras no cartão entram no mês em que a fatura vence. Fixos aparecem nos meses em que acontecem (todo mês ou todo ano) com o valor padrão, até você confirmar o valor real.</p>
   <details class="card" style="margin-top:16px"><summary>Ver tabela por mês</summary>
-  <table class="tabela"><thead><tr><th>Mês</th><th class="n">Entrou</th><th class="n">Saiu</th><th class="n">Sobrou</th><th class="n">Saldo</th></tr></thead><tbody>
+  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Mês</th><th class="n">Entrou</th><th class="n">Saiu</th><th class="n">Sobrou</th><th class="n">Saldo</th></tr></thead><tbody>
   ${serie.map(m => `<tr><td>${nomeMes(m.ym, true)}${m.prev ? ' *' : ''}</td><td class="n">${brl(m.ent, 0)}</td><td class="n">${brl(m.sai, 0)}</td><td class="n">${brl(m.net, 0)}</td><td class="n">${brl(m.saldo, 0)}</td></tr>`).join('')}
-  </tbody></table><p class="nota">* previsto</p></details>`;
+  </tbody></table></div><p class="nota">* previsto</p></details>`;
   return html;
 }
 
@@ -1545,12 +1608,14 @@ function desenharFluxo() {
   const zero = pt + (H - pt - pb) / 2;
   const Y = v => zero - v / top * ((H - pt - pb) / 2);
   const banda = (W - pl - pr) / serie.length, bw = Math.min(22, banda * 0.62);
+  // muitos meses: menos nomes embaixo (o ano no lugar de janeiro) e pontos menores
+  const passoN = serie.length <= 7 ? 1 : Math.max(2, Math.ceil(serie.length / Math.max(1, Math.floor((W - pl - pr) / 30)))), rp = Math.max(1.6, Math.min(4, banda * 0.3)), longo = serie.length > 12;
   let g = '';
   for (let v = -top; v <= top + 1; v += step) {
     const y = Y(v).toFixed(1);
     g += `<line class="grid${v === 0 ? ' zero' : ''}" x1="${pl}" x2="${W - pr}" y1="${y}" y2="${y}"/><text x="${pl - 8}" y="${(+y + 4).toFixed(1)}" text-anchor="end">${v < 0 ? '−' : ''}${compacto(Math.abs(v))}</text>`;
   }
-  const r = 4;
+  const r = Math.min(4, bw / 2);
   serie.forEach((m, i) => {
     const x = pl + i * banda + (banda - bw) / 2, cls = m.prev ? ' prev' : '';
     if (m.ent > 0) { const h = zero - Y(m.ent); g += `<path class="b-ent${cls}" d="M${x},${zero - 1}v${-(h - r - 1)}q0,-${r} ${r},-${r}h${bw - 2 * r}q${r},0 ${r},${r}v${h - r - 1}z"/>`; }
@@ -1565,8 +1630,10 @@ function desenharFluxo() {
       else g += `<rect class="${c}" x="${x}" y="${y0}" width="${bw}" height="${h}"/>`;
     });
     const cx = pl + i * banda + banda / 2;
-    g += `<circle class="pt-net" cx="${cx.toFixed(1)}" cy="${Y(m.net).toFixed(1)}" r="4"/>`;
-    if (serie.length <= 7 || i % 2 === 0 || m.atual) g += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle"${m.atual ? ' class="hoje-t"' : ''}>${MESES[+m.ym.slice(5) - 1]}</text>`;
+    g += `<circle class="pt-net" cx="${cx.toFixed(1)}" cy="${Y(m.net).toFixed(1)}" r="${rp.toFixed(1)}"/>`;
+    const di = i - serie.findIndex(x => x.atual);
+    const nomeia = serie.findIndex(x => x.atual) >= 0 ? di % passoN === 0 : i % passoN === 0;
+    if (nomeia) g += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle"${m.atual ? ' class="hoje-t"' : ''}>${longo && m.ym.slice(5) === '01' && !m.atual ? m.ym.slice(0, 4) : MESES[+m.ym.slice(5) - 1]}</text>`;
   });
   g += `<rect id="fx-hl" class="hl-banda" x="0" y="${pt}" width="${banda.toFixed(1)}" height="${H - pt - pb}" style="display:none"/>`;
   el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg><div class="tip" style="display:none"></div>`;
@@ -1679,15 +1746,15 @@ function caixaCategorias() {
   html += `<div class="graf-card" style="padding:18px 18px 8px">
     <div class="stat-duo" style="margin:0 0 10px"><div><span>${tipo === 'despesa' ? 'Gastos' : 'Recebimentos'} em ${MESES_LONGOS[+ym.slice(5) - 1]}</span><b>${brl(total, 0)}</b></div>
       <div><span>Média dos 3 meses antes</span><b>${brl(ant.reduce((s, m) => s + [...m.values()].reduce((a, g) => a + g.v, 0), 0) / 3, 0)}</b></div></div>
-    <div class="pilha-cap">${sel ? `<b>${esc(nome(sel))}</b> · ${brl(sel.v, 0)} · ${pct(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
+    <div class="pilha-cap">${sel ? `<b>${esc(nome(sel))}</b> · ${brl(sel.v, 0)} · ${pct1(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
     <div class="pilha" role="img" aria-label="Divisão por categoria">${gs.map(g => `<i data-a="cx-sel" data-v="${esc(g.k)}" style="--c:${cor(g)};flex:${g.v / total} 1 0"></i>`).join('')}</div>
     <div class="comps">${gs.map(g => {
       const media = g.k === '_outras' ? null : ant.reduce((s, m) => s + (m.get(g.k)?.v || 0), 0) / 3;
       const dif = media ? (g.v - media) / media * 100 : null;
       return `<div class="comp${u.cxSel === g.k ? ' on' : ''}" data-a="cx-sel" data-v="${esc(g.k)}" style="--c:${cor(g)}">
-        <span class="sq"></span><div class="nm"><b>${esc(nome(g))}</b><span class="sub">${plural(g.n, 'lançamento', 'lançamentos')}${media ? ` · média ${brl(media, 0)}` : ''}</span>
-        <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>
-        <div class="vl">${brl(g.v, 0)}<small>${pct(g.v / total * 100)}%${dif != null && Math.abs(dif) >= 10 ? ` · ${dif > 0 ? '▲' : '▼'} ${pct(Math.round(Math.abs(dif)))}%` : ''}</small></div></div>`;
+        <span class="sq"></span><div class="nm"><b>${esc(nome(g))}</b><span class="sub">${plural(g.n, 'lançamento', 'lançamentos')}${media ? ` · média ${brl(media, 0)}` : ''}</span></div>
+        <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%${dif != null && Math.abs(dif) >= 10 ? ` · ${dif > 0 ? '▲' : '▼'} ${pct(Math.round(Math.abs(dif)))}%` : ''}</small></div>
+        <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`;
     }).join('')}</div></div>
     <p class="nota">Pela data da compra. Fixos entram com o valor padrão até você confirmar o valor do mês.</p>`;
   return html;
@@ -2703,6 +2770,8 @@ function cardDicasMais() {
   let h = `<section class="card" id="dicas">${maisCab('percent', 'Dicas de economia')}
     ${maisLead(`O app procura assinaturas nos seus fixos e faturas e confere o preço do plano anual na página oficial de cada serviço, lida pela IA do Home Assistant. A dica só aparece quando o valor que você paga bate com um plano e o preço está escrito na página. Reconhece ${esc(juntarE(catalogo))}.`)}`;
   if (S.d.ajustes.dicas === false) return h + `<div class="status manual">Desligadas em Mais › Opções.</div></section>`;
+  // conferir o plano anual depende da IA; as dicas de categoria acima da média, não
+  if (!iaOn()) return h + `<div class="status manual">A IA está desligada em Mais › Integrações, então o app não confere os planos anuais das assinaturas. As dicas de categoria acima da média continuam no Início.</div></section>`;
   if (!st) h += `<div class="status manual">Carregando…</div>`;
   else if (!subs.length) h += `<div class="status manual">Nenhuma dessas assinaturas nos seus fixos ou faturas.</div>`;
   else {
@@ -2985,14 +3054,13 @@ function cardIA() {
   const ents = (s && s.entidades) || [];
   const v = S.voz;
   const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
-    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}${v.selecionada ? '' : ' (a do assistente de voz preferido)'}; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
+    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
-  const rotFala = o => `${o.nome}${o.assistentes && o.assistentes.length && !(o.assistentes.length === 1 && o.assistentes[0] === o.nome) ? ` · assistente ${o.assistentes.join(', ')}` : ''}`;
   return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
     ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
-      <option value="">Padrão do Home Assistant (assistente de voz preferido)</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(rotFala(o))}</option>`).join('')}</select></div>` : ''}
+      <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
     <p class="nota" style="margin:12px 0 0">Para ler imagem e PDF, a IA precisa aceitar anexos; Google Gemini, OpenAI e Anthropic aceitam. Se a IA não aceitar PDF, o app manda só o texto do arquivo.</p></section>`;
 }
@@ -3190,25 +3258,13 @@ function cardUsoIA() {
       return `<li><b>${esc(USO_TIPO[c.kind] || c.kind)}</b><span>${esc(nomeIA(c.entity))}</span>${res ? `<span class="r-erro">${esc(res)}</span>` : ''}
         <span class="t">${esc(String(c.seconds).replace('.', ','))} s · ≈ ${milTokens(c.tokens)} tokens${c.images ? ` · ${plural(c.images, 'anexo', 'anexos')}` : ''} · ${esc(quandoCurto(c.at))}</span></li>`;
     }).join('');
-    const idsIA = [...Object.keys(u.month.entities || {}), ...Object.keys(u.week.entities || {}), S.d.ajustes.ia_entidade || ''];
-    let ids = [...idsIA, ...idsIA.filter(Boolean).map(nomeIA)].join(' ').toLowerCase();
-    if (!/google|gemini|openai|gpt|anthropic|claude/.test(ids)) {
-      // sem chamada ainda: se todas as IAs do Home Assistant são do mesmo provedor, usa ele
-      const ps = new Set(((S.ia && S.ia.entidades) || []).map(e => (`${e.id} ${e.nome}`.toLowerCase().match(/google|gemini|openai|gpt|anthropic|claude/) || [''])[0].replace('gemini', 'google').replace('gpt', 'openai').replace('claude', 'anthropic')).filter(Boolean));
-      if (ps.size === 1) ids = [...ps][0];
-    }
-    const link = (href, t) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${t}</a>`;
-    const prov = /google|gemini/.test(ids) ? `Consumo exato do Gemini: no ${link('https://console.cloud.google.com/apis/dashboard', 'Google Cloud Console')}, abra APIs e serviços ativados e depois Generative Language API; o gráfico de tráfego mostra os pedidos e os erros 429 de cota. Os limites do plano grátis estão no ${link('https://aistudio.google.com/', 'Google AI Studio')}. A cota diária volta à meia-noite do horário do Pacífico, de madrugada no Brasil (4h ou 5h).`
-      : /openai|gpt/.test(ids) ? `Consumo exato e custo da OpenAI: ${link('https://platform.openai.com/usage', 'platform.openai.com/usage')}.`
-        : /anthropic|claude/.test(ids) ? `Consumo exato e custo da Anthropic: ${link('https://platform.claude.com/usage', 'Claude Console, Usage')}.`
-          : 'O consumo exato e o custo ficam no painel do provedor da sua IA (Google, OpenAI, Anthropic...).';
     corpo = `<div class="uso-tiles">${tile('Hoje', u.today)}${tile('7 dias', u.week)}${tile('Este mês', u.month)}</div>
       <div class="uso-chart" role="group" aria-label="Chamadas de IA nos últimos 7 dias">${barras}</div>
       <div class="uso-dias" aria-hidden="true">${u.days.map(x => `<span>${x.day === hojeK ? 'hoje' : diaSem(x.day)}</span>`).join('')}</div>
       <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
       <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
-      <p class="nota">${prov} A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
+      <p class="nota">O consumo exato, o custo e os limites ficam no painel do provedor da IA que você usa. A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
       <p class="nota">${S.d.ajustes.sensores === true
         ? `No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para pôr num painel ou numa automação (por exemplo, avisar quando passar de 50 no dia).`
         : `Para ter o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> no Home Assistant (as chamadas de hoje, com erros, cota e tokens), ligue <b>Sensores no Home Assistant</b>, logo abaixo.`}</p>`;
@@ -3276,9 +3332,10 @@ function maisAparencia() {
 function maisOpcoes() {
   const a = S.d.ajustes;
   return `<section class="card" id="op-inicio">${maisCab('home', 'Início')}
-      ${linhaChave('dicas', a.dicas !== false, 'Dicas de economia', a.dicas !== false
-        ? 'Ligado: o Início mostra quando uma assinatura tem plano anual mais barato e quando uma categoria passa da média. O preço é conferido na página oficial, com a IA.'
-        : 'Desligado: o Início não mostra dicas e o app não confere preços de assinaturas.')}</section>
+      ${linhaChave('dicas', a.dicas !== false, 'Dicas de economia', a.dicas === false
+        ? 'Desligado: o Início não mostra dicas e o app não confere preços de assinaturas.'
+        : iaOn() ? 'Ligado: o Início mostra quando uma assinatura tem plano anual mais barato e quando uma categoria passa da média. O preço é conferido na página oficial, com a IA.'
+          : 'Ligado: o Início mostra quando uma categoria passa da média. Os planos anuais das assinaturas precisam da IA, que está desligada em Mais › Integrações.')}</section>
     <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
       ${linhaChave('prever_dia', a.prever_dia !== false, 'Prever o dia a dia', a.prever_dia !== false
         ? `Ligado: os próximos meses somam a média dos gastos que não são fixos nem parcelas (mercado, restaurante, combustível): ${brl(mediaVariaveis(), 0)} por mês.`
@@ -3421,6 +3478,68 @@ function confirmarAplicar() {
   }, `Aplicado ${brl(a.valor, 0)} em ${inv0.nome}`).then(ok => { if (ok) { AP = null; fecharFolha(); } });
 }
 
+// Transferir de um investimento para outro: sai do valor de hoje de um e soma no do outro. O caixa não muda.
+let TR = null;
+function abrirTransferir(invId) {
+  const inv = S.d.investimentos.find(i => i.id === invId);
+  if (!inv) return;
+  TR = { de: invId, para: '', valor: 0, apagar: false, erro: '' };
+  abrirFolha(montarTransferir, () => { TR = null; });
+  requestAnimationFrame(() => { const v = $('#tr-v'); if (v) v.focus(); });
+}
+function transferirAjuda() {
+  const de = S.d.investimentos.find(i => i.id === TR.de), para = S.d.investimentos.find(i => i.id === TR.para);
+  if (!de) return '';
+  const a = valorHoje(de);
+  if (!(TR.valor > 0)) return `Hoje ${esc(de.nome)} está em ${brl(a)}.`;
+  return `${esc(de.nome)} fica com <b>${brl(Math.max(0, a - TR.valor))}</b>${para ? ` e ${esc(para.nome)} passa de ${brl(valorHoje(para))} para <b>${brl(valorHoje(para) + TR.valor)}</b>` : ''}.`;
+}
+function montarTransferir() {
+  const t = TR, de = S.d.investimentos.find(i => i.id === t.de);
+  if (!de) return { titulo: 'Transferir', corpo: '' };
+  const atual = round2(valorHoje(de)), tudo = t.valor > 0 && Math.abs(t.valor - atual) < 0.005;
+  // os do mesmo dono primeiro
+  const outros = S.d.investimentos.filter(i => i.id !== de.id)
+    .sort((a, b) => ((a.titular === 'terceiros') !== (de.titular === 'terceiros')) - ((b.titular === 'terceiros') !== (de.titular === 'terceiros')) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const para = outros.find(i => i.id === t.para);
+  const dono = i => i.titular === 'terceiros' ? (i.terceiro || 'terceiros') : '';
+  return {
+    titulo: `Transferir de ${esc(de.nome)}`,
+    corpo: `<div class="campo"><label for="tr-v">Quanto</label><div class="pref grande${t.erro === 'valor' ? ' erro' : ''}"><span>R$</span><input id="tr-v" data-tr="valor" inputmode="numeric" value="${t.valor ? NF2.format(t.valor) : ''}" placeholder="0,00"></div>
+        ${t.erro === 'valor' ? `<div class="msg-erro">${t.valor > atual ? `Passa do valor de hoje (${brl(atual)}).` : 'Coloque o valor.'}</div>` : ''}
+        <div class="chips c3" style="margin:10px 0 0"><button class="chip${tudo ? ' on' : ''}" data-a="tr-tudo">Tudo (${brl(atual, 0)})</button></div>
+        <div class="ajuda" id="tr-ajuda">${transferirAjuda()}</div></div>
+      <div class="campo"><div class="lbl">Para qual investimento</div>
+        <div class="chips tr-para${t.erro === 'para' ? ' erro' : ''}" style="margin:0">${outros.map(i => { const b = bancoDe(i.banco);
+          return `<button class="chip${t.para === i.id ? ' on' : ''}" data-a="tr-para" data-v="${esc(i.id)}" style="--c:${corOk(b?.cor) || '#B8B0B0'}"><span class="bol"></span><span>${esc(i.nome)}${dono(i) ? ` <small>· ${esc(dono(i))}</small>` : ''}</span></button>`; }).join('')}</div>
+        ${t.erro === 'para' ? '<div class="msg-erro">Escolha para onde vai o dinheiro.</div>' : ''}
+        ${para && (para.titular === 'terceiros') !== (de.titular === 'terceiros') ? `<div class="ajuda">${de.titular === 'terceiros' ? 'Sai de um dinheiro de terceiros e entra num seu.' : 'Sai de um dinheiro seu e entra num de terceiros.'} O seu patrimônio muda.</div>` : ''}</div>
+      ${tudo ? `<div class="campo"><div class="lbl">${esc(de.nome)} fica zerado</div><div class="chips c2" style="margin:0">
+        <button class="chip${!t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="">Manter na carteira</button>
+        <button class="chip${t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="1">Tirar da carteira</button></div>
+        ${t.apagar ? '<div class="ajuda">Uma cópia fica em Mais › Dados › Versões anteriores.</div>' : ''}</div>` : ''}
+      <p class="nota" style="margin:4px 0 0">O caixa não muda: o dinheiro só troca de investimento.</p>`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="tr-ok">Transferir${t.valor ? ' ' + brl(t.valor, 0) : ''}</button>`,
+  };
+}
+function confirmarTransferir() {
+  const t = TR, de0 = S.d.investimentos.find(i => i.id === t.de), para0 = S.d.investimentos.find(i => i.id === t.para);
+  if (!de0) return;
+  const atual = round2(valorHoje(de0));
+  if (!(t.valor > 0) || t.valor > atual + 0.005) { t.erro = 'valor'; pintarFolha(); return; }
+  if (!para0) { t.erro = 'para'; pintarFolha(); return; }
+  const tudo = Math.abs(t.valor - atual) < 0.005, apagar = tudo && t.apagar;
+  const vDe = tudo ? 0 : round2(atual - t.valor), vPara = round2(valorHoje(para0) + t.valor);
+  const hj = iso(hoje()), agora = new Date().toISOString();
+  persistir(d => {
+    const de = d.investimentos.find(i => i.id === t.de), para = d.investimentos.find(i => i.id === t.para);
+    if (!de || !para) return;
+    Object.assign(para, { valor: vPara, data_valor: hj, atualizado_em: agora });
+    if (apagar) d.investimentos = d.investimentos.filter(i => i.id !== de.id);
+    else Object.assign(de, { valor: vDe, data_valor: hj, atualizado_em: agora });
+  }, `Transferido ${brl(t.valor, 0)} de ${de0.nome} para ${para0.nome}`).then(ok => { if (ok) { TR = null; F = null; fecharFolha(); } });
+}
+
 function montarFormInv() {
   const f = F;
   const ix = idxDe(f.indexador);
@@ -3429,8 +3548,9 @@ function montarFormInv() {
   const err = k => f.erros[k] ? ' erro' : '';
   const msg = k => f.erros[k] ? `<div class="msg-erro">${f.erros[k]}</div>` : '';
   const titulo = f.id ? 'Editar investimento' : f.duplicando ? 'Duplicar investimento' : 'Novo investimento';
-  const aplicar = f.id ? `<div class="inv-aplicar"><button class="btn out" data-a="inv-aplicar" data-v="${esc(f.id)}">${ic('plus', 'ic-s')}Aplicar mais</button>
-    <span>Fez um aporte? Diga quanto: soma ao valor de hoje e, se quiser, entra no caixa.</span></div>` : '';
+  const aplicar = f.id ? `<div class="inv-aplicar"><div class="inv-acoes"><button class="btn out" data-a="inv-aplicar" data-v="${esc(f.id)}">${ic('plus', 'ic-s')}Aplicar mais</button>
+    ${S.d.investimentos.length > 1 ? `<button class="btn out" data-a="inv-transferir" data-v="${esc(f.id)}">${ic('swap', 'ic-s')}Transferir</button>` : ''}</div>
+    <span>${S.d.investimentos.length > 1 ? 'Aplicar mais soma um aporte ao valor de hoje (e, se quiser, entra no caixa). Transferir passa um valor deste para outro investimento.' : 'Fez um aporte? Diga quanto: soma ao valor de hoje e, se quiser, entra no caixa.'}</span></div>` : '';
   let c = `${aplicar}${!f.id && !f.duplicando && !f.daIA ? tilesIA('invest') : ''}<div class="campo"><div class="lbl">De quem é este dinheiro?</div>
     <div class="seg dono-seg" style="margin-bottom:10px">
       <button class="${f.titular !== 'terceiros' ? 'on' : ''}" data-a="f-set" data-k="titular" data-v="meu">${ic('user', 'ic-s')}Meu</button>
@@ -3705,6 +3825,11 @@ document.addEventListener('click', ev => {
     }
     case 'pg-ok': confirmarPagar(); break;
     case 'inv-aplicar': abrirAplicar(v); break;
+    case 'inv-transferir': abrirTransferir(v); break;
+    case 'tr-para': TR.para = v; if (TR.erro === 'para') TR.erro = ''; pintarFolha(); break;
+    case 'tr-tudo': { const de = S.d.investimentos.find(i => i.id === TR.de); if (de) { TR.valor = round2(valorHoje(de)); TR.erro = ''; } pintarFolha(); break; }
+    case 'tr-apagar': TR.apagar = !!v; pintarFolha(); break;
+    case 'tr-ok': confirmarTransferir(); break;
     case 'ap-destino': AP.destino = v; pintarFolha(); break;
     case 'ap-conta': AP.conta = v; pintarFolha(); break;
     case 'ap-ok': confirmarAplicar(); break;
@@ -3717,7 +3842,12 @@ document.addEventListener('click', ev => {
     case 'cx-modo': S.ui.cxModo = v; S.ui.cxSel = null; salvarUI(); render(); break;
     case 'cx-mes': S.ui.cxMes = +v === 0 ? null : addYm(mesCaixa(), +v); S.ui.faturaAberta = null; S.ui.cxSel = null; render(); break;
     case 'cx-filtro': S.ui.cxFiltro = v; salvarUI(); render(); break;
-    case 'cx-periodo': S.ui.cxPeriodo = v; salvarUI(); render(); break;
+    case 'cx-periodo': if (v === 'outro') abrirPeriodo(); else { S.ui.cxPeriodo = v; salvarUI(); render(); } break;
+    case 'cx-per-pre': aplicarPeriodo(...v.split(',')); break;
+    case 'cx-per-ok': aplicarPeriodo($('#per-atras').value, $('#per-frente').value); break;
+    case 'g-anos-outro': abrirHorizonte(); break;
+    case 'g-anos-pre': aplicarHorizonte(v); break;
+    case 'g-anos-ok': aplicarHorizonte($('#hz-anos').value); break;
     case 'mais-aba': S.ui.maisAba = v; salvarUI(); render(); { const t = $('.mais-abas'); if (t && t.getBoundingClientRect().top < 0) t.scrollIntoView({ block: 'start' }); } break;
     case 'uso-dia': S.usoSel = v; render(); break;
     case 'bk-restaurar':
@@ -3985,6 +4115,18 @@ document.addEventListener('input', ev => {
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
   if (el.dataset.ias && IAS) { IAS[el.dataset.ias] = el.value; const b = $('[data-a="ia-ler"]'); if (b) b.disabled = !IAS.arquivo && !IAS.texto.trim(); return; }
   if (el.dataset.iai && IAS) { IAS.itens[+el.dataset.i][el.dataset.iai] = el.value; return; }
+  if (el.dataset.tr && TR) {
+    const dig = el.value.replace(/\D/g, '').slice(0, 13);
+    const antes = TR.valor;
+    TR.valor = dig ? parseInt(dig, 10) / 100 : 0; if (TR.erro === 'valor') TR.erro = '';
+    el.value = dig ? NF2.format(TR.valor) : '';
+    const de = S.d.investimentos.find(i => i.id === TR.de), aj = $('#tr-ajuda'), b = $('[data-a="tr-ok"]');
+    const atual = de ? round2(valorHoje(de)) : 0, era = Math.abs(antes - atual) < 0.005, e = Math.abs(TR.valor - atual) < 0.005;
+    if (era !== e) { pintarFolha(); const v = $('#tr-v'); if (v) { v.focus(); v.setSelectionRange(v.value.length, v.value.length); } return; }
+    if (aj) aj.innerHTML = transferirAjuda();
+    if (b) b.textContent = 'Transferir' + (TR.valor ? ' ' + brl(TR.valor, 0) : '');
+    return;
+  }
   if (el.dataset.ap && AP) {
     if (el.dataset.ap === 'valor') {
       const dig = el.value.replace(/\D/g, '').slice(0, 13);
@@ -4055,7 +4197,7 @@ document.addEventListener('input', ev => {
     else LF[k] = el.value;
     return;
   }
-  if (el.dataset.ui === 'busca') { S.ui.busca = el.value; render(); return; }
+  if (el.dataset.ui === 'busca') { S.ui.busca = el.value; if (S.ui.invModo !== 'carteira' && el.value) { S.ui.invModo = 'carteira'; salvarUI(); } render(); return; }
 });
 
 // Arrastar para o lado troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais.
@@ -4096,6 +4238,7 @@ document.addEventListener('keydown', ev => {
   }
   if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
+  if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
 document.addEventListener('change', ev => {
   const el = ev.target;

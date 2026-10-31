@@ -13,11 +13,12 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 - **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
-  - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence.
-  - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6 ou 12 à frente.
+  - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
+  - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
 - **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
-- **Invest**: *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
+- **Invest**: o **Buscar** fica no alto (digitar nele abre a Carteira). *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, ou **Outro**, de 1 a 50 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
+- **Transferir entre investimentos**: abra um investimento e toque em **Transferir**. Escolha quanto (ou **Tudo**) e para qual investimento: o valor sai de um e soma no outro, sem mexer no caixa. Se passar tudo, dá para manter o investimento zerado na carteira ou tirá-lo.
 - No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado).
 - **Mais**, em abas no alto, como no ResolvIA, no CronologIA e no InventarIA:
   - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
@@ -125,7 +126,7 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
 - O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto.
-- **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…) e o assistente de voz de cada uma. No **Padrão** fica a do assistente de voz preferido (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
+- **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). No **Padrão do Home Assistant** fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
 - São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a **IA usada pelo app**, a mesma de Ler com IA. Trocar uma não muda a outra.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.
 - O áudio vai direto para o Home Assistant e não fica guardado no app.
@@ -153,7 +154,7 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 ## Uso da IA
 
-Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Ler nas imagens e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos.
+Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Ler nas imagens, Falar e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos; as dicas de categoria acima da média continuam, porque não usam IA.
 
 Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 
