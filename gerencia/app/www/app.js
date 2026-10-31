@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.3';
+const VERSAO = '1.18.4';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -19,6 +19,7 @@ const TIPOS = [
   { id: 'caixinha', nome: 'Caixinha', ir: 'reg', p: { indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria' } },
   { id: 'fundo', nome: 'Fundo', ir: 'reg', p: { indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria' } },
   { id: 'acoes', nome: 'Ações/FII', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
+  { id: 'ouro', nome: 'Ouro', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
   { id: 'previdencia', nome: 'Previdência', ir: 'nao', p: { indexador: 'cdi_pct', taxa: 95, liquidez: 'vencimento' } },
   { id: 'outro', nome: 'Outro', ir: 'reg', p: { indexador: 'pre', taxa: 12, liquidez: 'vencimento' } },
 ];

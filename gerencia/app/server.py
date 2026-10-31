@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.18.3"
+VERSAO = "1.18.4"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -772,11 +772,11 @@ def ia_status(d):
 IA_REGRAS = """Para cada investimento, devolva:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
-- "indexador": cdi_pct (ex.: 110% do CDI), cdi_mais (CDI + 1,5% a.a.), pre (prefixado 13% a.a.), ipca_mais (IPCA + 6% a.a.), selic_mais (Tesouro Selic, Selic + 0,1%), poupanca, estimado (renda variável), parado (sem rendimento).
+- "indexador": cdi_pct (ex.: 110% do CDI), cdi_mais (CDI + 1,5% a.a.), pre (prefixado 13% a.a.), ipca_mais (IPCA + 6% a.a.), selic_mais (Tesouro Selic, Selic + 0,1%), poupanca, estimado (renda variável e ouro), parado (sem rendimento).
 - "taxa": 110 para 110% do CDI; 1.5 para CDI + 1,5%; 13 para 13% a.a.; 6.5 para IPCA + 6,5%; 0.1 para Selic + 0,1%; 0 para poupança e sem rendimento; 10 para renda variável.
 - "vencimento": AAAA-MM-DD, se aparecer; senão "".
 - "liquidez": "diaria" se der para resgatar a qualquer momento; senão "vencimento".
@@ -824,11 +824,11 @@ Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixin
 "investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
-- "indexador": cdi_pct (ex.: 110% do CDI), cdi_mais (CDI + 1,5% a.a.), pre (prefixado 13% a.a.), ipca_mais (IPCA + 6% a.a.), selic_mais (Tesouro Selic, Selic + 0,1%), poupanca, estimado (renda variável), parado (sem rendimento).
+- "indexador": cdi_pct (ex.: 110% do CDI), cdi_mais (CDI + 1,5% a.a.), pre (prefixado 13% a.a.), ipca_mais (IPCA + 6% a.a.), selic_mais (Tesouro Selic, Selic + 0,1%), poupanca, estimado (renda variável e ouro), parado (sem rendimento).
 - "taxa": 110 para 110% do CDI; 1.5 para CDI + 1,5%; 13 para 13% a.a.; 6.5 para IPCA + 6,5%; 0.1 para Selic + 0,1%; 0 para poupança e sem rendimento; 10 para renda variável.
 - "vencimento": AAAA-MM-DD, se aparecer; senão "".
 - "liquidez": "diaria" se der para resgatar a qualquer momento; senão "vencimento".

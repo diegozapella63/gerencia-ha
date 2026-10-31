@@ -25,6 +25,7 @@ TIPOS = {
     "caixinha": "Caixinha",
     "fundo": "Fundo",
     "acoes": "Ações/FII",
+    "ouro": "Ouro",
     "previdencia": "Previdência",
     "outro": "Outro",
 }

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.18.4
+
+- Tipo **Ouro** nos investimentos (barra, ouro ativo financeiro, ETF de ouro): sem taxa fixa, a projeção usa a valorização que você estimar por ano (começa em 10%, dá para mudar) e, com Descontar IR, 15% sobre o ganho, como em ações. A IA também reconhece ouro.
+
 ## 1.18.3
 
 - **Do Novo investimento, só investimentos**: Colar mensagem, Imagem e Falar abertos ali não lançam nada no caixa. Um valor com um banco ou nome ("30.350 nubank") é o saldo desse investimento; "dinheiro" guardado vira um investimento sem rendimento. O Ler com IA do Início continua separando tudo sozinho.

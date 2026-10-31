@@ -149,8 +149,10 @@ Investimentos podem guardar imagens (comprovante, print do banco, extrato): no f
 | IPCA + | IPCA + 7% a.a. | (1 + IPCA) × (1 + 7%) − 1 |
 | Selic + | Selic + 0,05% a.a. | (1 + Selic) × (1 + 0,05%) − 1 |
 | Poupança | — | 0,5% ao mês + TR (com Selic acima de 8,5%) |
-| Estimado | 10% a.a. | sua estimativa (ações, FIIs); não corrige o valor sozinho |
+| Estimado | 10% a.a. | sua estimativa (ações, FIIs, ouro); não corrige o valor sozinho |
 | Sem rendimento | — | o valor fica parado |
+
+**Ouro**: escolha o tipo Ouro. Ele vem com Estimado de 10% a.a.; troque pela valorização que você espera. Com Descontar IR, 15% sobre o ganho. Atualize o valor com a cotação de vez em quando (ou pelo Atualizar saldos).
 
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.
 
