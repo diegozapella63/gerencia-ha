@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.18.3
+
+- **Do Novo investimento, só investimentos**: Colar mensagem, Imagem e Falar abertos ali não lançam nada no caixa. Um valor com um banco ou nome ("30.350 nubank") é o saldo desse investimento; "dinheiro" guardado vira um investimento sem rendimento. O Ler com IA do Início continua separando tudo sozinho.
+- **De quem é**: a IA lê o dono no texto ("tudo dinheiro da mãe") e procura entre os investimentos dessa pessoa; os novos já entram como dela.
+
 ## 1.18.2
 
 - **Revisar antes** não sai mais da conferência da IA (Ler com IA e Atualizar saldos): abre ali mesmo os dados do que a IA leu. No investimento novo: valor, nome, banco, tipo, rendimento, taxa, vencimento e liquidez. No que já existe: o saldo. **Pronto** ou **Voltar** retornam para a lista, com o resto como estava.

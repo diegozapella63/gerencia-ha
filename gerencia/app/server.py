@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.18.2"
+VERSAO = "1.18.3"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -833,6 +833,7 @@ Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixin
 - "vencimento": AAAA-MM-DD, se aparecer; senão "".
 - "liquidez": "diaria" se der para resgatar a qualquer momento; senão "vencimento".
 - "existente": se for o mesmo investimento de um já cadastrado (lista abaixo), o id dele; senão "".
+- "dono": "" se for da própria pessoa; se o conteúdo disser de quem é (ex.: "dinheiro da mãe", "do Pedro"), o nome, de preferência como aparece no dono da lista abaixo.
 - "aporte": valor aplicado agora, quando o conteúdo fala de uma aplicação nova; 0 se não. Se só falar da aplicação, sem o saldo, deixe "valor" em 0: o app soma o aporte ao que já tinha.
 - "confianca": "alta", "media" ou "baixa".
 Ignore saldo parado em conta corrente, cartões, limites e empréstimos.
@@ -857,13 +858,18 @@ def _dono(inv):
 
 
 # Atualizar saldos: uma listinha com o saldo de agora de cada investimento (às vezes de um terceiro, num print ou no WhatsApp)
+# aberto do Novo investimento: só investimentos, e um valor com um banco ou nome é o saldo de agora
+IA_REGRAS_SO_INVEST = """Este conteúdo veio da tela de investimentos: devolva só "investimentos" e deixe "lancamentos" vazio. Um valor citado com um banco, uma corretora ou o nome de um investimento (ex.: "30.350 nubank", "Nubank, valor atualizado, R$ 500") é o saldo de agora desse investimento: "valor" com o saldo e "existente" com o id do correspondente na lista abaixo, pelo banco, pelo nome e pelo dono. "Dinheiro" guardado (em espécie, em casa) também conta: tipo "outro", indexador "parado". Uma aplicação nova ("apliquei 2 mil no CDB") vai em "aporte"."""
+
+
 IA_REGRAS_SALDOS = """Este conteúdo é uma lista de saldos atualizados{de_quem}: cada linha (ou cada bloco) traz um investimento, pelo banco ou pelo nome, e quanto ele tem agora (ex.: "Nubank, valor atualizado, R$ 500"). Devolva só "investimentos" e deixe "lancamentos" vazio. Um item por investimento citado, com:
 - "valor": o saldo de agora; "aporte": 0.
 - "existente": o id do investimento já cadastrado que corresponde a essa linha, pelo banco, pelo nome e pelo dono{pref}; "" se nenhum corresponder.
-- "nome" e "banco" como aparecem na linha; os outros campos, do jeito de sempre (se não aparecer, use os do investimento correspondente)."""
+- "nome" e "banco" como aparecem na linha; os outros campos, do jeito de sempre (se não aparecer, use os do investimento correspondente).
+"Dinheiro" guardado (em espécie, em casa) também conta: tipo "outro", indexador "parado"."""
 
 
-def ia_prompt(d, modo, com_anexo, texto, saldos=False, pessoa=None):
+def ia_prompt(d, modo, com_anexo, texto, saldos=False, pessoa=None, so_invest=False):
     hoje_txt = f"{date.today():%d/%m/%Y}"
     if modo == "holerite":
         partes = [f"Você lê recibos de pagamento de uma pessoa no Brasil (holerite, contracheque, recibo de produção de cooperativa ou pró-labore). Hoje é {hoje_txt}.",
@@ -883,6 +889,8 @@ def ia_prompt(d, modo, com_anexo, texto, saldos=False, pessoa=None):
             de_quem = "" if not pessoa else " dos investimentos da própria pessoa (dono \"meu\")" if pessoa == "meu" else f" dos investimentos de {pessoa} (dono \"{pessoa}\")"
             pref = "" if not pessoa else f"; prefira os do dono \"{'meu' if pessoa == 'meu' else pessoa}\""
             partes.append(IA_REGRAS_SALDOS.format(de_quem=de_quem, pref=pref))
+        elif so_invest:
+            partes.append(IA_REGRAS_SO_INVEST)
         if d["investimentos"]:
             partes.append("Investimentos já cadastrados (id | nome | banco | dono | valor):")
             for inv in d["investimentos"][:80]:
@@ -961,6 +969,7 @@ def ia_limpar(parsed, d):
             "liquidez": "diaria" if str(it.get("liquidez")).lower().startswith("diar") else "vencimento",
             "existente": it.get("existente") if it.get("existente") in ids else "",
             "aporte": round(max(0.0, calc.num_br(it.get("aporte"))), 2),
+            "dono": "" if str(it.get("dono") or "").strip().lower() in ("", "meu", "minha", "eu", "próprio", "proprio") else str(it.get("dono")).strip()[:40],
             "confianca": it.get("confianca") if it.get("confianca") in ("alta", "media", "baixa") else "media",
         })
     return saida
@@ -1057,20 +1066,32 @@ IA_SIMULADA = {"itens": [
 def ia_simulada_saldos(texto, d, pessoa=None):
     """Simulação do Atualizar saldos (testes e prévia): cada linha com um valor acha o investimento pelo banco ou pelo nome."""
     bancos = {b.get("id"): b.get("nome", "") for b in d.get("bancos", [])}
-    invs = [i for i in d.get("investimentos", []) if not pessoa or _dono(i) == pessoa] or d.get("investimentos", [])
+    linhas = [x.strip() for x in re.split(r"[\n;]+", texto or "") if x.strip()]
+    dono = pessoa
+    for linha in linhas:  # "Tudo dinheiro da mãe": o dono de todos
+        m = re.search(r"\b(?:da|do|de)\s+([a-zà-ú]+)\s*$", linha, re.I)
+        if m and not re.search(r"\d", linha):
+            dono = dono or m.group(1).capitalize()
+    pessoas = {_dono(i).lower(): _dono(i) for i in d.get("investimentos", [])}
+    dono = pessoas.get((dono or "").lower(), dono)
+    invs = [i for i in d.get("investimentos", []) if not dono or _dono(i) == dono] or ([] if dono else d.get("investimentos", []))
     out = []
-    for linha in re.split(r"[\n;]+", texto or ""):
-        m = re.search(r"(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*$", linha.strip(), re.I)
+    for linha in linhas:
+        m = re.search(r"(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(mil\b)?", linha, re.I)
         if not m:
             continue
-        nome = re.split(r"[,:\-–]|valor|saldo", linha, maxsplit=1, flags=re.I)[0].strip()
+        valor = calc.num_br(m.group(1)) * (1000 if m.group(2) else 1)
+        nome = re.sub(r"valor atualizado|saldo|atualizado|r\$", "", linha[:m.start()] + " " + linha[m.end():], flags=re.I)
+        nome = re.sub(r"\s+", " ", re.sub(r"[,:;–-]", " ", nome)).strip()
         if not nome:
             continue
         n = nome.lower()
         ex = next((i for i in invs if n in (bancos.get(i.get("banco"), "") or "").lower() or n in (i.get("nome") or "").lower()), None)
-        out.append({"nome": ex.get("nome") if ex else nome, "banco": nome, "tipo": ex.get("tipo") if ex else "outro", "valor": calc.num_br(m.group(1)),
-                    "aporte": 0, "existente": ex.get("id") if ex else "", "indexador": ex.get("indexador") if ex else "cdi_pct",
-                    "taxa": ex.get("taxa") if ex else 100, "liquidez": ex.get("liquidez") if ex else "diaria", "confianca": "alta" if ex else "media"})
+        parado = n in ("dinheiro", "em casa", "em espécie", "cofre")
+        out.append({"nome": ex.get("nome") if ex else nome.capitalize(), "banco": "" if parado else nome, "tipo": ex.get("tipo") if ex else "outro",
+                    "valor": valor, "aporte": 0, "existente": ex.get("id") if ex else "", "dono": "" if dono in (None, "meu") else dono,
+                    "indexador": ex.get("indexador") if ex else ("parado" if parado else "cdi_pct"), "taxa": ex.get("taxa") if ex else (0 if parado else 100),
+                    "liquidez": ex.get("liquidez") if ex else "diaria", "confianca": "alta" if ex else "media"})
     return {"lancamentos": [], "investimentos": out}
 
 
@@ -1146,6 +1167,7 @@ def ia_ler(corpo):
         raise ValueError("Envie uma imagem, um PDF ou cole um texto.")
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
     saldos = modo == "auto" and bool(corpo.get("saldos"))
+    so_invest = modo == "auto" and not saldos and bool(corpo.get("so_invest"))
     pessoa = str(corpo.get("pessoa") or "").strip()[:60] or None
     # o que veio do microfone conta como Falar no Uso da IA, como no InventarIA; o resto do jeito automático, como Ler com IA
     tipo_uso = "fala" if corpo.get("fala") and modo != "holerite" and not bruto else "saldos" if saldos else "ler" if modo == "auto" else modo
@@ -1155,15 +1177,19 @@ def ia_ler(corpo):
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         if modo == "auto":
-            sim = ia_simulada_saldos(texto, d, pessoa) if saldos else ia_simulada_auto(texto, corpo.get("dica"), d)
-            return dict(_so_saldos(ia_limpar_auto(json.loads(json.dumps(sim)), d), saldos), entidade="ai_task.simulada")
+            simples = so_invest and re.search(r"\d", texto) and not re.search(r"apliquei|investi|aplica[çc]", texto, re.I)
+            sim = ia_simulada_saldos(texto, d, pessoa) if saldos or simples else ia_simulada_auto(texto, "invest" if so_invest else corpo.get("dica"), d)
+            r = _so_saldos(ia_limpar_auto(json.loads(json.dumps(sim)), d), saldos)
+            if so_invest:
+                r["lancamentos"] = []
+            return dict(r, entidade="ai_task.simulada")
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
                 "entidade": "ai_task.simulada"}
     ent = d["ajustes"].get("ia_entidade") or ""
 
     def chamar(com_anexo, txt):
         payload = {"task_name": "GerencIA: " + ("atualizar saldos" if saldos else "ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento", "auto": "lançamentos e investimentos"}.get(modo, "investimentos")),
-                   "instructions": ia_prompt(d, modo, com_anexo, txt, saldos, pessoa)}
+                   "instructions": ia_prompt(d, modo, com_anexo, txt, saldos, pessoa, so_invest)}
         if ent:
             payload["entity_id"] = ent
         tmp = None
@@ -1205,7 +1231,10 @@ def ia_ler(corpo):
     if modo == "holerite":
         return {"holerite": ia_limpar_holerite(extrair_json(dados)), "entidade": ent or "padrão do Home Assistant"}
     if modo == "auto":
-        return dict(_so_saldos(ia_limpar_auto(extrair_json(dados), d), saldos), entidade=ent or "padrão do Home Assistant")
+        r = _so_saldos(ia_limpar_auto(extrair_json(dados), d), saldos)
+        if so_invest:
+            r["lancamentos"] = []
+        return dict(r, entidade=ent or "padrão do Home Assistant")
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 

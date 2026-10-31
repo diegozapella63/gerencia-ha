@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.2';
+const VERSAO = '1.18.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -440,15 +440,21 @@ function apiDemo() {
       if (c.modo === 'holerite') return { holerite: { data: '', creditos: [{ descricao: 'Produção', valor: 4200 }, { descricao: 'Ajuda de custo', valor: 7600 }, { descricao: 'Transporte', valor: 1250 }],
         debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
         total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
-      if (c.saldos) {
-        // na prévia, cada linha com um valor ("Nubank, valor atualizado, R$ 500") acha o investimento pelo banco ou pelo nome
+      if (c.saldos || (c.so_invest && /\d/.test(c.texto || '') && !/apliquei|investi|aplica[çc]/i.test(c.texto || ''))) {
+        // na prévia, cada linha com um valor ("30.350 nubank", "Nubank, valor atualizado, R$ 500") acha o investimento pelo banco ou pelo nome
+        const linhas = String(c.texto || '').split(/[\n;]+/).map(x => x.trim()).filter(Boolean);
+        let dono = c.pessoa || '';
+        for (const l of linhas) { const m = l.match(/\b(?:da|do|de)\s+([a-zà-ú]+)\s*$/i); if (m && !/\d/.test(l) && !dono) dono = donoDe(m[1]); }
         const invs = [];
-        for (const linha of String(c.texto || '').split(/[\n;]+/)) {
-          const m = linha.trim().match(/(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*$/i);
-          const nome = linha.split(/[,:\-–]|valor|saldo/i)[0].trim();
-          if (!m || !nome) continue;
-          const it = { nome, banco: nome, tipo: 'outro', valor: +m[1].replace(/\./g, '').replace(',', '.'), aporte: 0, existente: '', indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria', confianca: 'alta' };
-          it.existente = acharInvSaldo(it, c.pessoa);
+        for (const linha of linhas) {
+          const m = linha.match(/(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(mil\b)?/i);
+          if (!m) continue;
+          const nome = (linha.slice(0, m.index) + ' ' + linha.slice(m.index + m[0].length)).replace(/valor atualizado|saldo|atualizado|r\$/gi, '').replace(/[,:;–-]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (!nome) continue;
+          const parado = /^(dinheiro|em casa|em espécie|cofre)$/i.test(nome);
+          const it = { nome: nome[0].toUpperCase() + nome.slice(1), banco: parado ? '' : nome, tipo: 'outro', valor: +m[1].replace(/\./g, '').replace(',', '.') * (m[2] ? 1000 : 1), aporte: 0, existente: '',
+            dono: dono === 'meu' ? '' : dono, indexador: parado ? 'parado' : 'cdi_pct', taxa: parado ? 0 : 100, liquidez: 'diaria', confianca: 'alta' };
+          it.existente = parado ? '' : acharInvSaldo(Object.assign({}, it, { banco: nome }), dono);
           const ex = it.existente && d.investimentos.find(i => i.id === it.existente);
           if (ex) Object.assign(it, { nome: ex.nome, tipo: ex.tipo, indexador: ex.indexador, taxa: ex.taxa, liquidez: ex.liquidez });
           invs.push(it);
@@ -2384,6 +2390,8 @@ function abrirIA(modo, inicio, opts) {
   // Atualizar saldos (opts.saldos): uma listinha com o saldo de agora de cada investimento; o aporte é a diferença.
   IAS = { dica: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], invs: [], erro: '', conta: '', cartao: false,
     situacao: 'auto', futuras: true, ouvido: '', saldos: !!(opts && opts.saldos), pessoa: (opts && opts.pessoa) || '',
+    // aberto do Novo investimento: só investimentos (nada vai para o caixa)
+    soInvest: !!(opts && opts.soInvest),
     // veio de Colar mensagem ou de Imagem: a janela mostra só aquilo (sem misturar as outras opções)
     so: inicio === 'texto' || inicio === 'arquivo' ? inicio : '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
@@ -2453,6 +2461,12 @@ function entradaSaldos(aviso) {
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler os saldos</button>`,
   };
 }
+// o dono que a IA leu ("mãe") como está nos investimentos ("Mãe"); "" é da própria pessoa
+function donoDe(n) {
+  const k = semAcento(n);
+  if (!k || ['meu', 'minha', 'eu'].includes(k)) return '';
+  return pessoas().find(p => semAcento(p) === k) || String(n).trim().replace(/^./, c => c.toUpperCase());
+}
 // quando a IA não achou o investimento, tenta pelo banco ou pelo nome, entre os do dono escolhido (só se houver um)
 function acharInvSaldo(it, pessoa) {
   const doDono = i => !pessoa || (pessoa === 'meu' ? i.titular !== 'terceiros' : i.titular === 'terceiros' && i.terceiro === pessoa);
@@ -2479,13 +2493,18 @@ async function iaLer() {
   try {
     const corpo = { modo: 'auto', dica: s.dica, texto: s.texto };
     if (s.saldos) Object.assign(corpo, { saldos: true, pessoa: s.pessoa || '' });
+    else if (s.soInvest) corpo.so_invest = true;
     if (s.ouvido && !s.arquivo) corpo.fala = true;
     if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
     const r = await api.iaLer(corpo);
     if (!IAS) return;
-    const lanc = s.saldos ? [] : r.lancamentos || [], invs = r.investimentos || [];
-    if (s.saldos) for (const it of invs) { it.aporte = 0; if (!it.existente) it.existente = acharInvSaldo(it, s.pessoa); }
-    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
+    const lanc = s.saldos || s.soInvest ? [] : r.lancamentos || [], invs = r.investimentos || [];
+    for (const it of invs) {
+      it.dono = donoDe(it.dono);
+      if (s.saldos) it.aporte = 0;
+      if (!it.existente && (s.saldos || s.soInvest)) it.existente = acharInvSaldo(it, s.pessoa || it.dono);
+    }
+    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : s.soInvest ? 'A IA não encontrou investimento. Tente outra imagem ou cole o texto.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
     s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
     s.invs = invs.map(it => Object.assign({ marcado: true }, it));
     if (s.itens.length) prepararRevisaoCaixa();
@@ -2640,7 +2659,7 @@ function revisaoInvest() {
   const s = IAS;
   const difs = s.invs.filter(i => i.marcado).map(difSaldo).filter(Boolean);
   const ap = difs.filter(x => x.dif > 0).reduce((a, x) => a + x.dif, 0), rs = difs.filter(x => x.dif < 0).reduce((a, x) => a - x.dif, 0);
-  const novoDe = s.pessoa && s.pessoa !== 'meu' ? ` de ${esc(s.pessoa)}` : '';
+  const donoNovo = it => s.pessoa && s.pessoa !== 'meu' ? s.pessoa : s.pessoa === 'meu' ? '' : it.dono || '';
   return `${difs.length ? `<div class="ia-saldos-res"><span>Aportes <b class="ent">${brl(ap)}</b></span>${rs > 0.005 ? `<span>Resgates <b class="sai">${brl(rs)}</b></span>` : ''}</div>`
       : ''}
     <div class="ia-itens">${s.invs.map((it, k) => {
@@ -2655,11 +2674,12 @@ function revisaoInvest() {
         ${direita}
         <div class="ia-item-x">
           <select class="ia-cat" data-iav="existente" data-i="${k}" aria-label="Investimento">${opcoesInvSaldo(it.existente)}</select>
-          ${linha ? `<span class="ia-atualiza">${linha}</span>` : `<span class="ia-atualiza novo">Novo investimento${novoDe}${s.saldos ? `, com ${brl(it.valor)}` : ''}</span>`}
+          ${linha ? `<span class="ia-atualiza">${linha}</span>` : `<span class="ia-atualiza novo">Novo investimento${donoNovo(it) ? ` de ${esc(donoNovo(it))}` : ''}${s.saldos || s.soInvest ? `, com ${brl(it.valor)}` : ''}</span>`}
           ${it.confianca === 'baixa' ? '<span><em>Confira os números</em></span>' : ''}
           <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div></div>`;
     }).join('')}</div>`;
 }
+const donoIA = it => IAS.pessoa && IAS.pessoa !== 'meu' ? IAS.pessoa : IAS.pessoa === 'meu' ? '' : it.dono || '';
 function aplicarIAInvest(d, itens) {
   const s = IAS, hj = iso(hoje());
   const foto = s.arquivo?.foto;
@@ -2678,7 +2698,7 @@ function aplicarIAInvest(d, itens) {
       if (!b && it.banco) { b = { id: 'b-' + uid(), nome: it.banco, cor: CORES_BANCO.find(c => !d.bancos.some(x => x.cor === c)) || CORES_BANCO[0], obs: '', contas: [] }; d.bancos.push(b); }
       d.investimentos.push({ id: uid(), nome: it.nome, banco: b?.id || '', tipo: it.tipo, valor: it.valor, data_valor: it.data_valor || hj,
         indexador: it.indexador, taxa: ['poupanca', 'parado'].includes(it.indexador) ? 0 : it.taxa, liquidez: it.liquidez, vencimento: it.vencimento || null,
-        titular: s.pessoa && s.pessoa !== 'meu' ? 'terceiros' : 'meu', terceiro: s.pessoa && s.pessoa !== 'meu' ? s.pessoa : '', obs: it.aplicado ? `Valor aplicado: ${brl(it.aplicado)}` : '', fotos: foto ? [foto] : [],
+        titular: donoIA(it) ? 'terceiros' : 'meu', terceiro: donoIA(it), obs: it.aplicado ? `Valor aplicado: ${brl(it.aplicado)}` : '', fotos: foto ? [foto] : [],
         criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString() });
     }
   }
@@ -2713,7 +2733,7 @@ document.addEventListener('paste', ev => {
   // com a Nova despesa ou o Novo investimento aberto, colar uma imagem já abre a leitura por IA com ela
   if (!IAS && FOLHA && $('#folhas .imp-campo')) {
     ev.preventDefault();
-    abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa', 'colado'); IAS.so = 'arquivo';
+    { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv }); } IAS.so = 'arquivo';
     iaPegarArquivo(f);
   }
 });
@@ -2728,7 +2748,7 @@ document.addEventListener('drop', ev => {
   const f = [...(ev.dataTransfer?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (!f) return;
   ev.preventDefault();
-  if (!IAS) { abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa', 'colado'); IAS.so = 'arquivo'; }
+  if (!IAS) { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv }); IAS.so = 'arquivo'; }
   iaPegarArquivo(f);
 });
 
@@ -4024,7 +4044,7 @@ document.addEventListener('click', ev => {
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
     case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '' }); break;
     case 'ias-pessoa': IAS.pessoa = v; pintarFolha(); break;
-    case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini); break;
+    case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini, { soInvest: v === 'invest' }); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
     case 'ia-ler': iaLer(); break;
