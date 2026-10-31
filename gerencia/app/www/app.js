@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.17.0';
+const VERSAO = '1.17.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2201,32 +2201,17 @@ async function enviarFoto(file) {
 }
 
 /* --------- imagens no formulário de investimento */
-// Imagens guardadas com o investimento. No investimento novo, quem lê com IA são os quadrinhos do alto
-// (Colar mensagem, Imagem ou print): aqui é só para guardar, sem o Ler, para não ter duas leituras na mesma janela.
+// Imagens guardadas com o investimento: só guardar, sem IA (como combinado). Quem lê com IA é o Ler com IA do Adicionar.
 function fotosFormHTML() {
   const fotos = F.fotos || [];
-  const comLer = iaOn() && !!F.id;
   return `<div class="campo"><div class="lbl">Imagens guardadas</div><div class="fotos">
     ${fotos.map(n => `<div class="foto"><img src="${fotoSrc(n)}" alt="Imagem do investimento" data-a="foto-ver" data-v="${esc(n)}">
-      <button class="foto-x" data-a="f-foto-rm" data-v="${esc(n)}" aria-label="Remover imagem">${ic('x', 'ic-s')}</button>
-      ${comLer ? `<button class="foto-ia" data-a="f-foto-ia" data-v="${esc(n)}">${ic('ia', 'ic-s')}Ler</button>` : ''}</div>`).join('')}
+      <button class="foto-x" data-a="f-foto-rm" data-v="${esc(n)}" aria-label="Remover imagem">${ic('x', 'ic-s')}</button></div>`).join('')}
     <button class="foto add" data-a="f-foto-add">${ic('camera')}<span>Guardar</span></button></div>
-    <div class="ajuda">${comLer ? 'Comprovante, print ou extrato guardado com o investimento. Toque em <b>Ler</b> para a IA atualizar os campos com uma imagem nova.'
-      : 'Comprovante, print ou extrato para guardar junto com o investimento.'}</div></div>`;
+    <div class="ajuda">Comprovante, print ou extrato para guardar junto com o investimento. A imagem só fica guardada; a IA não lê.</div></div>`;
 }
 function verFoto(n) {
   abrirFolha(() => ({ titulo: 'Imagem', corpo: `<img class="foto-grande" src="${fotoSrc(n)}" alt="Imagem do investimento">` }), null, true);
-}
-async function lerFotoNoForm(n) {
-  toast('Lendo com a IA… pode levar até um minuto.');
-  try {
-    const r = await api.iaLer({ modo: 'invest', foto: n });
-    const it = r.itens[0];
-    if (!it) { toast('A IA não encontrou investimento nessa imagem.'); return; }
-    preencherForm(it);
-    pintarFolha();
-    toast(r.itens.length > 1 ? `Achei ${r.itens.length} investimentos; preenchi com o primeiro. Para os outros, use Ler com IA no Invest.` : 'Campos preenchidos pela IA. Confira antes de salvar.');
-  } catch (e) { toast('Não consegui ler. ' + e.message); }
 }
 function bancoPorNome(nome, d = S.d) {
   const n = semAcento(nome);
@@ -3039,7 +3024,7 @@ function cardFixos() {
 function cardIA() {
   const on = iaOn();
   const chaveIA = linhaChave('ia', on, 'Usar IA', on
-    ? 'Ligado: aparecem Ler com IA (fatura, print, foto de papel e WhatsApp), Ler recibo no salário e Ler nas imagens; as dicas de economia conferem preços com a IA.'
+    ? 'Ligado: aparecem Ler com IA (fatura, print, foto de papel e WhatsApp), Ler recibo no salário e Falar; as dicas de economia conferem preços com a IA.'
     : 'Desligado: os botões de IA somem e as dicas não conferem preços. Vale para todos os aparelhos; nada do que já foi lançado muda.');
   const cab = `<section class="card" id="ia">${maisCab('ia', 'Leitura por IA')}
     ${maisLead('Lê faturas em PDF, prints, fotos de papel, textos do WhatsApp e recibos de pagamento, e prints do banco para cadastrar investimentos. Usa a integração de IA configurada no Home Assistant (Anthropic Claude, OpenAI, Google Gemini ou um modelo local); o app não guarda nenhuma chave.')}
@@ -3424,7 +3409,7 @@ function abrirAplicar(invId) {
   if (!inv) return;
   const pend = inv.titular === 'terceiros' ? [] : aportesPendentes();
   const conta = (contas().find(c => c.id === ultimaConta('despesa').conta && !c.cartao) || contas().find(c => !c.cartao) || contas()[0])?.id || '';
-  AP = { inv: invId, valor: 0, data: iso(hoje()), destino: pend[0] ? pend[0].id : inv.titular === 'terceiros' ? 'nenhum' : 'novo', conta, erro: '' };
+  AP = { inv: invId, modo: 'aplicou', valor: 0, total: 0, data: iso(hoje()), destino: pend[0] ? pend[0].id : inv.titular === 'terceiros' ? 'nenhum' : 'novo', conta, erro: '' };
   abrirFolha(montarAplicar);
   requestAnimationFrame(() => { const v = $('#ap-v'); if (v) v.focus(); });
 }
@@ -3437,7 +3422,10 @@ function montarAplicar() {
   const pl = pend.find(l => l.id === a.destino);
   return {
     titulo: `Aplicar em ${esc(inv.nome)}`,
-    corpo: `<div class="campo"><label for="ap-v">Quanto você aplicou</label><div class="pref grande${a.erro ? ' erro' : ''}"><span>R$</span><input id="ap-v" data-ap="valor" inputmode="numeric" value="${a.valor ? NF2.format(a.valor) : ''}" placeholder="0,00"></div>
+    // às vezes só se sabe o total novo (o app do banco mostra o saldo): o aporte é a diferença para o valor de hoje
+    corpo: `<div class="seg ap-modo" style="margin-bottom:14px"><button class="${a.modo !== 'total' ? 'on' : ''}" data-a="ap-modo" data-v="aplicou">Quanto apliquei</button>
+        <button class="${a.modo === 'total' ? 'on' : ''}" data-a="ap-modo" data-v="total">Quanto tem agora</button></div>
+      <div class="campo"><label for="ap-v">${a.modo === 'total' ? 'Quanto tem agora, no total' : 'Quanto você aplicou'}</label><div class="pref grande${a.erro ? ' erro' : ''}"><span>R$</span><input id="ap-v" data-ap="${a.modo === 'total' ? 'total' : 'valor'}" inputmode="numeric" value="${a.modo === 'total' ? (a.total ? NF2.format(a.total) : '') : (a.valor ? NF2.format(a.valor) : '')}" placeholder="0,00"></div>
         ${a.erro ? `<div class="msg-erro">${esc(a.erro)}</div>` : ''}
         <div class="ajuda" id="ap-ajuda">${aplicarAjuda(atual)}</div></div>
       <div class="campo"><label for="ap-data">Data</label><input id="ap-data" class="inp" type="date" data-ap="data" value="${esc(a.data)}" max="${iso(hoje())}"></div>
@@ -3452,13 +3440,19 @@ function montarAplicar() {
 }
 const l2mes = l => `de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]}`;
 function aplicarAjuda(atual) {
+  if (AP.modo === 'total') {
+    if (!(AP.total > 0)) return `Hoje ele está em ${brl(atual)}. Digite o total que o banco mostra agora: o aporte é a diferença.`;
+    return AP.total > atual + 0.005 ? `Aporte de <b>${brl(AP.total - atual)}</b>: de ${brl(atual)} para ${brl(AP.total)}.`
+      : `É menos que os ${brl(atual)} de hoje, então não é aporte. Para só corrigir o valor, edite o investimento.`;
+  }
   return AP.valor > 0 ? `O investimento passa de <b>${brl(atual)}</b> para <b>${brl(atual + AP.valor)}</b>.` : `Hoje ele está em ${brl(atual)}. O valor aplicado soma a isso.`;
 }
 function confirmarAplicar() {
   const a = AP, inv0 = S.d.investimentos.find(i => i.id === a.inv);
   if (!inv0) return;
-  if (!(a.valor > 0)) { a.erro = 'Coloque o valor.'; pintarFolha(); return; }
-  const novoValor = round2(valorHoje(inv0) + a.valor);
+  if (a.modo === 'total' && a.total > 0 && !(a.valor > 0)) { a.erro = `O total precisa ser maior que os ${brl(valorHoje(inv0))} de hoje.`; pintarFolha(); return; }
+  if (!(a.valor > 0)) { a.erro = a.modo === 'total' ? 'Coloque o total.' : 'Coloque o valor.'; pintarFolha(); return; }
+  const novoValor = a.modo === 'total' ? round2(a.total) : round2(valorHoje(inv0) + a.valor);
   const pl = aportesPendentes().find(l => l.id === a.destino);
   const hj = iso(hoje());
   persistir(d => {
@@ -3831,6 +3825,7 @@ document.addEventListener('click', ev => {
     case 'tr-apagar': TR.apagar = !!v; pintarFolha(); break;
     case 'tr-ok': confirmarTransferir(); break;
     case 'ap-destino': AP.destino = v; pintarFolha(); break;
+    case 'ap-modo': if (AP.modo !== v) { Object.assign(AP, { modo: v, valor: 0, total: 0, erro: '' }); pintarFolha(); requestAnimationFrame(() => { const x = $('#ap-v'); if (x) x.focus(); }); } break;
     case 'ap-conta': AP.conta = v; pintarFolha(); break;
     case 'ap-ok': confirmarAplicar(); break;
     case 'pg-inv': PG.inv = v; PG.erroInv = ''; pintarFolha(); break;
@@ -3946,7 +3941,6 @@ document.addEventListener('click', ev => {
       });
       break;
     case 'f-foto-rm': F.fotos = (F.fotos || []).filter(n => n !== v); pintarFolha(); break;
-    case 'f-foto-ia': lerFotoNoForm(v); break;
     case 'foto-ver': verFoto(v); break;
     case 'inv': abrirInvestimento(id); break;
     case 'olho': S.oculto = !S.oculto; store.set('oculto', S.oculto); render(); break;
@@ -4128,11 +4122,12 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.ap && AP) {
-    if (el.dataset.ap === 'valor') {
-      const dig = el.value.replace(/\D/g, '').slice(0, 13);
-      AP.valor = dig ? parseInt(dig, 10) / 100 : 0; AP.erro = '';
-      el.value = dig ? NF2.format(AP.valor) : '';
+    if (el.dataset.ap === 'valor' || el.dataset.ap === 'total') {
+      const dig = el.value.replace(/\D/g, '').slice(0, 13), n = dig ? parseInt(dig, 10) / 100 : 0;
       const inv = S.d.investimentos.find(i => i.id === AP.inv), aj = $('#ap-ajuda'), b = $('[data-a="ap-ok"]');
+      if (el.dataset.ap === 'total') { AP.total = n; AP.valor = inv ? Math.max(0, round2(n - valorHoje(inv))) : 0; } else AP.valor = n;
+      AP.erro = '';
+      el.value = dig ? NF2.format(n) : '';
       if (inv && aj) aj.innerHTML = aplicarAjuda(valorHoje(inv));
       if (b) b.textContent = 'Aplicar' + (AP.valor ? ' ' + brl(AP.valor, 0) : '');
     } else AP.data = el.value;

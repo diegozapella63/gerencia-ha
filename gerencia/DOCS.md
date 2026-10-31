@@ -75,7 +75,7 @@ O aporte é um **tipo de conta a pagar**: o compromisso de aplicar nos seus inve
 - O aporte novo nasce **A aplicar**: para cadastrar o compromisso não precisa dizer o investimento.
 - Para dar como aplicado (no **Apliquei** da lista, ou marcando **Aplicado** no formulário), diga **em qual investimento** foi o dinheiro e quanto: o valor soma ao valor de hoje desse investimento. O app lembra o investimento para os próximos meses. Se um mês for diferente, o padrão continua o mesmo.
 
-**Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Inter" também soma ao CDB que já existe e lança a saída como aporte.
+**Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. Se você só sabe o total que o banco mostra agora, escolha **Quanto tem agora**: o aporte é a diferença entre esse total e o valor de hoje. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Inter" também soma ao CDB que já existe e lança a saída como aporte.
 
 ### Dia a dia
 
@@ -133,7 +133,7 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 
 ## Imagens
 
-Investimentos podem guardar imagens (comprovante, print do banco, extrato): no formulário, toque em **Guardar** em **Imagens guardadas**. No investimento novo, essa área só guarda; quem lê com IA são os quadrinhos do alto (**Colar mensagem** e **Imagem ou print**), e a imagem lida também fica guardada. Ao editar um investimento, o botão **Ler** numa imagem guardada usa a IA para atualizar os campos. As imagens ficam em `/data/fotos` e entram no backup.
+Investimentos podem guardar imagens (comprovante, print do banco, extrato): no formulário, toque em **Guardar** em **Imagens guardadas**. Essa área só guarda; no investimento novo, quem lê com IA são os quadrinhos do alto (**Colar mensagem** e **Imagem ou print**), e a imagem lida também fica guardada. Ao editar um investimento também: **Guardar** só guarda a imagem, sem IA. Para a IA ler, use **Ler com IA** no Adicionar. As imagens ficam em `/data/fotos` e entram no backup.
 
 ## Rendimento no padrão de mercado
 
@@ -154,7 +154,7 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 ## Uso da IA
 
-Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Ler nas imagens, Falar e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos; as dicas de categoria acima da média continuam, porque não usam IA.
+Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos; as dicas de categoria acima da média continuam, porque não usam IA.
 
 Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 

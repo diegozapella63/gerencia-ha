@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.17.1
+
+- **Aplicar mais pelo total**: no Aplicar mais, a opção **Quanto tem agora** recebe o total que o banco mostra; o aporte é a diferença para o valor de hoje (e entra no caixa do mesmo jeito, se quiser).
+- **Imagens do investimento só guardam**, como combinado: ao editar um investimento, **Guardar** não tem mais o Ler com IA. Para a IA ler, use Ler com IA no Adicionar.
+
 ## 1.17.0
 
 - **Pago fica verde**, como no CronologIA: no Caixa, o que já foi pago ou recebido (e a fatura paga) fica com o fundo verde e o visto. O que falta tem um **círculo do lado** do valor: toque para dar baixa (Paguei, Recebi, Apliquei), no lugar do botãozinho de antes.
