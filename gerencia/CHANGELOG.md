@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.18.0
+
+- **Atualizar saldos com IA**: para a listinha com o valor de agora de cada investimento (de um terceiro no WhatsApp, num print: "Nubank, valor atualizado, R$ 500"). Fica em Adicionar, no Novo investimento e na Carteira › Terceiros (já com a pessoa). A IA acha cada investimento pelo banco, nome e dono; a conferência mostra o aporte de cada um (a diferença para o valor de hoje), o total dos aportes e deixa trocar o investimento de cada linha. O que não tiver correspondente vira investimento novo da pessoa. Conta como **Atualizar saldos** no Uso da IA.
+- **Conta em cada linha** ao conferir os lançamentos lidos pela IA: categoria e conta lado a lado, e, se a conta tiver cartão, **débito ou crédito**. A IA já sugere a conta do banco que viu em cada linha; **Lançar todos em** muda todas.
+- As escolhas de cada linha (categoria, conta, investimento) ficam **alinhadas**, na largura toda.
+- **Colar mensagem** abre só o campo da mensagem, e **Imagem** só a imagem, sem misturar as outras opções.
+- Aberto do **Novo investimento**, o Ler com IA fala de investimentos (exemplos e ajuda), não de gastos.
+
 ## 1.17.2
 
 - A explicação do `sensor.gerencia_ia_hoje` saiu do Uso da IA e foi para **Sensores no Home Assistant**, junto dos outros sensores.

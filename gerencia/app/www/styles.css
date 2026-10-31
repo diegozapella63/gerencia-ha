@@ -633,7 +633,13 @@ details summary { list-style-position: inside; }
 .giro { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line-2); border-top-color: var(--accent); animation: giro .9s linear infinite; }
 @keyframes giro { to { transform: rotate(360deg); } }
 .ia-itens { border-top: 1px solid var(--line); }
-.ia-item { display: flex; align-items: flex-start; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.ia-item { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: start; column-gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+/* as escolhas de cada linha (categoria e conta, ou o investimento) ocupam a largura toda, alinhadas em todas as linhas */
+.ia-item-x { grid-column: 2 / -1; margin-top: 8px; min-width: 0; }
+.ia-item-x.dois { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ia-item-x select.ia-cat { width: 100%; margin: 0; }
+.ia-item-x > span { display: block; color: var(--muted); font-size: 13px; }
+.ia-item-x em { color: var(--terc); font-style: normal; font-weight: 600; }
 .ia-item.off { opacity: .5; }
 .ia-item > b { font: 600 17px var(--font-d); white-space: nowrap; }
 .ia-check { width: 26px; height: 26px; border-radius: 8px; border: 1.5px solid var(--line-2); display: grid; place-items: center; flex: none; margin-top: 1px; }
@@ -645,6 +651,13 @@ details summary { list-style-position: inside; }
 .ia-cat { margin-top: 6px; max-width: 100%; border: 1px solid var(--line-2); background: var(--bg); color: var(--text); border-radius: 8px; padding: 5px 8px; font: 500 16px var(--font); }
 .ia-atualiza { display: block; font-size: 13px; color: var(--accent-text) !important; margin-top: 2px; }
 .ia-atualiza.novo { color: var(--entra) !important; }
+/* Atualizar saldos: o total dos aportes (diferença para o valor de hoje) no alto da conferência */
+.ia-saldos-res { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; padding: 12px 14px; margin: 0 0 12px; border-radius: 14px; background: var(--card-2); }
+.ia-saldos-res span { color: var(--text-2); }
+.ia-saldos-res b { font: 600 20px/1.1 var(--font-d); margin-left: 4px; }
+.ia-saldos-res small { flex-basis: 100%; color: var(--muted); font-size: 12.5px; }
+.ia-saldos-btn { margin: 0 0 14px; }
+.imp-saldos { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; text-align: left; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
 
 /* ---------- dicas de economia */

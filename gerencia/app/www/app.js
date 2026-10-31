@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.17.2';
+const VERSAO = '1.18.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -440,6 +440,21 @@ function apiDemo() {
       if (c.modo === 'holerite') return { holerite: { data: '', creditos: [{ descricao: 'Produção', valor: 4200 }, { descricao: 'Ajuda de custo', valor: 7600 }, { descricao: 'Transporte', valor: 1250 }],
         debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
         total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
+      if (c.saldos) {
+        // na prévia, cada linha com um valor ("Nubank, valor atualizado, R$ 500") acha o investimento pelo banco ou pelo nome
+        const invs = [];
+        for (const linha of String(c.texto || '').split(/[\n;]+/)) {
+          const m = linha.trim().match(/(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*$/i);
+          const nome = linha.split(/[,:\-–]|valor|saldo/i)[0].trim();
+          if (!m || !nome) continue;
+          const it = { nome, banco: nome, tipo: 'outro', valor: +m[1].replace(/\./g, '').replace(',', '.'), aporte: 0, existente: '', indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria', confianca: 'alta' };
+          it.existente = acharInvSaldo(it, c.pessoa);
+          const ex = it.existente && d.investimentos.find(i => i.id === it.existente);
+          if (ex) Object.assign(it, { nome: ex.nome, tipo: ex.tipo, indexador: ex.indexador, taxa: ex.taxa, liquidez: ex.liquidez });
+          invs.push(it);
+        }
+        return { lancamentos: [], investimentos: invs, entidade: 'simulada' };
+      }
       const hj = iso(hoje()), ont = iso(new Date(hoje().getTime() - 86400000));
       const t = (c.texto || '').toLowerCase();
       // na prévia, a IA "lê" pelo texto: palavras de investimento trazem investimentos, de gasto trazem lançamentos
@@ -799,6 +814,7 @@ function telaInvest() {
     html += `<div class="chips rola"><button class="chip${!u.banco ? ' on' : ''}" data-a="banco-f" data-v="">Todos os bancos</button>
       ${usados.map(id => { const b = bancoDe(id); return `<button class="chip${u.banco === id ? ' on' : ''}" data-a="banco-f" data-v="${esc(id)}" style="--c:${corOk(b?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(b?.nome || 'Sem banco')}</button>`; }).join('')}</div>`;
   }
+  if (u.filtro === 'terc' && nTerc && iaOn()) html += `<button class="btn out larga ia-saldos-btn" data-a="ia-saldos" data-v="${esc(u.pessoa || '')}">${ic('ia', 'ic-s')}Atualizar saldos${u.pessoa ? ' de ' + esc(u.pessoa) : ''} com IA</button>`;
   const l = listaFiltrada();
   const soma = l.reduce((s, x) => s + x.v, 0);
   const mes = l.reduce((s, x) => s + rendeMes(x.v, taxaAnual(x.i)), 0);
@@ -1788,6 +1804,7 @@ function abrirEscolhaNovo() {
       <button class="op" data-a="aporte-novo"><span class="op-ic apo">${ic('wallet')}</span><span class="op-t"><b>Aporte</b><span>Compromisso de aplicar nos seus investimentos</span></span>${ic('chev', 'chev')}</button>
       <button class="op" data-a="ia" data-v="caixa"><span class="op-ic">${ic('ia')}</span><span class="op-t"><b>Ler com IA</b><span>Fatura em PDF, print, foto de papel ou texto do WhatsApp</span></span>${ic('chev', 'chev')}</button>
       <button class="op" data-a="novo-inv"><span class="op-ic neutro">${ic('wallet')}</span><span class="op-t"><b>Investimento</b><span>CDB, Tesouro, poupança, ações</span></span>${ic('chev', 'chev')}</button>
+      ${S.d.investimentos.length ? `<button class="op" data-a="ia-saldos" data-v=""><span class="op-ic">${ic('ia')}</span><span class="op-t"><b>Atualizar saldos</b><span>Lista com o valor de agora de cada investimento; a IA calcula os aportes</span></span>${ic('chev', 'chev')}</button>` : ''}
     </div>`,
   }));
 }
@@ -1838,7 +1855,8 @@ function tilesIA(modo) {
     <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
     <p class="imp-ajuda">${caixa
       ? 'Cole a mensagem do WhatsApp ou mande a fatura, o print ou a foto do papel (dá para colar a imagem direto aqui). A IA separa cada gasto e recebimento e você confere antes de lançar.'
-      : 'Cole a mensagem do WhatsApp ou do e-mail, ou mande a imagem do app do banco (dá para colar a imagem direto aqui). A IA acha cada investimento e você confere antes de salvar.'}</p></div>`;
+      : 'Cole a mensagem do WhatsApp ou do e-mail, ou mande a imagem do app do banco (dá para colar a imagem direto aqui). A IA acha cada investimento e você confere antes de salvar.'}</p>
+    ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Tem uma lista com o valor de agora de vários? Atualizar saldos</button>` : ''}</div>`;
 }
 
 function montarFormLanc() {
@@ -2372,15 +2390,18 @@ function telaFala() {
 }
 const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<span>“${esc(s.ouvido)}”</span></div>` : '';
 
-function abrirIA(modo, inicio) {
-  // a IA separa sozinha lançamentos (gastos, recebimentos, a pagar e a receber) e investimentos: não se escolhe antes
+function abrirIA(modo, inicio, opts) {
+  // a IA separa sozinha lançamentos (gastos, recebimentos, a pagar e a receber) e investimentos: não se escolhe antes.
+  // Atualizar saldos (opts.saldos): uma listinha com o saldo de agora de cada investimento; o aporte é a diferença.
   IAS = { dica: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], invs: [], erro: '', conta: '', cartao: false,
-    situacao: 'auto', futuras: true, ouvido: '' };
+    situacao: 'auto', futuras: true, ouvido: '', saldos: !!(opts && opts.saldos), pessoa: (opts && opts.pessoa) || '',
+    // veio de Colar mensagem ou de Imagem: a janela mostra só aquilo (sem misturar as outras opções)
+    so: inicio === 'texto' || inicio === 'arquivo' ? inicio : '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
   abrirFolha(montarIA, () => { pararFala(); IAS = null; });
   if (inicio === 'voz') comecarFala();
   if (inicio === 'arquivo') escolherArquivo('image/*,application/pdf').then(iaPegarArquivo);
-  if (inicio === 'texto') requestAnimationFrame(() => { const t = $('#ia-txt'); if (t) t.focus(); });
+  if (inicio === 'texto') setTimeout(() => { const t = $('#ia-txt'); if (t) t.focus(); }, 80);
 }
 function montarIA() {
   const s = IAS;
@@ -2391,18 +2412,65 @@ function montarIA() {
   if (s.etapa === 'revisao') return revisaoIA();
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais &gt; Leitura por IA.</span></div>` : '';
   const arq = s.arquivo;
+  if (s.saldos) return entradaSaldos(aviso);
+  // aberto do Novo investimento (ou do Invest): os textos falam de investimentos; a IA continua separando sozinha
+  const inv = s.dica === 'invest';
+  const prevArq = arq ? `<div class="ia-arq"><div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
+      <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div></div>` : '';
+  const pe = `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`;
+  const erro = s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : '';
+  if (s.so === 'texto') return {
+    titulo: 'Colar mensagem',
+    corpo: `${aviso}${prevArq}<div class="campo"><label for="ia-txt">Mensagem</label>
+        <textarea id="ia-txt" class="inp" data-ias="texto" rows="8" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028” ou o e-mail da corretora' : 'Ex.: “gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”'}">${esc(s.texto)}</textarea>
+        <div class="ajuda">${inv ? 'Cole a mensagem do WhatsApp ou o e-mail do banco. A IA acha cada investimento e você confere antes de salvar.' : 'Cole a mensagem do WhatsApp, o extrato ou o e-mail. A IA separa cada gasto e recebimento e você confere antes de lançar.'}</div></div>${erro}`,
+    pe };
+  if (s.so === 'arquivo') return {
+    titulo: inv ? 'Imagem ou print' : 'Fatura, print ou foto',
+    corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('camera')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button></div>`}
+      <p class="ajuda" style="margin:10px 0 0">${inv ? 'A IA lê cada investimento da imagem (banco, tipo, taxa, vencimento e saldo); a imagem fica guardada com ele.' : 'A IA lê cada gasto e recebimento da imagem ou do PDF e você confere antes de lançar.'} Dá também para colar a imagem aqui.</p>${erro}`,
+    pe };
   return {
-    titulo: 'Ler com IA',
+    titulo: inv ? 'Ler investimento com IA' : 'Ler com IA',
     corpo: `${aviso}<div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
           <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
-        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}Fatura, print, foto ou PDF</button>`}
+        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${inv ? 'Print do banco, extrato ou PDF' : 'Fatura, print, foto ou PDF'}</button>`}
         ${!arq && vozPronta() ? `<button class="btn larga" data-a="ia-falar" style="margin-top:8px">${ic('mic')}Falar</button>` : ''}</div>
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
-        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco">${esc(s.texto)}</textarea>
-        <div class="ajuda">Você também pode colar um print aqui. Não precisa dizer o que é: a IA separa os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e você confere antes de salvar.</div></div>
+        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”, e-mail da corretora, nota de aplicação ou extrato'
+          : 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco'}">${esc(s.texto)}</textarea>
+        <div class="ajuda">${inv ? 'Você também pode colar um print aqui. A IA lê cada investimento (banco, tipo, taxa, vencimento e saldo) e você confere antes de salvar. Os que já existem têm o valor atualizado.'
+          : 'Você também pode colar um print aqui. Não precisa dizer o que é: a IA separa os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, e você confere antes de salvar.'}</div></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
+}
+const donosSaldos = () => [['', 'Vários'], ['meu', 'Meus'], ...pessoas().map(p => [p, p])];
+function entradaSaldos(aviso) {
+  const s = IAS, arq = s.arquivo;
+  const de = s.pessoa === 'meu' ? 'seus investimentos' : s.pessoa ? `os investimentos de ${esc(s.pessoa)}` : 'os investimentos de cada um';
+  return {
+    titulo: s.pessoa && s.pessoa !== 'meu' ? `Atualizar saldos de ${esc(s.pessoa)}` : 'Atualizar saldos',
+    corpo: `${aviso}<p class="da-intro" style="margin:0 0 14px">Mande a listinha com o valor de agora de cada investimento (print ou mensagem do WhatsApp). A IA acha cada um entre ${de} e o aporte é a diferença para o valor de hoje. Você confere antes de salvar.</p>
+      <div class="campo"><div class="lbl">De quem são</div><div class="chips" style="margin:0">${donosSaldos().map(([k, n]) =>
+        `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${esc(n)}</button>`).join('')}</div></div>
+      <div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
+          <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
+        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}Print, foto ou PDF</button>`}</div>
+      <div class="campo"><label for="ia-txt">Ou cole a lista</label>
+        <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.:&#10;Nubank, valor atualizado, R$ 500&#10;Serasa, valor atualizado, R$ 600">${esc(s.texto)}</textarea>
+        <div class="ajuda">Você também pode colar um print aqui.</div></div>
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler os saldos</button>`,
+  };
+}
+// quando a IA não achou o investimento, tenta pelo banco ou pelo nome, entre os do dono escolhido (só se houver um)
+function acharInvSaldo(it, pessoa) {
+  const doDono = i => !pessoa || (pessoa === 'meu' ? i.titular !== 'terceiros' : i.titular === 'terceiros' && i.terceiro === pessoa);
+  const n = semAcento(it.banco || it.nome);
+  if (!n) return '';
+  const cands = S.d.investimentos.filter(doDono).filter(i => { const b = semAcento(bancoDe(i.banco)?.nome); return (b && (b === n || b.includes(n) || n.includes(b))) || semAcento(i.nome).includes(n); });
+  return cands.length === 1 ? cands[0].id : '';
 }
 async function iaPegarArquivo(file) {
   if (!file) return;
@@ -2421,12 +2489,14 @@ async function iaLer() {
   s.erro = ''; s.etapa = 'lendo'; pintarFolha();
   try {
     const corpo = { modo: 'auto', dica: s.dica, texto: s.texto };
+    if (s.saldos) Object.assign(corpo, { saldos: true, pessoa: s.pessoa || '' });
     if (s.ouvido && !s.arquivo) corpo.fala = true;
     if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
     const r = await api.iaLer(corpo);
     if (!IAS) return;
-    const lanc = r.lancamentos || [], invs = r.investimentos || [];
-    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
+    const lanc = s.saldos ? [] : r.lancamentos || [], invs = r.investimentos || [];
+    if (s.saldos) for (const it of invs) { it.aporte = 0; if (!it.existente) it.existente = acharInvSaldo(it, s.pessoa); }
+    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
     s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
     s.invs = invs.map(it => Object.assign({ marcado: true }, it));
     if (s.itens.length) prepararRevisaoCaixa();
@@ -2447,6 +2517,11 @@ function prepararRevisaoCaixa() {
   s.conta = conta?.id || '';
   s.cartao = cartao && !!conta?.cartao;
   for (const it of s.itens) {
+    // cada linha com a sua conta: a do banco que a IA viu nela (no cartão, se ela viu compra no cartão e a conta tem cartão); senão a de todos
+    const bi = bancoPorNome(it.banco);
+    const ci = bi && (cs.find(c => c.banco === bi.id && (!it.cartao || c.cartao)) || cs.find(c => c.banco === bi.id));
+    it.conta = (ci || conta)?.id || '';
+    it.noCartao = it.tipo === 'despesa' && !!contaDe(it.conta)?.cartao && (ci ? it.cartao === true : s.cartao && it.cartao !== false);
     if (!it.categoria) it.categoria = it.tipo === 'receita' ? 'c-outros-receb' : 'c-outros-gastos';
     if (!S.d.categorias.some(c => c.id === it.categoria)) it.categoria = S.d.categorias.find(c => c.tipo === it.tipo)?.id || '';
     const dup = S.d.lancamentos.some(l => l.tipo === it.tipo && Math.abs((+l.valor || 0) - it.valor) < 0.01 &&
@@ -2460,13 +2535,13 @@ function revisaoIA() {
   const s = IAS, nl = s.itens.length, ni = s.invs.length;
   const ml = s.itens.filter(i => i.marcado), mi = s.invs.filter(i => i.marcado);
   const achou = [nl ? plural(nl, 'lançamento', 'lançamentos') : '', ni ? plural(ni, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ');
-  let corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${achou}</b>. Confira e desmarque o que não quiser.</p>`;
+  let corpo = `<p style="margin:0 0 14px;color:var(--text-2)">Achei <b style="color:var(--text)">${s.saldos ? plural(ni, 'saldo', 'saldos') : achou}</b>. Confira ${s.saldos ? 'para qual investimento vai cada um' : ''} e desmarque o que não quiser.</p>`;
   if (nl) corpo += `${ni ? `<h3 class="ia-sec">${ic('fluxo', 'ic-s')}Lançamentos</h3>` : ''}${revisaoCaixa()}`;
   if (ni) corpo += `${nl ? `<h3 class="ia-sec">${ic('wallet', 'ic-s')}Investimentos</h3>` : ''}${revisaoInvest()}`;
   const total = ml.reduce((a, i) => a + (i.tipo === 'receita' ? i.valor : -i.valor), 0);
   const n = ml.length + mi.length;
-  const rot = ni && !nl ? `Salvar ${n}` : nl && !ni ? `Lançar ${n} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}` : `Salvar ${n}`;
-  return { titulo: nl && ni ? 'Conferir o que a IA leu' : nl ? 'Conferir lançamentos' : 'Conferir investimentos', corpo,
+  const rot = s.saldos ? `Atualizar ${n}` : ni && !nl ? `Salvar ${n}` : nl && !ni ? `Lançar ${n} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}` : `Salvar ${n}`;
+  return { titulo: s.saldos ? 'Conferir os saldos' : nl && ni ? 'Conferir o que a IA leu' : nl ? 'Conferir lançamentos' : 'Conferir investimentos', corpo,
     pe: `<button class="btn" data-a="ia-voltar">Voltar</button><button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${rot}</button>` };
 }
 // o lançamento fica pago ou pendente: Automática segue o que a IA viu (conta a pagar, a receber) e, sem isso, a data
@@ -2478,35 +2553,45 @@ function iaPago(it, data) {
   const cartao = iaNoCartao(it);
   if (!cartao && it.situacao === 'feito') return true;
   if (!cartao && it.situacao === 'pendente') return false;
-  return dataCaixa({ data, conta: s.conta, cartao }) <= iso(hoje());
+  return dataCaixa({ data, conta: it.conta, cartao }) <= iso(hoje());
 }
-// no cartão: o que a IA leu como compra no cartão; se você escolher Cartão de crédito ou Débito, vale para todos
+// no cartão: cada linha escolhe a conta e, se ela tiver cartão, se foi no cartão de crédito; o Lançar todos em muda todas
 function iaNoCartao(it) {
-  const s = IAS;
-  return it.tipo === 'despesa' && !!s.cartao && !!contaDe(s.conta)?.cartao && (s.cartaoMexido || it.cartao !== false);
+  return it.tipo === 'despesa' && !!it.noCartao && !!contaDe(it.conta)?.cartao;
+}
+function opcoesContaIA(it) {
+  const v = it.conta ? it.conta + (iaNoCartao(it) ? '|c' : '') : '';
+  const op = (val, txt) => `<option value="${val}"${val === v ? ' selected' : ''}>${esc(txt)}</option>`;
+  return op('', 'Sem conta') + contas().map(c => op(c.id, nomeConta(c) + (c.cartao && it.tipo === 'despesa' ? ' · débito' : '')) + (c.cartao && it.tipo === 'despesa' ? op(c.id + '|c', nomeConta(c) + ' · crédito') : '')).join('');
 }
 function revisaoCaixa() {
   const s = IAS;
-  const conta = contaDe(s.conta);
   const temParc = s.itens.some(i => i.parcelas_total > i.parcela_atual);
-  return `<div class="campo"><div class="lbl">Lançar em</div><div class="chips" style="margin:0">
-      <button class="chip${!s.conta ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
-      ${contas().map(k => `<button class="chip${s.conta === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>
-      ${conta?.cartao ? `<div class="seg mini" style="margin:10px 0 0"><button class="${!s.cartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${s.cartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
+  // o Lançar todos em fica marcado quando todas as linhas estão na mesma conta
+  const todas = [...new Set(s.itens.map(i => i.conta || ''))], uma = todas.length === 1 ? todas[0] : null;
+  const conta = uma != null ? contaDe(uma) : null, desp = s.itens.filter(i => i.tipo === 'despesa');
+  const todasCartao = desp.length && desp.every(iaNoCartao), nenhumaCartao = desp.every(i => !iaNoCartao(i));
+  return `<div class="campo"><div class="lbl">Lançar todos em</div><div class="chips" style="margin:0">
+      <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
+      ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>
+      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}
+      <div class="ajuda">${uma == null ? 'As linhas estão em contas diferentes; ' : ''}em cada linha dá para escolher a conta e, se ela tiver cartão, se foi no cartão de crédito.</div></div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
       <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
       <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">Tudo pago</button>
       <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">Tudo pendente</button></div>
-      ${s.situacao === 'auto' ? `<div class="ajuda">O que a IA viu como conta a pagar ou valor a receber fica pendente; o resto, pela data.${s.cartao ? ' Compras no cartão seguem a fatura.' : ''}</div>` : ''}</div>
+      ${s.situacao === 'auto' ? `<div class="ajuda">O que a IA viu como conta a pagar ou valor a receber fica pendente; o resto, pela data.${s.itens.some(iaNoCartao) ? ' Compras no cartão seguem a fatura.' : ''}</div>` : ''}</div>
     ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div><b>Lançar as próximas parcelas</b><span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
     <div class="ia-itens">${s.itens.map((it, k) => {
       const cats = S.d.categorias.filter(c => c.tipo === it.tipo);
       return `<div class="ia-item${it.marcado ? '' : ' off'}">
         <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
         <div class="ia-item-t"><b>${esc(it.descricao)}</b>
-          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${iaNoCartao(it) || iaPago(it, it.data) ? '' : ` · <b class="ia-pend">${it.tipo === 'receita' ? 'a receber' : 'a pagar'}</b>`}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span>
-          <select class="ia-cat" data-iai="categoria" data-i="${k}" aria-label="Categoria">${cats.map(c => `<option value="${c.id}"${c.id === it.categoria ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>
-        <b class="${it.tipo === 'receita' ? 'ent' : 'sai'}">${it.tipo === 'receita' ? '+' : '−'} ${brl(it.valor)}</b></div>`;
+          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${iaNoCartao(it) ? ' · na fatura' : iaPago(it, it.data) ? '' : ` · <b class="ia-pend">${it.tipo === 'receita' ? 'a receber' : 'a pagar'}</b>`}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span></div>
+        <b class="${it.tipo === 'receita' ? 'ent' : 'sai'}">${it.tipo === 'receita' ? '+' : '−'} ${brl(it.valor)}</b>
+        <div class="ia-item-x dois">
+          <select class="ia-cat" data-iai="categoria" data-i="${k}" aria-label="Categoria">${cats.map(c => `<option value="${c.id}"${c.id === it.categoria ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+          <select class="ia-cat" data-iai="contasel" data-i="${k}" aria-label="Conta">${opcoesContaIA(it)}</select></div></div>`;
     }).join('')}</div>`;
 }
 // salva o que estiver marcado nos dois grupos de uma vez
@@ -2518,11 +2603,12 @@ async function salvarIA() {
   if (mi.length && s.arquivo && !s.arquivo.pdf && !s.arquivo.foto) {
     try { const r = await api.foto(s.arquivo.dataUrl); s.arquivo.foto = r.arquivo; if (DEMO) DEMO_FOTOS[r.arquivo] = s.arquivo.dataUrl; } catch (e) { /* salva sem a imagem */ }
   }
-  const msg = [ml.length ? plural(ml.length, 'lançamento', 'lançamentos') : '', mi.length ? plural(mi.length, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ');
+  let msg = [ml.length ? plural(ml.length, 'lançamento', 'lançamentos') : '', mi.length ? plural(mi.length, 'investimento', 'investimentos') : ''].filter(Boolean).join(' e ') + ' pela IA';
+  if (s.saldos) { const ap = mi.map(difSaldo).filter(x => x && x.dif > 0).reduce((a, x) => a + x.dif, 0); msg = `${plural(mi.length, 'saldo atualizado', 'saldos atualizados')}${ap > 0 ? ` · aportes ${brl(ap, 0)}` : ''}`; }
   persistir(d => {
     if (ml.length) aplicarIACaixa(d, ml);
     if (mi.length) aplicarIAInvest(d, mi);
-  }, `${msg} pela IA`).then(ok => {
+  }, msg).then(ok => {
     if (!ok) return;
     fecharFolha();
     if (ml.length) { S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; } else { S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; }
@@ -2535,7 +2621,7 @@ function aplicarIACaixa(d, itens) {
     const antes = S.d;
     for (const it of itens) {
       const cartao = iaNoCartao(it);
-      const base = { tipo: it.tipo, descricao: it.descricao, valor: it.valor, categoria: it.categoria, conta: s.conta, cartao, obs: '' };
+      const base = { tipo: it.tipo, descricao: it.descricao, valor: it.valor, categoria: it.categoria, conta: it.conta || '', cartao, obs: '' };
       // aplicação nos investimentos vira uma saída do tipo Aporte
       if (it.tipo === 'despesa' && it.categoria === 'c-investimentos') Object.assign(base, { aporte: true, cartao: false });
       const pago = data => iaPago(it, data);
@@ -2551,20 +2637,39 @@ function aplicarIACaixa(d, itens) {
     S.d = antes;
   }
 }
+// diferença entre o saldo que a IA leu e o valor de hoje do investimento: o aporte (ou o resgate, se for menos)
+function difSaldo(it) {
+  const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
+  if (!ex || !(it.valor > 0) || (it.aporte > 0 && !IAS.saldos)) return null;
+  return { ex, antes: round2(valorHoje(ex)), dif: round2(it.valor - valorHoje(ex)) };
+}
+function opcoesInvSaldo(sel) {
+  const meus = S.d.investimentos.filter(i => i.titular !== 'terceiros'), grupos = [['Meus', meus], ...pessoas().map(p => [p, S.d.investimentos.filter(i => i.titular === 'terceiros' && i.terceiro === p)])];
+  const op = i => `<option value="${esc(i.id)}"${i.id === sel ? ' selected' : ''}>${esc(i.nome)}${bancoDe(i.banco) ? ' · ' + esc(bancoDe(i.banco).nome) : ''}</option>`;
+  return `<option value=""${!sel ? ' selected' : ''}>Novo investimento</option>${grupos.filter(g => g[1].length).map(([n, l]) => `<optgroup label="${esc(n)}">${l.map(op).join('')}</optgroup>`).join('')}`;
+}
 function revisaoInvest() {
   const s = IAS;
-  return `<p class="ajuda" style="margin:0 0 10px">Os investimentos que já existem têm o valor atualizado.</p>
+  const difs = s.invs.filter(i => i.marcado).map(difSaldo).filter(Boolean);
+  const ap = difs.filter(x => x.dif > 0).reduce((a, x) => a + x.dif, 0), rs = difs.filter(x => x.dif < 0).reduce((a, x) => a - x.dif, 0);
+  const novoDe = s.pessoa && s.pessoa !== 'meu' ? ` de ${esc(s.pessoa)}` : '';
+  return `${difs.length ? `<div class="ia-saldos-res"><span>Aportes <b class="ent">${brl(ap)}</b></span>${rs > 0.005 ? `<span>Resgates <b class="sai">${brl(rs)}</b></span>` : ''}<small>diferença entre o saldo novo e o valor de hoje de cada investimento</small></div>`
+      : `<p class="ajuda" style="margin:0 0 10px">Os investimentos que já existem têm o valor atualizado.</p>`}
     <div class="ia-itens">${s.invs.map((it, k) => {
-      const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
+      const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente), df = difSaldo(it);
+      const linha = df ? (df.dif > 0.005 ? `Aporte de <b>${brl(df.dif)}</b>: ${brl(df.antes)} → ${brl(it.valor)}` : df.dif < -0.005 ? `Resgate de <b>${brl(-df.dif)}</b>: ${brl(df.antes)} → ${brl(it.valor)}` : `Sem mudança: ${brl(it.valor)}`)
+        : ex && it.aporte > 0 && !(it.valor > 0) ? `Aplica ${brl(it.aporte)} em ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(valorHoje(ex) + it.aporte)}` : ex ? `Atualiza ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(it.valor)}` : '';
+      const direita = df ? `<b class="${df.dif > 0.005 ? 'ent' : df.dif < -0.005 ? 'sai' : ''}">${df.dif > 0.005 ? '+ ' : df.dif < -0.005 ? '− ' : ''}${brl(Math.abs(df.dif))}</b>` : `<b>${brl(it.aporte > 0 && !(it.valor > 0) ? it.aporte : it.valor)}</b>`;
       return `<div class="ia-item${it.marcado ? '' : ' off'}">
         <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca-inv" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
-        <div class="ia-item-t"><b>${esc(it.nome)}</b>
-          <span>${esc([it.banco, tipoDe(it.tipo).nome, rotuloTaxa(it), it.vencimento ? 'vence ' + fData(pData(it.vencimento)) : ''].filter(Boolean).join(' · '))}</span>
-          ${ex ? (it.aporte > 0 && !(it.valor > 0) ? `<span class="ia-atualiza">Aplica ${brl(it.aporte)} em ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(valorHoje(ex) + it.aporte)}</span>`
-            : `<span class="ia-atualiza">Atualiza ${esc(ex.nome)}: ${brl(valorHoje(ex))} → ${brl(it.valor)}</span>`) : '<span class="ia-atualiza novo">Novo investimento</span>'}
+        <div class="ia-item-t"><b>${esc(s.saldos ? [it.banco, it.banco && semAcento(it.nome) === semAcento(it.banco) ? '' : it.nome].filter(Boolean).join(' · ') || it.nome : it.nome)}</b>
+          ${s.saldos ? '' : `<span>${esc([it.banco, tipoDe(it.tipo).nome, rotuloTaxa(it), it.vencimento ? 'vence ' + fData(pData(it.vencimento)) : ''].filter(Boolean).join(' · '))}</span>`}</div>
+        ${direita}
+        <div class="ia-item-x">
+          <select class="ia-cat" data-iav="existente" data-i="${k}" aria-label="Investimento">${opcoesInvSaldo(it.existente)}</select>
+          ${linha ? `<span class="ia-atualiza">${linha}</span>` : `<span class="ia-atualiza novo">Novo investimento${novoDe}${s.saldos ? `, com ${brl(it.valor)}` : ''}</span>`}
           ${it.confianca === 'baixa' ? '<span><em>Confira os números</em></span>' : ''}
-          <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div>
-        <b>${brl(it.aporte > 0 && !(it.valor > 0) ? it.aporte : it.valor)}</b></div>`;
+          <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div></div>`;
     }).join('')}</div>`;
 }
 function aplicarIAInvest(d, itens) {
@@ -2585,7 +2690,7 @@ function aplicarIAInvest(d, itens) {
       if (!b && it.banco) { b = { id: 'b-' + uid(), nome: it.banco, cor: CORES_BANCO.find(c => !d.bancos.some(x => x.cor === c)) || CORES_BANCO[0], obs: '', contas: [] }; d.bancos.push(b); }
       d.investimentos.push({ id: uid(), nome: it.nome, banco: b?.id || '', tipo: it.tipo, valor: it.valor, data_valor: it.data_valor || hj,
         indexador: it.indexador, taxa: ['poupanca', 'parado'].includes(it.indexador) ? 0 : it.taxa, liquidez: it.liquidez, vencimento: it.vencimento || null,
-        titular: 'meu', terceiro: '', obs: it.aplicado ? `Valor aplicado: ${brl(it.aplicado)}` : '', fotos: foto ? [foto] : [],
+        titular: s.pessoa && s.pessoa !== 'meu' ? 'terceiros' : 'meu', terceiro: s.pessoa && s.pessoa !== 'meu' ? s.pessoa : '', obs: it.aplicado ? `Valor aplicado: ${brl(it.aplicado)}` : '', fotos: foto ? [foto] : [],
         criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString() });
     }
   }
@@ -2606,7 +2711,7 @@ document.addEventListener('paste', ev => {
   // com a Nova despesa ou o Novo investimento aberto, colar uma imagem já abre a leitura por IA com ela
   if (!IAS && FOLHA && $('#folhas .imp-campo')) {
     ev.preventDefault();
-    abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa');
+    abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa', 'colado'); IAS.so = 'arquivo';
     iaPegarArquivo(f);
   }
 });
@@ -2621,7 +2726,7 @@ document.addEventListener('drop', ev => {
   const f = [...(ev.dataTransfer?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (!f) return;
   ev.preventDefault();
-  if (!IAS) abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa');
+  if (!IAS) { abrirIA(FOLHA.montar === montarFormInv ? 'invest' : 'caixa', 'colado'); IAS.so = 'arquivo'; }
   iaPegarArquivo(f);
 });
 
@@ -3203,7 +3308,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA' };
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -3917,6 +4022,8 @@ document.addEventListener('click', ev => {
     case 'fala-mic': if (IAS && IAS.rec === 'on') terminarFala(); else comecarFala(); break;
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
+    case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '' }); break;
+    case 'ias-pessoa': IAS.pessoa = v; pintarFolha(); break;
     case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
@@ -3925,8 +4032,10 @@ document.addEventListener('click', ev => {
     case 'ia-marca': { const it = IAS.itens[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
     case 'ia-marca-inv': { const it = IAS.invs[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
     case 'ia-salvar': salvarIA(); break;
-    case 'iac-conta': IAS.conta = v; if (!contaDe(v)?.cartao) IAS.cartao = false; pintarFolha(); break;
-    case 'iac-cartao': IAS.cartao = !!v; IAS.cartaoMexido = true; pintarFolha(); break;
+    case 'iac-conta': IAS.conta = v; if (!contaDe(v)?.cartao) IAS.cartao = false;
+      for (const it of IAS.itens) { it.conta = v; it.noCartao = it.tipo === 'despesa' && IAS.cartao && !!contaDe(v)?.cartao && it.cartao !== false; }
+      pintarFolha(); break;
+    case 'iac-cartao': IAS.cartao = !!v; for (const it of IAS.itens) it.noCartao = it.tipo === 'despesa' && !!v && !!contaDe(it.conta)?.cartao; pintarFolha(); break;
     case 'iac-sit': IAS.situacao = v; pintarFolha(); break;
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
 
@@ -4106,7 +4215,9 @@ document.addEventListener('input', ev => {
   if (el.dataset.fbc && FB) { FB.contas[+el.dataset.i][el.dataset.fbc] = el.dataset.fbc === 'pessoa' ? el.value : el.value.replace(/\D/g, '').slice(0, 2); if (el.dataset.fbc !== 'pessoa') el.value = FB.contas[+el.dataset.i][el.dataset.fbc]; return; }
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
   if (el.dataset.ias && IAS) { IAS[el.dataset.ias] = el.value; const b = $('[data-a="ia-ler"]'); if (b) b.disabled = !IAS.arquivo && !IAS.texto.trim(); return; }
+  if (el.dataset.iai === 'contasel' && IAS) { const it = IAS.itens[+el.dataset.i], [c, cart] = el.value.split('|'); it.conta = c; it.noCartao = cart === 'c'; pintarFolha(); return; }
   if (el.dataset.iai && IAS) { IAS.itens[+el.dataset.i][el.dataset.iai] = el.value; return; }
+  if (el.dataset.iav && IAS) { IAS.invs[+el.dataset.i][el.dataset.iav] = el.value; pintarFolha(); return; }
   if (el.dataset.tr && TR) {
     const dig = el.value.replace(/\D/g, '').slice(0, 13);
     const antes = TR.valor;
