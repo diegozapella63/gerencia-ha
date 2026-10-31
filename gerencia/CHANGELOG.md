@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.17.2
+
+- A explicação do `sensor.gerencia_ia_hoje` saiu do Uso da IA e foi para **Sensores no Home Assistant**, junto dos outros sensores.
+
 ## 1.17.1
 
 - **Aplicar mais pelo total**: no Aplicar mais, a opção **Quanto tem agora** recebe o total que o banco mostra; o aporte é a diferença para o valor de hoje (e entra no caixa do mesmo jeito, se quiser).

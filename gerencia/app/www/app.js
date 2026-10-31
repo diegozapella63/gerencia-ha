@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.17.1';
+const VERSAO = '1.17.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3198,6 +3198,7 @@ function maisIntegracoes() {
       ${linhaChave('sensores', a.sensores === true, 'Criar os sensores', a.sensores === true
         ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code> e <code>_ia_hoje</code>. Atualizam a cada mudança e a cada 15 minutos.'
         : 'Desligado: o app não cria sensores no Home Assistant, e apaga os que tinha criado.')}
+      ${iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>${a.sensores === true ? '' : ' (com a chave ligada)'}: as chamadas de IA de hoje, com erros, cota e tokens estimados, para pôr num painel ou numa automação (por exemplo, avisar quando passar de 50 no dia).</p>` : ''}
     </section>`;
 }
 
@@ -3249,10 +3250,7 @@ function cardUsoIA() {
       <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
       <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
-      <p class="nota">O consumo exato, o custo e os limites ficam no painel do provedor da IA que você usa. A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>
-      <p class="nota">${S.d.ajustes.sensores === true
-        ? `No Home Assistant, o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> traz as chamadas de hoje, com erros, cota e tokens estimados, para pôr num painel ou numa automação (por exemplo, avisar quando passar de 50 no dia).`
-        : `Para ter o sensor <code>${esc(u.sensor || 'sensor.gerencia_ia_hoje')}</code> no Home Assistant (as chamadas de hoje, com erros, cota e tokens), ligue <b>Sensores no Home Assistant</b>, logo abaixo.`}</p>`;
+      <p class="nota">O consumo exato, o custo e os limites ficam no painel do provedor da IA que você usa. A estimativa de tokens daqui conta só o texto; anexos (PDF e imagem) somam mais.</p>`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
     ${maisLead('Cada leitura de fatura, print ou recibo, cada fala e cada conferência de preço é uma chamada para a IA do Home Assistant. O Home Assistant não informa tokens nem custo, então o GerencIA conta as chamadas e estima os tokens pelo tamanho do texto.')}
