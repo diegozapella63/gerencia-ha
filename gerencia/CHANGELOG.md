@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.16.0
+
+- **Dicas de economia** mostram a **data da última verificação** ("Última verificação: hoje às 15:45", "ontem às…" ou o dia). O app verifica sozinho uma vez por dia, mesmo sem nenhuma assinatura nos fixos, e na hora no **Conferir agora**.
+- **Falar com escolha**, igual à IA: em **Mais › Leitura por IA** há a lista **Fala para texto do Falar**, com todas as do Home Assistant (por exemplo Home Assistant Cloud, Google AI STT, faster-whisper) e o assistente de voz de cada uma. No **Padrão** fica a do assistente de voz preferido, como antes. O nome que aparecia (por exemplo "Gemini") era só o assistente de voz que transforma a voz em texto; quem entende e separa os lançamentos continua sendo a **IA usada pelo app**.
+
 ## 1.15.0
 
 - **Botões do mesmo tamanho**, como no EconomIA, no ResolvIA e no CronologIA: as escolhas ficam em colunas, com o texto no meio (categorias, bancos para cadastrar, contas, tipo, rendimento, investimento do aporte e as dos formulários). As curtas (filtros do caixa, período do fluxo, horizonte, divisão) ficam três ou quatro por linha. As fileiras que rolam para o lado continuam como estavam.

@@ -99,7 +99,7 @@ No Início, a dica mostra a **economia real** por ano: o desconto do plano anual
 
 O app também avisa quando uma categoria fica bem acima da sua média dos 3 meses anteriores, pelos seus próprios lançamentos.
 
-Os preços são conferidos de novo a cada 30 dias, ou na hora em **Mais > Dicas de economia > Conferir agora**, onde também aparece o motivo quando uma assinatura não vira dica (sem plano anual, valor que não bate com nenhum plano, página que não abriu).
+O app verifica sozinho uma vez por dia (a data da última verificação aparece no quadro). Os preços são conferidos de novo a cada 30 dias, ou na hora em **Mais > Dicas de economia > Conferir agora**, onde também aparece o motivo quando uma assinatura não vira dica (sem plano anual, valor que não bate com nenhum plano, página que não abriu).
 
 ## Leitura por IA
 
@@ -124,7 +124,9 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
-- O microfone só aparece com a IA ligada e um assistente de voz com fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto e com qual motor.
+- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto.
+- **Fala para texto do Falar**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…) e o assistente de voz de cada uma. No **Padrão** fica a do assistente de voz preferido (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
+- São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a **IA usada pelo app**, a mesma de Ler com IA. Trocar uma não muda a outra.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.
 - O áudio vai direto para o Home Assistant e não fica guardado no app.
 

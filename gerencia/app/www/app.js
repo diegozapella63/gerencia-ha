@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.15.0';
+const VERSAO = '1.16.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -35,7 +35,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -410,7 +410,12 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
-    async vozStatus() { return { pronta: true, nome: 'Home Assistant Cloud' }; },
+    async vozStatus() {
+      const opcoes = [{ id: 'stt.home_assistant_cloud', nome: 'Home Assistant Cloud', idioma: 'pt-BR', assistentes: ['Home Assistant'], preferido: true },
+        { id: 'stt.google_ai_stt', nome: 'Google AI STT', idioma: 'pt-BR', assistentes: ['Gemini'], preferido: false }];
+      const sel = opcoes.find(o => o.id === S.d.ajustes.voz_motor);
+      return { pronta: true, nome: (sel || opcoes[0]).nome, selecionada: sel ? sel.id : '', opcoes };
+    },
     async vozTexto() { await espera(900); return { texto: 'Gastei 45 reais no mercado hoje no cartão do Nubank e recebi 150 do João pelo Pix', nome: 'Home Assistant Cloud' }; },
     async iaUso() {
       const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
@@ -2309,7 +2314,7 @@ function telaFala() {
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
-      <p class="nota" style="text-align:center">O Home Assistant transcreve${v.nome && !/^home assistant$/i.test(v.nome) ? ` (${esc(v.nome)})` : ''} e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos. Você confere antes de lançar.</p>`,
+      <p class="nota" style="text-align:center">A fala para texto${v.nome ? ` “${esc(v.nome)}”` : ' do Home Assistant'} transcreve e ${S.d.ajustes.ia_entidade ? esc(nomeIA(S.d.ajustes.ia_entidade)) : 'a IA do app'} separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos. Você confere antes de lançar.</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
@@ -2712,10 +2717,21 @@ function cardDicasMais() {
         <div class="op-t"><b>${esc(a.descricao)}</b><span>${brl(a.valor)} ${a.freq_anual ? 'por ano' : 'por mês'}${mesmoNome ? '' : ' · ' + esc(a.nome)}${a.origem === 'lancamentos' ? ' · nas faturas' : ''}</span><span class="ass-st ${a.status === 'ok' ? 'ok' : ''}">${esc(txt)}${quando}</span></div></div>`;
     }).join('');
   }
+  // quando o app procurou assinaturas e conferiu os preços pela última vez (sozinho, uma vez por dia, ou no Conferir agora)
+  if (st) h += `<p class="dica-quando">${ic('clock', 'ic ic-s')}<span>${st.conferindo ? 'Conferindo agora…' : st.atualizado ? `Última verificação: ${quandoLongo(st.atualizado)}.` : 'Ainda não verificado. Toque em Conferir agora.'}</span></p>`;
   h += `<div class="dica-btns"><button class="btn out" data-a="dicas-conferir"${st && st.conferindo ? ' disabled' : ''}>${ic('refresh')}${st && st.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
     ${fora ? `<button class="btn" data-a="dicas-voltar">Mostrar dispensadas (${fora})</button>` : ''}</div>`;
   if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar são comparados com o dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão. A economia em reais é estimada pelo que você paga hoje.</p>`;
   return h + `</section>`;
+}
+
+// "hoje às 15:45", "ontem às 09:10", "28/10 às 14:20"
+function quandoLongo(isoTxt) {
+  const d = new Date(isoTxt);
+  if (!Number.isFinite(d.getTime())) return '';
+  const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const k = iso(d), hj = iso(hoje()), on = iso(new Date(hoje().getTime() - 864e5));
+  return k === hj ? `hoje às ${hm}` : k === on ? `ontem às ${hm}` : `${fDataC(d)}${d.getFullYear() !== hoje().getFullYear() ? '/' + d.getFullYear() : ''} às ${hm}`;
 }
 
 /* --------- mudar para o plano anual */
@@ -2969,10 +2985,14 @@ function cardIA() {
   const ents = (s && s.entidades) || [];
   const v = S.voz;
   const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
-    : v.pronta ? ['', `Falar: pronto, com ${esc(v.nome || 'a fala para texto do Home Assistant')}. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
+    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}${v.selecionada ? '' : ' (a do assistente de voz preferido)'}; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
+  const falas = (v && v.opcoes) || [];
+  const rotFala = o => `${o.nome}${o.assistentes && o.assistentes.length && !(o.assistentes.length === 1 && o.assistentes[0] === o.nome) ? ` · assistente ${o.assistentes.join(', ')}` : ''}`;
   return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
+    ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">Fala para texto do Falar</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
+      <option value="">Padrão do Home Assistant (assistente de voz preferido)</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(rotFala(o))}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
     <p class="nota" style="margin:12px 0 0">Para ler imagem e PDF, a IA precisa aceitar anexos; Google Gemini, OpenAI e Anthropic aceitam. Se a IA não aceitar PDF, o app manda só o texto do arquivo.</p></section>`;
 }
@@ -3788,7 +3808,7 @@ document.addEventListener('click', ev => {
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
 
     case 'iai-revisar': revisarItemInvest(+el.dataset.i); break;
-    case 'ia-verificar': S.ia = null; render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
+    case 'ia-verificar': S.ia = null; carregarVoz(); render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
     case 'f-foto-add':
       escolherArquivo('image/*').then(async file => {
         if (!file) return;
@@ -4079,7 +4099,10 @@ document.addEventListener('keydown', ev => {
 });
 document.addEventListener('change', ev => {
   const el = ev.target;
-  if (el.dataset.ajusteSel) { const k = el.dataset.ajusteSel, v = el.value; persistir(d => { d.ajustes[k] = v; }, 'IA escolhida').then(() => { S.ia = null; render(); }); }
+  if (el.dataset.ajusteSel) {
+    const k = el.dataset.ajusteSel, v = el.value, fala = k === 'voz_motor';
+    persistir(d => { d.ajustes[k] = v; }, fala ? 'Fala para texto escolhida' : 'IA escolhida').then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
+  }
 });
 let pfT;
 function pintarFolhaDepois() {

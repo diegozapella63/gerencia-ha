@@ -820,6 +820,9 @@ details summary { list-style-position: inside; }
 .inv-aplicar .btn { flex: none; }
 .inv-aplicar span { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
 
+.dica-quando { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+.dica-quando .ic-s { width: 16px; height: 16px; }
+
 /* Conferir o que a IA leu: lançamentos e investimentos na mesma janela */
 .ia-sec { display: flex; align-items: center; gap: 8px; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); font: 600 19px/1.2 var(--font-d); }
 .ia-sec:first-of-type { margin-top: 4px; padding-top: 0; border-top: 0; }

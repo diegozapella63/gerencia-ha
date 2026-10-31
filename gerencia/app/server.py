@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.15.0"
+VERSAO = "1.16.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -68,7 +68,7 @@ INDICES_PADRAO = {
 }
 
 # sensores: desligado até ligar em Mais › Integrações; sensores_v marca os dados que já têm essa escolha
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "integracao": True,
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True,
                   "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
@@ -1380,6 +1380,14 @@ def dicas_estado(d, disparar=True):
     subs = assinaturas_do_usuario(d)
     if disparar and any(_velha(fontes.get(s["servico"])) for s in subs if not s["freq_anual"]):
         iniciar_conferencia()
+    elif disparar and not _conferindo.is_set() and str(cache.get("atualizado") or "")[:10] != datetime.now().date().isoformat():
+        # nada para conferir na origem: a verificação do dia é procurar as assinaturas nos fixos e faturas
+        cache["atualizado"] = agora_iso()
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            gravar_arquivo(DICAS_ARQ, json.dumps(cache, ensure_ascii=False, indent=1))
+        except OSError as e:
+            log("Dicas:", e)
     lista, dicas = [], []
     for s in subs:
         serv = assinaturas.POR_ID[s["servico"]]
@@ -1409,7 +1417,7 @@ def voz_status():
         return {"pronta": False, "motivo": "A IA está desligada em Mais › Integrações."}
     if not TOKEN and not IA_MOCK:
         return {"pronta": False, "motivo": "Fora do Home Assistant não dá para falar."}
-    return VOZ.status()
+    return VOZ.status(ler()["ajustes"].get("voz_motor") or "")
 
 
 def voz_texto(pcm):
@@ -1417,7 +1425,7 @@ def voz_texto(pcm):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
     t0 = time.time()
     try:
-        r = VOZ.texto(pcm)
+        r = VOZ.texto(pcm, ler()["ajustes"].get("voz_motor") or "")
     except voz.ErroVoz as e:
         log("Falar:", e)
         raise ValueError(str(e))

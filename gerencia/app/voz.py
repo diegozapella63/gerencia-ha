@@ -1,8 +1,9 @@
 """Falar: o que você diz vai para a fala para texto do Home Assistant e volta como texto, que a IA lê
 como uma mensagem colada (igual ao CronologIA e ao ResolvIA).
 
-O motor é o do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant
-Cloud, stt.home_assistant_cloud), com o idioma dele; sem assistente, a primeira entidade stt.*.
+O motor é o escolhido em Mais › Leitura por IA (uma lista, como a da IA) ou, sem escolha, o do assistente
+de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud, stt.home_assistant_cloud),
+com o idioma dele; sem assistente, a primeira entidade stt.*.
 O áudio chega do app como PCM cru, 16 kHz, 16 bits, mono (o mesmo que o Assist manda).
 Só biblioteca padrão do Python: o WebSocket do Home Assistant é falado à mão, para uma única pergunta.
 """
@@ -121,52 +122,80 @@ class Voz:
         self.rest, self.ws, self.token, self.log, self.simulada = rest, ws, token, log, simulada
         self.cache = None
 
-    def motor(self):
-        """{engine, language, name} da fala para texto a usar, ou None. Guardado por um minuto."""
-        if self.simulada:
-            return {"engine": "stt.simulada", "language": "pt-BR", "name": "Fala simulada (teste)"}
+    def _ler(self):
+        """Assistentes de voz e entidades stt.* do Home Assistant. Guardado por um minuto."""
         if self.cache and time.time() - self.cache[0] < 60:
             return self.cache[1]
-        valor = None
+        pipes, pref, ents = [], None, []
         if self.token:
             try:
                 r = _ws_comando(self.ws, self.token, {"type": "assist_pipeline/pipeline/list"}) or {}
-                lista = r.get("pipelines") or []
-                p = next((x for x in lista if x.get("id") == r.get("preferred_pipeline") and x.get("stt_engine")), None) \
-                    or next((x for x in lista if x.get("stt_engine")), None)
-                if p:
-                    valor = {"engine": p["stt_engine"], "language": p.get("stt_language") or p.get("language") or "pt-BR", "name": p.get("name") or ""}
+                pipes = [x for x in (r.get("pipelines") or []) if x.get("stt_engine")]
+                pref = r.get("preferred_pipeline")
             except Exception as e:  # noqa: BLE001
                 self.log("Assistentes de voz:", e)
-            if not valor:
-                try:
-                    u = urlparse(self.rest)
-                    c = http.client.HTTPConnection(u.hostname, u.port or 80, timeout=15)
-                    c.request("GET", u.path.rstrip("/") + "/states", headers={"Authorization": f"Bearer {self.token}"})
-                    r = c.getresponse()
-                    estados = json.loads(r.read() or b"[]") if r.status == 200 else []
-                    st = next((x for x in estados if str(x.get("entity_id", "")).startswith("stt.")), None)
-                    if st:
-                        valor = {"engine": st["entity_id"], "language": "pt-BR", "name": (st.get("attributes") or {}).get("friendly_name") or st["entity_id"]}
-                except Exception as e:  # noqa: BLE001
-                    self.log("Fala para texto:", e)
+            try:
+                u = urlparse(self.rest)
+                c = http.client.HTTPConnection(u.hostname, u.port or 80, timeout=15)
+                c.request("GET", u.path.rstrip("/") + "/states", headers={"Authorization": f"Bearer {self.token}"})
+                r = c.getresponse()
+                estados = json.loads(r.read() or b"[]") if r.status == 200 else []
+                ents = [x for x in estados if str(x.get("entity_id", "")).startswith("stt.")]
+            except Exception as e:  # noqa: BLE001
+                self.log("Fala para texto:", e)
+        valor = (pipes, pref, ents)
         self.cache = (time.time(), valor)
         return valor
 
-    def status(self):
-        m = self.motor()
-        if not m:
-            return {"pronta": False, "motivo": "Para falar, o Home Assistant precisa de um assistente de voz com fala para texto "
-                                               "(Configurações › Assistentes de voz; com o Home Assistant Cloud ele já vem pronto)."}
-        return {"pronta": True, "motor": m["engine"], "idioma": m["language"], "nome": m["name"]}
+    def opcoes(self):
+        """Lista para escolher, como a IA usada pelo app: [{id, nome, idioma, assistentes, preferido}].
+        Uma por motor de fala para texto (entidade stt.* ou o motor de um assistente de voz)."""
+        if self.simulada:
+            return [{"id": "stt.simulada", "nome": "Fala simulada (teste)", "idioma": "pt-BR", "assistentes": ["Home Assistant"], "preferido": True},
+                    {"id": "stt.outra_simulada", "nome": "Outra fala simulada (teste)", "idioma": "pt-BR", "assistentes": [], "preferido": False}]
+        pipes, pref, ents = self._ler()
+        lista = {}
+        for p in pipes:
+            o = lista.setdefault(p["stt_engine"], {"id": p["stt_engine"], "nome": "", "idioma": "", "assistentes": [], "preferido": False})
+            o["assistentes"].append(p.get("name") or "")
+            if p.get("id") == pref:
+                o["preferido"] = True
+                o["idioma"] = p.get("stt_language") or p.get("language") or o["idioma"]
+            elif not o["idioma"]:
+                o["idioma"] = p.get("stt_language") or p.get("language") or ""
+        for e in ents:
+            o = lista.setdefault(e["entity_id"], {"id": e["entity_id"], "nome": "", "idioma": "", "assistentes": [], "preferido": False})
+            o["nome"] = (e.get("attributes") or {}).get("friendly_name") or ""
+        for o in lista.values():
+            o["nome"] = o["nome"] or (o["assistentes"][0] if o["assistentes"] else o["id"])
+            o["idioma"] = o["idioma"] or "pt-BR"
+            o["assistentes"] = [a for a in o["assistentes"] if a]
+        return sorted(lista.values(), key=lambda o: (not o["preferido"], o["nome"].lower()))
 
-    def texto(self, pcm):
+    def motor(self, escolha=""):
+        """{engine, language, name} da fala para texto a usar, ou None: a escolhida no app ou, sem escolha
+        (ou se ela sumiu do Home Assistant), a do assistente de voz preferido."""
+        ops = self.opcoes()
+        o = next((x for x in ops if escolha and x["id"] == escolha), None) \
+            or next((x for x in ops if x["preferido"]), None) or (ops[0] if ops else None)
+        return {"engine": o["id"], "language": o["idioma"], "name": o["nome"]} if o else None
+
+    def status(self, escolha=""):
+        ops = self.opcoes()
+        m = self.motor(escolha)
+        if not m:
+            return {"pronta": False, "opcoes": [], "motivo": "Para falar, o Home Assistant precisa de um assistente de voz com fala para texto "
+                                                             "(Configurações › Assistentes de voz; com o Home Assistant Cloud ele já vem pronto)."}
+        return {"pronta": True, "motor": m["engine"], "idioma": m["language"], "nome": m["name"], "opcoes": ops,
+                "selecionada": escolha if any(o["id"] == escolha for o in ops) else ""}
+
+    def texto(self, pcm, escolha=""):
         """PCM cru (16 kHz, 16 bits, mono) para texto."""
         if not pcm or len(pcm) < MIN_BYTES:
             raise ErroVoz("Não ouvi nada. Toque no microfone e fale.")
         if len(pcm) > MAX_BYTES:
             raise ErroVoz("Fale até 2 minutos de cada vez.")
-        m = self.motor()
+        m = self.motor(escolha)
         if not m:
             raise ErroVoz(self.status()["motivo"])
         if self.simulada:
