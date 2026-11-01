@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.19.1';
+const VERSAO = '1.19.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -875,9 +875,13 @@ function invGraficos() {
       `<button class="chip${u.gEscopo === k ? ' on' : ''}" data-a="g" data-k="gEscopo" data-v="${k}">${n}</button>`).join('')}</div>`;
   } else if (u.gEscopo !== 'tudo') u.gEscopo = 'tudo';
   const lista = porEscopo(u.gEscopo);
-  if (!lista.length) return html + '<div class="vazio">Nada nesse filtro.</div>';
+  if (!lista.length && !comBensG()) return html + '<div class="vazio">Nada nesse filtro.</div>';
   return html + (u.invModo === 'divisao' ? grafComposicao(lista) : grafEvolucao(lista));
 }
+
+// os bens da casa (InventarIA) entram na Divisão e na Evolução em Tudo e em Só o meu; perdem valor por categoria
+const comBensG = () => bensOn() && S.ui.gEscopo !== 'terc';
+const bensEm = m => (S.bens.categorias || []).reduce((a, c) => a + c.hoje * Math.pow(1 - (c.taxa || 0) / 100, m / 12), 0);
 
 let CACHE = {};
 function grafEvolucao(lista) {
@@ -888,16 +892,19 @@ function grafEvolucao(lista) {
   const fim = pj.pts[pj.pts.length - 1];
   const campo = u.gEscopo === 'meu' ? 'meu' : u.gEscopo === 'terc' ? 'terceiros' : 'total';
   CACHE.hist = S.d.historico.filter(h => h.d < iso(hoje())).map(h => ({ t: pData(h.d).getTime(), v: +h[campo] || 0 }));
+  CACHE.bens = comBensG() ? pj.pts.map(p => ({ t: p.t, v: bensEm(p.m) })) : null;
+  const b0 = CACHE.bens ? CACHE.bens[0].v : 0, bN = CACHE.bens ? CACHE.bens[CACHE.bens.length - 1].v : 0;
   const anosTxt = u.gAnos === 1 ? '1 ano' : `${u.gAnos} anos`;
   let html = `<div class="graf-card">
-    <div class="stat-duo"><div><span>Hoje</span><b>${brl(pj.pts[0].valor, 0)}</b></div>
-      <div><span>Em ${anosTxt}${u.gIR ? ', líquido' : ''}</span><b>${brl(fim.valor, 0)}</b><small>+${brl(fim.valor - fim.aplicado, 0)} de rendimento</small></div></div>
+    <div class="stat-duo"><div><span>Hoje</span><b>${brl(pj.pts[0].valor + b0, 0)}</b>${CACHE.bens ? `<small class="neutro">com ${brl(b0, 0)} em bens</small>` : ''}</div>
+      <div><span>Em ${anosTxt}${u.gIR ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small>+${brl(fim.valor - fim.aplicado, 0)} de rendimento${CACHE.bens ? ` · bens −${brl(b0 - bN, 0)}` : ''}</small></div></div>
     <div class="chart" id="ch-evo" role="img" aria-label="Evolução do dinheiro: registrado até hoje e projetado para ${anosTxt}"></div>
     <div class="leg">
       ${CACHE.hist.length ? `<span><i class="k" style="--kc:var(--accent)"></i>Registrado</span>` : ''}
       <span><i class="k tr" style="--kc:var(--accent)"></i>Projetado</span>
       <span><i class="k" style="--kc:var(--c0)"></i>${ap ? 'Investido + aportes' : 'Valor investido'}</span>
       <span><i class="k" style="--kc:var(--c2)"></i>Em dinheiro de hoje</span>
+      ${CACHE.bens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : ''}
     </div></div>`;
   const outroAnos = !HZ_FIXOS.includes(u.gAnos);
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c5">${HZ_FIXOS.map(a =>
@@ -909,9 +916,9 @@ function grafEvolucao(lista) {
   </div>
   <p class="nota">Com os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%): rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação.</p>
   <details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Ver tabela por ano</summary>
-  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th></tr></thead><tbody>
+  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th>${CACHE.bens ? '<th class="n">Bens</th>' : ''}</tr></thead><tbody>
   ${Array.from({ length: u.gAnos }, (_, k) => pj.pts[(k + 1) * 12]).map(p =>
-    `<tr><td>${fMesAno(new Date(p.t))}</td><td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td></tr>`).join('')}
+    `<tr><td>${fMesAno(new Date(p.t))}</td><td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td>${CACHE.bens ? `<td class="n">${brl(bensEm(p.m), 0)}</td>` : ''}</tr>`).join('')}
   </tbody></table></div></details>`;
   return html;
 }
@@ -966,7 +973,7 @@ function desenharEvolucao() {
   if (hist.length > 140) { const passo = Math.ceil(hist.length / 140); hist = hist.filter((_, k) => k % passo === 0 || k === hist.length - 1); }
   const histC = hist.length ? [...hist, { t: t0, v: proj[0].valor }] : [];
   const xMin = histC.length ? histC[0].t : t0, xMax = proj[proj.length - 1].t;
-  const vals = [...proj.flatMap(p => [p.valor, p.aplicado, p.real]), ...histC.map(p => p.v)];
+  const vals = [...proj.flatMap(p => [p.valor, p.aplicado, p.real]), ...histC.map(p => p.v), ...(CACHE.bens || []).map(p => p.v)];
   let lo = Math.min(...vals), hi = Math.max(...vals);
   if (hi - lo < 1) { hi += 1; lo = Math.max(0, lo - 1); }
   const step = niceStep((hi - lo) / 4);
@@ -1005,6 +1012,7 @@ function desenharEvolucao() {
   g += `<path class="l-real" d="${linha(proj, p => p.real)}"/>`;
   if (histC.length) g += `<path class="l-hist" d="${linha(histC, p => p.v)}"/>`;
   g += `<path class="l-proj" d="${linha(proj, p => p.valor)}"/>`;
+  if (CACHE.bens) g += `<path class="l-bens" d="${linha(CACHE.bens, p => p.v)}"/>`;
   const ult = proj[proj.length - 1];
   g += `<circle class="pt" cx="${X(ult.t).toFixed(1)}" cy="${Y(ult.valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
   g += `<circle class="pt" cx="${xh}" cy="${Y(proj[0].valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
@@ -1028,7 +1036,8 @@ function desenharEvolucao() {
     cross.style.display = '';
     $('line', cross).setAttribute('x1', qx); $('line', cross).setAttribute('x2', qx);
     $$('circle.mk', cross).forEach(c => c.remove());
-    const pontos = q.p ? [[q.p.valor, 'var(--accent)'], [q.p.aplicado, 'var(--c0)'], [q.p.real, 'var(--c2)']] : [[q.hist, 'var(--accent)']];
+    const bq = q.p && CACHE.bens ? bensEm(q.p.m) : null;
+    const pontos = q.p ? [[q.p.valor, 'var(--accent)'], [q.p.aplicado, 'var(--c0)'], [q.p.real, 'var(--c2)'], ...(bq != null ? [[bq, 'var(--c4)']] : [])] : [[q.hist, 'var(--accent)']];
     for (const [v, c] of pontos) {
       const ci = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       ci.setAttribute('class', 'pt mk'); ci.setAttribute('cx', qx); ci.setAttribute('cy', Y(v)); ci.setAttribute('r', 4.5); ci.setAttribute('fill', c);
@@ -1040,7 +1049,7 @@ function desenharEvolucao() {
     cab.textContent = q.p ? (q.p.m === 0 ? 'Hoje' : `${fMesAno(dt)} · projetado`) : `${fData(dt)} · registrado`;
     tip.appendChild(cab);
     const linhas = q.p
-      ? [[q.p.valor, 'Projetado', 'var(--accent)', true], [q.p.aplicado, 'Valor investido', 'var(--c0)'], [q.p.real, 'Em dinheiro de hoje', 'var(--c2)']]
+      ? [[q.p.valor, 'Projetado', 'var(--accent)', true], [q.p.aplicado, 'Valor investido', 'var(--c0)'], [q.p.real, 'Em dinheiro de hoje', 'var(--c2)'], ...(bq != null ? [[bq, 'Bens', 'var(--c4)']] : [])]
       : [[q.hist, 'Registrado', 'var(--accent)']];
     for (const [v, n, c, tr] of linhas) {
       const row = document.createElement('div'); row.className = 't-r';
@@ -1079,6 +1088,7 @@ function grupos(lista, agrup) {
 function grafComposicao(lista) {
   const u = S.ui;
   const gs = grupos(lista, u.gAgrup);
+  if (comBensG()) { gs.push({ k: '_bens', nome: 'Bens da casa', cor: 'var(--c4)', v: S.bens.hoje, n: S.bens.n, mes: 0, bens: true }); gs.sort((a, b) => b.v - a.v); }
   const total = gs.reduce((s, g) => s + g.v, 0) || 1;
   const sel = gs.find(g => g.k === u.gSel);
   const opts = [['banco', 'Banco'], ['dono', 'De quem'], ['tipo', 'Tipo'], ['liq', 'Liquidez']];
@@ -1089,7 +1099,7 @@ function grafComposicao(lista) {
     <div class="pilha" role="img" aria-label="Divisão do dinheiro por ${opts.find(o => o[0] === u.gAgrup)[1].toLowerCase()}">
       ${gs.map(g => `<i data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor};flex:${g.v / total} 1 0"></i>`).join('')}</div>
     <div style="margin-top:8px">${gs.map(g => `<div class="comp${u.gSel === g.k ? ' on' : ''}" data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor}">
-      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${plural(g.n, 'investimento', 'investimentos')} · ≈ ${brl(g.mes, 0)}/mês</span></div>
+      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${g.bens ? `${plural(g.n, 'item', 'itens')} · perdem ≈ ${brl(S.bens.perde_ano, 0)}/ano` : `${plural(g.n, 'investimento', 'investimentos')} · ≈ ${brl(g.mes, 0)}/mês`}</span></div>
       <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
       <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;

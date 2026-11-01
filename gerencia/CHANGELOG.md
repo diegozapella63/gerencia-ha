@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.19.2
+
+- **Bens na Divisão e na Evolução** (em Tudo e em Só o meu): na Divisão, os bens do InventarIA são uma fatia à parte, "Bens da casa", com quanto perdem por ano. Na Evolução, o Hoje e o Em N anos somam os bens, a linha **Bens** mostra a perda de valor ao longo dos anos e a tabela por ano ganha a coluna Bens.
+
 ## 1.19.1
 
 - **Patrimônio sem o dinheiro de terceiros**: o placar do Início soma só os seus investimentos (e os bens do InventarIA). O rendimento por mês do placar também é só o seu. O dinheiro de terceiros continua no quadro por pessoa e na Carteira.

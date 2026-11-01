@@ -184,7 +184,7 @@ Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reinicia
 
 ## Bens no InventarIA
 
-Com o **InventarIA** (1.16.0 ou mais novo) no mesmo Home Assistant, os valores dos itens dele entram no patrimônio como **bens**: o placar do Início mostra o total, com **Investido** e **Bens** separados, e os destaques têm **Bens da casa**, que abre os valores por categoria e por cômodo.
+Com o **InventarIA** (1.16.0 ou mais novo) no mesmo Home Assistant, os valores dos itens dele entram no patrimônio como **bens**: o placar do Início mostra o total, com **Investido** e **Bens** separados, e os destaques têm **Bens da casa**, que abre os valores por categoria e por cômodo. No Invest, em Tudo e em Só o meu, os bens também aparecem na **Divisão** (uma fatia à parte) e na **Evolução** (somados no Hoje e no Em N anos, com a linha Bens perdendo valor e a coluna Bens na tabela por ano).
 
 Bens perdem valor: cada categoria tem uma **perda por ano** (eletrônicos 20%, móveis 10%, cozinha 10%, decoração 5%, roupas 25%…), contada desde a data em que o valor do item mudou no InventarIA. Em **Mais › Integrações › Bens no InventarIA** dá para mudar as taxas e desligar **Somar os bens**. A ligação é automática, pela chave que o InventarIA grava em `share/inventario`; nada muda lá. Os valores são lidos a cada 10 minutos (ou na hora, em **Atualizar**).
 
