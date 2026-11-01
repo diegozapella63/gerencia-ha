@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.18.5
+
+- Tipo **Dinheiro**, para dinheiro guardado em espécie: sem banco, sem rendimento e sem vencimento (o formulário só pede nome e valor). Na Carteira aparece como "Em espécie". A IA também reconhece ("15 mil dinheiro").
+
 ## 1.18.4
 
 - Tipo **Ouro** nos investimentos (barra, ouro ativo financeiro, ETF de ouro): sem taxa fixa, a projeção usa a valorização que você estimar por ano (começa em 10%, dá para mudar) e, com Descontar IR, 15% sobre o ganho, como em ações. A IA também reconhece ouro.

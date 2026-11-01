@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.4';
+const VERSAO = '1.18.5';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -20,6 +20,7 @@ const TIPOS = [
   { id: 'fundo', nome: 'Fundo', ir: 'reg', p: { indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria' } },
   { id: 'acoes', nome: 'Ações/FII', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
   { id: 'ouro', nome: 'Ouro', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
+  { id: 'dinheiro', nome: 'Dinheiro', ir: 'isento', p: { indexador: 'parado', taxa: 0, liquidez: 'diaria' } },
   { id: 'previdencia', nome: 'Previdência', ir: 'nao', p: { indexador: 'cdi_pct', taxa: 95, liquidez: 'vencimento' } },
   { id: 'outro', nome: 'Outro', ir: 'reg', p: { indexador: 'pre', taxa: 12, liquidez: 'vencimento' } },
 ];
@@ -453,7 +454,7 @@ function apiDemo() {
           const nome = (linha.slice(0, m.index) + ' ' + linha.slice(m.index + m[0].length)).replace(/valor atualizado|saldo|atualizado|r\$/gi, '').replace(/[,:;–-]/g, ' ').replace(/\s+/g, ' ').trim();
           if (!nome) continue;
           const parado = /^(dinheiro|em casa|em espécie|cofre)$/i.test(nome);
-          const it = { nome: nome[0].toUpperCase() + nome.slice(1), banco: parado ? '' : nome, tipo: 'outro', valor: +m[1].replace(/\./g, '').replace(',', '.') * (m[2] ? 1000 : 1), aporte: 0, existente: '',
+          const it = { nome: nome[0].toUpperCase() + nome.slice(1), banco: parado ? '' : nome, tipo: parado ? 'dinheiro' : 'outro', valor: +m[1].replace(/\./g, '').replace(',', '.') * (m[2] ? 1000 : 1), aporte: 0, existente: '',
             dono: dono === 'meu' ? '' : dono, indexador: parado ? 'parado' : 'cdi_pct', taxa: parado ? 0 : 100, liquidez: 'diaria', confianca: 'alta' };
           it.existente = parado ? '' : acharInvSaldo(Object.assign({}, it, { banco: nome }), dono);
           const ex = it.existente && d.investimentos.find(i => i.id === it.existente);
@@ -843,7 +844,7 @@ function cardInv(i, v) {
   const velho = dv && diasEntre(dv, h) > 60 && i.indexador !== 'parado';
   return `<button class="inv" data-a="inv" data-id="${i.id}" style="--c:${corOk(b?.cor) || 'var(--line-2)'}">
     <div class="inv-top"><div class="inv-nome">${esc(i.nome)}</div><div class="inv-valor">${brl(v)}</div></div>
-    <div class="inv-meta"><i></i>${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}</div>
+    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
     <div class="tags"><span class="tag taxa">${esc(rotuloTaxa(i))}</span>${tagDono(i)}${liq}</div>
     <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : 'Não rende'}</span>
       <span${velho ? ' style="color:var(--danger)"' : ''}>${dv ? 'valor de ' + fDataC(dv) + (dv.getFullYear() !== h.getFullYear() ? '/' + String(dv.getFullYear()).slice(2) : '') : ''}</span></div>
@@ -3677,9 +3678,11 @@ function montarFormInv() {
     c += `<input class="inp${err('terceiro')}" data-f="terceiro" value="${esc(f.terceiro)}" placeholder="De quem? Ex.: Mãe, Pedro, condomínio" autocomplete="off">${msg('terceiro')}`;
     if (ps.length) c += `<div class="chips" style="margin:10px 0 0">${ps.map(p => `<button class="chip${f.terceiro === p ? ' on' : ''}" data-a="f-set" data-k="terceiro" data-v="${esc(p)}">${esc(p)}</button>`).join('')}</div>`;
   }
+  // dinheiro em espécie: sem banco, sem rendimento, sem vencimento
+  const especie = f.tipo === 'dinheiro', oculto = especie ? ' hidden' : '';
   c += `</div>
-    <div class="campo"><label for="f-nome">Nome</label><input id="f-nome" class="inp" data-f="nome" value="${esc(f.nome)}" placeholder="Ex.: CDB Inter 2028" autocomplete="off"></div>
-    <div class="campo"><div class="lbl">Banco</div><div class="chips" style="margin:0">
+    <div class="campo"><label for="f-nome">Nome</label><input id="f-nome" class="inp" data-f="nome" value="${esc(f.nome)}" placeholder="${especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off"></div>
+    <div class="campo"${oculto}><div class="lbl">Banco</div><div class="chips" style="margin:0">
       ${bancos.map(b => `<button class="chip${f.banco === b.id ? ' on' : ''}" data-a="f-set" data-k="banco" data-v="${b.id}" style="--c:${corOk(b.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(b.nome)}</button>`).join('')}
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
   if (f.novoBanco) {
@@ -3696,14 +3699,14 @@ function montarFormInv() {
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div></div>
       <div class="campo" style="margin-bottom:6px"><label for="f-data">Valor em</label><input id="f-data" class="inp" type="date" data-f="data_valor" value="${esc(f.data_valor)}" max="${iso(hoje())}"></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:20px"></div>
-    <div class="campo"><div class="lbl">Rendimento</div><div class="chips">${IDX.map(x =>
+    <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${x.nome}</button>`).join('')}</div>
       ${ix.taxa ? `<div class="pref${err('taxa')}">${ix.pre ? `<span>${ix.pre}</span>` : ''}<input data-f="taxa" inputmode="decimal" value="${f.taxa === '' || f.taxa == null ? '' : String(f.taxa).replace('.', ',')}" placeholder="${ix.ph}"><span>${ix.suf}</span></div>` : ''}
       ${msg('taxa')}<div class="ajuda" id="aj-taxa"></div></div>
-    <div class="campo"><div class="lbl">Liquidez</div><div class="seg" style="margin:0">
+    <div class="campo"${oculto}><div class="lbl">Liquidez</div><div class="seg" style="margin:0">
       <button class="${f.liquidez === 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="diaria">Diária</button>
       <button class="${f.liquidez !== 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="vencimento">No vencimento</button></div></div>
-    <div class="campo"><label for="f-venc">Vencimento <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+    <div class="campo"${oculto}><label for="f-venc">Vencimento <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
       <input id="f-venc" class="inp" type="date" data-f="vencimento" value="${esc(f.vencimento || '')}"></div>
     ${fotosFormHTML()}
     <div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="f-obs">${ic('chev', 'ic-s')}Observação</button>
@@ -3741,7 +3744,7 @@ function ajudasForm() {
     if (o && corrige(F) && S.d.ajustes.corrigir !== false && F.data_valor && F.data_valor < iso(hoje())) {
       const est = valorHoje({ valor: F.valor, data_valor: F.data_valor, indexador: F.indexador, taxa: F.taxa });
       if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">Usar este valor</button>`;
-    } else if (!o) t = 'Coloque o saldo de hoje; o app calcula o rendimento daqui para a frente.';
+    } else if (!o && corrige(F)) t = 'O saldo de hoje; o rendimento conta daqui para a frente.';
     av.innerHTML = t;
   }
 }
@@ -3759,7 +3762,7 @@ function salvarInvestimento(eOutro) {
   const inv = {
     id: f.id || uid(),
     nome: (f.nome || '').trim() || `${tipoDe(f.tipo).nome}${nomeBanco ? ' ' + nomeBanco : ''}`,
-    banco: f.banco || '', tipo: f.tipo, valor: Math.round(f.valor * 100) / 100, data_valor: f.data_valor || iso(hoje()),
+    banco: f.tipo === 'dinheiro' ? '' : f.banco || '', tipo: f.tipo, valor: Math.round(f.valor * 100) / 100, data_valor: f.data_valor || iso(hoje()),
     indexador: f.indexador, taxa: ix.taxa ? +f.taxa : 0, liquidez: f.liquidez, vencimento: f.vencimento || null,
     titular: f.titular === 'terceiros' ? 'terceiros' : 'meu', terceiro: f.titular === 'terceiros' ? String(f.terceiro).trim() : '',
     obs: (f.obs || '').trim(), fotos: (f.fotos || []).slice(), criado_em: f.original?.criado_em || new Date().toISOString(), atualizado_em: new Date().toISOString(),

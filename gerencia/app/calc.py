@@ -26,6 +26,7 @@ TIPOS = {
     "fundo": "Fundo",
     "acoes": "Ações/FII",
     "ouro": "Ouro",
+    "dinheiro": "Dinheiro",
     "previdencia": "Previdência",
     "outro": "Outro",
 }

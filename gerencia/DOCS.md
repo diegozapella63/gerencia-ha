@@ -152,6 +152,8 @@ Investimentos podem guardar imagens (comprovante, print do banco, extrato): no f
 | Estimado | 10% a.a. | sua estimativa (ações, FIIs, ouro); não corrige o valor sozinho |
 | Sem rendimento | — | o valor fica parado |
 
+**Dinheiro em espécie**: escolha o tipo Dinheiro; o formulário só pede nome e valor (sem banco, sem rendimento).
+
 **Ouro**: escolha o tipo Ouro. Ele vem com Estimado de 10% a.a.; troque pela valorização que você espera. Com Descontar IR, 15% sobre o ganho. Atualize o valor com a cotação de vez em quando (ou pelo Atualizar saldos).
 
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.

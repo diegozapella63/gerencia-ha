@@ -28,7 +28,7 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 
-VERSAO = "1.18.4"
+VERSAO = "1.18.5"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -772,7 +772,7 @@ def ia_status(d):
 IA_REGRAS = """Para cada investimento, devolva:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
@@ -824,7 +824,7 @@ Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixin
 "investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
@@ -859,14 +859,14 @@ def _dono(inv):
 
 # Atualizar saldos: uma listinha com o saldo de agora de cada investimento (às vezes de um terceiro, num print ou no WhatsApp)
 # aberto do Novo investimento: só investimentos, e um valor com um banco ou nome é o saldo de agora
-IA_REGRAS_SO_INVEST = """Este conteúdo veio da tela de investimentos: devolva só "investimentos" e deixe "lancamentos" vazio. Um valor citado com um banco, uma corretora ou o nome de um investimento (ex.: "30.350 nubank", "Nubank, valor atualizado, R$ 500") é o saldo de agora desse investimento: "valor" com o saldo e "existente" com o id do correspondente na lista abaixo, pelo banco, pelo nome e pelo dono. "Dinheiro" guardado (em espécie, em casa) também conta: tipo "outro", indexador "parado". Uma aplicação nova ("apliquei 2 mil no CDB") vai em "aporte"."""
+IA_REGRAS_SO_INVEST = """Este conteúdo veio da tela de investimentos: devolva só "investimentos" e deixe "lancamentos" vazio. Um valor citado com um banco, uma corretora ou o nome de um investimento (ex.: "30.350 nubank", "Nubank, valor atualizado, R$ 500") é o saldo de agora desse investimento: "valor" com o saldo e "existente" com o id do correspondente na lista abaixo, pelo banco, pelo nome e pelo dono. "Dinheiro" guardado (em espécie, em casa) também conta: tipo "dinheiro", indexador "parado", banco "". Uma aplicação nova ("apliquei 2 mil no CDB") vai em "aporte"."""
 
 
 IA_REGRAS_SALDOS = """Este conteúdo é uma lista de saldos atualizados{de_quem}: cada linha (ou cada bloco) traz um investimento, pelo banco ou pelo nome, e quanto ele tem agora (ex.: "Nubank, valor atualizado, R$ 500"). Devolva só "investimentos" e deixe "lancamentos" vazio. Um item por investimento citado, com:
 - "valor": o saldo de agora; "aporte": 0.
 - "existente": o id do investimento já cadastrado que corresponde a essa linha, pelo banco, pelo nome e pelo dono{pref}; "" se nenhum corresponder.
 - "nome" e "banco" como aparecem na linha; os outros campos, do jeito de sempre (se não aparecer, use os do investimento correspondente).
-"Dinheiro" guardado (em espécie, em casa) também conta: tipo "outro", indexador "parado"."""
+"Dinheiro" guardado (em espécie, em casa) também conta: tipo "dinheiro", indexador "parado", banco ""."""
 
 
 def ia_prompt(d, modo, com_anexo, texto, saldos=False, pessoa=None, so_invest=False):
@@ -1088,7 +1088,7 @@ def ia_simulada_saldos(texto, d, pessoa=None):
         n = nome.lower()
         ex = next((i for i in invs if n in (bancos.get(i.get("banco"), "") or "").lower() or n in (i.get("nome") or "").lower()), None)
         parado = n in ("dinheiro", "em casa", "em espécie", "cofre")
-        out.append({"nome": ex.get("nome") if ex else nome.capitalize(), "banco": "" if parado else nome, "tipo": ex.get("tipo") if ex else "outro",
+        out.append({"nome": ex.get("nome") if ex else nome.capitalize(), "banco": "" if parado else nome, "tipo": ex.get("tipo") if ex else ("dinheiro" if parado else "outro"),
                     "valor": valor, "aporte": 0, "existente": ex.get("id") if ex else "", "dono": "" if dono in (None, "meu") else dono,
                     "indexador": ex.get("indexador") if ex else ("parado" if parado else "cdi_pct"), "taxa": ex.get("taxa") if ex else (0 if parado else 100),
                     "liquidez": ex.get("liquidez") if ex else "diaria", "confianca": "alta" if ex else "media"})
