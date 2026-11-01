@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.21.0';
+const VERSAO = '1.21.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -41,9 +41,15 @@ const IDX = [
 const BENS_CATS = [['imoveis', 'Imóveis', 0], ['veiculos', 'Veículos', 15], ['eletronicos', 'Eletrônicos', 20], ['moveis', 'Móveis', 10], ['decoracao', 'Decoração e arte', 5],
   ['colecao', 'Colecionáveis', 0], ['cozinha', 'Cozinha e bar', 10], ['texteis', 'Tapetes e têxteis', 15], ['plantas', 'Plantas', 0], ['livros', 'Livros e jogos', 5],
   ['pets', 'Pets', 15], ['saude', 'Saúde', 10], ['vestuario', 'Roupas e calçados', 25], ['utilidades', 'Utilidades', 10], ['outros', 'Outros', 10]];
-// no formulário, só as categorias mais comuns para um bem cadastrado à mão (o InventarIA usa todas)
-const BENS_FORM = ['imoveis', 'veiculos', 'eletronicos', 'moveis', 'cozinha', 'decoracao', 'vestuario', 'outros'];
-const nomeCatBem = k => (BENS_CATS.find(c => c[0] === k) || [k, (S.bens && S.bens.categorias || []).find(c => c.id === k)?.nome || 'Outros'])[1];
+// As categorias dos bens são as do InventarIA (lá dá para renomear, criar e excluir), mais Imóveis e Veículos;
+// sem o InventarIA, as de costume. Categoria nova começa perdendo 10% ao ano.
+function catsBens() {
+  const inv = S.bens && S.bens.ok && S.bens.todas && S.bens.todas.length ? S.bens.todas.map(c => [c.id, c.nome, c.taxa]) : null;
+  if (!inv) return BENS_CATS;
+  const extra = BENS_CATS.filter(([k]) => (k === 'imoveis' || k === 'veiculos') && !inv.some(c => c[0] === k));
+  return [...extra, ...inv];
+}
+const nomeCatBem = k => (catsBens().find(c => c[0] === k) || BENS_CATS.find(c => c[0] === k) || [k, (S.bens && S.bens.categorias || []).find(c => c.id === k)?.nome || 'Outros'])[1];
 function taxaBem(k) {
   const v = (S.d.ajustes.bens_taxas || {})[k];
   return v != null && v !== '' && !isNaN(+v) ? +v : ((BENS_CATS.find(c => c[0] === k) || [])[2] ?? 10);
@@ -3742,12 +3748,13 @@ const rotPerda = t => t > 0 ? `Perde ${pct(t)}% por ano` : t < 0 ? `Valoriza ${p
 function camposBens(f) {
   if (f.dividir) {
     const soma = Object.values(f.partes || {}).reduce((a, v) => a + (+v || 0), 0);
-    return `<div class="campo"><div class="lbl">Valor por categoria</div><div class="bens-partes">${BENS_CATS.map(([k, n]) =>
+    return `<div class="campo"><div class="lbl">Valor por categoria</div><div class="bens-partes">${catsBens().map(([k, n]) =>
       `<label class="bens-tx"><span>${esc(n)}<small>${rotPerda(taxaBem(k))}</small></span><span class="pref mini larga"><span>R$</span><input data-fparte="${k}" inputmode="numeric" value="${f.partes && f.partes[k] ? NF2.format(f.partes[k]) : ''}" placeholder="0,00" aria-label="Valor em ${esc(n)}"></span></label>`).join('')}</div>
       <div class="ajuda" id="partes-soma">Total: <b>${brl(soma)}</b>. As taxas ficam em Mais › Invest.</div>
       <button type="button" class="link" data-a="f-dividir" data-v="">Usar uma categoria só</button></div>`;
   }
-  return `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${BENS_CATS.filter(([k]) => BENS_FORM.includes(k) || k === f.categoria_bem).map(([k, n]) =>
+  const cs = catsBens(), extra = f.categoria_bem && !cs.some(c => c[0] === f.categoria_bem) ? [[f.categoria_bem, nomeCatBem(f.categoria_bem)]] : [];
+  return `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${[...cs, ...extra].map(([k, n]) =>
       `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${n}</button>`).join('')}</div>
       <div class="ajuda">${rotPerda(taxaBem(f.categoria_bem || 'outros'))}. As taxas ficam em Mais › Invest.</div>
       <button type="button" class="link" data-a="f-dividir" data-v="1">Separar o valor por categoria</button></div>`;
@@ -3865,7 +3872,7 @@ function salvarInvestimento(eOutro) {
     // bens: a taxa vem da tabela de perda por categoria (Mais › Invest)
     ...(f.tipo === 'bens' ? { indexador: 'deprecia', taxa: taxaBem(f.categoria_bem || 'outros'), categoria_bem: f.categoria_bem || 'outros', liquidez: 'diaria', vencimento: null } : {}),
     ...(f.tipo === 'bens' && f.dividir ? (() => {
-      const partes = BENS_CATS.filter(([k]) => +(f.partes || {})[k] > 0).map(([k]) => ({ categoria: k, valor: round2(+f.partes[k]), taxa: taxaBem(k) }));
+      const partes = Object.keys(f.partes || {}).filter(k => +f.partes[k] > 0).map(k => ({ categoria: k, valor: round2(+f.partes[k]), taxa: taxaBem(k) }));
       return partes.length ? { partes, valor: round2(partes.reduce((a, p) => a + p.valor, 0)), taxa: taxaPartes(partes), categoria_bem: partes.length === 1 ? partes[0].categoria : 'varias' } : {};
     })() : { partes: undefined }),
     titular: f.titular === 'terceiros' ? 'terceiros' : 'meu', terceiro: f.titular === 'terceiros' ? String(f.terceiro).trim() : '',

@@ -71,7 +71,8 @@ class Bens:
                 comodos = {x.get("id"): x.get("nome") or "" for x in (self._get(c, "/api/integracao/comodos").get("comodos") or [])}
             except ErroBens:
                 comodos = {}
-            dados = {"itens": lista, "comodos": comodos, "categorias": {**NOMES_PADRAO, **(itens.get("categorias") or {})},
+            # as categorias da casa vêm do InventarIA (lá dá para renomear, criar e excluir); sem elas, as de costume
+            dados = {"itens": lista, "comodos": comodos, "categorias": dict(itens.get("categorias") or NOMES_PADRAO),
                      "versao": itens.get("versao") or c.get("versao") or "", "lido_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
             self.cache = (time.time(), dados)
             return dados
@@ -123,4 +124,6 @@ def resumo(dados, ajustes, hoje=None):
     arred = lambda xs: sorted(({**x, "hoje": round(x["hoje"], 2), **({"registrado": round(x["registrado"], 2)} if "registrado" in x else {})} for x in xs), key=lambda x: -x["hoje"])
     return {"ok": True, "hoje": round(tot_hoje, 2), "registrado": round(tot_reg, 2), "perde_ano": round(perde, 2), "n": len(itens),
             "categorias": arred(cats.values()), "comodos": arred(coms.values()),
+            # todas as categorias do InventarIA, na ordem de lá, para o tipo Bens do GerencIA usar as mesmas
+            "todas": [{"id": k, "nome": n, "taxa": tx.get(k, 10)} for k, n in (dados.get("categorias") or {}).items()],
             "maiores": sorted(itens, key=lambda x: -x["hoje"])[:10], "versao": dados.get("versao"), "lido_em": dados.get("lido_em")}

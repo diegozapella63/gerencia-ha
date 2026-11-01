@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.21.1
+
+- As **categorias dos bens** vêm do InventarIA (1.17.0 ou mais novo, onde dá para renomear, criar e excluir categorias), mais Imóveis e Veículos. Uma categoria nova começa perdendo 10% ao ano. Sem o InventarIA, ficam as de costume.
+
 ## 1.21.0
 
 - **Separar um bem por categoria** (opcional): no tipo Bens, "Separar o valor por categoria" abre as categorias do InventarIA (e Imóveis e Veículos), cada uma com o seu valor. O total é a soma, e cada parte perde a taxa da sua categoria. Sem separar, continua uma categoria só para o total.
