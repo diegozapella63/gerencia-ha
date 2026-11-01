@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.19.3
+
+- **Números grandes não se sobrepõem mais**: nos pares de valores (Hoje e Em N anos, Total e Rende por mês…), um número comprido diminui a letra em vez de invadir o vizinho, e os dois ficam do mesmo tamanho.
+- **Evolução só com bens** (sem investimentos seus nem aportes): mostra só a linha dos bens perdendo valor, com "Bens hoje" e quanto perdem, sem as linhas zeradas de investimento e sem "+R$ 0 de rendimento".
+
 ## 1.19.2
 
 - **Bens na Divisão e na Evolução** (em Tudo e em Só o meu): na Divisão, os bens do InventarIA são uma fatia à parte, "Bens da casa", com quanto perdem por ano. Na Evolução, o Hoje e o Em N anos somam os bens, a linha **Bens** mostra a perda de valor ao longo dos anos e a tabela por ano ganha a coluna Bens.

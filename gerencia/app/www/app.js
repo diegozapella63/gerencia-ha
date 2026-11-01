@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.19.2';
+const VERSAO = '1.19.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -894,17 +894,19 @@ function grafEvolucao(lista) {
   CACHE.hist = S.d.historico.filter(h => h.d < iso(hoje())).map(h => ({ t: pData(h.d).getTime(), v: +h[campo] || 0 }));
   CACHE.bens = comBensG() ? pj.pts.map(p => ({ t: p.t, v: bensEm(p.m) })) : null;
   const b0 = CACHE.bens ? CACHE.bens[0].v : 0, bN = CACHE.bens ? CACHE.bens[CACHE.bens.length - 1].v : 0;
+  const soBens = CACHE.soBens = !!CACHE.bens && !lista.length && !ap;
+  if (soBens) CACHE.hist = [];
   const anosTxt = u.gAnos === 1 ? '1 ano' : `${u.gAnos} anos`;
   let html = `<div class="graf-card">
-    <div class="stat-duo"><div><span>Hoje</span><b>${brl(pj.pts[0].valor + b0, 0)}</b>${CACHE.bens ? `<small class="neutro">com ${brl(b0, 0)} em bens</small>` : ''}</div>
-      <div><span>Em ${anosTxt}${u.gIR ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small>+${brl(fim.valor - fim.aplicado, 0)} de rendimento${CACHE.bens ? ` · bens −${brl(b0 - bN, 0)}` : ''}</small></div></div>
+    <div class="stat-duo"><div><span>${soBens ? 'Bens hoje' : 'Hoje'}</span><b>${brl(pj.pts[0].valor + b0, 0)}</b>${CACHE.bens && !soBens ? `<small class="neutro">com ${brl(b0, 0)} em bens</small>` : ''}</div>
+      <div><span>Em ${anosTxt}${u.gIR && !soBens ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small${soBens ? ' class="neutro"' : ''}>${soBens ? `perdem ${brl(b0 - bN, 0)}` : `+${brl(fim.valor - fim.aplicado, 0)} de rendimento${CACHE.bens ? ` · bens −${brl(b0 - bN, 0)}` : ''}`}</small></div></div>
     <div class="chart" id="ch-evo" role="img" aria-label="Evolução do dinheiro: registrado até hoje e projetado para ${anosTxt}"></div>
-    <div class="leg">
+    <div class="leg">${soBens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : `
       ${CACHE.hist.length ? `<span><i class="k" style="--kc:var(--accent)"></i>Registrado</span>` : ''}
       <span><i class="k tr" style="--kc:var(--accent)"></i>Projetado</span>
       <span><i class="k" style="--kc:var(--c0)"></i>${ap ? 'Investido + aportes' : 'Valor investido'}</span>
       <span><i class="k" style="--kc:var(--c2)"></i>Em dinheiro de hoje</span>
-      ${CACHE.bens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : ''}
+      ${CACHE.bens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : ''}`}
     </div></div>`;
   const outroAnos = !HZ_FIXOS.includes(u.gAnos);
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c5">${HZ_FIXOS.map(a =>
@@ -916,9 +918,9 @@ function grafEvolucao(lista) {
   </div>
   <p class="nota">Com os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%): rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação.</p>
   <details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Ver tabela por ano</summary>
-  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th><th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th>${CACHE.bens ? '<th class="n">Bens</th>' : ''}</tr></thead><tbody>
+  <div class="tabela-rola"><table class="tabela"><thead><tr><th>Quando</th>${soBens ? '' : '<th class="n">Projetado</th><th class="n">Rendeu</th><th class="n">Em dinheiro de hoje</th>'}${CACHE.bens ? '<th class="n">Bens</th>' : ''}</tr></thead><tbody>
   ${Array.from({ length: u.gAnos }, (_, k) => pj.pts[(k + 1) * 12]).map(p =>
-    `<tr><td>${fMesAno(new Date(p.t))}</td><td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td>${CACHE.bens ? `<td class="n">${brl(bensEm(p.m), 0)}</td>` : ''}</tr>`).join('')}
+    `<tr><td>${fMesAno(new Date(p.t))}</td>${soBens ? '' : `<td class="n">${brl(p.valor, 0)}</td><td class="n">${brl(p.valor - p.aplicado, 0)}</td><td class="n">${brl(p.real, 0)}</td>`}${CACHE.bens ? `<td class="n">${brl(bensEm(p.m), 0)}</td>` : ''}</tr>`).join('')}
   </tbody></table></div></details>`;
   return html;
 }
@@ -973,7 +975,8 @@ function desenharEvolucao() {
   if (hist.length > 140) { const passo = Math.ceil(hist.length / 140); hist = hist.filter((_, k) => k % passo === 0 || k === hist.length - 1); }
   const histC = hist.length ? [...hist, { t: t0, v: proj[0].valor }] : [];
   const xMin = histC.length ? histC[0].t : t0, xMax = proj[proj.length - 1].t;
-  const vals = [...proj.flatMap(p => [p.valor, p.aplicado, p.real]), ...histC.map(p => p.v), ...(CACHE.bens || []).map(p => p.v)];
+  const soBens = !!CACHE.soBens;
+  const vals = soBens ? CACHE.bens.map(p => p.v) : [...proj.flatMap(p => [p.valor, p.aplicado, p.real]), ...histC.map(p => p.v), ...(CACHE.bens || []).map(p => p.v)];
   let lo = Math.min(...vals), hi = Math.max(...vals);
   if (hi - lo < 1) { hi += 1; lo = Math.max(0, lo - 1); }
   const step = niceStep((hi - lo) / 4);
@@ -1006,16 +1009,21 @@ function desenharEvolucao() {
   const xh = X(t0).toFixed(1);
   if (histC.length) g += `<line class="hoje" x1="${xh}" x2="${xh}" y1="${pt - 8}" y2="${H - pb}"/><text x="${xh}" y="${pt - 11}" text-anchor="middle">hoje</text>`;
   // área do rendimento (entre aplicado e projetado)
-  const area = linha(proj, p => p.valor) + proj.slice().reverse().map(p => `L${X(p.t).toFixed(1)},${Y(p.aplicado).toFixed(1)}`).join('') + 'Z';
-  g += `<path class="a-proj" d="${area}"/>`;
-  g += `<path class="l-apl" d="${linha(proj, p => p.aplicado)}"/>`;
-  g += `<path class="l-real" d="${linha(proj, p => p.real)}"/>`;
-  if (histC.length) g += `<path class="l-hist" d="${linha(histC, p => p.v)}"/>`;
-  g += `<path class="l-proj" d="${linha(proj, p => p.valor)}"/>`;
-  if (CACHE.bens) g += `<path class="l-bens" d="${linha(CACHE.bens, p => p.v)}"/>`;
-  const ult = proj[proj.length - 1];
-  g += `<circle class="pt" cx="${X(ult.t).toFixed(1)}" cy="${Y(ult.valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
-  g += `<circle class="pt" cx="${xh}" cy="${Y(proj[0].valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
+  if (!soBens) {
+    const area = linha(proj, p => p.valor) + proj.slice().reverse().map(p => `L${X(p.t).toFixed(1)},${Y(p.aplicado).toFixed(1)}`).join('') + 'Z';
+    g += `<path class="a-proj" d="${area}"/>`;
+    g += `<path class="l-apl" d="${linha(proj, p => p.aplicado)}"/>`;
+    g += `<path class="l-real" d="${linha(proj, p => p.real)}"/>`;
+    if (histC.length) g += `<path class="l-hist" d="${linha(histC, p => p.v)}"/>`;
+    g += `<path class="l-proj" d="${linha(proj, p => p.valor)}"/>`;
+  }
+  if (CACHE.bens) g += `<path class="l-bens${soBens ? ' so' : ''}" d="${linha(CACHE.bens, p => p.v)}"/>`;
+  const ult = proj[proj.length - 1], bU = CACHE.bens ? CACHE.bens[CACHE.bens.length - 1] : null;
+  if (soBens) g += `<circle class="pt" cx="${X(bU.t).toFixed(1)}" cy="${Y(bU.v).toFixed(1)}" r="4.5" fill="var(--c4)"/><circle class="pt" cx="${X(CACHE.bens[0].t).toFixed(1)}" cy="${Y(CACHE.bens[0].v).toFixed(1)}" r="4.5" fill="var(--c4)"/>`;
+  else {
+    g += `<circle class="pt" cx="${X(ult.t).toFixed(1)}" cy="${Y(ult.valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
+    g += `<circle class="pt" cx="${xh}" cy="${Y(proj[0].valor).toFixed(1)}" r="4.5" fill="var(--accent)"/>`;
+  }
   g += `<g id="cross" style="display:none"><line class="cross" y1="${pt}" y2="${H - pb}"/></g>`;
 
   el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg><div class="tip" style="display:none"></div>`;
@@ -1037,7 +1045,7 @@ function desenharEvolucao() {
     $('line', cross).setAttribute('x1', qx); $('line', cross).setAttribute('x2', qx);
     $$('circle.mk', cross).forEach(c => c.remove());
     const bq = q.p && CACHE.bens ? bensEm(q.p.m) : null;
-    const pontos = q.p ? [[q.p.valor, 'var(--accent)'], [q.p.aplicado, 'var(--c0)'], [q.p.real, 'var(--c2)'], ...(bq != null ? [[bq, 'var(--c4)']] : [])] : [[q.hist, 'var(--accent)']];
+    const pontos = q.p ? [...(soBens ? [] : [[q.p.valor, 'var(--accent)'], [q.p.aplicado, 'var(--c0)'], [q.p.real, 'var(--c2)']]), ...(bq != null ? [[bq, 'var(--c4)']] : [])] : [[q.hist, 'var(--accent)']];
     for (const [v, c] of pontos) {
       const ci = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       ci.setAttribute('class', 'pt mk'); ci.setAttribute('cx', qx); ci.setAttribute('cy', Y(v)); ci.setAttribute('r', 4.5); ci.setAttribute('fill', c);
@@ -1049,7 +1057,7 @@ function desenharEvolucao() {
     cab.textContent = q.p ? (q.p.m === 0 ? 'Hoje' : `${fMesAno(dt)} · projetado`) : `${fData(dt)} · registrado`;
     tip.appendChild(cab);
     const linhas = q.p
-      ? [[q.p.valor, 'Projetado', 'var(--accent)', true], [q.p.aplicado, 'Valor investido', 'var(--c0)'], [q.p.real, 'Em dinheiro de hoje', 'var(--c2)'], ...(bq != null ? [[bq, 'Bens', 'var(--c4)']] : [])]
+      ? [...(soBens ? [] : [[q.p.valor, 'Projetado', 'var(--accent)', true], [q.p.aplicado, 'Valor investido', 'var(--c0)'], [q.p.real, 'Em dinheiro de hoje', 'var(--c2)']]), ...(bq != null ? [[bq, 'Bens', 'var(--c4)']] : [])]
       : [[q.hist, 'Registrado', 'var(--accent)']];
     for (const [v, n, c, tr] of linhas) {
       const row = document.createElement('div'); row.className = 't-r';
@@ -3897,6 +3905,13 @@ function ajustarTextos() {
     el.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(el).fontSize), n = 0;
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14 && n++ < 40) { fs -= 1.5; el.style.fontSize = fs + 'px'; }
+  });
+  // os dois números de cada par ficam do mesmo tamanho (o menor dos dois)
+  $$('.stat-duo').forEach(duo => {
+    const bs = $$('b', duo).filter(b => b.parentElement.parentElement === duo);
+    if (bs.length < 2) return;
+    const fs = Math.min(...bs.map(b => parseFloat(getComputedStyle(b).fontSize)));
+    bs.forEach(b => { b.style.fontSize = fs + 'px'; });
   });
 }
 function desenharGraficos() {

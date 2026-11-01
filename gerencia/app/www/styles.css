@@ -393,9 +393,11 @@ input[type="date"].inp { padding-right: 10px; }
 
 /* ---------- gráficos */
 .graf-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px 14px 14px; margin-bottom: 16px; }
-.stat-duo { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; gap: 0 10px; margin: 0 6px 14px; }
-/* rótulo, valor e nota em linhas comuns às duas colunas: um rótulo que quebra em duas linhas não desce o valor do lado */
-.stat-duo > div { min-width: 0; display: grid; grid-row: span 3; grid-template-rows: subgrid; align-content: start; }
+.stat-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: 0 10px; margin: 0 6px 14px; }
+/* rótulo, valor e nota em linhas comuns às duas colunas: um rótulo que quebra em duas linhas não desce o valor do lado.
+   As colunas não crescem com o número: um valor comprido diminui a letra (ajustarTextos) em vez de invadir o vizinho */
+.stat-duo > div { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-row: span 3; grid-template-rows: subgrid; align-content: start; }
+.stat-duo div b { min-width: 0; overflow: hidden; }
 .stat-duo div span { display: block; color: var(--muted); font-size: 14px; }
 .stat-duo div b { display: block; font: 700 40px/1.05 var(--font-d); white-space: nowrap; }
 .stat-duo div small { color: var(--good); font-weight: 600; font-size: 13px; }
@@ -410,6 +412,7 @@ input[type="date"].inp { padding-right: 10px; }
 .chart .l-apl { stroke: var(--c0); stroke-width: 2; fill: none; }
 .chart .l-real { stroke: var(--c2); stroke-width: 2; fill: none; }
 .chart .l-bens { stroke: var(--c4); stroke-width: 2; fill: none; stroke-dasharray: 2 4; stroke-linecap: round; }
+.chart .l-bens.so { stroke-dasharray: none; stroke-width: 2.5; }
 .stat-duo div small.neutro { color: var(--muted); font-weight: 500; }
 .chart .pt { stroke: var(--card); stroke-width: 2; }
 .tip {
