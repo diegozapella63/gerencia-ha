@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.20.0';
+const VERSAO = '1.21.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -38,11 +38,11 @@ const IDX = [
   { id: 'deprecia', nome: 'Perde valor', oculto: true },
 ];
 // perda de valor por ano dos bens, por categoria (as mesmas do InventarIA, e Veículos); muda em Mais › Invest
-const BENS_CATS = [['veiculos', 'Veículos', 15], ['eletronicos', 'Eletrônicos', 20], ['moveis', 'Móveis', 10], ['decoracao', 'Decoração e arte', 5],
+const BENS_CATS = [['imoveis', 'Imóveis', 0], ['veiculos', 'Veículos', 15], ['eletronicos', 'Eletrônicos', 20], ['moveis', 'Móveis', 10], ['decoracao', 'Decoração e arte', 5],
   ['colecao', 'Colecionáveis', 0], ['cozinha', 'Cozinha e bar', 10], ['texteis', 'Tapetes e têxteis', 15], ['plantas', 'Plantas', 0], ['livros', 'Livros e jogos', 5],
   ['pets', 'Pets', 15], ['saude', 'Saúde', 10], ['vestuario', 'Roupas e calçados', 25], ['utilidades', 'Utilidades', 10], ['outros', 'Outros', 10]];
 // no formulário, só as categorias mais comuns para um bem cadastrado à mão (o InventarIA usa todas)
-const BENS_FORM = ['veiculos', 'eletronicos', 'moveis', 'cozinha', 'decoracao', 'vestuario', 'outros'];
+const BENS_FORM = ['imoveis', 'veiculos', 'eletronicos', 'moveis', 'cozinha', 'decoracao', 'vestuario', 'outros'];
 const nomeCatBem = k => (BENS_CATS.find(c => c[0] === k) || [k, (S.bens && S.bens.categorias || []).find(c => c.id === k)?.nome || 'Outros'])[1];
 function taxaBem(k) {
   const v = (S.d.ajustes.bens_taxas || {})[k];
@@ -217,8 +217,16 @@ function valorHoje(inv, h = hoje(), d = S.d) {
   const v = +inv.valor || 0;
   if (d.ajustes.corrigir === false || !corrige(inv)) return v;
   const d0 = pData(inv.data_valor) || h;
+  // bem separado por categoria: cada parte perde a taxa da sua categoria
+  if (inv.indexador === 'deprecia' && inv.partes && inv.partes.length) return partesHoje(inv, h).reduce((a, p) => a + p.v, 0);
   return v * Math.pow(1 + taxaAnual(inv, d.indices), diasUteis(d0, h) / 252);
 }
+function partesHoje(inv, h = hoje()) {
+  const anos = S.d.ajustes.corrigir === false ? 0 : diasUteis(pData(inv.data_valor) || h, h) / 252;
+  return (inv.partes || []).map(p => ({ categoria: p.categoria, v: (+p.valor || 0) * Math.pow(1 - (+p.taxa || 0) / 100, anos), r: -(+p.taxa || 0) / 100 }));
+}
+// a taxa de um bem separado: a média das partes, pesada pelo valor
+const taxaPartes = partes => { const t = partes.reduce((a, p) => a + (+p.valor || 0), 0); return t ? round2(partes.reduce((a, p) => a + (+p.valor || 0) * (+p.taxa || 0), 0) / t) : 0; };
 // quanto rende por mês; bens que perdem valor não entram (0) — a perda aparece à parte
 const rendeMes = (v, r) => Math.max(0, v * (Math.pow(1 + r, 1 / 12) - 1));
 const perdeMes = (v, r) => Math.max(0, -v * (Math.pow(1 + r, 1 / 12) - 1));
@@ -243,7 +251,7 @@ function rotuloTaxa(inv) {
     case 'selic_mais': return +inv.taxa ? `Selic + ${t}% a.a.` : 'Selic';
     case 'poupanca': return 'Poupança';
     case 'estimado': return `≈ ${t}% a.a. estimado`;
-    case 'deprecia': return `perde ${t}% a.a.`;
+    case 'deprecia': return +inv.taxa > 0 ? `perde ${t}% a.a.` : +inv.taxa < 0 ? `valoriza ${pct(-inv.taxa)}% a.a.` : 'mantém o valor';
     default: return 'Sem rendimento';
   }
 }
@@ -268,10 +276,9 @@ function porEscopo(esc) {
 
 function projetar(lista, anos, aporte, comIR) {
   const h = hoje(), I = S.d.indices, meses = anos * 12;
-  const base = lista.map(i => ({
-    v: valorHoje(i, h), r: taxaAnual(i), ir: tipoDe(i.tipo).ir,
-    idade: Math.max(0, diasEntre(pData(i.data_valor) || h, h)),
-  }));
+  const base = lista.flatMap(i => i.indexador === 'deprecia' && i.partes && i.partes.length
+    ? partesHoje(i, h).map(p => ({ v: p.v, r: p.r, ir: 'isento', idade: 0 }))
+    : [{ v: valorHoje(i, h), r: taxaAnual(i), ir: tipoDe(i.tipo).ir, idade: Math.max(0, diasEntre(pData(i.data_valor) || h, h)) }]);
   const V0 = base.reduce((s, b) => s + b.v, 0);
   const rMed = V0 > 0 ? base.reduce((s, b) => s + b.v * b.r, 0) / V0 : I.cdi / 100;
   const fMed = Math.pow(1 + rMed, 1 / 12);
@@ -878,7 +885,7 @@ function cardInv(i, v) {
   const velho = dv && diasEntre(dv, h) > 60 && i.indexador !== 'parado';
   return `<button class="inv" data-a="inv" data-id="${i.id}" style="--c:${corOk(b?.cor) || 'var(--line-2)'}">
     <div class="inv-top"><div class="inv-nome">${esc(i.nome)}</div><div class="inv-valor">${brl(v)}</div></div>
-    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${esc(nomeCatBem(i.categoria_bem))}` : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
+    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${i.partes && i.partes.length > 1 ? plural(i.partes.length, 'categoria', 'categorias') : esc(nomeCatBem(i.partes && i.partes.length ? i.partes[0].categoria : i.categoria_bem))}` : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
     <div class="tags"><span class="tag taxa">${esc(rotuloTaxa(i))}</span>${tagDono(i)}${liq}</div>
     <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : r < 0 ? `perde ≈ ${brl(perdeMes(v, r))} por mês` : 'Não rende'}</span>
       <span${velho ? ' style="color:var(--danger)"' : ''}>${dv ? 'valor de ' + fDataC(dv) + (dv.getFullYear() !== h.getFullYear() ? '/' + String(dv.getFullYear()).slice(2) : '') : ''}</span></div>
@@ -916,13 +923,14 @@ function grafEvolucao(lista) {
   const b0 = CACHE.bens ? CACHE.bens[0].v : 0, bN = CACHE.bens ? CACHE.bens[CACHE.bens.length - 1].v : 0;
   const soBens = CACHE.soBens = !!CACHE.bens && !lista.length && !ap;
   const lb = lista.filter(i => i.tipo === 'bens'), bi0 = lb.reduce((a, i) => a + valorHoje(i), 0);
-  const biN = lb.reduce((a, i) => a + valorHoje(i) * Math.pow(1 + taxaAnual(i), u.gAnos), 0);
+  const biN = lb.reduce((a, i) => a + (i.partes && i.partes.length ? partesHoje(i).reduce((x, p) => x + p.v * Math.pow(1 + p.r, u.gAnos), 0)
+    : valorHoje(i) * Math.pow(1 + taxaAnual(i), u.gAnos)), 0);
   const rend = fim.valor - fim.aplicado + (bi0 - biN), perdaBens = (bi0 - biN) + (b0 - bN);
   if (soBens) CACHE.hist = [];
   const anosTxt = u.gAnos === 1 ? '1 ano' : `${u.gAnos} anos`;
   let html = `<div class="graf-card">
     <div class="stat-duo"><div><span>${soBens ? 'Bens hoje' : 'Hoje'}</span><b>${brl(pj.pts[0].valor + b0, 0)}</b>${CACHE.bens && !soBens ? `<small class="neutro">com ${brl(b0, 0)} em bens</small>` : ''}</div>
-      <div><span>Em ${anosTxt}${u.gIR && !soBens ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small${soBens ? ' class="neutro"' : ''}>${soBens ? `perdem ${brl(b0 - bN, 0)}` : `+${brl(rend, 0)} de rendimento${perdaBens > 0.5 ? ` · bens −${brl(perdaBens, 0)}` : ''}`}</small></div></div>
+      <div><span>Em ${anosTxt}${u.gIR && !soBens ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small${soBens ? ' class="neutro"' : ''}>${soBens ? `perdem ${brl(b0 - bN, 0)}` : `+${brl(rend, 0)} de rendimento${perdaBens > 0.5 ? ` · bens −${brl(perdaBens, 0)}` : perdaBens < -0.5 ? ` · bens +${brl(-perdaBens, 0)}` : ''}`}</small></div></div>
     <div class="chart" id="ch-evo" role="img" aria-label="Evolução do dinheiro: registrado até hoje e projetado para ${anosTxt}"></div>
     <div class="leg">${soBens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : `
       ${CACHE.hist.length ? `<span><i class="k" style="--kc:var(--accent)"></i>Registrado</span>` : ''}
@@ -3372,14 +3380,16 @@ function maisInvest() {
 }
 // perda de valor por ano, por categoria: vale para os bens do InventarIA e para os investimentos do tipo Bens (de terceiros, um carro…)
 function cardPerdaBens() {
-  const usadas = new Set([...S.d.investimentos.filter(i => i.tipo === 'bens').map(i => i.categoria_bem || 'outros'),
+  const catsInv = i => i.partes && i.partes.length ? i.partes.map(p => p.categoria) : [i.categoria_bem || 'outros'];
+  const usadas = new Set([...S.d.investimentos.filter(i => i.tipo === 'bens').flatMap(catsInv),
     ...(bensOn() ? S.bens.categorias.map(c => c.id) : [])]);
   if (!usadas.size) return '';
-  const valor = k => S.d.investimentos.filter(i => i.tipo === 'bens' && (i.categoria_bem || 'outros') === k).reduce((a, i) => a + valorHoje(i), 0)
+  const valor = k => S.d.investimentos.filter(i => i.tipo === 'bens').reduce((a, i) => a + (i.partes && i.partes.length
+      ? partesHoje(i).filter(p => p.categoria === k).reduce((x, p) => x + p.v, 0) : (i.categoria_bem || 'outros') === k ? valorHoje(i) : 0), 0)
     + (bensOn() ? (S.bens.categorias.find(c => c.id === k)?.hoje || 0) : 0);
   const cats = [...usadas].sort((a, b) => valor(b) - valor(a));
   return `<section class="card" id="perda-bens">${maisCab('sofa', 'Perda de valor dos bens')}
-    ${maisLead('Quanto cada categoria perde por ano.')}
+    ${maisLead('Quanto cada categoria perde por ano. Negativo: valoriza.')}
     <div class="bens-taxas">${cats.map(k => `<label class="bens-tx"><span>${esc(nomeCatBem(k))}<small>${brl(valor(k), 0)}</small></span><span class="pref mini"><input data-bens-taxa="${esc(k)}" inputmode="decimal" value="${String(taxaBem(k)).replace('.', ',')}" aria-label="Perda por ano de ${esc(nomeCatBem(k))}"><span>%</span></span></label>`).join('')}</div></section>`;
 }
 const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
@@ -3582,6 +3592,7 @@ function abrirInvestimento(id, preset) {
   const inv = id && S.d.investimentos.find(i => i.id === id);
   if (inv) {
     F = novoForm(Object.assign(clone(inv), { original: inv, obsAberta: !!inv.obs, idxEditado: true, dataEditada: true, bancosNovos: [], erros: {}, vencimento: inv.vencimento || '' }));
+    if (inv.partes && inv.partes.length) Object.assign(F, { dividir: true, partes: Object.fromEntries(inv.partes.map(p => [p.categoria, +p.valor || 0])) });
   } else {
     F = novoForm(preset);
   }
@@ -3726,6 +3737,22 @@ function confirmarTransferir() {
   }, `Transferido ${brl(t.valor, 0)} de ${de0.nome} para ${para0.nome}`).then(ok => { if (ok) { TR = null; F = null; fecharFolha(); } });
 }
 
+// Bens: uma categoria para o total, ou (se quiser) o valor separado pelas categorias do InventarIA, cada uma com a sua perda por ano
+const rotPerda = t => t > 0 ? `Perde ${pct(t)}% por ano` : t < 0 ? `Valoriza ${pct(-t)}% por ano` : 'Mantém o valor';
+function camposBens(f) {
+  if (f.dividir) {
+    const soma = Object.values(f.partes || {}).reduce((a, v) => a + (+v || 0), 0);
+    return `<div class="campo"><div class="lbl">Valor por categoria</div><div class="bens-partes">${BENS_CATS.map(([k, n]) =>
+      `<label class="bens-tx"><span>${esc(n)}<small>${rotPerda(taxaBem(k))}</small></span><span class="pref mini larga"><span>R$</span><input data-fparte="${k}" inputmode="numeric" value="${f.partes && f.partes[k] ? NF2.format(f.partes[k]) : ''}" placeholder="0,00" aria-label="Valor em ${esc(n)}"></span></label>`).join('')}</div>
+      <div class="ajuda" id="partes-soma">Total: <b>${brl(soma)}</b>. As taxas ficam em Mais › Invest.</div>
+      <button type="button" class="link" data-a="f-dividir" data-v="">Usar uma categoria só</button></div>`;
+  }
+  return `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${BENS_CATS.filter(([k]) => BENS_FORM.includes(k) || k === f.categoria_bem).map(([k, n]) =>
+      `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${n}</button>`).join('')}</div>
+      <div class="ajuda">${rotPerda(taxaBem(f.categoria_bem || 'outros'))}. As taxas ficam em Mais › Invest.</div>
+      <button type="button" class="link" data-a="f-dividir" data-v="1">Separar o valor por categoria</button></div>`;
+}
+
 function montarFormInv() {
   const f = F;
   const ix = idxDe(f.indexador);
@@ -3763,12 +3790,10 @@ function montarFormInv() {
     <div class="campo"><div class="lbl">Tipo</div><div class="chips" style="margin:0">${TIPOS.map(t =>
       `<button class="chip${f.tipo === t.id ? ' on' : ''}" data-a="f-tipo" data-v="${t.id}">${t.nome}</button>`).join('')}</div></div>
     <div class="duo"><div class="campo" style="margin-bottom:6px"><label for="f-valor">Valor atual</label>
-        <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div></div>
+        <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"${f.tipo === 'bens' && f.dividir ? ' readonly aria-readonly="true" title="A soma das categorias"' : ''}></div></div>
       <div class="campo" style="margin-bottom:6px"><label for="f-data">Valor em</label><input id="f-data" class="inp" type="date" data-f="data_valor" value="${esc(f.data_valor)}" max="${iso(hoje())}"></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:20px"></div>
-    ${f.tipo === 'bens' ? `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${BENS_CATS.filter(([k]) => BENS_FORM.includes(k) || k === f.categoria_bem).map(([k, n]) =>
-      `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${n}</button>`).join('')}</div>
-      <div class="ajuda">Perde ${pct(taxaBem(f.categoria_bem || 'outros'))}% por ano. As taxas ficam em Mais › Invest.</div></div>` : ''}
+    ${f.tipo === 'bens' ? camposBens(f) : ''}
     <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${x.nome}</button>`).join('')}</div>
       ${ix.taxa ? `<div class="pref${err('taxa')}">${ix.pre ? `<span>${ix.pre}</span>` : ''}<input data-f="taxa" inputmode="decimal" value="${f.taxa === '' || f.taxa == null ? '' : String(f.taxa).replace('.', ',')}" placeholder="${ix.ph}"><span>${ix.suf}</span></div>` : ''}
@@ -3814,7 +3839,8 @@ function ajudasForm() {
     if (o && corrige(F) && S.d.ajustes.corrigir !== false && F.data_valor && F.data_valor < iso(hoje())) {
       const est = valorHoje({ valor: F.valor, data_valor: F.data_valor, indexador: F.indexador, taxa: F.taxa });
       if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">Usar este valor</button>`;
-    } else if (!o && F.tipo === 'bens') t = 'O valor de hoje; ele perde a taxa da categoria por ano.';
+    } else if (F.tipo === 'bens' && F.dividir) t = 'A soma das categorias abaixo.';
+    else if (!o && F.tipo === 'bens') t = 'O valor de hoje; ele perde a taxa da categoria por ano.';
     else if (!o && corrige(F)) t = 'O saldo de hoje; o rendimento conta daqui para a frente.';
     av.innerHTML = t;
   }
@@ -3823,6 +3849,7 @@ function ajudasForm() {
 function salvarInvestimento(eOutro) {
   const f = F;
   f.erros = {};
+  if (f.tipo === 'bens' && f.dividir) f.valor = round2(Object.values(f.partes || {}).reduce((a, v) => a + (+v || 0), 0));
   const ix = idxDe(f.indexador);
   if (!(f.valor > 0)) f.erros.valor = 'Coloque o valor.';
   if (ix.taxa && (f.taxa === '' || f.taxa == null || isNaN(f.taxa))) f.erros.taxa = 'Coloque a taxa.';
@@ -3837,6 +3864,10 @@ function salvarInvestimento(eOutro) {
     indexador: f.indexador, taxa: ix.taxa ? +f.taxa : 0, liquidez: f.liquidez, vencimento: f.vencimento || null,
     // bens: a taxa vem da tabela de perda por categoria (Mais › Invest)
     ...(f.tipo === 'bens' ? { indexador: 'deprecia', taxa: taxaBem(f.categoria_bem || 'outros'), categoria_bem: f.categoria_bem || 'outros', liquidez: 'diaria', vencimento: null } : {}),
+    ...(f.tipo === 'bens' && f.dividir ? (() => {
+      const partes = BENS_CATS.filter(([k]) => +(f.partes || {})[k] > 0).map(([k]) => ({ categoria: k, valor: round2(+f.partes[k]), taxa: taxaBem(k) }));
+      return partes.length ? { partes, valor: round2(partes.reduce((a, p) => a + p.valor, 0)), taxa: taxaPartes(partes), categoria_bem: partes.length === 1 ? partes[0].categoria : 'varias' } : {};
+    })() : { partes: undefined }),
     titular: f.titular === 'terceiros' ? 'terceiros' : 'meu', terceiro: f.titular === 'terceiros' ? String(f.terceiro).trim() : '',
     obs: (f.obs || '').trim(), fotos: (f.fotos || []).slice(), criado_em: f.original?.criado_em || new Date().toISOString(), atualizado_em: new Date().toISOString(),
   };
@@ -4240,6 +4271,7 @@ document.addEventListener('click', ev => {
       F[el.dataset.k] = v;
       if (el.dataset.k === 'titular' && v === 'terceiros') setTimeout(() => { const i = $('[data-f="terceiro"]'); if (i && !i.value) i.focus(); }, 30);
       pintarFolha(); break;
+    case 'f-dividir': F.dividir = !!v; if (v && !F.partes) F.partes = F.valor ? { [F.categoria_bem || 'outros']: F.valor } : {}; pintarFolha(); break;
     case 'f-tipo': {
       F.tipo = v;
       const p = tipoDe(v).p;
@@ -4316,6 +4348,15 @@ document.addEventListener('click', ev => {
 
 document.addEventListener('input', ev => {
   const el = ev.target;
+  if (el.dataset.fparte && F) {
+    const dig = el.value.replace(/\D/g, '').slice(0, 13), v = dig ? parseInt(dig, 10) / 100 : 0;
+    F.partes = Object.assign({}, F.partes, { [el.dataset.fparte]: v });
+    el.value = dig ? NF2.format(v) : '';
+    F.valor = round2(Object.values(F.partes).reduce((a, x) => a + (+x || 0), 0)); delete F.erros.valor;
+    const vi = $('[data-f="valor"]'); if (vi) vi.value = F.valor ? NF2.format(F.valor) : '';
+    const ps = $('#partes-soma'); if (ps) ps.innerHTML = `Total: <b>${brl(F.valor)}</b>. As taxas ficam em Mais › Invest.`;
+    return;
+  }
   if (el.dataset.f && F) {
     const k = el.dataset.f;
     if (k === 'valor') {
@@ -4476,11 +4517,16 @@ document.addEventListener('keydown', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.dataset.bensTaxa) {
-    const k = el.dataset.bensTaxa, v = Math.max(0, Math.min(100, Number(String(el.value).replace(',', '.')) || 0));
+    // negativa: valoriza (um imóvel, por exemplo)
+    const k = el.dataset.bensTaxa, v = Math.max(-50, Math.min(100, Number(String(el.value).replace(',', '.').replace('−', '-')) || 0));
     persistir(d => {
       d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v });
       // os bens cadastrados aqui (tipo Bens) dessa categoria passam a perder a taxa nova
-      for (const i of d.investimentos) if (i.tipo === 'bens' && (i.categoria_bem || 'outros') === k) i.taxa = v;
+      for (const i of d.investimentos) {
+        if (i.tipo !== 'bens') continue;
+        if (i.partes && i.partes.length) { let mud = false; for (const p of i.partes) if (p.categoria === k) { p.taxa = v; mud = true; } if (mud) i.taxa = taxaPartes(i.partes); }
+        else if ((i.categoria_bem || 'outros') === k) i.taxa = v;
+      }
     }, 'Perda por ano salva').then(ok => { if (ok) carregarBens(); });
     return;
   }

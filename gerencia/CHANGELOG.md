@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.21.0
+
+- **Separar um bem por categoria** (opcional): no tipo Bens, "Separar o valor por categoria" abre as categorias do InventarIA (e Imóveis e Veículos), cada uma com o seu valor. O total é a soma, e cada parte perde a taxa da sua categoria. Sem separar, continua uma categoria só para o total.
+- **Imóveis** na tabela de perda de valor, começando em 0% (mantém o valor).
+- **Valorizar**: na tabela de Mais › Invest, uma taxa negativa faz a categoria ganhar valor por ano (útil para um imóvel). O cartão mostra "valoriza X% a.a." e a Evolução mostra "bens +R$".
+
 ## 1.20.0
 
 - **Bens de terceiros (e seus, sem o InventarIA)**: novo tipo **Bens** no investimento, só com nome, valor e **categoria** (Veículos, Eletrônicos, Móveis, Cozinha, Decoração, Roupas, Outros). Sem cômodos: um total por bem, de quem você quiser. Ele perde a taxa da categoria por ano.

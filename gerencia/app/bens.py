@@ -16,11 +16,11 @@ CACHE_S = 10 * 60
 
 # perda de valor por ano, em %, por categoria do InventarIA (dá para mudar em Mais › Integrações)
 TAXAS_PADRAO = {
-    "veiculos": 15, "eletronicos": 20, "moveis": 10, "decoracao": 5, "colecao": 0, "cozinha": 10, "texteis": 15, "plantas": 0,
+    "imoveis": 0, "veiculos": 15, "eletronicos": 20, "moveis": 10, "decoracao": 5, "colecao": 0, "cozinha": 10, "texteis": 15, "plantas": 0,
     "livros": 5, "pets": 15, "saude": 10, "vestuario": 25, "utilidades": 10, "outros": 10,
 }
 NOMES_PADRAO = {
-    "veiculos": "Veículos", "eletronicos": "Eletrônicos", "moveis": "Móveis", "decoracao": "Decoração e arte", "colecao": "Colecionáveis",
+    "imoveis": "Imóveis", "veiculos": "Veículos", "eletronicos": "Eletrônicos", "moveis": "Móveis", "decoracao": "Decoração e arte", "colecao": "Colecionáveis",
     "cozinha": "Cozinha e bar", "texteis": "Tapetes e têxteis", "plantas": "Plantas", "livros": "Livros e jogos",
     "pets": "Pets", "saude": "Saúde", "vestuario": "Roupas e calçados", "utilidades": "Utilidades", "outros": "Outros",
 }
@@ -81,7 +81,7 @@ def taxas(ajustes):
     t = dict(TAXAS_PADRAO)
     for k, v in ((ajustes or {}).get("bens_taxas") or {}).items():
         try:
-            t[k] = max(0.0, min(100.0, float(v)))
+            t[k] = max(-50.0, min(100.0, float(v)))  # negativa: valoriza (um imóvel, por exemplo)
         except (TypeError, ValueError):
             pass
     return t

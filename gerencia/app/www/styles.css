@@ -1079,3 +1079,8 @@ details summary { list-style-position: inside; }
 .bens-l span { min-width: 0; }
 .bens-l small { display: block; color: var(--muted); font-size: 13px; }
 .bens-l > b { font: 600 17px var(--font-d); white-space: nowrap; }
+
+.bens-partes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17em), 1fr)); gap: 0 16px; margin: 4px 0 10px; }
+.pref.mini.larga { width: 132px; }
+.pref.mini.larga > span { font-size: 13px; }
+input[readonly] { opacity: .8; }

@@ -132,6 +132,9 @@ def valor_hoje(inv, ind, corrigir=True, hoje=None):
         return v
     d0 = parse_data(inv.get("data_valor")) or hoje
     du = dias_uteis(d0, hoje)
+    partes = inv.get("partes") if inv.get("indexador") == "deprecia" else None
+    if partes:  # bem separado por categoria: cada parte perde a taxa da sua categoria
+        return sum(num(p.get("valor")) * (1 - num(p.get("taxa")) / 100) ** (du / 252) for p in partes if isinstance(p, dict))
     return v * (1 + taxa_anual(inv, ind)) ** (du / 252)
 
 
