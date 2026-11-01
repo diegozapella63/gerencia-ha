@@ -24,7 +24,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
   - *Caixa*: fixos, categorias e dicas de economia.
   - *Invest*: índices de mercado.
-  - *Integrações*: contas no CronologIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
+  - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
   - *Dados*: exportar, relatório, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
   - *Aparência*: tema e cor do app.
   - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
@@ -170,7 +170,7 @@ Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 
 
 Com **Sensores no Home Assistant** ligado, o app cria:
 
-- `sensor.gerencia_patrimonio` (com os atributos `seu`, `de_terceiros` e `investimentos`)
+- `sensor.gerencia_patrimonio` (com os atributos `seu`, `de_terceiros`, `investimentos` e, com o InventarIA, `com_bens`)
 - `sensor.gerencia_meu`
 - `sensor.gerencia_terceiros` (atributo `por_pessoa`)
 - `sensor.gerencia_rendimento_mensal`
@@ -178,8 +178,15 @@ Com **Sensores no Home Assistant** ligado, o app cria:
 - `sensor.gerencia_entradas_mes` (atributo `a_receber`)
 - `sensor.gerencia_saidas_mes` (atributos `a_pagar` e `atrasado`)
 - `sensor.gerencia_ia_hoje`: chamadas de IA de hoje, com erros, cota excedida, tokens estimados, por tipo, últimos 7 dias e mês
+- `sensor.gerencia_bens`: os bens da casa, do InventarIA, já com a perda de valor (atributos `registrado`, `perde_por_ano` e `itens`)
 
 Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reiniciar o Home Assistant, voltam em até 15 minutos.
+
+## Bens no InventarIA
+
+Com o **InventarIA** (1.16.0 ou mais novo) no mesmo Home Assistant, os valores dos itens dele entram no patrimônio como **bens**: o placar do Início mostra o total, com **Investido** e **Bens** separados, e os destaques têm **Bens da casa**, que abre os valores por categoria e por cômodo.
+
+Bens perdem valor: cada categoria tem uma **perda por ano** (eletrônicos 20%, móveis 10%, cozinha 10%, decoração 5%, roupas 25%…), contada desde a data em que o valor do item mudou no InventarIA. Em **Mais › Integrações › Bens no InventarIA** dá para mudar as taxas e desligar **Somar os bens**. A ligação é automática, pela chave que o InventarIA grava em `share/inventario`; nada muda lá. Os valores são lidos a cada 10 minutos (ou na hora, em **Atualizar**).
 
 ## Contas no CronologIA
 

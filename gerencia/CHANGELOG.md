@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.19.0
+
+- **Bens do InventarIA no patrimônio**: com o InventarIA 1.16.0 ou mais novo, os valores dos itens somam no patrimônio. O placar mostra **Investido** e **Bens** separados, e o destaque **Bens da casa** abre os valores por categoria e por cômodo.
+- **Perda de valor por categoria**: os bens perdem valor por ano desde a data do valor no InventarIA (eletrônicos 20%, móveis 10%, decoração 5%…). As taxas mudam em Mais › Integrações › Bens no InventarIA, onde também dá para desligar.
+- Sensor `sensor.gerencia_bens` e o atributo `com_bens` no patrimônio.
+
 ## 1.18.5
 
 - Tipo **Dinheiro**, para dinheiro guardado em espécie: sem banco, sem rendimento e sem vencimento (o formulário só pede nome e valor). Na Carteira aparece como "Em espécie". A IA também reconhece ("15 mil dinheiro").

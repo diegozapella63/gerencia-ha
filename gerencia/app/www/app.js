@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.18.5';
+const VERSAO = '1.19.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -37,7 +37,7 @@ const IDX = [
 ];
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -128,6 +128,7 @@ const P = {
   auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   swap: '<path d="M4 8h15l-4-4M20 16H5l4 4"/>',
+  sofa: '<path d="M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 18v-6a2 2 0 0 1 4 0v2h10v-2a2 2 0 0 1 4 0v6z"/><path d="M5 18v2M19 18v2"/>',
   alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
   trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
@@ -155,6 +156,7 @@ const S = {
   }, store.get('ui', {})),
   ia: null,
   dicas: null,
+  bens: null,
 };
 const salvarUI = () => {
   const { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
@@ -347,6 +349,8 @@ const apiServidor = {
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
+  bens: () => fetch('api/bens', { cache: 'no-store' }).then(jsonOk),
+  bensAtualizar: () => fetch('api/bens/atualizar', { method: 'POST' }).then(jsonOk),
   iaUso: () => fetch('api/ia/uso', { cache: 'no-store' }).then(jsonOk),
   vozStatus: () => fetch('api/voz/status', { cache: 'no-store' }).then(jsonOk),
   vozTexto: pcm => fetch('api/voz', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pcm }).then(jsonOk),
@@ -386,6 +390,8 @@ function apiDemo() {
     async restaurar() { throw new Error('Na prévia não dá para restaurar versões.'); },
     async foto() { await espera(200); return { arquivo: `demo-${uid()}.jpg` }; },
     async iaStatus() { return { pronta: true, entidades: [{ id: 'ai_task.google_ai_task', nome: 'Google AI Task', imagens: true }], selecionada: '' }; },
+    async bens() { return bensDemo(); },
+    async bensAtualizar() { return bensDemo(); },
     async dicas() {
       // Na prévia: preços conferidos nas páginas oficiais em 18/10/2026 (no app, o servidor confere de novo a cada 30 dias)
       await espera(250);
@@ -641,9 +647,15 @@ function telaInicio() {
     return html.replace('<section class="placar', '<div class="ini-g so-caixa"><section class="placar') + `<div class="ini-ga">${cardDicas()}</div><div class="ini-gb">${avisosInicio(h)}</div></div>`;
   }
 
+  // com o InventarIA, os bens da casa entram no patrimônio, numa coluna à parte
+  const B = bensOn() ? S.bens : null;
   html += '<div class="ini-g">' + placar({
-    cab: 'Patrimônio', data: fData(h), valor: numf(t.total, 0), rotulo: `Patrimônio de ${brl(t.total, 0)}`,
-    cols: [
+    cab: 'Patrimônio', data: fData(h), valor: numf(t.total + (B ? B.hoje : 0), 0), rotulo: `Patrimônio de ${brl(t.total + (B ? B.hoje : 0), 0)}`,
+    cols: B ? [
+      ['Investido', brl(t.total, 0), 'meu'],
+      ['Bens', brl(B.hoje, 0)],
+      ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
+    ] : [
       ['Seu', brl(t.meu, 0), 'meu'],
       t.terc > 0 ? ['Terceiros', brl(t.terc, 0), 'terc'] : ['Bancos', String(nBancos)],
       ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
@@ -668,6 +680,8 @@ function telaInicio() {
     rows.push(`<button class="hl-row" data-a="inv" data-id="${i.id}"><div><div class="hl-k">Vence primeiro</div>
       <div class="hl-v">${esc(i.nome)}</div></div><div class="hl-n${dias <= 30 ? ' alerta' : ''}">${dias <= 90 ? quandoVence(dias) : fData(dt)}<small>${brl(valorHoje(i), 0)}</small></div></button>`);
   }
+  if (B) rows.push(`<button class="hl-row" data-a="bens"><div><div class="hl-k">Bens da casa</div>
+      <div class="hl-v">${plural(B.n, 'item', 'itens')} no InventarIA</div></div><div class="hl-n">${brl(B.hoje, 0)}<small>perdem ≈ ${brl(B.perde_ano, 0)}/ano</small></div></button>`);
   const pb = {};
   for (const i of d.investimentos) pb[i.banco || ''] = (pb[i.banco || ''] || 0) + valorHoje(i);
   const [bId, bVal] = Object.entries(pb).sort((a, b) => b[1] - a[1])[0] || [];
@@ -3321,11 +3335,11 @@ const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><di
 /* --------- Integrações: outros apps, IA, uso da IA e sensores */
 function maisIntegracoes() {
   const a = S.d.ajustes;
-  return cardOutrosApps(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', a.sensores === true, 'Criar os sensores', a.sensores === true
-        ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code> e <code>_ia_hoje</code>. Atualizam a cada mudança e a cada 15 minutos.'
+        ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code>, <code>_ia_hoje</code> e <code>_bens</code>. Atualizam a cada mudança e a cada 15 minutos.'
         : 'Desligado: nenhum sensor no Home Assistant.')}
       ${iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
     </section>`;
@@ -4122,10 +4136,13 @@ document.addEventListener('click', ev => {
         if (!ok) return;
         if (k === 'ia') { S.ia = null; S.uso = null; carregarVoz(); render(); }
         if (k === 'dicas') carregarDicas();
+        if (k === 'bens') carregarBens();
       });
       break;
     }
     case 'banco': abrirBanco(id); break;
+    case 'bens': abrirFolha(montarBens); break;
+    case 'bens-atualizar': S.bens = null; render(); if (FOLHA) pintarFolha(); carregarBens(true); break;
     case 'banco-sug': abrirBanco(null, v); break;
     case 'indice': abrirIndice(v); break;
     case 'indices-auto': api.indices({ auto: !S.d.indices.auto }).then(d => { S.d = normalizar(d); render(); }).catch(e => toast(e.message)); break;
@@ -4384,6 +4401,11 @@ document.addEventListener('keydown', ev => {
 });
 document.addEventListener('change', ev => {
   const el = ev.target;
+  if (el.dataset.bensTaxa) {
+    const k = el.dataset.bensTaxa, v = Math.max(0, Math.min(100, Number(String(el.value).replace(',', '.')) || 0));
+    persistir(d => { d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v }); }, 'Perda por ano salva').then(ok => { if (ok) carregarBens(); });
+    return;
+  }
   if (el.dataset.ajusteSel) {
     const k = el.dataset.ajusteSel, v = el.value, fala = k === 'voz_motor';
     persistir(d => { d.ajustes[k] = v; }, fala ? 'Fala para texto escolhida' : 'IA escolhida').then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
@@ -4417,6 +4439,51 @@ let rz;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(desenharGraficos, 150); });
 
 /* ------------------------------------------------------------------ outros apps */
+/* --------- bens da casa, do InventarIA: somam no patrimônio e perdem valor por categoria */
+const bensOn = () => S.d.ajustes.bens !== false && !!(S.bens && S.bens.ok && S.bens.n);
+function carregarBens(forcar) {
+  if (S.d.ajustes.bens === false) { S.bens = null; return; }
+  (forcar ? api.bensAtualizar() : api.bens()).then(r => { S.bens = r; if (!FOLHA || FOLHA.montar === montarBens) { if (FOLHA) pintarFolha(); render(); } })
+    .catch(e => { S.bens = { ok: false, motivo: e.message }; });
+}
+function cardBens(a) {
+  const b = S.bens, on = a.bens !== false;
+  let h = `<section class="card" id="bens">${maisCab('sofa', 'Bens no InventarIA')}
+    ${maisLead('Os valores dos itens do InventarIA, somados no patrimônio. Perdem valor por ano, por categoria.')}
+    ${linhaChave('bens', on, 'Somar os bens', on ? (b && b.ok ? `Ligado: ${brl(b.hoje, 0)} em ${plural(b.n, 'item', 'itens')}.` : 'Ligado.') : 'Desligado: o patrimônio fica só com os investimentos.')}`;
+  if (!on) return h + '</section>';
+  if (!b) return h + `<div class="status manual">Procurando o InventarIA…</div></section>`;
+  if (!b.ok) return h + `<div class="status manual">${esc(b.motivo || 'O InventarIA não respondeu.')}</div>
+    <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Tentar de novo</button></section>`;
+  h += `<div class="lbl" style="margin-top:6px">Perda por ano</div><div class="bens-taxas">${b.categorias.map(c =>
+    `<label class="bens-tx"><span>${esc(c.nome)}<small>${brl(c.hoje, 0)}</small></span><span class="pref mini"><input data-bens-taxa="${esc(c.id)}" inputmode="decimal" value="${String(c.taxa).replace('.', ',')}" aria-label="Perda por ano de ${esc(c.nome)}"><span>%</span></span></label>`).join('')}</div>
+    <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Atualizar do InventarIA</button></section>`;
+  return h;
+}
+function montarBens() {
+  const b = S.bens;
+  if (!b || !b.ok) return { titulo: 'Bens da casa', corpo: `<div class="status manual">${esc((b && b.motivo) || 'Procurando o InventarIA…')}</div>` };
+  const linha = (n, sub, v) => `<div class="bens-l"><span><b>${esc(n)}</b><small>${sub}</small></span><b>${brl(v, 0)}</b></div>`;
+  return {
+    titulo: 'Bens da casa',
+    corpo: `<div class="stat-duo" style="margin:0 0 14px"><div><span>Hoje</span><b>${brl(b.hoje, 0)}</b><small>registrado ${brl(b.registrado, 0)}</small></div>
+        <div><span>Perdem por ano</span><b>${brl(b.perde_ano, 0)}</b></div></div>
+      <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · −${pct(c.taxa)}% ao ano`, c.hoje)).join('')}
+      <h3 class="ia-sec">Por cômodo</h3>${b.comodos.map(c => linha(c.nome, plural(c.n, 'item', 'itens'), c.hoje)).join('')}
+      <p class="nota">Pelo valor de cada item no InventarIA, menos a perda por ano desde a data desse valor. As taxas ficam em Mais › Integrações.</p>`,
+    pe: `<button class="btn" data-a="fechar">Fechar</button><button class="btn pri" data-a="bens-atualizar">${ic('refresh', 'ic-s')}Atualizar</button>`,
+  };
+}
+// prévia: bens inventados (nenhum dado real)
+function bensDemo() {
+  const cats = [['eletronicos', 'Eletrônicos', 20, 14200, 6], ['moveis', 'Móveis', 10, 18600, 9], ['cozinha', 'Cozinha e bar', 10, 5400, 12], ['decoracao', 'Decoração e arte', 5, 3900, 7]];
+  const tx = S.d.ajustes.bens_taxas || {};
+  const categorias = cats.map(([id, nome, t, v, n]) => { const taxa = tx[id] != null ? +tx[id] : t; return { id, nome, taxa, registrado: v, hoje: round2(v * Math.pow(1 - taxa / 100, 1.4)), n }; });
+  const hojeT = categorias.reduce((a, c) => a + c.hoje, 0);
+  return { ok: true, hoje: round2(hojeT), registrado: cats.reduce((a, c) => a + c[3], 0), perde_ano: round2(categorias.reduce((a, c) => a + c.hoje * c.taxa / 100, 0)), n: cats.reduce((a, c) => a + c[4], 0),
+    categorias, comodos: [{ id: 'sala', nome: 'Sala', hoje: round2(hojeT * 0.45), n: 14 }, { id: 'cozinha', nome: 'Cozinha', hoje: round2(hojeT * 0.25), n: 12 }, { id: 'quarto', nome: 'Quarto', hoje: round2(hojeT * 0.3), n: 8 }], versao: '1.16.0' };
+}
+
 function cardOutrosApps(a) {
   const lig = a.integracao !== false, u = S.integracaoUltimo;
   let quando = '';
@@ -4458,6 +4525,7 @@ async function iniciar() {
   render();
   carregarDicas();
   carregarVoz();
+  carregarBens();
 }
 iniciar();
 })();

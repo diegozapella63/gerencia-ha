@@ -27,8 +27,9 @@ import calc  # noqa: E402
 import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
+import bens  # noqa: E402
 
-VERSAO = "1.18.5"
+VERSAO = "1.19.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -68,7 +69,7 @@ INDICES_PADRAO = {
 }
 
 # sensores: desligado até ligar em Mais › Integrações; sensores_v marca os dados que já têm essa escolha
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True,
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
@@ -247,7 +248,7 @@ def atualizar_indices():
 
 SENSORES = ("sensor.gerencia_patrimonio", "sensor.gerencia_meu", "sensor.gerencia_terceiros",
             "sensor.gerencia_rendimento_mensal", "sensor.gerencia_saldo_caixa", "sensor.gerencia_entradas_mes",
-            "sensor.gerencia_saidas_mes", "sensor.gerencia_ia_hoje")
+            "sensor.gerencia_saidas_mes", "sensor.gerencia_ia_hoje", "sensor.gerencia_bens")
 _sensores = {"ligado": None}  # o último estado visto: desligar apaga os sensores uma vez
 
 
@@ -294,6 +295,10 @@ def publicar_sensores(d):
         "sensor.gerencia_saidas_mes": (cx["saiu_mes"], "GerencIA Saiu no mês", "mdi:arrow-up-bold-circle",
                                        {"a_pagar": cx["a_pagar_mes"], "atrasado": cx["atrasado"]}),
     })
+    b = bens_estado(d)
+    if b.get("ok"):
+        sensores["sensor.gerencia_bens"] = (b["hoje"], "GerencIA Bens da casa", "mdi:sofa", {"registrado": b["registrado"], "perde_por_ano": b["perde_ano"], "itens": b["n"]})
+        sensores["sensor.gerencia_patrimonio"][3]["com_bens"] = round(t["total"] + b["hoje"], 2)
     for ent, (valor, nome, icone, extra) in sensores.items():
         corpo = json.dumps({"state": valor, "attributes": {**base, "friendly_name": nome, "icon": icone, **extra}})
         req = urllib.request.Request(
@@ -1488,6 +1493,20 @@ def dicas_estado(d, disparar=True):
 # ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
 
 VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"))
+BENS = bens.Bens(log)
+
+
+def bens_estado(d, forcar=False):
+    """Os bens da casa, do InventarIA, já depreciados; sem o InventarIA (ou desligado), o motivo."""
+    if d["ajustes"].get("bens") is False:
+        return {"ok": False, "desligado": True}
+    try:
+        return bens.resumo(BENS.ler(forcar), d["ajustes"])
+    except bens.ErroBens as e:
+        return {"ok": False, "motivo": str(e)}
+    except Exception as e:  # noqa: BLE001
+        log("Bens:", e)
+        return {"ok": False, "motivo": f"Não consegui ler o InventarIA ({e})."}
 
 
 def voz_status():
@@ -1634,6 +1653,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
                 return self.enviar(200, dicas_estado(ler()))
+            if p == "/api/bens":
+                return self.enviar(200, bens_estado(ler()))
             if p == "/api/export/zip":
                 return self.baixar(gerar_zip(ler()), "application/zip", nome_arquivo("zip"))
             if p == "/api/versoes":
@@ -1688,6 +1709,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, salvar_foto(self.corpo_json()))
             if p == "/api/ia/ler":
                 return self.enviar(200, ia_ler(self.corpo_json()))
+            if p == "/api/bens/atualizar":
+                return self.enviar(200, bens_estado(ler(), forcar=True))
             if p == "/api/dicas/conferir":
                 iniciar_conferencia(forcar=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
