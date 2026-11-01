@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.19.1
+
+- **Patrimônio sem o dinheiro de terceiros**: o placar do Início soma só os seus investimentos (e os bens do InventarIA). O rendimento por mês do placar também é só o seu. O dinheiro de terceiros continua no quadro por pessoa e na Carteira.
+- `sensor.gerencia_patrimonio` passa a ser só o seu; o total com terceiros fica no atributo `com_terceiros`.
+
 ## 1.19.0
 
 - **Bens do InventarIA no patrimônio**: com o InventarIA 1.16.0 ou mais novo, os valores dos itens somam no patrimônio. O placar mostra **Investido** e **Bens** separados, e o destaque **Bens da casa** abre os valores por categoria e por cômodo.

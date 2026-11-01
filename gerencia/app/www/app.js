@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.19.0';
+const VERSAO = '1.19.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -636,7 +636,6 @@ function telaInicio() {
   if (!d.investimentos.length && !temCaixa()) return telaBoasVindas();
   const h = hoje();
   const t = totais();
-  const nBancos = new Set(d.investimentos.map(i => i.banco).filter(Boolean)).size;
   const olho = `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`;
   let html = cabecalho('Início', olho);
   if (d.exemplo) html += avisoExemplo();
@@ -647,26 +646,28 @@ function telaInicio() {
     return html.replace('<section class="placar', '<div class="ini-g so-caixa"><section class="placar') + `<div class="ini-ga">${cardDicas()}</div><div class="ini-gb">${avisosInicio(h)}</div></div>`;
   }
 
-  // com o InventarIA, os bens da casa entram no patrimônio, numa coluna à parte
+  // o patrimônio é só o seu: investimentos seus e, com o InventarIA, os bens da casa (o dinheiro de terceiros fica de fora)
   const B = bensOn() ? S.bens : null;
+  const meus = porEscopo('meu'), tm = totais(meus), pat = tm.total + (B ? B.hoje : 0);
   html += '<div class="ini-g">' + placar({
-    cab: 'Patrimônio', data: fData(h), valor: numf(t.total + (B ? B.hoje : 0), 0), rotulo: `Patrimônio de ${brl(t.total + (B ? B.hoje : 0), 0)}`,
+    cab: 'Patrimônio', data: fData(h), valor: numf(pat, 0), rotulo: `Patrimônio de ${brl(pat, 0)}`,
     cols: B ? [
-      ['Investido', brl(t.total, 0), 'meu'],
+      ['Investido', brl(tm.total, 0), 'meu'],
       ['Bens', brl(B.hoje, 0)],
-      ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
+      ['Por mês', (S.oculto ? '' : '+') + brl(tm.mes, 0), true],
     ] : [
-      ['Seu', brl(t.meu, 0), 'meu'],
-      t.terc > 0 ? ['Terceiros', brl(t.terc, 0), 'terc'] : ['Bancos', String(nBancos)],
-      ['Por mês', (S.oculto ? '' : '+') + brl(t.mes, 0), true],
+      ['Investimentos', String(meus.length)],
+      ['Bancos', String(new Set(meus.map(i => i.banco).filter(Boolean)).size)],
+      ['Por mês', (S.oculto ? '' : '+') + brl(tm.mes, 0), true],
     ],
   });
 
   html += `<div class="ini-ga">${temCaixa() ? cardCaixaInicio() + cardDicas() : ''}</div>`;
   // destaques
   const rows = [];
-  rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">Rende por mês</div>
-    <div class="hl-v">Média de ${pct(t.rMed * 100)}% a.a.</div></div><div class="hl-n">${brl(t.mes, 0)}<small>antes do IR</small></div></button>`);
+  const tr = tm.total > 0 ? tm : t;  // só com dinheiro de terceiros, mostra o rendimento dele
+  rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${tm.total > 0 ? 'Rende por mês' : 'Rende por mês, de terceiros'}</div>
+    <div class="hl-v">Média de ${pct(tr.rMed * 100)}% a.a.</div></div><div class="hl-n">${brl(tr.mes, 0)}<small>antes do IR</small></div></button>`);
   const fixos = d.investimentos.filter(i => i.indexador !== 'estimado' && i.indexador !== 'parado');
   if (fixos.length) {
     const melhor = fixos.reduce((a, b) => taxaAnual(b) > taxaAnual(a) ? b : a);
@@ -689,7 +690,6 @@ function telaInicio() {
     rows.push(`<button class="hl-row" data-a="graf-comp" data-v="banco"><div><div class="hl-k">Maior banco</div>
       <div class="hl-v">${esc(bancoDe(bId)?.nome || 'Sem banco')}</div></div><div class="hl-n">${pct(Math.round(bVal / t.total * 100))}%<small>${brl(bVal, 0)}</small></div></button>`);
   }
-  const meus = porEscopo('meu');
   const alvo = meus.length ? meus : d.investimentos;
   const apM = aporteMensal();
   const pr = projetar(alvo, 1, apM, false).pts;

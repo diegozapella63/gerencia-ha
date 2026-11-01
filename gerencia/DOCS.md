@@ -11,7 +11,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ## Telas
 
-- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
+- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
@@ -170,7 +170,7 @@ Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 
 
 Com **Sensores no Home Assistant** ligado, o app cria:
 
-- `sensor.gerencia_patrimonio` (com os atributos `seu`, `de_terceiros`, `investimentos` e, com o InventarIA, `com_bens`)
+- `sensor.gerencia_patrimonio`: o seu patrimônio, sem o dinheiro de terceiros (atributos `seu`, `de_terceiros`, `com_terceiros`, `investimentos` e, com o InventarIA, `com_bens`)
 - `sensor.gerencia_meu`
 - `sensor.gerencia_terceiros` (atributo `por_pessoa`)
 - `sensor.gerencia_rendimento_mensal`

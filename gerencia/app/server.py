@@ -29,7 +29,7 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 
-VERSAO = "1.19.0"
+VERSAO = "1.19.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -279,8 +279,9 @@ def publicar_sensores(d):
     t = calc.totais(d)
     base = {"unit_of_measurement": "BRL", "device_class": "monetary", "state_class": "total"}
     sensores = {
-        "sensor.gerencia_patrimonio": (t["total"], "GerencIA Patrimônio", "mdi:cash-multiple",
-                                       {"seu": t["meu"], "de_terceiros": t["terceiros"],
+        # o patrimônio é só o seu: o dinheiro de terceiros fica de fora (em de_terceiros e com_terceiros)
+        "sensor.gerencia_patrimonio": (t["meu"], "GerencIA Patrimônio", "mdi:cash-multiple",
+                                       {"seu": t["meu"], "de_terceiros": t["terceiros"], "com_terceiros": t["total"],
                                         "investimentos": t["quantidade"]}),
         "sensor.gerencia_meu": (t["meu"], "GerencIA Seu dinheiro", "mdi:account-cash", {}),
         "sensor.gerencia_terceiros": (t["terceiros"], "GerencIA De terceiros", "mdi:account-group",
@@ -298,7 +299,7 @@ def publicar_sensores(d):
     b = bens_estado(d)
     if b.get("ok"):
         sensores["sensor.gerencia_bens"] = (b["hoje"], "GerencIA Bens da casa", "mdi:sofa", {"registrado": b["registrado"], "perde_por_ano": b["perde_ano"], "itens": b["n"]})
-        sensores["sensor.gerencia_patrimonio"][3]["com_bens"] = round(t["total"] + b["hoje"], 2)
+        sensores["sensor.gerencia_patrimonio"][3]["com_bens"] = round(t["meu"] + b["hoje"], 2)
     for ent, (valor, nome, icone, extra) in sensores.items():
         corpo = json.dumps({"state": valor, "attributes": {**base, "friendly_name": nome, "icon": icone, **extra}})
         req = urllib.request.Request(
