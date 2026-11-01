@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.19.3';
+const VERSAO = '1.19.4';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3900,18 +3900,23 @@ function pintarLado() {
   el.innerHTML = h;
 }
 
+// Números grandes que não cabem diminuem até caber. Pela proporção (largura que cabe ÷ largura do texto), em até 4 passos:
+// funciona também quando o celular aumenta as letras (fonte grande no Android), em que o tamanho medido não é o aplicado.
 function ajustarTextos() {
-  $$('.stat-duo b, .inv-valor, .hl-n').forEach(el => {
-    el.style.fontSize = '';
-    let fs = parseFloat(getComputedStyle(el).fontSize), n = 0;
-    while (el.scrollWidth > el.clientWidth + 1 && fs > 14 && n++ < 40) { fs -= 1.5; el.style.fontSize = fs + 'px'; }
-  });
+  const els = $$('.stat-duo b, .inv-valor, .hl-n');
+  els.forEach(el => { el.style.fontSize = ''; });
+  for (const el of els) {
+    for (let n = 0; n < 4 && el.scrollWidth > el.clientWidth + 1; n++) {
+      const atual = parseFloat(el.style.fontSize) || parseFloat(getComputedStyle(el).fontSize);
+      el.style.fontSize = Math.max(12, atual * (el.clientWidth / el.scrollWidth) * 0.97).toFixed(2) + 'px';
+    }
+  }
   // os dois números de cada par ficam do mesmo tamanho (o menor dos dois)
   $$('.stat-duo').forEach(duo => {
-    const bs = $$('b', duo).filter(b => b.parentElement.parentElement === duo);
-    if (bs.length < 2) return;
-    const fs = Math.min(...bs.map(b => parseFloat(getComputedStyle(b).fontSize)));
-    bs.forEach(b => { b.style.fontSize = fs + 'px'; });
+    const bs = $$('b', duo).filter(b => b.parentElement.parentElement === duo && b.style.fontSize);
+    if (!bs.length) return;
+    const fs = Math.min(...bs.map(b => parseFloat(b.style.fontSize)));
+    $$('b', duo).filter(b => b.parentElement.parentElement === duo).forEach(b => { b.style.fontSize = fs + 'px'; });
   });
 }
 function desenharGraficos() {
@@ -3932,6 +3937,7 @@ function render() {
   desenharGraficos();
   { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
   ajustarTextos();
+  requestAnimationFrame(ajustarTextos);
   if (S.ui.tab === 'mais' && !S.ia && !DEMO && iaOn()) api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {});
   if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.usoPedido && (!S.uso || Date.now() - (S.usoEm || 0) > 30000)) {
     S.usoPedido = true;
@@ -4461,7 +4467,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && !FOLHA && !DEMO) api.state().then(d => { S.d = normalizar(d); render(); }).catch(() => {});
 });
 let rz;
-window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(desenharGraficos, 150); });
+window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { desenharGraficos(); ajustarTextos(); }, 150); });
 
 /* ------------------------------------------------------------------ outros apps */
 /* --------- bens da casa, do InventarIA: somam no patrimônio e perdem valor por categoria */

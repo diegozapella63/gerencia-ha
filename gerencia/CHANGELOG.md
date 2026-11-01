@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.19.4
+
+- **Números grandes cabem de verdade**: na 1.19.3 eles deixaram de se sobrepor, mas no celular com fonte grande ficavam cortados. Agora a letra diminui na proporção certa até o número caber inteiro, também com a fonte do Android aumentada, e ajusta de novo quando a tela muda de tamanho.
+
 ## 1.19.3
 
 - **Números grandes não se sobrepõem mais**: nos pares de valores (Hoje e Em N anos, Total e Rende por mês…), um número comprido diminui a letra em vez de invadir o vizinho, e os dois ficam do mesmo tamanho.
