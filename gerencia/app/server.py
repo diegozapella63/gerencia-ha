@@ -29,7 +29,7 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 
-VERSAO = "1.19.4"
+VERSAO = "1.20.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -778,7 +778,7 @@ def ia_status(d):
 IA_REGRAS = """Para cada investimento, devolva:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), bens (carro, moto, móveis e outros bens de uma pessoa, pelo valor total; indexador "deprecia"), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".
@@ -830,7 +830,7 @@ Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixin
 "investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
 - "nome": nome curto e claro (ex.: "CDB Inter 2028", "Tesouro IPCA+ 2035", "LCI Itaú").
 - "banco": instituição ou corretora (ex.: "Inter", "XP"); "" se não aparecer.
-- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), previdencia, outro.
+- "tipo": uma destas chaves: cdb, lci (LCI, LCA, CRI, CRA), tesouro, poupanca, caixinha (conta remunerada, cofrinho, caixinha), fundo, acoes (ações, FII, ETF, BDR), ouro (ouro físico, barra, ouro ativo financeiro, ETF de ouro), dinheiro (dinheiro guardado em espécie, em casa, no cofre), bens (carro, moto, móveis e outros bens de uma pessoa, pelo valor total; indexador "deprecia"), previdencia, outro.
 - "valor": saldo atual bruto em reais, número sem símbolo. Se só aparecer o valor aplicado, use ele.
 - "aplicado": valor aplicado originalmente, número; 0 se não aparecer.
 - "data_valor": data do saldo em AAAA-MM-DD, se aparecer; senão "".

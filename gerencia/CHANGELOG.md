@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.20.0
+
+- **Bens de terceiros (e seus, sem o InventarIA)**: novo tipo **Bens** no investimento, só com nome, valor e **categoria** (Veículos, Eletrônicos, Móveis, Cozinha, Decoração, Roupas, Outros). Sem cômodos: um total por bem, de quem você quiser. Ele perde a taxa da categoria por ano.
+- **Veículos** na perda de valor (15% ao ano, para começar).
+- **Perda de valor dos bens** em Mais › Invest: uma tabela só, que vale para os bens do InventarIA e para os do tipo Bens. Mudar a taxa de uma categoria muda todos os bens dela.
+- Bens perdem valor e não entram no "rende por mês": o cartão mostra "perde ≈ R$ X por mês", a Divisão também, e a Evolução separa o rendimento dos investimentos da perda dos bens. No placar, os seus bens do tipo Bens somam na coluna Bens; os de terceiros ficam fora do patrimônio, como o resto do dinheiro deles.
+
 ## 1.19.4
 
 - **Números grandes cabem de verdade**: na 1.19.3 eles deixaram de se sobrepor, mas no celular com fonte grande ficavam cortados. Agora a letra diminui na proporção certa até o número caber inteiro, também com a fonte do Android aumentada, e ajusta de novo quando a tela muda de tamanho.

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.19.4';
+const VERSAO = '1.20.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -21,6 +21,7 @@ const TIPOS = [
   { id: 'acoes', nome: 'Ações/FII', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
   { id: 'ouro', nome: 'Ouro', ir: '15', p: { indexador: 'estimado', taxa: 10, liquidez: 'diaria' } },
   { id: 'dinheiro', nome: 'Dinheiro', ir: 'isento', p: { indexador: 'parado', taxa: 0, liquidez: 'diaria' } },
+  { id: 'bens', nome: 'Bens', ir: 'isento', p: { indexador: 'deprecia', taxa: 10, liquidez: 'diaria' } },
   { id: 'previdencia', nome: 'Previdência', ir: 'nao', p: { indexador: 'cdi_pct', taxa: 95, liquidez: 'vencimento' } },
   { id: 'outro', nome: 'Outro', ir: 'reg', p: { indexador: 'pre', taxa: 12, liquidez: 'vencimento' } },
 ];
@@ -34,7 +35,19 @@ const IDX = [
   { id: 'poupanca', nome: 'Poupança' },
   { id: 'estimado', nome: 'Estimado', suf: '% a.a.', ph: '10', taxa: true },
   { id: 'parado', nome: 'Sem rendimento' },
+  { id: 'deprecia', nome: 'Perde valor', oculto: true },
 ];
+// perda de valor por ano dos bens, por categoria (as mesmas do InventarIA, e Veículos); muda em Mais › Invest
+const BENS_CATS = [['veiculos', 'Veículos', 15], ['eletronicos', 'Eletrônicos', 20], ['moveis', 'Móveis', 10], ['decoracao', 'Decoração e arte', 5],
+  ['colecao', 'Colecionáveis', 0], ['cozinha', 'Cozinha e bar', 10], ['texteis', 'Tapetes e têxteis', 15], ['plantas', 'Plantas', 0], ['livros', 'Livros e jogos', 5],
+  ['pets', 'Pets', 15], ['saude', 'Saúde', 10], ['vestuario', 'Roupas e calçados', 25], ['utilidades', 'Utilidades', 10], ['outros', 'Outros', 10]];
+// no formulário, só as categorias mais comuns para um bem cadastrado à mão (o InventarIA usa todas)
+const BENS_FORM = ['veiculos', 'eletronicos', 'moveis', 'cozinha', 'decoracao', 'vestuario', 'outros'];
+const nomeCatBem = k => (BENS_CATS.find(c => c[0] === k) || [k, (S.bens && S.bens.categorias || []).find(c => c.id === k)?.nome || 'Outros'])[1];
+function taxaBem(k) {
+  const v = (S.d.ajustes.bens_taxas || {})[k];
+  return v != null && v !== '' && !isNaN(+v) ? +v : ((BENS_CATS.find(c => c[0] === k) || [])[2] ?? 10);
+}
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
 const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
@@ -195,6 +208,7 @@ function taxaAnual(inv, I = S.d.indices) {
       return Math.pow((1 + m) * (1 + tr), 12) - 1;
     }
     case 'estimado': return t;
+    case 'deprecia': return -t;
     default: return 0;
   }
 }
@@ -205,7 +219,9 @@ function valorHoje(inv, h = hoje(), d = S.d) {
   const d0 = pData(inv.data_valor) || h;
   return v * Math.pow(1 + taxaAnual(inv, d.indices), diasUteis(d0, h) / 252);
 }
-const rendeMes = (v, r) => v * (Math.pow(1 + r, 1 / 12) - 1);
+// quanto rende por mês; bens que perdem valor não entram (0) — a perda aparece à parte
+const rendeMes = (v, r) => Math.max(0, v * (Math.pow(1 + r, 1 / 12) - 1));
+const perdeMes = (v, r) => Math.max(0, -v * (Math.pow(1 + r, 1 / 12) - 1));
 const tipoDe = id => TIPOS.find(t => t.id === id) || TIPOS[TIPOS.length - 1];
 const idxDe = id => IDX.find(x => x.id === id) || IDX[0];
 const bancoDe = id => S.d.bancos.find(b => b.id === id);
@@ -227,6 +243,7 @@ function rotuloTaxa(inv) {
     case 'selic_mais': return +inv.taxa ? `Selic + ${t}% a.a.` : 'Selic';
     case 'poupanca': return 'Poupança';
     case 'estimado': return `≈ ${t}% a.a. estimado`;
+    case 'deprecia': return `perde ${t}% a.a.`;
     default: return 'Sem rendimento';
   }
 }
@@ -648,16 +665,18 @@ function telaInicio() {
 
   // o patrimônio é só o seu: investimentos seus e, com o InventarIA, os bens da casa (o dinheiro de terceiros fica de fora)
   const B = bensOn() ? S.bens : null;
-  const meus = porEscopo('meu'), tm = totais(meus), pat = tm.total + (B ? B.hoje : 0);
+  // bens: os do InventarIA e os seus cadastrados aqui (tipo Bens, um carro…); perdem valor e não contam como investido
+  const meus = porEscopo('meu'), meusInv = meus.filter(i => i.tipo !== 'bens'), tm = totais(meusInv);
+  const bensT = (B ? B.hoje : 0) + meus.filter(i => i.tipo === 'bens').reduce((a, i) => a + valorHoje(i), 0), pat = tm.total + bensT;
   html += '<div class="ini-g">' + placar({
     cab: 'Patrimônio', data: fData(h), valor: numf(pat, 0), rotulo: `Patrimônio de ${brl(pat, 0)}`,
-    cols: B ? [
+    cols: bensT > 0 ? [
       ['Investido', brl(tm.total, 0), 'meu'],
-      ['Bens', brl(B.hoje, 0)],
+      ['Bens', brl(bensT, 0)],
       ['Por mês', (S.oculto ? '' : '+') + brl(tm.mes, 0), true],
     ] : [
-      ['Investimentos', String(meus.length)],
-      ['Bancos', String(new Set(meus.map(i => i.banco).filter(Boolean)).size)],
+      ['Investimentos', String(meusInv.length)],
+      ['Bancos', String(new Set(meusInv.map(i => i.banco).filter(Boolean)).size)],
       ['Por mês', (S.oculto ? '' : '+') + brl(tm.mes, 0), true],
     ],
   });
@@ -851,16 +870,17 @@ function cardInv(i, v) {
   const venc = pData(i.vencimento);
   const dv = pData(i.data_valor);
   let liq;
-  if (venc && venc < h) liq = `<span class="tag alerta">${ic('alert')}Venceu ${fData(venc)}</span>`;
+  if (i.tipo === 'bens' || i.tipo === 'dinheiro') liq = '';
+  else if (venc && venc < h) liq = `<span class="tag alerta">${ic('alert')}Venceu ${fData(venc)}</span>`;
   else if (i.liquidez === 'diaria') liq = `<span class="tag">Liquidez diária</span>`;
   else liq = `<span class="tag">${ic('calendar')}${venc ? 'Vence ' + fData(venc) : 'No vencimento'}</span>`;
   const r = taxaAnual(i);
   const velho = dv && diasEntre(dv, h) > 60 && i.indexador !== 'parado';
   return `<button class="inv" data-a="inv" data-id="${i.id}" style="--c:${corOk(b?.cor) || 'var(--line-2)'}">
     <div class="inv-top"><div class="inv-nome">${esc(i.nome)}</div><div class="inv-valor">${brl(v)}</div></div>
-    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
+    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${esc(nomeCatBem(i.categoria_bem))}` : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
     <div class="tags"><span class="tag taxa">${esc(rotuloTaxa(i))}</span>${tagDono(i)}${liq}</div>
-    <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : 'Não rende'}</span>
+    <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : r < 0 ? `perde ≈ ${brl(perdeMes(v, r))} por mês` : 'Não rende'}</span>
       <span${velho ? ' style="color:var(--danger)"' : ''}>${dv ? 'valor de ' + fDataC(dv) + (dv.getFullYear() !== h.getFullYear() ? '/' + String(dv.getFullYear()).slice(2) : '') : ''}</span></div>
   </button>`;
 }
@@ -895,11 +915,14 @@ function grafEvolucao(lista) {
   CACHE.bens = comBensG() ? pj.pts.map(p => ({ t: p.t, v: bensEm(p.m) })) : null;
   const b0 = CACHE.bens ? CACHE.bens[0].v : 0, bN = CACHE.bens ? CACHE.bens[CACHE.bens.length - 1].v : 0;
   const soBens = CACHE.soBens = !!CACHE.bens && !lista.length && !ap;
+  const lb = lista.filter(i => i.tipo === 'bens'), bi0 = lb.reduce((a, i) => a + valorHoje(i), 0);
+  const biN = lb.reduce((a, i) => a + valorHoje(i) * Math.pow(1 + taxaAnual(i), u.gAnos), 0);
+  const rend = fim.valor - fim.aplicado + (bi0 - biN), perdaBens = (bi0 - biN) + (b0 - bN);
   if (soBens) CACHE.hist = [];
   const anosTxt = u.gAnos === 1 ? '1 ano' : `${u.gAnos} anos`;
   let html = `<div class="graf-card">
     <div class="stat-duo"><div><span>${soBens ? 'Bens hoje' : 'Hoje'}</span><b>${brl(pj.pts[0].valor + b0, 0)}</b>${CACHE.bens && !soBens ? `<small class="neutro">com ${brl(b0, 0)} em bens</small>` : ''}</div>
-      <div><span>Em ${anosTxt}${u.gIR && !soBens ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small${soBens ? ' class="neutro"' : ''}>${soBens ? `perdem ${brl(b0 - bN, 0)}` : `+${brl(fim.valor - fim.aplicado, 0)} de rendimento${CACHE.bens ? ` · bens −${brl(b0 - bN, 0)}` : ''}`}</small></div></div>
+      <div><span>Em ${anosTxt}${u.gIR && !soBens ? ', líquido' : ''}</span><b>${brl(fim.valor + bN, 0)}</b><small${soBens ? ' class="neutro"' : ''}>${soBens ? `perdem ${brl(b0 - bN, 0)}` : `+${brl(rend, 0)} de rendimento${perdaBens > 0.5 ? ` · bens −${brl(perdaBens, 0)}` : ''}`}</small></div></div>
     <div class="chart" id="ch-evo" role="img" aria-label="Evolução do dinheiro: registrado até hoje e projetado para ${anosTxt}"></div>
     <div class="leg">${soBens ? '<span><i class="k" style="--kc:var(--c4)"></i>Bens</span>' : `
       ${CACHE.hist.length ? `<span><i class="k" style="--kc:var(--accent)"></i>Registrado</span>` : ''}
@@ -1085,9 +1108,9 @@ function grupos(lista, agrup) {
     else if (agrup === 'dono') { k = dono(i); nome = k === 'Meu' ? 'Seu' : k; cor = k === 'Meu' ? 'var(--accent)' : `var(--c${(ps.indexOf(k) % 7) + 2})`; }
     else if (agrup === 'tipo') { const ti = TIPOS.findIndex(t => t.id === i.tipo); k = i.tipo || 'outro'; nome = tipoDe(i.tipo).nome; cor = ti >= 0 && ti < 8 ? `var(--c${ti + 1})` : 'var(--c0)'; }
     else { k = i.liquidez === 'diaria' ? 'diaria' : 'venc'; nome = k === 'diaria' ? 'Liquidez diária' : 'Só no vencimento'; cor = k === 'diaria' ? 'var(--c1)' : 'var(--c2)'; }
-    const g = m.get(k) || { k, nome, cor, v: 0, n: 0, mes: 0 };
+    const g = m.get(k) || { k, nome, cor, v: 0, n: 0, mes: 0, perde: 0 };
     const v = valorHoje(i);
-    g.v += v; g.n++; g.mes += rendeMes(v, taxaAnual(i));
+    g.v += v; g.n++; g.mes += rendeMes(v, taxaAnual(i)); g.perde += perdeMes(v, taxaAnual(i));
     m.set(k, g);
   }
   return [...m.values()].sort((a, b) => b.v - a.v);
@@ -1107,7 +1130,7 @@ function grafComposicao(lista) {
     <div class="pilha" role="img" aria-label="Divisão do dinheiro por ${opts.find(o => o[0] === u.gAgrup)[1].toLowerCase()}">
       ${gs.map(g => `<i data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor};flex:${g.v / total} 1 0"></i>`).join('')}</div>
     <div style="margin-top:8px">${gs.map(g => `<div class="comp${u.gSel === g.k ? ' on' : ''}" data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor}">
-      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${g.bens ? `${plural(g.n, 'item', 'itens')} · perdem ≈ ${brl(S.bens.perde_ano, 0)}/ano` : `${plural(g.n, 'investimento', 'investimentos')} · ≈ ${brl(g.mes, 0)}/mês`}</span></div>
+      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${g.bens ? `${plural(g.n, 'item', 'itens')} · perdem ≈ ${brl(S.bens.perde_ano, 0)}/ano` : `${plural(g.n, 'investimento', 'investimentos')} · ${g.perde > g.mes ? `perde ≈ ${brl(g.perde - g.mes, 0)}/mês` : `≈ ${brl(g.mes, 0)}/mês`}`}</span></div>
       <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
       <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;
@@ -2752,7 +2775,7 @@ function revisarItemHTML() {
       <div class="campo"><label for="iae-banco">Banco</label><input id="iae-banco" class="inp" data-iae="banco" value="${esc(r.banco)}" list="dl-iae-bancos" autocomplete="off">
         <datalist id="dl-iae-bancos">${[...new Set([...S.d.bancos.map(b => b.nome), ...BANCOS_COMUNS])].map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
-        <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
+        <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.filter(x => !x.oculto || x.id === r.indexador).map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
       ${ix.taxa ? `<div class="campo"><label for="iae-taxa">Taxa (${esc(ix.suf)})</label><input id="iae-taxa" class="inp" data-iae="taxa" inputmode="decimal" value="${r.taxa || r.taxa === 0 ? String(r.taxa).replace('.', ',') : ''}" placeholder="${ix.ph}"></div>` : ''}
       <div class="campos-2"><div class="campo"><label for="iae-venc">Vencimento</label><input id="iae-venc" class="inp" type="date" data-iae="vencimento" value="${esc(r.vencimento || '')}"></div>
         <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">No venc.</button></div></div></div>`;
@@ -3345,7 +3368,19 @@ function maisInvest() {
       `<button class="idx-row" data-a="indice" data-v="${k}"><div><b>${n}</b><span>${s}</span></div><span class="vl">${pct(+I[k] || 0)}%</span>${ic('chev', 'chev')}</button>`).join('')}
     <div class="status ${st[0]}">${st[1]}</div>
     ${linhaChaveIdx(I)}
-    <button class="btn out" data-a="indices-atualizar" style="margin-top:6px">${ic('refresh')}Atualizar agora</button></section>`;
+    <button class="btn out" data-a="indices-atualizar" style="margin-top:6px">${ic('refresh')}Atualizar agora</button></section>${cardPerdaBens()}`;
+}
+// perda de valor por ano, por categoria: vale para os bens do InventarIA e para os investimentos do tipo Bens (de terceiros, um carro…)
+function cardPerdaBens() {
+  const usadas = new Set([...S.d.investimentos.filter(i => i.tipo === 'bens').map(i => i.categoria_bem || 'outros'),
+    ...(bensOn() ? S.bens.categorias.map(c => c.id) : [])]);
+  if (!usadas.size) return '';
+  const valor = k => S.d.investimentos.filter(i => i.tipo === 'bens' && (i.categoria_bem || 'outros') === k).reduce((a, i) => a + valorHoje(i), 0)
+    + (bensOn() ? (S.bens.categorias.find(c => c.id === k)?.hoje || 0) : 0);
+  const cats = [...usadas].sort((a, b) => valor(b) - valor(a));
+  return `<section class="card" id="perda-bens">${maisCab('sofa', 'Perda de valor dos bens')}
+    ${maisLead('Quanto cada categoria perde por ano.')}
+    <div class="bens-taxas">${cats.map(k => `<label class="bens-tx"><span>${esc(nomeCatBem(k))}<small>${brl(valor(k), 0)}</small></span><span class="pref mini"><input data-bens-taxa="${esc(k)}" inputmode="decimal" value="${String(taxaBem(k)).replace('.', ',')}" aria-label="Perda por ano de ${esc(nomeCatBem(k))}"><span>%</span></span></label>`).join('')}</div></section>`;
 }
 const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
   <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" role="switch" aria-checked="${!!I.auto}" aria-label="Atualizar sozinho"></button></div>`;
@@ -3539,7 +3574,7 @@ function novoForm(base) {
   return Object.assign({
     id: null, nome: '', banco: S.d.bancos[0]?.id || '', tipo: t.id, valor: 0, data_valor: iso(hoje()),
     indexador: t.p.indexador, taxa: t.p.taxa, liquidez: t.p.liquidez, vencimento: '', titular: 'meu', terceiro: '', obs: '',
-    obsAberta: false, idxEditado: false, dataEditada: false, bancosNovos: [], novoBanco: null, erros: {}, original: null, fotos: [],
+    obsAberta: false, idxEditado: false, dataEditada: false, bancosNovos: [], novoBanco: null, erros: {}, original: null, fotos: [], categoria_bem: 'outros',
   }, base || {});
 }
 
@@ -3710,10 +3745,10 @@ function montarFormInv() {
     c += `<input class="inp${err('terceiro')}" data-f="terceiro" value="${esc(f.terceiro)}" placeholder="De quem? Ex.: Mãe, Pedro, condomínio" autocomplete="off">${msg('terceiro')}`;
     if (ps.length) c += `<div class="chips" style="margin:10px 0 0">${ps.map(p => `<button class="chip${f.terceiro === p ? ' on' : ''}" data-a="f-set" data-k="terceiro" data-v="${esc(p)}">${esc(p)}</button>`).join('')}</div>`;
   }
-  // dinheiro em espécie: sem banco, sem rendimento, sem vencimento
-  const especie = f.tipo === 'dinheiro', oculto = especie ? ' hidden' : '';
+  // dinheiro em espécie e bens: sem banco, sem rendimento, sem vencimento (bens perdem a taxa da categoria)
+  const especie = f.tipo === 'dinheiro' || f.tipo === 'bens', oculto = especie ? ' hidden' : '';
   c += `</div>
-    <div class="campo"><label for="f-nome">Nome</label><input id="f-nome" class="inp" data-f="nome" value="${esc(f.nome)}" placeholder="${especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off"></div>
+    <div class="campo"><label for="f-nome">Nome</label><input id="f-nome" class="inp" data-f="nome" value="${esc(f.nome)}" placeholder="${f.tipo === 'bens' ? 'Ex.: Carro da mãe' : especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off"></div>
     <div class="campo"${oculto}><div class="lbl">Banco</div><div class="chips" style="margin:0">
       ${bancos.map(b => `<button class="chip${f.banco === b.id ? ' on' : ''}" data-a="f-set" data-k="banco" data-v="${b.id}" style="--c:${corOk(b.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(b.nome)}</button>`).join('')}
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
@@ -3731,7 +3766,10 @@ function montarFormInv() {
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div></div>
       <div class="campo" style="margin-bottom:6px"><label for="f-data">Valor em</label><input id="f-data" class="inp" type="date" data-f="data_valor" value="${esc(f.data_valor)}" max="${iso(hoje())}"></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:20px"></div>
-    <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.map(x =>
+    ${f.tipo === 'bens' ? `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${BENS_CATS.filter(([k]) => BENS_FORM.includes(k) || k === f.categoria_bem).map(([k, n]) =>
+      `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${n}</button>`).join('')}</div>
+      <div class="ajuda">Perde ${pct(taxaBem(f.categoria_bem || 'outros'))}% por ano. As taxas ficam em Mais › Invest.</div></div>` : ''}
+    <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${x.nome}</button>`).join('')}</div>
       ${ix.taxa ? `<div class="pref${err('taxa')}">${ix.pre ? `<span>${ix.pre}</span>` : ''}<input data-f="taxa" inputmode="decimal" value="${f.taxa === '' || f.taxa == null ? '' : String(f.taxa).replace('.', ',')}" placeholder="${ix.ph}"><span>${ix.suf}</span></div>` : ''}
       ${msg('taxa')}<div class="ajuda" id="aj-taxa"></div></div>
@@ -3776,7 +3814,8 @@ function ajudasForm() {
     if (o && corrige(F) && S.d.ajustes.corrigir !== false && F.data_valor && F.data_valor < iso(hoje())) {
       const est = valorHoje({ valor: F.valor, data_valor: F.data_valor, indexador: F.indexador, taxa: F.taxa });
       if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">Usar este valor</button>`;
-    } else if (!o && corrige(F)) t = 'O saldo de hoje; o rendimento conta daqui para a frente.';
+    } else if (!o && F.tipo === 'bens') t = 'O valor de hoje; ele perde a taxa da categoria por ano.';
+    else if (!o && corrige(F)) t = 'O saldo de hoje; o rendimento conta daqui para a frente.';
     av.innerHTML = t;
   }
 }
@@ -3794,8 +3833,10 @@ function salvarInvestimento(eOutro) {
   const inv = {
     id: f.id || uid(),
     nome: (f.nome || '').trim() || `${tipoDe(f.tipo).nome}${nomeBanco ? ' ' + nomeBanco : ''}`,
-    banco: f.tipo === 'dinheiro' ? '' : f.banco || '', tipo: f.tipo, valor: Math.round(f.valor * 100) / 100, data_valor: f.data_valor || iso(hoje()),
+    banco: f.tipo === 'dinheiro' || f.tipo === 'bens' ? '' : f.banco || '', tipo: f.tipo, valor: Math.round(f.valor * 100) / 100, data_valor: f.data_valor || iso(hoje()),
     indexador: f.indexador, taxa: ix.taxa ? +f.taxa : 0, liquidez: f.liquidez, vencimento: f.vencimento || null,
+    // bens: a taxa vem da tabela de perda por categoria (Mais › Invest)
+    ...(f.tipo === 'bens' ? { indexador: 'deprecia', taxa: taxaBem(f.categoria_bem || 'outros'), categoria_bem: f.categoria_bem || 'outros', liquidez: 'diaria', vencimento: null } : {}),
     titular: f.titular === 'terceiros' ? 'terceiros' : 'meu', terceiro: f.titular === 'terceiros' ? String(f.terceiro).trim() : '',
     obs: (f.obs || '').trim(), fotos: (f.fotos || []).slice(), criado_em: f.original?.criado_em || new Date().toISOString(), atualizado_em: new Date().toISOString(),
   };
@@ -4203,6 +4244,8 @@ document.addEventListener('click', ev => {
       F.tipo = v;
       const p = tipoDe(v).p;
       if (!F.id) { F.liquidez = p.liquidez; if (!F.idxEditado) { F.indexador = p.indexador; F.taxa = p.taxa; } }
+      // dinheiro e bens têm rendimento próprio; saindo deles, volta o de costume do tipo
+      if (v === 'bens' || v === 'dinheiro' || ['deprecia', 'parado'].includes(F.indexador)) Object.assign(F, { indexador: p.indexador, taxa: p.taxa, liquidez: p.liquidez });
       pintarFolha(); break;
     }
     case 'f-idx': {
@@ -4434,7 +4477,11 @@ document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.dataset.bensTaxa) {
     const k = el.dataset.bensTaxa, v = Math.max(0, Math.min(100, Number(String(el.value).replace(',', '.')) || 0));
-    persistir(d => { d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v }); }, 'Perda por ano salva').then(ok => { if (ok) carregarBens(); });
+    persistir(d => {
+      d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v });
+      // os bens cadastrados aqui (tipo Bens) dessa categoria passam a perder a taxa nova
+      for (const i of d.investimentos) if (i.tipo === 'bens' && (i.categoria_bem || 'outros') === k) i.taxa = v;
+    }, 'Perda por ano salva').then(ok => { if (ok) carregarBens(); });
     return;
   }
   if (el.dataset.ajusteSel) {
@@ -4480,14 +4527,13 @@ function carregarBens(forcar) {
 function cardBens(a) {
   const b = S.bens, on = a.bens !== false;
   let h = `<section class="card" id="bens">${maisCab('sofa', 'Bens no InventarIA')}
-    ${maisLead('Os valores dos itens do InventarIA, somados no patrimônio. Perdem valor por ano, por categoria.')}
+    ${maisLead('Os valores dos itens do InventarIA, somados no patrimônio.')}
     ${linhaChave('bens', on, 'Somar os bens', on ? (b && b.ok ? `Ligado: ${brl(b.hoje, 0)} em ${plural(b.n, 'item', 'itens')}.` : 'Ligado.') : 'Desligado: o patrimônio fica só com os investimentos.')}`;
   if (!on) return h + '</section>';
   if (!b) return h + `<div class="status manual">Procurando o InventarIA…</div></section>`;
   if (!b.ok) return h + `<div class="status manual">${esc(b.motivo || 'O InventarIA não respondeu.')}</div>
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Tentar de novo</button></section>`;
-  h += `<div class="lbl" style="margin-top:6px">Perda por ano</div><div class="bens-taxas">${b.categorias.map(c =>
-    `<label class="bens-tx"><span>${esc(c.nome)}<small>${brl(c.hoje, 0)}</small></span><span class="pref mini"><input data-bens-taxa="${esc(c.id)}" inputmode="decimal" value="${String(c.taxa).replace('.', ',')}" aria-label="Perda por ano de ${esc(c.nome)}"><span>%</span></span></label>`).join('')}</div>
+  h += `<p class="nota" style="margin:0 0 12px">A perda por ano de cada categoria fica em Mais › Invest.</p>
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Atualizar do InventarIA</button></section>`;
   return h;
 }

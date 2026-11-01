@@ -15,6 +15,7 @@ INDEXADORES = {
     "poupanca": "Poupança",
     "estimado": "Estimado",
     "parado": "Sem rendimento",
+    "deprecia": "Perde valor",
 }
 
 TIPOS = {
@@ -27,6 +28,7 @@ TIPOS = {
     "acoes": "Ações/FII",
     "ouro": "Ouro",
     "dinheiro": "Dinheiro",
+    "bens": "Bens",
     "previdencia": "Previdência",
     "outro": "Outro",
 }
@@ -118,6 +120,8 @@ def taxa_anual(inv, ind):
         return ((1 + mensal) * (1 + tr)) ** 12 - 1
     if k == "estimado":
         return t
+    if k == "deprecia":  # bens: perdem a taxa da categoria por ano (a taxa vem da tabela de Mais › Invest)
+        return -t
     return 0.0
 
 
@@ -132,7 +136,8 @@ def valor_hoje(inv, ind, corrigir=True, hoje=None):
 
 
 def rende_mes(v, r):
-    return v * ((1 + r) ** (1 / 12) - 1)
+    """Quanto rende por mês; bens que perdem valor não entram (0)."""
+    return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
 
 
 def fmt_num(x, casas=2):

@@ -16,11 +16,11 @@ CACHE_S = 10 * 60
 
 # perda de valor por ano, em %, por categoria do InventarIA (dá para mudar em Mais › Integrações)
 TAXAS_PADRAO = {
-    "eletronicos": 20, "moveis": 10, "decoracao": 5, "colecao": 0, "cozinha": 10, "texteis": 15, "plantas": 0,
+    "veiculos": 15, "eletronicos": 20, "moveis": 10, "decoracao": 5, "colecao": 0, "cozinha": 10, "texteis": 15, "plantas": 0,
     "livros": 5, "pets": 15, "saude": 10, "vestuario": 25, "utilidades": 10, "outros": 10,
 }
 NOMES_PADRAO = {
-    "eletronicos": "Eletrônicos", "moveis": "Móveis", "decoracao": "Decoração e arte", "colecao": "Colecionáveis",
+    "veiculos": "Veículos", "eletronicos": "Eletrônicos", "moveis": "Móveis", "decoracao": "Decoração e arte", "colecao": "Colecionáveis",
     "cozinha": "Cozinha e bar", "texteis": "Tapetes e têxteis", "plantas": "Plantas", "livros": "Livros e jogos",
     "pets": "Pets", "saude": "Saúde", "vestuario": "Roupas e calçados", "utilidades": "Utilidades", "outros": "Outros",
 }
