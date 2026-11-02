@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)
     linha = pg.locator('.lanc:has-text("Aporte nos investimentos")').first
     print('2 linha:', linha.inner_text().replace('\n', ' | '))
-    sys.path.insert(0, '/home/claude/gerencia-ha/gerencia/app')
+    import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'gerencia', 'app'))
     import integracao
     from datetime import date
     d2 = get('api/state')

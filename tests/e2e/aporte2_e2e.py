@@ -62,7 +62,7 @@ with sync_playwright() as p:
     print('  resumo Saiu:', pg.inner_text('.cx-resumo > div:nth-child(2)').replace('\n', ' | '))
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)
     print('  linha:', pg.locator('.lanc:has-text("Aporte nos investimentos")').first.inner_text().replace('\n', ' | '))
-    sys.path.insert(0, '/home/claude/gerencia-ha/gerencia/app')
+    import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'gerencia', 'app'))
     import integracao
     lst = integracao.listar(get('api/state'), date(2026, 9, 1), date(2026, 12, 31), date(2026, 10, 28))
     print('  CronologIA:', [(c['descricao'], c['vencimento'], c.get('pago')) for c in lst['contas'] if 'Aporte' in c['descricao']][:4])
