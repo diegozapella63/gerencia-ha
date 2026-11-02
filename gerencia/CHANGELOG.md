@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.22.0
+
+- **Bens da casa na Carteira**: com o InventarIA, um cartão só de leitura (borda tracejada) mostra o total dos bens, quantos itens e quanto perdem por mês, em Todos e em Meus. Tocar abre Bens da casa.
+- **Evolução dos bens** na janela Bens da casa: quanto valem em 1, 5 e 10 anos, e **Ver na Evolução**.
+- **Ocultar bens e imóveis** na Evolução (abaixo de Descontar IR) e na Divisão: mostra só os investimentos, sem os bens do InventarIA e os do tipo Bens. A escolha fica guardada.
+
 ## 1.21.1
 
 - As **categorias dos bens** vêm do InventarIA (1.17.0 ou mais novo, onde dá para renomear, criar e excluir categorias), mais Imóveis e Veículos. Uma categoria nova começa perdendo 10% ao ano. Sem o InventarIA, ficam as de costume.

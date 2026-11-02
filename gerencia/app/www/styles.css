@@ -1084,3 +1084,10 @@ details summary { list-style-position: inside; }
 .pref.mini.larga { width: 132px; }
 .pref.mini.larga > span { font-size: 13px; }
 input[readonly] { opacity: .8; }
+
+/* os bens do InventarIA na Carteira: só leitura, com a borda tracejada */
+.inv.inv-ro { border-style: dashed; background: color-mix(in srgb, var(--c4) 5%, var(--card)); }
+.bens-evo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.bens-evo div { background: var(--card-2); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.bens-evo span { display: block; color: var(--muted); font-size: 12.5px; }
+.bens-evo b { display: block; font: 600 17px/1.2 var(--font-d); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

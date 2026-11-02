@@ -29,7 +29,7 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 
-VERSAO = "1.21.1"
+VERSAO = "1.22.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")

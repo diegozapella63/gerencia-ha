@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.21.1';
+const VERSAO = '1.22.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -147,6 +147,7 @@ const P = {
   auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   swap: '<path d="M4 8h15l-4-4M20 16H5l4 4"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   sofa: '<path d="M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 18v-6a2 2 0 0 1 4 0v2h10v-2a2 2 0 0 1 4 0v6z"/><path d="M5 18v2M19 18v2"/>',
   alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
   trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
@@ -170,7 +171,7 @@ const S = {
   oculto: store.get('oculto', false),
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
-    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gAgrup: 'banco', gSel: null,
+    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gSemBens: false, gAgrup: 'banco', gSel: null,
     cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
   }, store.get('ui', {})),
   ia: null,
@@ -178,8 +179,8 @@ const S = {
   bens: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gSemBens, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gSemBens, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
 };
 
 function normalizar(d) {
@@ -873,8 +874,20 @@ function telaInvest() {
   const soma = l.reduce((s, x) => s + x.v, 0);
   const mes = l.reduce((s, x) => s + rendeMes(x.v, taxaAnual(x.i)), 0);
   html += `<div class="resumo-lista"><span>${plural(l.length, 'investimento', 'investimentos')} · rende ≈ ${brl(mes, 0)}/mês</span><b>${brl(soma, 0)}</b></div>`;
-  html += l.length ? `<div class="inv-lista">${l.map(x => cardInv(x.i, x.v)).join('')}</div>` : '<div class="vazio">Nenhum investimento com esse filtro.</div>';
+  // os bens do InventarIA aparecem como um cartão só de leitura (o valor muda lá), nos seus e em Todos
+  const q = semAcento(u.busca || '');
+  const bensCard = bensOn() && u.filtro !== 'terc' && !u.banco && !u.pessoa && (!q || ['bens da casa', 'inventaria'].some(t => t.includes(q)));
+  html += l.length || bensCard ? `<div class="inv-lista">${l.map(x => cardInv(x.i, x.v)).join('')}${bensCard ? cardBensInventaria() : ''}</div>` : '<div class="vazio">Nenhum investimento com esse filtro.</div>';
   return html;
+}
+function cardBensInventaria() {
+  const b = S.bens;
+  return `<button class="inv inv-ro" data-a="bens" style="--c:var(--c4)" aria-label="Bens da casa, do InventarIA, só leitura">
+    <div class="inv-top"><div class="inv-nome">Bens da casa</div><div class="inv-valor">${brl(b.hoje)}</div></div>
+    <div class="inv-meta"><i></i>InventarIA · ${plural(b.n, 'item', 'itens')}</div>
+    <div class="tags"><span class="tag">${ic('lock')}Só leitura</span><span class="tag meu">${ic('user')}Meu</span></div>
+    <div class="inv-pe"><span>perde ≈ ${brl(b.perde_ano / 12)} por mês</span><span>o valor muda no InventarIA</span></div>
+  </button>`;
 }
 
 function cardInv(i, v) {
@@ -907,13 +920,17 @@ function invGraficos() {
     html += `<div class="chips c3">${[['tudo', 'Tudo'], ['meu', 'Só o meu'], ['terc', 'De terceiros']].map(([k, n]) =>
       `<button class="chip${u.gEscopo === k ? ' on' : ''}" data-a="g" data-k="gEscopo" data-v="${k}">${n}</button>`).join('')}</div>`;
   } else if (u.gEscopo !== 'tudo') u.gEscopo = 'tudo';
-  const lista = porEscopo(u.gEscopo);
-  if (!lista.length && !comBensG()) return html + '<div class="vazio">Nada nesse filtro.</div>';
+  const lista = porEscopo(u.gEscopo).filter(i => !(u.gSemBens && i.tipo === 'bens'));
+  if (!lista.length && !comBensG()) return html + '<div class="vazio">Nada nesse filtro.</div>' + chaveSemBens();
   return html + (u.invModo === 'divisao' ? grafComposicao(lista) : grafEvolucao(lista));
 }
 
 // os bens da casa (InventarIA) entram na Divisão e na Evolução em Tudo e em Só o meu; perdem valor por categoria
-const comBensG = () => bensOn() && S.ui.gEscopo !== 'terc';
+const comBensG = () => bensOn() && S.ui.gEscopo !== 'terc' && !S.ui.gSemBens;
+// a chave só aparece quando há bens (do InventarIA ou do tipo Bens) no que está na tela
+const temBensG = () => (bensOn() && S.ui.gEscopo !== 'terc') || porEscopo(S.ui.gEscopo).some(i => i.tipo === 'bens');
+const chaveSemBens = (estilo = '') => temBensG() ? `<div class="linha-sw"${estilo}><div><b>Ocultar bens e imóveis</b><span>Só os investimentos, sem os bens do InventarIA e os do tipo Bens.</span></div>
+      <button class="sw${S.ui.gSemBens ? ' on' : ''}" data-a="g" data-k="gSemBens" data-v="${S.ui.gSemBens ? '' : '1'}" role="switch" aria-checked="${!!S.ui.gSemBens}" aria-label="Ocultar bens e imóveis"></button></div>` : '';
 const bensEm = m => (S.bens.categorias || []).reduce((a, c) => a + c.hoje * Math.pow(1 - (c.taxa || 0) / 100, m / 12), 0);
 
 let CACHE = {};
@@ -952,6 +969,7 @@ function grafEvolucao(lista) {
     <div class="sep" style="margin:18px 0"></div>
     <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
       <button class="sw${u.gIR ? ' on' : ''}" data-a="g" data-k="gIR" data-v="${u.gIR ? '' : '1'}" aria-label="Descontar IR"></button></div>
+    ${chaveSemBens(' style="margin-top:14px"')}
   </div>
   <p class="nota">Com os índices de hoje (CDI ${pct(S.d.indices.cdi)}%, IPCA ${pct(S.d.indices.ipca)}%): rendimento médio de ${pct(pj.rMed * 100)}% a.a. "Em dinheiro de hoje" desconta a inflação.</p>
   <details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Ver tabela por ano</summary>
@@ -1148,7 +1166,7 @@ function grafComposicao(lista) {
       <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
       <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;
-  return html;
+  return html + (temBensG() ? `<div class="ctrl">${chaveSemBens()}</div>` : '');
 }
 
 /* ------------------------------------------------------------------ caixa: base */
@@ -4220,6 +4238,7 @@ document.addEventListener('click', ev => {
       const k = el.dataset.k;
       if (k === 'gAnos') S.ui.gAnos = +v;
       else if (k === 'gIR') S.ui.gIR = !!v;
+      else if (k === 'gSemBens') S.ui.gSemBens = !!v;
       else if (k === 'gSel') S.ui.gSel = S.ui.gSel === v ? null : v;
       else if (k === 'gModo') S.ui.invModo = v === 'composicao' ? 'divisao' : 'evolucao';
       else { S.ui[k] = v; if (k === 'gAgrup') S.ui.gSel = null; }
@@ -4252,6 +4271,7 @@ document.addEventListener('click', ev => {
     }
     case 'banco': abrirBanco(id); break;
     case 'bens': abrirFolha(montarBens); break;
+    case 'bens-evolucao': fecharFolha(); Object.assign(S.ui, { tab: 'investimentos', invModo: 'evolucao', gEscopo: S.ui.gEscopo === 'terc' ? 'meu' : S.ui.gEscopo }); salvarUI(); render(); window.scrollTo(0, 0); break;
     case 'bens-atualizar': S.bens = null; render(); if (FOLHA) pintarFolha(); carregarBens(true); break;
     case 'banco-sug': abrirBanco(null, v); break;
     case 'indice': abrirIndice(v); break;
@@ -4598,6 +4618,8 @@ function montarBens() {
     titulo: 'Bens da casa',
     corpo: `<div class="stat-duo" style="margin:0 0 14px"><div><span>Hoje</span><b>${brl(b.hoje, 0)}</b><small>registrado ${brl(b.registrado, 0)}</small></div>
         <div><span>Perdem por ano</span><b>${brl(b.perde_ano, 0)}</b></div></div>
+      <div class="bens-evo">${[1, 5, 10].map(a => `<div><span>Em ${a === 1 ? '1 ano' : a + ' anos'}</span><b>${brl(bensEm(a * 12), 0)}</b></div>`).join('')}</div>
+      <button class="link" data-a="bens-evolucao" style="margin:0 0 6px">${ic('chart', 'ic-s')}Ver na Evolução</button>
       <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · −${pct(c.taxa)}% ao ano`, c.hoje)).join('')}
       <h3 class="ia-sec">Por cômodo</h3>${b.comodos.map(c => linha(c.nome, plural(c.n, 'item', 'itens'), c.hoje)).join('')}
       <p class="nota">Pelo valor de cada item no InventarIA, menos a perda por ano desde a data desse valor. As taxas ficam em Mais › Integrações.</p>`,
