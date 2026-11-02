@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.22.0';
+const VERSAO = '1.23.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -157,6 +157,9 @@ const P = {
   fluxo: '<path d="M7 20V5M3 9l4-4 4 4"/><path d="M17 4v15M13 15l4 4 4-4"/>',
   card: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/>',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  zap: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   ia: '<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/>',
   repeat: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>',
   minus: '<path d="M5 12h14"/>',
@@ -1945,11 +1948,11 @@ function campoInvestimentoAporte(o, chave = 'lf-inv') {
 function tilesIA(modo) {
   if (!iaOn()) return '';
   const caixa = modo === 'caixa', voz = vozPronta();
-  const t = (inicio, icone, txt) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}</span></button>`;
+  const t = (inicio, icone, txt, nota) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}${nota ? `<small>${nota}</small>` : ''}</span></button>`;
   return `<div class="campo imp-campo"><div class="lbl">Trazer de mensagem ou imagem</div>
-    <div class="imp-tiles${voz ? '' : ' dois'}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'camera', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
+    <div class="imp-tiles${voz ? ' quatro' : ''}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'image', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${t('camera', 'scan', 'Digitalizar com\u00a0IA', camOk() ? '' : 'Precisa de https')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
     <p class="imp-ajuda">Dá para colar a imagem direto aqui.</p>
-    ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Atualizar saldos de vários</button>` : ''}</div>`;
+    ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-sobre="1" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Atualizar saldos de vários</button>` : ''}</div>`;
 }
 
 function montarFormLanc() {
@@ -2296,10 +2299,11 @@ async function imagemJPG(file, max = 1600) {
     return cv.toDataURL('image/jpeg', 0.86);
   } finally { URL.revokeObjectURL(url); }
 }
-function escolherArquivo(accept) {
+function escolherArquivo(accept, capture) {
   return new Promise(res => {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = accept; inp.style.display = 'none';
+    if (capture) inp.setAttribute('capture', 'environment');
     inp.onchange = () => { res(inp.files && inp.files[0]); inp.remove(); };
     document.body.appendChild(inp); inp.click();
   });
@@ -2482,9 +2486,9 @@ function abrirIA(modo, inicio, opts) {
     // aberto do Novo investimento: só investimentos (nada vai para o caixa)
     soInvest: !!(opts && opts.soInvest),
     // veio de Colar mensagem ou de Imagem: a janela mostra só aquilo (sem misturar as outras opções)
-    so: inicio === 'texto' || inicio === 'arquivo' ? inicio : '' };
+    so: inicio === 'texto' || inicio === 'arquivo' ? inicio : inicio === 'camera' || inicio === 'colado' ? 'arquivo' : '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (IAS && FOLHA) pintarFolha(); }).catch(() => {});
-  abrirFolha(montarIA, () => { pararFala(); IAS = null; });
+  abrirFolha(montarIA, () => { pararFala(); IAS = null; }, !!(opts && opts.sobre));
   if (inicio === 'voz') comecarFala();
   if (inicio === 'arquivo') escolherArquivo('image/*,application/pdf').then(iaPegarArquivo);
   if (inicio === 'texto') setTimeout(() => { const t = $('#ia-txt'); if (t) t.focus(); }, 80);
@@ -2502,8 +2506,7 @@ function montarIA() {
   if (s.saldos) return entradaSaldos(aviso);
   // aberto do Novo investimento (ou do Invest): os textos falam de investimentos; a IA continua separando sozinha
   const inv = s.dica === 'invest';
-  const prevArq = arq ? `<div class="ia-arq"><div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
-      <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div></div>` : '';
+  const prevArq = arq ? `<div class="ia-arq">${prevArquivo(arq)}</div>` : '';
   const pe = `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`;
   const erro = s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : '';
   if (s.so === 'texto') return {
@@ -2514,14 +2517,13 @@ function montarIA() {
     pe };
   if (s.so === 'arquivo') return {
     titulo: inv ? 'Imagem ou print' : 'Fatura, print ou foto',
-    corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('camera')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button></div>`}
+    corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('image')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button>${botaoCam()}</div>`}
       <p class="ajuda" style="margin:10px 0 0">Dá também para colar a imagem aqui.</p>${erro}`,
     pe };
   return {
     titulo: inv ? 'Ler investimento com IA' : 'Ler com IA',
-    corpo: `${aviso}<div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
-          <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
-        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}${inv ? 'Print do banco, extrato ou PDF' : 'Fatura, print, foto ou PDF'}</button>`}
+    corpo: `${aviso}<div class="ia-arq">${arq ? prevArquivo(arq)
+        : `<button class="btn larga" data-a="ia-arq">${ic('image')}${inv ? 'Print do banco, extrato ou PDF' : 'Fatura, print, foto ou PDF'}</button>${botaoCam()}`}
         ${!arq && vozPronta() ? `<button class="btn larga" data-a="ia-falar" style="margin-top:8px">${ic('mic')}Falar</button>` : ''}</div>
       <div class="campo"><label for="ia-txt">Ou cole o texto</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”, e-mail da corretora, nota de aplicação ou extrato'
@@ -2531,6 +2533,12 @@ function montarIA() {
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
+function prevArquivo(arq) {
+  const n = (arq.paginas || []).length;
+  return `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
+    <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : n > 1 ? `${n} páginas` : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`;
+}
+const botaoCam = () => `<button class="btn larga" data-a="ia-cam" style="margin-top:8px">${ic('scan')}Digitalizar com a câmera</button>`;
 const donosSaldos = () => [['', 'Vários'], ['meu', 'Meus'], ...pessoas().map(p => [p, p])];
 function entradaSaldos(aviso) {
   const s = IAS, arq = s.arquivo;
@@ -2540,9 +2548,8 @@ function entradaSaldos(aviso) {
     corpo: `${aviso}<p class="da-intro" style="margin:0 0 14px">O valor de agora de cada investimento. O aporte é a diferença para o valor de hoje.</p>
       <div class="campo"><div class="lbl">De quem são</div><div class="chips" style="margin:0">${donosSaldos().map(([k, n]) =>
         `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${esc(n)}</button>`).join('')}</div></div>
-      <div class="ia-arq">${arq ? `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
-          <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`
-        : `<button class="btn larga" data-a="ia-arq">${ic('camera')}Print, foto ou PDF</button>`}</div>
+      <div class="ia-arq">${arq ? prevArquivo(arq)
+        : `<button class="btn larga" data-a="ia-arq">${ic('image')}Print, foto ou PDF</button>${botaoCam()}`}</div>
       <div class="campo"><label for="ia-txt">Ou cole a lista</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.:&#10;Nubank, valor atualizado, R$ 500&#10;Serasa, valor atualizado, R$ 600">${esc(s.texto)}</textarea>
       </div>
@@ -2576,6 +2583,111 @@ async function iaPegarArquivo(file) {
     pintarFolha();
   } catch (e) { toast(e.message); }
 }
+// as fotos tiradas na hora (Digitalizar com IA) já vão para a leitura, como no ResolvIA
+function iaUsarFotos(fotos) {
+  if (!IAS || !fotos.length) return;
+  IAS.arquivo = { nome: fotos.length > 1 ? 'Fotos da câmera' : 'Foto da câmera', pdf: false, dataUrl: fotos[0], paginas: fotos, foto: null };
+  IAS.erro = '';
+  iaLer();
+}
+
+/* --------- Digitalizar com IA: a câmera aqui dentro, como no ResolvIA (várias páginas viram uma leitura só) */
+let CAM = null;
+const CAM_MAX = 4;
+const camOk = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+async function abrirCamera(aoUsar) {
+  fecharCamera(true);
+  CAM = { status: 'abrindo', fotos: [], luz: false, temLuz: false, aoUsar, h: nivel() + 1 };
+  marcarHist(CAM.h);
+  pintarCamera();
+  if (!camOk()) {
+    CAM.status = 'erro';
+    CAM.erro = window.isSecureContext === false
+      ? 'A câmera só abre aqui com o Home Assistant num endereço seguro (https), como o do Nabu Casa. Dá para tirar a foto pelo celular e escolher.'
+      : 'Este navegador não deixa usar a câmera aqui. Dá para tirar a foto pelo celular e escolher.';
+    pintarCamera();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } } });
+    if (!CAM) { stream.getTracks().forEach(t => t.stop()); return; }
+    const tr = stream.getVideoTracks()[0];
+    const caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+    Object.assign(CAM, { stream, status: 'ao-vivo', temLuz: !!caps.torch });
+    pintarCamera();
+    const v = $('#camera video');
+    if (v) { v.srcObject = stream; v.play().catch(() => {}); }
+  } catch (e) {
+    if (!CAM) return;
+    const negado = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    CAM.status = 'erro';
+    CAM.erro = negado ? 'Sem permissão para usar a câmera. Libere a câmera para o app do Home Assistant nas configurações do celular, ou escolha uma foto.'
+      : 'Não deu para abrir a câmera. Dá para escolher uma foto.';
+    pintarCamera();
+  }
+}
+function pintarCamera() {
+  let el = $('#camera');
+  if (!CAM) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'camera'; el.className = 'cam'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Digitalizar com IA');
+    el.innerHTML = '<video playsinline muted autoplay></video><div class="cam-ui"></div>';
+    document.body.appendChild(el);
+  }
+  const c = CAM, n = c.fotos.length;
+  $('.cam-ui', el).innerHTML = `<div class="cam-top"><button class="cam-btn" data-a="cam-fechar" aria-label="Fechar">${ic('x')}</button><span class="cam-titulo">Digitalizar com IA</span>
+      ${c.temLuz ? `<button class="cam-btn${c.luz ? ' on' : ''}" data-a="cam-luz" aria-label="Lanterna" aria-pressed="${c.luz}">${ic('zap')}</button>` : '<span class="cam-btn vazio"></span>'}</div>
+    ${c.status === 'erro' ? `<div class="cam-msg">${ic('camera')}<p>${esc(c.erro)}</p><button class="btn pri" data-a="cam-galeria">${ic('image')}Tirar ou escolher foto</button></div>`
+      : `<div class="cam-moldura"><i></i><i></i><i></i><i></i></div>
+    <p class="cam-dica">${c.status === 'abrindo' ? 'Abrindo a câmera…' : n ? `${plural(n, 'página', 'páginas')}. ${n < CAM_MAX ? 'Fotografe outra ou toque em Pronto.' : 'Toque em Pronto.'}` : 'Enquadre a fatura, a nota ou a lista e toque no botão'}</p>`}
+    ${c.status === 'erro' ? '' : `<div class="cam-baixo"><div class="cam-fotos">${c.fotos.slice(-3).map(f => `<img src="${f}" alt="">`).join('')}${n > 3 ? `<span>+${n - 3}</span>` : ''}</div>
+      <button class="cam-disparo" data-a="cam-foto" aria-label="Fotografar"${c.status !== 'ao-vivo' || n >= CAM_MAX ? ' disabled' : ''}><span></span></button>
+      <button class="cam-pronto" data-a="cam-pronto"${n ? '' : ' disabled'}>Pronto${n ? ` (${n})` : ''}</button></div>`}`;
+}
+function fecharCamera(semHistorico) {
+  if (!CAM) return;
+  if (CAM.stream) CAM.stream.getTracks().forEach(t => t.stop());
+  CAM = null;
+  pintarCamera();
+  if (!semHistorico) voltarHist(nivel());
+}
+function camFoto() {
+  const v = $('#camera video');
+  if (!CAM || !v || !v.videoWidth || CAM.fotos.length >= CAM_MAX) return;
+  const k = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight));
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+  cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
+  CAM.fotos.push(cv.toDataURL('image/jpeg', 0.86));
+  try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) { /* ok */ }
+  const fl = document.createElement('div'); fl.className = 'cam-flash'; $('#camera').appendChild(fl); setTimeout(() => fl.remove(), 400);
+  pintarCamera();
+}
+function camPronto() {
+  if (!CAM || !CAM.fotos.length) return;
+  const { fotos, aoUsar } = CAM;
+  // a folha da leitura entra no lugar da câmera no histórico (sem voltar e avançar de novo)
+  const h = CAM.h; fecharCamera(true);
+  aoUsar(fotos);
+  if (nivel() < h) voltarHist(nivel());
+}
+async function camLuz() {
+  const tr = CAM && CAM.stream && CAM.stream.getVideoTracks()[0];
+  if (!tr) return;
+  try { await tr.applyConstraints({ advanced: [{ torch: !CAM.luz }] }); CAM.luz = !CAM.luz; } catch (e) { CAM.temLuz = false; }
+  pintarCamera();
+}
+function camGaleria() {
+  const aoUsar = CAM && CAM.aoUsar;
+  fecharCamera();
+  if (!aoUsar) return;
+  escolherArquivo('image/*', true).then(async f => {
+    if (!f) return;
+    try { aoUsar([await imagemJPG(f)]); } catch (e) { toast(e.message); }
+  });
+}
+
 async function iaLer() {
   const s = IAS;
   s.erro = ''; s.etapa = 'lendo'; pintarFolha();
@@ -2584,7 +2696,8 @@ async function iaLer() {
     if (s.saldos) Object.assign(corpo, { saldos: true, pessoa: s.pessoa || '' });
     else if (s.soInvest) corpo.so_invest = true;
     if (s.ouvido && !s.arquivo) corpo.fala = true;
-    if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
+    if (s.arquivo && (s.arquivo.paginas || []).length > 1) corpo.anexos = s.arquivo.paginas.map(b64 => ({ b64 }));
+    else if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
     const r = await api.iaLer(corpo);
     if (!IAS) return;
     const lanc = s.saldos || s.soInvest ? [] : r.lancamentos || [], invs = r.investimentos || [];
@@ -2822,7 +2935,7 @@ document.addEventListener('paste', ev => {
   // com a Nova despesa ou o Novo investimento aberto, colar uma imagem já abre a leitura por IA com ela
   if (!IAS && FOLHA && $('#folhas .imp-campo')) {
     ev.preventDefault();
-    { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv }); } IAS.so = 'arquivo';
+    { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv, sobre: true }); }
     iaPegarArquivo(f);
   }
 });
@@ -2837,7 +2950,7 @@ document.addEventListener('drop', ev => {
   const f = [...(ev.dataTransfer?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (!f) return;
   ev.preventDefault();
-  if (!IAS) { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv }); IAS.so = 'arquivo'; }
+  if (!IAS) { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv, sobre: true }); }
   iaPegarArquivo(f);
 });
 
@@ -3557,40 +3670,72 @@ function maisOpcoes() {
 }
 
 /* ------------------------------------------------------------------ folhas (bottom sheets) */
-let FOLHA = null;
-function abrirFolha(montar, aoFechar) {
-  fecharFolha(true);
+// Cada folha (e a câmera) ocupa um nível no histórico: o Voltar do celular fecha só o de cima.
+// Uma folha aberta "por cima" (Fatura, print ou foto a partir da Nova despesa) volta para a de baixo ao fechar.
+let FOLHA = null, PILHA = [];
+const nivelHist = () => { try { return (history.state && history.state.g) || 0; } catch (e) { return 0; } };
+const nivel = () => (CAM ? CAM.h : FOLHA ? FOLHA.h : 0);
+function voltarHist(h) { const g = nivelHist(); if (g > h) { try { history.go(h - g); } catch (e) { /* ok */ } } }
+function marcarHist(h) {
+  // a entrada de agora já é desse nível (a câmera acabou de fechar e a folha entra no lugar dela): só troca
+  try { if (nivelHist() >= h) history.replaceState({ folha: 1, g: h }, ''); else history.pushState({ folha: 1, g: h }, ''); } catch (e) { /* ok */ }
+}
+function abrirFolha(montar, aoFechar, sobre) {
   const root = $('#folhas');
+  if (sobre && FOLHA) {
+    const c = $('.folha-corpo', root);
+    FOLHA.scroll = c ? c.scrollTop : 0;
+    PILHA.push(FOLHA);
+    FOLHA = { montar, aoFechar, h: FOLHA.h + 1 };
+    pintarFolha(0);
+    marcarHist(FOLHA.h);
+    return;
+  }
+  fecharFolha(true);
   root.innerHTML = `<div class="veu" data-a="fechar"></div><section class="folha" role="dialog" aria-modal="true"></section>`;
-  FOLHA = { montar, aoFechar };
+  FOLHA = { montar, aoFechar, h: Math.max(1, nivelHist()) };
   pintarFolha();
   requestAnimationFrame(() => { $('.veu', root).classList.add('on'); $('.folha', root).classList.add('on'); });
-  try { history.pushState({ folha: 1 }, ''); } catch (e) { /* ok */ }
+  marcarHist(FOLHA.h);
 }
-function pintarFolha() {
+function pintarFolha(scrollPara) {
   if (!FOLHA) return;
   const el = $('#folhas .folha');
   const corpoAnt = $('.folha-corpo', el);
-  const scroll = corpoAnt ? corpoAnt.scrollTop : 0;
+  const scroll = typeof scrollPara === 'number' ? scrollPara : corpoAnt ? corpoAnt.scrollTop : 0;
   const f = FOLHA.montar();
   el.innerHTML = `<div class="folha-cab"><h2>${f.titulo}</h2>${f.cab || ''}<button class="icbtn" data-a="fechar" aria-label="Fechar">${ic('x')}</button></div>
     <div class="folha-corpo">${f.corpo}</div>${f.pe ? `<div class="folha-pe">${f.pe}</div>` : ''}`;
   $('.folha-corpo', el).scrollTop = scroll;
   if (f.depois) f.depois(el);
 }
-function fecharFolha(semHistorico) {
+// umNivel: o X, o Cancelar, o fundo escuro e o Voltar fecham só a folha de cima; o resto (salvou, trocou de tela) fecha todas
+function fecharFolha(semHistorico, umNivel) {
   if (!FOLHA) return;
+  if (umNivel && PILHA.length) {
+    const cb = FOLHA.aoFechar;
+    FOLHA = PILHA.pop();
+    pintarFolha(FOLHA.scroll || 0);
+    if (!semHistorico) voltarHist(FOLHA.h);
+    if (cb) cb();
+    return;
+  }
   const root = $('#folhas');
   const veu = $('.veu', root), fo = $('.folha', root);
-  const cb = FOLHA.aoFechar;
-  FOLHA = null;
+  const cbs = [FOLHA, ...PILHA.slice().reverse()].map(f => f.aoFechar).filter(Boolean);
+  FOLHA = null; PILHA = [];
   if (veu) veu.classList.remove('on');
   if (fo) fo.classList.remove('on');
   setTimeout(() => { if (!FOLHA) root.innerHTML = ''; }, 240);
-  if (!semHistorico) { try { if (history.state && history.state.folha) history.back(); } catch (e) { /* ok */ } }
-  if (cb) cb();
+  if (!semHistorico) voltarHist(nivel());
+  cbs.forEach(cb => cb());
 }
-window.addEventListener('popstate', () => { if (FOLHA) fecharFolha(true); });
+window.addEventListener('popstate', () => {
+  const alvo = nivelHist();
+  if (CAM && CAM.h > alvo) fecharCamera(true);
+  while (FOLHA && FOLHA.h > alvo) fecharFolha(true, true);
+  if (nivel() < alvo) voltarHist(nivel()); // entradas que sobraram de folhas já fechadas
+});
 
 function confirmar({ titulo, texto, botao, perigo, acao }) {
   abrirFolha(() => ({
@@ -4188,9 +4333,23 @@ document.addEventListener('click', ev => {
     case 'fala-mic': if (IAS && IAS.rec === 'on') terminarFala(); else comecarFala(); break;
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
-    case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '' }); break;
+    case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '', sobre: !!el.dataset.sobre }); break;
     case 'ias-pessoa': IAS.pessoa = v; pintarFolha(); break;
-    case 'ia-de': if (!iaOn()) break; if (el.dataset.ini === 'voz' && !vozPronta()) break; abrirIA(v, el.dataset.ini, { soInvest: v === 'invest' }); break;
+    case 'ia-de': {
+      if (!iaOn()) break;
+      const ini = el.dataset.ini, o = { soInvest: v === 'invest', sobre: true };
+      if (ini === 'voz' && !vozPronta()) break;
+      // a galeria abre direto, sem trocar a janela: se desistir, continua na Nova despesa
+      if (ini === 'arquivo') { escolherArquivo('image/*,application/pdf').then(f => { if (!f || !FOLHA) return; abrirIA(v, 'colado', o); iaPegarArquivo(f); }); break; }
+      if (ini === 'camera') { abrirCamera(fotos => { abrirIA(v, 'camera', o); iaUsarFotos(fotos); }); break; }
+      abrirIA(v, ini, o); break;
+    }
+    case 'ia-cam': abrirCamera(iaUsarFotos); break;
+    case 'cam-fechar': fecharCamera(); break;
+    case 'cam-foto': camFoto(); break;
+    case 'cam-pronto': camPronto(); break;
+    case 'cam-luz': camLuz(); break;
+    case 'cam-galeria': camGaleria(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
     case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
     case 'ia-ler': iaLer(); break;
@@ -4290,7 +4449,7 @@ document.addEventListener('click', ev => {
       confirmar({ titulo: 'Restaurar esta versão?', texto: 'Os dados de agora são trocados por essa versão. Uma cópia de hoje fica guardada.', botao: 'Restaurar',
         acao: () => api.restaurar(v).then(d => { S.d = normalizar(d); render(); toast('Versão restaurada'); }).catch(e => toast(e.message)) });
       break;
-    case 'fechar': fecharFolha(); break;
+    case 'fechar': fecharFolha(false, true); break;
     case 'confirmar': { const fn = FOLHA && FOLHA.confirmar; fecharFolha(); if (fn) fn(); break; }
 
     // formulário de investimento
@@ -4533,7 +4692,8 @@ document.addEventListener('touchend', ev => {
 document.addEventListener('touchcancel', () => { arraste = null; }, { passive: true });
 
 document.addEventListener('keydown', ev => {
-  if (ev.key === 'Escape' && FOLHA) fecharFolha();
+  if (ev.key === 'Escape' && CAM) fecharCamera();
+  else if (ev.key === 'Escape' && FOLHA) fecharFolha(false, true);
   if (ev.key === '/' && !FOLHA && !ev.ctrlKey && !ev.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
     const q = $('#q'); if (q) { ev.preventDefault(); q.focus(); } else if (S.d && S.d.investimentos.length) { ev.preventDefault(); irBuscar(); }
   }

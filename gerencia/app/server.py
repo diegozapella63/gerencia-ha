@@ -29,7 +29,7 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 
-VERSAO = "1.22.0"
+VERSAO = "1.23.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1154,21 +1154,29 @@ def ia_ler(corpo):
     modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite", "invest") else "auto"
     foto = str(corpo.get("foto") or "")
     texto = str(corpo.get("texto") or "").strip()[:12000]
-    anexo = corpo.get("anexo") or {}
-    bruto, mime = None, None
+    # Digitalizar com IA manda as páginas fotografadas juntas (anexos); o resto, um arquivo só (anexo)
+    anexos = corpo.get("anexos") if isinstance(corpo.get("anexos"), list) else [corpo.get("anexo") or {}]
+    arquivos = []  # [(bytes, mime)]
     if foto:
         if not (RE_FOTO.fullmatch(foto) and os.path.isfile(os.path.join(FOTOS, foto))):
             raise ValueError("A imagem não foi encontrada. Envie de novo.")
         with open(os.path.join(FOTOS, foto), "rb") as f:
-            bruto, mime = f.read(), "image/jpeg"
-    elif anexo.get("b64"):
-        try:
-            bruto = base64.b64decode(str(anexo["b64"]).split(",", 1)[-1], validate=True)
-        except (ValueError, TypeError):
-            raise ValueError("Arquivo inválido.")
-        mime = "application/pdf" if bruto[:4] == b"%PDF" else "image/jpeg" if bruto[:2] == b"\xff\xd8" else None
-        if not mime:
-            raise ValueError("Envie uma imagem (JPG) ou um PDF.")
+            arquivos.append((f.read(), "image/jpeg"))
+    else:
+        for anexo in anexos[:6]:
+            if not (isinstance(anexo, dict) and anexo.get("b64")):
+                continue
+            try:
+                b = base64.b64decode(str(anexo["b64"]).split(",", 1)[-1], validate=True)
+            except (ValueError, TypeError):
+                raise ValueError("Arquivo inválido.")
+            m = "application/pdf" if b[:4] == b"%PDF" else "image/jpeg" if b[:2] == b"\xff\xd8" else None
+            if not m:
+                raise ValueError("Envie uma imagem (JPG) ou um PDF.")
+            arquivos.append((b, m))
+    if len(arquivos) > 1 and any(m == "application/pdf" for _, m in arquivos):
+        raise ValueError("Envie um PDF por vez.")
+    bruto, mime = arquivos[0] if arquivos else (None, None)
     if not bruto and not texto:
         raise ValueError("Envie uma imagem, um PDF ou cole um texto.")
     limpar = ia_limpar_caixa if modo == "caixa" else ia_limpar
@@ -1179,7 +1187,7 @@ def ia_ler(corpo):
     tipo_uso = "fala" if corpo.get("fala") and modo != "holerite" and not bruto else "saldos" if saldos else "ler" if modo == "auto" else modo
     if IA_MOCK:
         time.sleep(1.2)
-        registrar_uso(tipo_uso, "ai_task.simulada", 1800, 600, 1 if bruto else 0, 1.2, "ok")
+        registrar_uso(tipo_uso, "ai_task.simulada", 1800, 600, len(arquivos), 1.2, "ok")
         if modo == "holerite":
             return {"holerite": ia_limpar_holerite(json.loads(json.dumps(IA_SIMULADA_HOLERITE))), "entidade": "ai_task.simulada"}
         if modo == "auto":
@@ -1194,26 +1202,31 @@ def ia_ler(corpo):
     ent = d["ajustes"].get("ia_entidade") or ""
 
     def chamar(com_anexo, txt):
+        instr = ia_prompt(d, modo, com_anexo, txt, saldos, pessoa, so_invest)
+        if com_anexo and len(arquivos) > 1:
+            instr += "\nAs imagens anexadas são páginas do mesmo documento, em ordem: leia todas e não repita o que aparecer em duas."
         payload = {"task_name": "GerencIA: " + ("atualizar saldos" if saldos else "ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento", "auto": "lançamentos e investimentos"}.get(modo, "investimentos")),
-                   "instructions": ia_prompt(d, modo, com_anexo, txt, saldos, pessoa, so_invest)}
+                   "instructions": instr}
         if ent:
             payload["entity_id"] = ent
-        tmp = None
+        tmps = []
         try:
             if com_anexo:
                 pasta = os.path.join(MEDIA_ROOT, IA_TMP_REL)
                 if not os.path.isdir(MEDIA_ROOT):
                     raise ValueError("A pasta media do Home Assistant não está disponível para o app.")
                 os.makedirs(pasta, exist_ok=True)
-                nome_tmp = f"{secrets.token_hex(8)}.{'pdf' if mime == 'application/pdf' else 'jpg'}"
-                tmp = os.path.join(pasta, nome_tmp)
-                with open(tmp, "wb") as f:
-                    f.write(bruto)
-                payload["attachments"] = [{"media_content_id": f"media-source://media_source/local/{IA_TMP_REL}/{nome_tmp}",
-                                           "media_content_type": mime}]
-            res = ia_chamar(tipo_uso, payload, 1 if com_anexo else 0, timeout=240)
+                payload["attachments"] = []
+                for b, m in arquivos:
+                    nome_tmp = f"{secrets.token_hex(8)}.{'pdf' if m == 'application/pdf' else 'jpg'}"
+                    tmps.append(os.path.join(pasta, nome_tmp))
+                    with open(tmps[-1], "wb") as f:
+                        f.write(b)
+                    payload["attachments"].append({"media_content_id": f"media-source://media_source/local/{IA_TMP_REL}/{nome_tmp}",
+                                                   "media_content_type": m})
+            res = ia_chamar(tipo_uso, payload, len(arquivos) if com_anexo else 0, timeout=240)
         finally:
-            if tmp:
+            for tmp in tmps:
                 try:
                     os.unlink(tmp)
                 except OSError:

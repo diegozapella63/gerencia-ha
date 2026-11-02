@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.23.0
+
+- **Digitalizar com IA**, como no ResolvIA: na Nova despesa e no Novo investimento, abre a câmera aqui dentro, fotografa até 4 páginas (com lanterna, quando o celular tem) e, no Pronto, a IA já lê e mostra o que achou para conferir. Também no Ler com IA (**Digitalizar com a câmera**). Sem https, a câmera não abre aqui: dá para tirar ou escolher a foto pelo celular.
+- **Voltar volta para a Nova despesa**: Fatura, print ou foto, Colar mensagem, Falar e Digitalizar, abertos da Nova despesa ou do Novo investimento, voltam para ela no Voltar do celular, no X e no Cancelar (antes iam para a tela principal). Depois de salvar, fecha tudo como antes.
+- **Fatura, print ou foto abre direto a galeria**, sem trocar a janela: se desistir da escolha, continua na Nova despesa.
+
 ## 1.22.0
 
 - **Bens da casa na Carteira**: com o InventarIA, um cartão só de leitura (borda tracejada) mostra o total dos bens, quantos itens e quanto perdem por mês, em Todos e em Meus. Tocar abre Bens da casa.
