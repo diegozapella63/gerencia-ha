@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.23.0';
+const VERSAO = '1.23.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -176,14 +176,14 @@ const S = {
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
     invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gSemBens: false, gAgrup: 'banco', gSel: null,
     cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
-  }, store.get('ui', {})),
+  }, store.get('ui', {}), { gIR: false, gSemBens: false }), // Descontar IR e Ocultar bens começam desligados toda vez
   ia: null,
   dicas: null,
   bens: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gIR, gSemBens, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gIR, gSemBens, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
 };
 
 function normalizar(d) {

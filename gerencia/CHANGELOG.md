@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.23.1
+
+- **Ocultar bens e imóveis** e **Descontar imposto de renda** não ficam mais guardados: começam desligados toda vez que o app abre.
+
 ## 1.23.0
 
 - **Digitalizar com IA**, como no ResolvIA: na Nova despesa e no Novo investimento, abre a câmera aqui dentro, fotografa até 4 páginas (com lanterna, quando o celular tem) e, no Pronto, a IA já lê e mostra o que achou para conferir. Também no Ler com IA (**Digitalizar com a câmera**). Sem https, a câmera não abre aqui: dá para tirar ou escolher a foto pelo celular.
