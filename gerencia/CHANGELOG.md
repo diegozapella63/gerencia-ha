@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.23.2
+
+- **Ler com IA**: liquidez "diária" escrita com acento (como a IA costuma responder) agora fica como diária, e não "no vencimento".
+- **Dicas de economia**: uma assinatura com travessão ou ponto no nome ("Assinatura—Claude") também é reconhecida.
+- **Conexão com o CronologIA**: um período ou uma data inválida responde "Período inválido." em vez de erro do app.
+- O exemplo usa nomes inventados (Ana e Beto).
+- Por dentro: testes unitários, do servidor e visuais rodando no GitHub a cada mudança, e instruções para quem continuar o projeto (AGENTS.md).
+
 ## 1.23.1
 
 - **Ocultar bens e imóveis** e **Descontar imposto de renda** não ficam mais guardados: começam desligados toda vez que o app abre.

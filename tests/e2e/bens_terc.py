@@ -1,0 +1,45 @@
+import sys, json, urllib.request
+from playwright.sync_api import sync_playwright
+SP = sys.argv[1]; erros = []
+B = 'http://localhost:8099/'
+def get(p): return json.loads(urllib.request.urlopen(B + p).read())
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    pg = b.new_page(viewport={'width': 412, 'height': 900}, color_scheme='dark', device_scale_factor=2)
+    pg.on('pageerror', lambda e: erros.append(str(e)))
+    pg.on('console', lambda m: erros.append(m.text) if m.type == 'error' else None)
+    pg.goto(B); pg.wait_for_timeout(800)
+    if pg.locator('[data-a="carregar-exemplo"]').count(): pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1200)
+    pat0 = pg.get_attribute('.placar-num', 'aria-label')
+    pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
+    pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
+    pg.click('[data-a="f-set"][data-k="titular"][data-v="terceiros"]'); pg.wait_for_timeout(200)
+    pg.fill('[data-f="terceiro"]', 'Mãe')
+    pg.click('[data-a="f-tipo"][data-v="bens"]'); pg.wait_for_timeout(300)
+    vis = lambda t: pg.locator(f'.folha .campo:has(.lbl:text-is("{t}"))').first.is_visible() if pg.locator(f'.folha .campo:has(.lbl:text-is("{t}"))').count() else None
+    print('1 campos: banco', vis('Banco'), '| rendimento', vis('Rendimento'), '| categoria', vis('Categoria'), '| liquidez', vis('Liquidez'))
+    pg.click('[data-a="f-set"][data-k="categoria_bem"][data-v="veiculos"]'); pg.wait_for_timeout(200)
+    print('  ajuda:', pg.locator('.campo:has(.lbl:text-is("Categoria")) .ajuda').inner_text())
+    pg.fill('#f-nome', 'Carro da mãe'); pg.locator('#f-valor').click(); pg.keyboard.type('6000000')
+    pg.screenshot(path=f'{SP}/shots/bens-terc-form.png')
+    pg.click('[data-a="f-salvar"]:not([data-mais])'); pg.wait_for_timeout(900)
+    inv = [i for i in get('api/state')['investimentos'] if i['nome'] == 'Carro da mãe'][0]
+    print('2 salvo:', inv['tipo'], inv['indexador'], inv['taxa'], inv.get('categoria_bem'), inv['banco'], inv['titular'], inv['terceiro'])
+    card = pg.locator('.inv:has-text("Carro da mãe")')
+    print('  cartão:', card.inner_text().replace('\n', ' | '))
+    pg.click('#nav [data-v="inicio"]'); pg.wait_for_timeout(400)
+    print('3 patrimônio igual (terceiros fora):', pat0 == pg.get_attribute('.placar-num', 'aria-label'), pat0)
+    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300)
+    pg.click('[data-a="mais-aba"][data-v="invest"]'); pg.wait_for_timeout(500)
+    print('4 perda:', pg.inner_text('#perda-bens').replace('\n', ' | '))
+    pg.fill('[data-bens-taxa="veiculos"]', '12'); pg.press('[data-bens-taxa="veiculos"]', 'Tab'); pg.wait_for_timeout(1000)
+    inv = [i for i in get('api/state')['investimentos'] if i['nome'] == 'Carro da mãe'][0]
+    print('  taxa do carro:', inv['taxa'], '| tabela', get('api/state')['ajustes'].get('bens_taxas'))
+    pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
+    pg.click('[data-a="inv-modo"][data-v="evolucao"] >> nth=-1'); pg.wait_for_timeout(400)
+    pg.click('[data-a="g"][data-k="gEscopo"][data-v="terc"]'); pg.wait_for_timeout(500)
+    print('5 terceiros evolução:', pg.inner_text('.stat-duo').replace('\n', ' | '))
+    pg.click('[data-a="inv-modo"][data-v="divisao"] >> nth=-1'); pg.wait_for_timeout(400)
+    pg.click('[data-a="g"][data-k="gAgrup"][data-v="tipo"]'); pg.wait_for_timeout(400)
+    print('6 divisão por tipo:', [x.replace('\n', ' ') for x in pg.locator('.comp').all_inner_texts()][:5])
+    print('ERROS', erros); b.close()

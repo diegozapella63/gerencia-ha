@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.23.1';
+const VERSAO = '1.23.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -396,7 +396,7 @@ function apiDemo() {
   let d = null;
   const espera = ms => new Promise(r => setTimeout(r, ms));
   return {
-    async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Diego' }); },
+    async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
     async save(c) {
       if (c.rev !== d.rev) { const e = new Error('conflito'); e.conflito = true; e.d = clone(d); throw e; }
       for (const k of ['bancos', 'investimentos', 'ajustes', 'exemplo', 'lancamentos', 'recorrencias', 'categorias']) if (k in c) d[k] = c[k];
@@ -1402,12 +1402,12 @@ function temCaixa() { return S.d.lancamentos.length > 0 || S.d.recorrencias.leng
 function contasExemplo(bancos) {
   const c = (id, pessoa, cartao, fechamento, vencimento) => ({ id, pessoa, cartao, fechamento, vencimento });
   const por = {
-    'b-nu': [c('k-nu-diego', 'Diego', true, 3, 10), c('k-nu-dessa', 'Dessa', true, 28, 5)],
-    'b-inter': [c('k-inter-diego', 'Diego', true, 25, 2)],
-    'b-itau': [c('k-itau-diego', 'Diego', false, 1, 10)],
-    'b-xp': [c('k-xp-diego', 'Diego', false, 1, 10)],
+    'b-nu': [c('k-nu-ana', 'Ana', true, 3, 10), c('k-nu-beto', 'Beto', true, 28, 5)],
+    'b-inter': [c('k-inter-ana', 'Ana', true, 25, 2)],
+    'b-itau': [c('k-itau-ana', 'Ana', false, 1, 10)],
+    'b-xp': [c('k-xp-ana', 'Ana', false, 1, 10)],
     'b-caixa': [c('k-caixa-mae', 'Mãe', false, 1, 10)],
-    'b-sicredi': [c('k-sicredi-dessa', 'Dessa', false, 1, 10)],
+    'b-sicredi': [c('k-sicredi-beto', 'Beto', false, 1, 10)],
   };
   for (const b of bancos) b.contas = por[b.id] || [c(b.id + '-c1', '', false, 1, 10)];
 }
@@ -1424,21 +1424,21 @@ function caixaExemplo() {
 
   L({ tipo: 'receita', descricao: 'Ajuste de saldo', valor: 6200, data: inicio + '-01', pago: true, ajuste: true, categoria: '' });
   const fixos = [
-    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 11800, dia: 5, categoria: 'c-salario', conta: 'k-itau-diego',
+    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 11800, dia: 5, categoria: 'c-salario', conta: 'k-itau-ana',
       descontos: [{ id: 'd-inss', descricao: 'INSS', modo: 'pct', valor: 7, base: '', categoria: 'c-impostos' },
         { id: 'd-taxa', descricao: 'Taxa administrativa', modo: 'pct', valor: 4.5, base: '', categoria: 'c-impostos' }] }),
-    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 698.46, dia: 5, categoria: 'c-saude', conta: 'k-itau-diego', vinculo: 'r-sal' }),
-    R({ id: 'r-alug', tipo: 'despesa', descricao: 'Aluguel', valor: 2300, dia: 10, categoria: 'c-moradia', conta: 'k-itau-diego' }),
-    R({ id: 'r-cond', tipo: 'despesa', descricao: 'Condomínio', valor: 680, dia: 10, categoria: 'c-moradia', conta: 'k-itau-diego' }),
-    R({ id: 'r-luz', tipo: 'despesa', descricao: 'Conta de luz', valor: 260, dia: 21, categoria: 'c-contas', conta: 'k-itau-diego' }),
-    R({ id: 'r-net', tipo: 'despesa', descricao: 'Internet', valor: 119.9, dia: 18, categoria: 'c-contas', conta: 'k-itau-diego' }),
-    R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-nu-dessa', cartao: true }),
-    R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-nu-diego', cartao: true }),
-    R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
-    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-dessa', cartao: true }),
-    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-nu-diego', cartao: true }),
-    R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-itau-diego', aporte: true }),
-    R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-inter-diego', cartao: true }),
+    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 698.46, dia: 5, categoria: 'c-saude', conta: 'k-itau-ana', vinculo: 'r-sal' }),
+    R({ id: 'r-alug', tipo: 'despesa', descricao: 'Aluguel', valor: 2300, dia: 10, categoria: 'c-moradia', conta: 'k-itau-ana' }),
+    R({ id: 'r-cond', tipo: 'despesa', descricao: 'Condomínio', valor: 680, dia: 10, categoria: 'c-moradia', conta: 'k-itau-ana' }),
+    R({ id: 'r-luz', tipo: 'despesa', descricao: 'Conta de luz', valor: 260, dia: 21, categoria: 'c-contas', conta: 'k-itau-ana' }),
+    R({ id: 'r-net', tipo: 'despesa', descricao: 'Internet', valor: 119.9, dia: 18, categoria: 'c-contas', conta: 'k-itau-ana' }),
+    R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-nu-beto', cartao: true }),
+    R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-nu-ana', cartao: true }),
+    R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-ana', cartao: true }),
+    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-beto', cartao: true }),
+    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-nu-ana', cartao: true }),
+    R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-itau-ana', aporte: true }),
+    R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-inter-ana', cartao: true }),
   ];
   // meses passados (e o atual até hoje): ocorrências confirmadas, com variação nos valores que mudam
   for (let ym = inicio; ym <= ymAtual; ym = addYm(ym, 1)) {
@@ -1459,13 +1459,13 @@ function caixaExemplo() {
     }
     const dia = d => dataNoMes(ym, d);
     const gastos = [
-      [2, 'Mercado', 'c-mercado', 180, 520, 'k-itau-diego', false], [9, 'Mercado', 'c-mercado', 150, 480, 'k-nu-diego', true],
-      [16, 'Mercado', 'c-mercado', 160, 430, 'k-itau-diego', false], [26, 'Hortifruti', 'c-mercado', 60, 140, 'k-nu-dessa', true],
-      [6, 'iFood', 'c-restaurantes', 45, 120, 'k-nu-diego', true], [13, 'Restaurante', 'c-restaurantes', 90, 220, 'k-nu-dessa', true],
-      [24, 'Padaria', 'c-restaurantes', 25, 60, 'k-itau-diego', false], [7, 'Combustível', 'c-transporte', 180, 260, 'k-inter-diego', true],
-      [20, 'Combustível', 'c-transporte', 170, 250, 'k-inter-diego', true], [11, 'Uber', 'c-transporte', 18, 46, 'k-nu-diego', true],
-      [17, 'Cinema', 'c-lazer', 60, 140, 'k-nu-dessa', true], [23, 'Pet shop', 'c-pets', 120, 220, 'k-nu-dessa', true],
-      [19, 'Farmácia', 'c-saude', 35, 160, 'k-nu-diego', true],
+      [2, 'Mercado', 'c-mercado', 180, 520, 'k-itau-ana', false], [9, 'Mercado', 'c-mercado', 150, 480, 'k-nu-ana', true],
+      [16, 'Mercado', 'c-mercado', 160, 430, 'k-itau-ana', false], [26, 'Hortifruti', 'c-mercado', 60, 140, 'k-nu-beto', true],
+      [6, 'iFood', 'c-restaurantes', 45, 120, 'k-nu-ana', true], [13, 'Restaurante', 'c-restaurantes', 90, 220, 'k-nu-beto', true],
+      [24, 'Padaria', 'c-restaurantes', 25, 60, 'k-itau-ana', false], [7, 'Combustível', 'c-transporte', 180, 260, 'k-inter-ana', true],
+      [20, 'Combustível', 'c-transporte', 170, 250, 'k-inter-ana', true], [11, 'Uber', 'c-transporte', 18, 46, 'k-nu-ana', true],
+      [17, 'Cinema', 'c-lazer', 60, 140, 'k-nu-beto', true], [23, 'Pet shop', 'c-pets', 120, 220, 'k-nu-beto', true],
+      [19, 'Farmácia', 'c-saude', 35, 160, 'k-nu-ana', true],
     ];
     for (const [d, desc, cat, a, b, conta, cartao] of gastos) {
       const data = dia(d);
@@ -1475,18 +1475,18 @@ function caixaExemplo() {
     }
   }
   // freelances e reembolsos pontuais
-  [[-5, 20, 1800], [-3, 22, 2400], [-1, 19, 1200]].forEach(([k, d, v]) => L({ tipo: 'receita', descricao: 'Freelance', valor: v, categoria: 'c-freelance', conta: 'k-inter-diego', data: dataNoMes(addYm(ymAtual, k), d), pago: true }));
-  L({ tipo: 'receita', descricao: 'Reembolso médico', valor: 340, categoria: 'c-reembolso', conta: 'k-itau-diego', data: dataNoMes(addYm(ymAtual, -2), 9), pago: true });
-  // geladeira em 10x no cartão da Dessa: as parcelas futuras aparecem nas próximas faturas
+  [[-5, 20, 1800], [-3, 22, 2400], [-1, 19, 1200]].forEach(([k, d, v]) => L({ tipo: 'receita', descricao: 'Freelance', valor: v, categoria: 'c-freelance', conta: 'k-inter-ana', data: dataNoMes(addYm(ymAtual, k), d), pago: true }));
+  L({ tipo: 'receita', descricao: 'Reembolso médico', valor: 340, categoria: 'c-reembolso', conta: 'k-itau-ana', data: dataNoMes(addYm(ymAtual, -2), 9), pago: true });
+  // geladeira em 10x no cartão do Beto: as parcelas futuras aparecem nas próximas faturas
   const g = 'g-geladeira';
   for (let k = 0; k < 10; k++) {
-    L({ tipo: 'despesa', descricao: 'Geladeira', valor: 389.9, categoria: 'c-compras', conta: 'k-nu-dessa', cartao: true, data: dataNoMes(addYm(ymAtual, -4 + k), 14), parcela: `${k + 1}/10`, grupo: g, pago: false });
+    L({ tipo: 'despesa', descricao: 'Geladeira', valor: 389.9, categoria: 'c-compras', conta: 'k-nu-beto', cartao: true, data: dataNoMes(addYm(ymAtual, -4 + k), 14), parcela: `${k + 1}/10`, grupo: g, pago: false });
   }
   // seguro do carro: fixo anual
-  R({ id: 'r-seguro', tipo: 'despesa', descricao: 'Seguro do carro', valor: 2380, dia: 12, categoria: 'c-transporte', conta: 'k-itau-diego', inicio: addYm(ymAtual, 3), freq: 'anual' });
+  R({ id: 'r-seguro', tipo: 'despesa', descricao: 'Seguro do carro', valor: 2380, dia: 12, categoria: 'c-transporte', conta: 'k-itau-ana', inicio: addYm(ymAtual, 3), freq: 'anual' });
   // IPTU atrasado (para mostrar o aviso)
   const atras = iso(new Date(hoje().getTime() - 3 * 86400000));
-  L({ tipo: 'despesa', descricao: 'IPTU', valor: 212.4, categoria: 'c-impostos', conta: 'k-itau-diego', data: atras, pago: false, parcela: '8/10' });
+  L({ tipo: 'despesa', descricao: 'IPTU', valor: 212.4, categoria: 'c-impostos', conta: 'k-itau-ana', data: atras, pago: false, parcela: '8/10' });
   return { lancamentos: lanc, recorrencias: rec };
 }
 
@@ -3402,7 +3402,7 @@ function abrirBanco(id, nome) {
         <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         <div class="campo"><div class="lbl">Quem tem conta neste banco</div>
           ${FB.contas.map((c, i) => `<div class="conta-ed">
-            <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Diego" list="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
+            <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" list="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
               ${FB.contas.length > 1 ? `<button class="icbtn" data-a="bc-rm" data-i="${i}" aria-label="Tirar esta pessoa">${ic('trash', 'ic-s')}</button>` : ''}</div>
             <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>

@@ -41,7 +41,10 @@ MINIMO_PCT = 0.03     # e pelo menos 3%
 
 
 def normal(t):
-    t = unicodedata.normalize("NFKD", str(t or "")).encode("ascii", "ignore").decode().lower()
+    # pontuação fora do ASCII ("Spotify—Família") vira espaço antes de tirar os acentos (senão as palavras grudam)
+    t = unicodedata.normalize("NFKD", str(t or ""))
+    t = "".join(c if c.isalnum() or unicodedata.combining(c) else " " for c in t)
+    t = t.encode("ascii", "ignore").decode().lower()
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", t)).strip()
 
 

@@ -1,0 +1,268 @@
+"""O servidor de verdade (HTTP): estado com revisão, índices, exportar, backup, versões, importar, imagens,
+leitura por IA simulada (com as páginas da câmera), conexão com o CronologIA, bens e páginas."""
+import base64
+import io
+import json
+import os
+import re
+import unittest
+import zipfile
+
+from tests.base import Servidor
+
+JPG = b"\xff\xd8\xff\xe0" + b"\0" * 400 + b"\xff\xd9"
+B64 = "data:image/jpeg;base64," + base64.b64encode(JPG).decode()
+
+
+class TestHTTP(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.s = Servidor()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.s.parar()
+
+    def estado(self, **mudar):
+        _, _, d = self.s.get("/api/state")
+        if not mudar:
+            return d
+        d.update(mudar)
+        st, _, novo = self.s.put("/api/state", d)
+        self.assertEqual(st, 200, novo)
+        return novo
+
+    # ---- páginas
+    def test_paginas_e_arquivos(self):
+        st, cab, corpo = self.s.get("/")
+        self.assertEqual(st, 200)
+        self.assertIn(b"<html", corpo.lower())
+        self.assertEqual(self.s.get("/app.js")[0], 200)
+        self.assertIn("javascript", self.s.get("/app.js")[1]["Content-Type"])
+        self.assertEqual(self.s.get("/nao-existe.css")[0], 404)
+        self.assertEqual(self.s.get("/..%2fserver.py")[0], 404, "nada fora da pasta www")
+        self.assertEqual(self.s.get("/../server.py")[0], 404)
+        self.assertEqual(cab.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(self.s.pedir("HEAD", "/")[0], 200)
+
+    # ---- estado
+    def test_estado_com_revisao(self):
+        d = self.estado()
+        self.assertEqual((d["schema"], d["usuario"]), (1, None))
+        _, _, comnome = self.s.get("/api/state", cabecalhos={"X-Remote-User-Display-Name": "Ana"})
+        self.assertEqual(comnome["usuario"], "Ana", "o ingress diz quem está usando")
+        velho = dict(d, rev=d["rev"] - 1, bancos=[{"id": "x"}])
+        st, _, atual = self.s.put("/api/state", velho)
+        self.assertEqual((st, atual["rev"]), (409, d["rev"]), "revisão velha: devolve a atual")
+        novo = self.estado(bancos=[{"id": "b1", "nome": "Banco Azul"}, "lixo"], usuario="ignorado", schema=99)
+        self.assertEqual((novo["rev"], len(novo["bancos"]), novo["schema"]), (d["rev"] + 1, 1, 1), "só os campos do usuário; lixo sai")
+        self.assertEqual(self.s.get("/api/rev")[2]["rev"], novo["rev"])
+
+    def test_indices_a_mao(self):
+        st, _, r = self.s.put("/api/indices", {"cdi": 500})
+        self.assertEqual((st, r["erro"]), (400, "Valor fora do esperado."))
+        st, _, d = self.s.put("/api/indices", {"cdi": 12.5})
+        self.assertEqual((st, d["indices"]["cdi"], d["indices"]["fonte"], d["indices"]["auto"]), (200, 12.5, "manual", False))
+        _, _, d = self.s.put("/api/indices", {"auto": True})
+        self.assertTrue(d["indices"]["auto"])
+        self.assertEqual(self.s.put("/api/indices", {"cdi": "abc"})[0], 400)
+        self.assertEqual(self.s.put("/api/outra", {})[0], 404)
+
+    # ---- exportar, backup, versões e importar
+    def test_exportar(self):
+        self.estado(investimentos=[{"id": "i1", "nome": "CDB Exemplo", "valor": 1000, "indexador": "parado", "tipo": "cdb"}],
+                    lancamentos=[{"id": "l1", "tipo": "despesa", "descricao": "Mercado", "valor": 50, "data": "2026-11-03", "pago": True}])
+        st, cab, corpo = self.s.get("/api/export/json")
+        self.assertEqual(st, 200)
+        self.assertRegex(cab["Content-Disposition"], r'attachment; filename="gerencia-\d{4}-\d{2}-\d{2}-\d{4}\.json"')
+        self.assertEqual(corpo["investimentos"][0]["nome"], "CDB Exemplo")
+        self.assertIn("CDB Exemplo", self.s.get("/api/export/csv", cru=True)[2].decode("utf-8-sig"))
+        st, cab, corpo = self.s.get("/api/export/lancamentos", cru=True)
+        self.assertIn("Mercado", corpo.decode("utf-8-sig"))
+        self.assertRegex(cab["Content-Disposition"], r"lancamentos-")
+        z = zipfile.ZipFile(io.BytesIO(self.s.get("/api/export/zip")[2]))
+        self.assertIn("gerencia.json", z.namelist())
+        st, _, html = self.s.get("/relatorio")
+        self.assertIn(b"CDB Exemplo", html)
+        self.assertIn("attachment", self.s.get("/relatorio?baixar=1")[1]["Content-Disposition"])
+
+    def test_backup_na_pasta_share_e_restaurar(self):
+        self.estado(investimentos=[{"id": "i1", "nome": "Antes do backup", "valor": 1, "indexador": "parado"}])
+        st, _, r = self.s.post("/api/backup")
+        self.assertEqual((st, r["pasta"]), (200, "share/gerencia"))
+        self.assertTrue(os.path.isfile(os.path.join(self.s.dirs["share"], r["arquivo"])))
+        lista = self.s.get("/api/backups")[2]
+        self.assertIn(r["arquivo"], [b["nome"] for b in lista])
+        self.estado(investimentos=[])
+        st, _, d = self.s.post("/api/backups/restaurar", {"nome": r["arquivo"]})
+        self.assertEqual((st, d["investimentos"][0]["nome"]), (200, "Antes do backup"))
+        self.assertEqual(self.s.post("/api/backups/restaurar", {"nome": "../../etc/passwd"})[0], 400)
+        self.assertEqual(self.s.post("/api/backups/restaurar", {"nome": "gerencia-nao-existe.zip"})[2]["erro"], "Esse backup não existe mais.")
+
+    def test_versoes(self):
+        self.estado(categorias=[{"id": "c1", "nome": "Versão 1", "tipo": "despesa"}])
+        vs = self.s.get("/api/versoes")[2]
+        self.assertTrue(vs, "a primeira gravação guarda uma versão")
+        st, _, d = self.s.post("/api/versoes/restaurar", {"nome": vs[0]["nome"]})
+        self.assertEqual(st, 200)
+        self.assertGreater(d["rev"], 0)
+        self.assertEqual(self.s.post("/api/versoes/restaurar", {"nome": "x.json"})[2]["erro"], "Versão inválida.")
+        self.assertEqual(self.s.post("/api/versoes/restaurar", {"nome": "gerencia-20000101-000000-x.json"})[2]["erro"], "Essa versão não existe mais.")
+
+    def test_importar(self):
+        dados = {"investimentos": [{"id": "imp", "nome": "Importado", "valor": 10, "indexador": "parado"}]}
+        st, _, d = self.s.pedir("POST", "/api/importar", json.dumps(dados).encode(), {"X-Nome-Arquivo": "dados.json"})
+        self.assertEqual((st, d["investimentos"][0]["nome"]), (200, "Importado"))
+        st, _, r = self.s.pedir("POST", "/api/importar", b'{"outra": 1}', {"X-Nome-Arquivo": "x.json"})
+        self.assertEqual((st, r["erro"]), (400, "Esse arquivo não parece um backup do GerencIA."))
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("leia.txt", "nada")
+        st, _, r = self.s.pedir("POST", "/api/importar", buf.getvalue(), {"X-Nome-Arquivo": "x.zip"})
+        self.assertEqual((st, r["erro"]), (400, "O .zip não tem o arquivo gerencia.json."))
+        self.assertEqual(self.s.pedir("POST", "/api/importar", b"PK\x03\x04lixo", {"X-Nome-Arquivo": "x.zip"})[0], 400)
+
+    # ---- imagens
+    def test_imagens(self):
+        st, _, r = self.s.post("/api/fotos", {"jpg": B64})
+        self.assertEqual(st, 200)
+        self.assertRegex(r["arquivo"], r"^\d{8}-\d{6}-[0-9a-f]{6}\.jpg$")
+        st, cab, corpo = self.s.get("/fotos/" + r["arquivo"])
+        self.assertEqual((st, cab["Content-Type"], corpo), (200, "image/jpeg", JPG))
+        self.assertEqual(self.s.get("/fotos/../gerencia.json")[0], 404)
+        self.assertEqual(self.s.get("/fotos/20260101-000000-abcdef.jpg")[0], 404)
+        self.assertEqual(self.s.post("/api/fotos", {"jpg": "não é base64!"})[2]["erro"], "Imagem inválida.")
+        self.assertEqual(self.s.post("/api/fotos", {"jpg": base64.b64encode(b"PNG" * 100).decode()})[2]["erro"], "Envie a imagem em JPG.")
+
+    # ---- leitura por IA (simulada)
+    def test_ler_com_ia(self):
+        st, _, r = self.s.post("/api/ia/ler", {"modo": "auto", "dica": "caixa", "texto": "gastei 64,90 no ifood"})
+        self.assertEqual(st, 200)
+        self.assertTrue(r["lancamentos"])
+        self.assertEqual(r["entidade"], "ai_task.simulada")
+        st, _, r = self.s.post("/api/ia/ler", {"modo": "auto", "dica": "invest", "texto": "cdb a 110% do cdi", "so_invest": True})
+        self.assertEqual(r["lancamentos"], [], "do Novo investimento: só investimentos")
+        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto"})[2]["erro"], "Envie uma imagem, um PDF ou cole um texto.")
+        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexo": {"b64": "!!!"}})[2]["erro"], "Arquivo inválido.")
+        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexo": {"b64": base64.b64encode(b"GIF89a").decode()}})[2]["erro"], "Envie uma imagem (JPG) ou um PDF.")
+
+    def test_digitalizar_varias_paginas(self):
+        antes = self.s.get("/api/ia/uso")[2]["today"]["images"]
+        st, _, r = self.s.post("/api/ia/ler", {"modo": "auto", "dica": "caixa", "texto": "", "anexos": [{"b64": B64}, {"b64": B64}, {"b64": B64}]})
+        self.assertEqual(st, 200, r)
+        self.assertEqual(self.s.get("/api/ia/uso")[2]["today"]["images"], antes + 3, "o uso conta as 3 imagens")
+        pdf = "data:application/pdf;base64," + base64.b64encode(b"%PDF-1.4 exemplo").decode()
+        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexos": [{"b64": B64}, {"b64": pdf}]})[2]["erro"], "Envie um PDF por vez.")
+        st, _, r = self.s.post("/api/ia/ler", {"modo": "auto", "anexos": [{"b64": B64}] * 9})
+        self.assertEqual(st, 200, "mais de 6: lê as 6 primeiras")
+
+    def test_status_da_ia_e_da_fala(self):
+        st, _, r = self.s.get("/api/ia/status")
+        self.assertEqual(st, 200)
+        self.assertIn("pronta", r)
+        st, _, v = self.s.get("/api/voz/status")
+        self.assertEqual((st, v["pronta"]), (200, True))
+        st, _, t = self.s.pedir("POST", "/api/voz", b"\0\1" * 8000, {"Content-Type": "application/octet-stream"})
+        self.assertEqual(st, 200, t)
+        self.assertIn("mercado", t["texto"])
+        st, _, t = self.s.pedir("POST", "/api/voz", b"\0" * 10, {"Content-Type": "application/octet-stream"})
+        self.assertEqual(st, 400)
+        self.assertIn("Não ouvi nada", t["erro"])
+
+    def test_ia_desligada(self):
+        d = self.estado()
+        self.estado(ajustes=dict(d["ajustes"], ia=False))
+        try:
+            v = self.s.get("/api/voz/status")[2]
+            self.assertEqual((v["pronta"], v["motivo"]), (False, "A IA está desligada em Mais › Integrações."))
+        finally:
+            d = self.estado()
+            self.estado(ajustes=dict(d["ajustes"], ia=True))
+
+    # ---- bens e dicas
+    def test_bens_sem_inventaria(self):
+        st, _, b = self.s.get("/api/bens")
+        self.assertEqual((st, b["ok"]), (200, False))
+        self.assertIn("InventarIA não foi encontrado", b["motivo"])
+        d = self.estado()
+        self.estado(ajustes=dict(d["ajustes"], bens=False))
+        self.assertEqual(self.s.get("/api/bens")[2], {"ok": False, "desligado": True})
+        d = self.estado()
+        self.estado(ajustes=dict(d["ajustes"], bens=True))
+
+    def test_dicas(self):
+        st, _, r = self.s.get("/api/dicas")
+        self.assertEqual(st, 200)
+        self.assertIsInstance(r, dict)
+
+    # ---- rotas que não existem
+    def test_nao_encontrado(self):
+        self.assertEqual(self.s.post("/api/nada")[0], 404)
+
+
+class TestConexaoComOCronologIA(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.s = Servidor()
+        with open(os.path.join(cls.s.dirs["share"], "integracao.json"), encoding="utf-8") as f:
+            cls.chave = json.load(f)["chave"]
+        cls.auth = {"Authorization": f"Bearer {cls.chave}", "X-App": "CronologIA"}
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.s.parar()
+
+    def test_publica_o_endereco_e_a_chave(self):
+        with open(os.path.join(self.s.dirs["share"], "integracao.json"), encoding="utf-8") as f:
+            p = json.load(f)
+        self.assertEqual((p["app"], p["url"]), ("gerencia", self.s.url))
+        self.assertGreaterEqual(len(p["chave"]), 32)
+
+    def test_sem_chave_nao_entra(self):
+        for cab in ({}, {"Authorization": "Bearer errada"}):
+            st, _, r = self.s.get("/api/integracao/contas", cabecalhos=cab)
+            self.assertEqual(st, 401)
+            self.assertIn("Chave inválida", r["erro"])
+
+    def test_contas_pagar_desfazer_e_nova(self):
+        st, _, r = self.s.post("/api/integracao/nova", {"descricao": "Conta de luz", "valor": 180.5, "vencimento": "2026-11-20"}, cabecalhos=self.auth)
+        self.assertEqual(st, 200, r)
+        cid = r["id"]
+        st, _, lista = self.s.get("/api/integracao/contas?de=2026-11-01&ate=2026-11-30", cabecalhos=self.auth)
+        self.assertEqual(st, 200)
+        self.assertIn(cid, [c["id"] for c in lista["contas"]])
+        self.assertTrue(lista["versao"])
+        st, _, r = self.s.post("/api/integracao/pagar", {"id": cid, "valor": "190"}, cabecalhos=self.auth)
+        self.assertEqual(st, 200)
+        _, _, d = self.s.get("/api/state")
+        luz = next(l for l in d["lancamentos"] if l["id"] == cid)
+        self.assertEqual((luz["pago"], luz["valor"]), (True, 190.0))
+        self.s.post("/api/integracao/desfazer", {"id": cid}, cabecalhos=self.auth)
+        _, _, d = self.s.get("/api/state")
+        self.assertFalse(next(l for l in d["lancamentos"] if l["id"] == cid)["pago"])
+        self.assertEqual(self.s.get("/api/rev")[2]["integracao_ultimo"]["app"], "CronologIA", "o app mostra quem usou por último")
+
+    def test_erros(self):
+        self.assertEqual(self.s.post("/api/integracao/pagar", {"id": "nada"}, cabecalhos=self.auth)[0], 404)
+        st, _, r = self.s.post("/api/integracao/nova", {"descricao": ""}, cabecalhos=self.auth)
+        self.assertEqual((st, r["erro"]), (400, "Coloque o nome da conta."))
+        st, _, r = self.s.get("/api/integracao/contas?de=2026-01-01&ate=2028-01-01", cabecalhos=self.auth)
+        self.assertEqual((st, r["erro"]), (400, "Período inválido."))
+        self.assertEqual(self.s.get("/api/integracao/contas?de=ontem", cabecalhos=self.auth)[0], 400, "data ruim")
+
+    def test_desligar_apaga_o_arquivo_e_fecha_a_porta(self):
+        _, _, d = self.s.get("/api/state")
+        d["ajustes"]["integracao"] = False
+        self.assertEqual(self.s.put("/api/state", d)[0], 200)
+        try:
+            self.assertFalse(os.path.exists(os.path.join(self.s.dirs["share"], "integracao.json")))
+            self.assertEqual(self.s.get("/api/integracao/contas", cabecalhos=self.auth)[0], 401)
+        finally:
+            _, _, d = self.s.get("/api/state")
+            d["ajustes"]["integracao"] = True
+            self.s.put("/api/state", d)
+        self.assertTrue(os.path.exists(os.path.join(self.s.dirs["share"], "integracao.json")), "religou: volta o arquivo")
+
+
+if __name__ == "__main__":
+    unittest.main()

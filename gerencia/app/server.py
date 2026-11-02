@@ -29,7 +29,7 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 
-VERSAO = "1.23.1"
+VERSAO = "1.23.2"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -189,7 +189,7 @@ def salvar(d, versao=True, motivo="auto"):
 
 # ---------------------------------------------------------------- Banco Central
 
-BCB = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{s}/dados"
+BCB = os.environ.get("GERENCIA_BCB", "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{s}/dados")  # GERENCIA_BCB: só para testes
 SERIES = {"selic": 432, "cdi": 4389, "ipca": 13522, "tr": 226}
 
 
@@ -972,7 +972,8 @@ def ia_limpar(parsed, d):
             "indexador": idx if idx in calc.INDEXADORES else "cdi_pct",
             "taxa": round(calc.num_br(it.get("taxa")), 4),
             "vencimento": _data_ou_vazio(it.get("vencimento")),
-            "liquidez": "diaria" if str(it.get("liquidez")).lower().startswith("diar") else "vencimento",
+            # "diária" com acento (como a IA costuma escrever) também é diária
+            "liquidez": "diaria" if str(it.get("liquidez")).lower().replace("á", "a").startswith("diar") else "vencimento",
             "existente": it.get("existente") if it.get("existente") in ids else "",
             "aporte": round(max(0.0, calc.num_br(it.get("aporte"))), 2),
             "dono": "" if str(it.get("dono") or "").strip().lower() in ("", "meu", "minha", "eu", "próprio", "proprio") else str(it.get("dono")).strip()[:40],
@@ -1679,6 +1680,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")
             return self.estatico(p)
+        except ValueError as e:  # pedido inválido (um período ou uma data ruim): 400, não erro do app
+            return self.enviar(400, {"erro": str(e)})
         except Exception as e:  # noqa: BLE001
             log("Erro GET", p, e)
             return self.enviar(500, {"erro": str(e)})

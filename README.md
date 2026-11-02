@@ -34,7 +34,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.
 - **Cartão de crédito**: compras, parcelas e fixos entram no mês em que a fatura vence, também nos gráficos dos próximos meses.
-- **Bancos com contas por pessoa**: "Nubank: Diego com cartão (fecha dia 3, vence dia 10) e Dessa com cartão (fecha dia 28, vence dia 5)".
+- **Bancos com contas por pessoa**: "Nubank: Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5)".
 - **Fluxo de caixa** mês a mês, com entradas, saídas, o que sobrou, saldo e previsão do dia a dia.
 - **Categorias** de gastos e de recebimentos.
 - **Investimentos** com rendimento no padrão de mercado (% do CDI, CDI +, prefixado, IPCA +, Selic +, poupança) e índices do Banco Central.
@@ -64,7 +64,11 @@ gerencia/app/server.py        servidor (só biblioteca padrão do Python)
 gerencia/app/calc.py          cálculos de rendimento e de caixa
 gerencia/app/assinaturas.py   dicas de economia conferidas na origem
 gerencia/app/integracao.py    contas a pagar para o CronologIA
+gerencia/app/bens.py          bens do InventarIA
+gerencia/app/voz.py           Falar (fala para texto do Home Assistant)
 gerencia/app/www/             interface (HTML, CSS e JavaScript, sem etapa de build)
+tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
+tests/                        testes unitários, do servidor e visuais
 docs/                         imagens deste README
 ```
 
@@ -77,6 +81,8 @@ GERENCIA_DEV=1 GERENCIA_DATA=./.data GERENCIA_SHARE=./.share GERENCIA_MEDIA=./.m
 ```
 
 Fora do Home Assistant, `GERENCIA_IA_MOCK=1` simula a IA, `GERENCIA_FONTES_MOCK=<pasta>` usa páginas de preço salvas (`<serviço>.html`) e `GERENCIA_DOLAR=5.04` fixa o dólar.
+
+Testes: `python3 -m unittest discover -s tests -t .` e `tests/e2e/run.sh` (ver [tests/README.md](tests/README.md)). Como trabalhar no projeto (checklist de cada mudança, versão, testes e como os apps conversam): [AGENTS.md](AGENTS.md).
 
 ## Créditos
 

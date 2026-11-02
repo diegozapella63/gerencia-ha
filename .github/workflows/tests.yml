@@ -1,0 +1,45 @@
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unitários e servidor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s tests -t . -v
+
+  visual:
+    name: Visuais (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # o InventarIA ao lado, como os testes de bens esperam
+      - uses: actions/checkout@v4
+        with:
+          path: gerencia-ha
+      - uses: actions/checkout@v4
+        with:
+          repository: diegozapella63/inventario-ha
+          path: inventario-ha
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - run: gerencia-ha/tests/e2e/run.sh
+        env:
+          E2E_TMP: ${{ runner.temp }}/e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-e-saidas
+          path: ${{ runner.temp }}/e2e
+          retention-days: 7
