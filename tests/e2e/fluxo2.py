@@ -1,14 +1,17 @@
-import sys, json
+"""O caminho principal: exemplo, fixo no cartão, pagar com outro valor, fatura futura, IA no caixa e nos
+investimentos, imagem no formulário, banco com pessoas, categoria nova e fixo encerrado."""
+import sys
+from datetime import date
 from playwright.sync_api import sync_playwright
+from _confere import igual, tem, sim, estado, mes
 SP=sys.argv[1]; erros=[]
-def estado(pg): return json.loads(pg.evaluate("fetch('api/state').then(r=>r.text())"))
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':396,'height':860}, device_scale_factor=2, extra_http_headers={'X-Remote-User-Display-Name': 'Ana'})
     pg.on('pageerror', lambda e: erros.append('PAGEERROR '+str(e)))
     pg.on('console', lambda m: erros.append(m.text) if m.type=='error' and 'Tunnel' not in m.text else None)
     pg.goto('http://localhost:8099/'); pg.wait_for_timeout(700)
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1200)
-    d0=estado(pg); print('exemplo: lanc', len(d0['lancamentos']), 'rec', len(d0['recorrencias']), 'cats', len(d0['categorias']), 'bancos/contas', [(x['nome'], len(x['contas'])) for x in d0['bancos']])
+    d0=estado(pg); igual([x['nome'] for x in d0['bancos']], ['Nubank', 'Inter', 'Itaú', 'XP', 'Caixa', 'Sicredi'], 'bancos do exemplo'); sim(len(d0['lancamentos']) > 100, 'exemplo com lançamentos'); print('exemplo: lanc', len(d0['lancamentos']), 'rec', len(d0['recorrencias']), 'cats', len(d0['categorias']), 'bancos/contas', [(x['nome'], len(x['contas'])) for x in d0['bancos']])
     # 1) fixo no cartão
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(300)
     pg.click('.escolhas [data-a="lanc-novo"][data-v="despesa"]'); pg.wait_for_timeout(300)
@@ -17,33 +20,32 @@ with sync_playwright() as p:
     pg.click('[data-a="lf-set"][data-k="categoria"][data-v="c-assinaturas"]')
     pg.click('[data-a="lf-conta"][data-v="k-nu-ana"]'); pg.wait_for_timeout(150)
     pg.click('[data-a="lf-cartao"][data-v="1"]'); pg.wait_for_timeout(150)
-    print('ajuda cartão:', pg.locator('.folha .ajuda').first.inner_text()[:90])
+    tem(pg.locator('.folha .ajuda').first.inner_text(), 'Entra na fatura que vence em', 'no cartão, diz em que fatura entra')
     pg.click('[data-a="lf-set"][data-k="repete"][data-v="mensal"]'); pg.wait_for_timeout(150)
     pg.screenshot(path=f'{SP}/shots/d1-form-fixo.png')
     pg.click('[data-a="lf-salvar"]:not([data-mais])'); pg.wait_for_timeout(700)
-    d1=estado(pg); r=[x for x in d1['recorrencias'] if x['descricao']=='Netflix']; print('fixo criado:', r and {k:r[0][k] for k in ('valor','dia','inicio','cartao','conta')})
-    # aparece no fluxo dos próximos meses?
-    vis = pg.evaluate("""() => { const out=[]; return out; }""")
+    d1=estado(pg); r=[x for x in d1['recorrencias'] if x['descricao']=='Netflix']; igual(r and {k:r[0][k] for k in ('valor','dia','inicio','cartao','conta')}, {'valor': 59.9, 'dia': date.today().day, 'inicio': mes(), 'cartao': True, 'conta': 'k-nu-ana'}, 'fixo no cartão criado')
     # 2) pagar conta de luz com outro valor
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)
     pg.click('[data-a="cx-modo"][data-v="lista"]'); pg.wait_for_timeout(300)
     luz = pg.locator('.lanc:has-text("Conta de luz") [data-a="lanc-pagar"]')
-    print('botão pagar luz:', luz.count())
+    igual(luz.count(), 1, 'conta de luz com Pagar')
     if luz.count():
         luz.first.click(); pg.wait_for_timeout(300)
         pg.fill('#pg-v', ''); pg.click('#pg-v'); pg.keyboard.type('28745'); pg.wait_for_timeout(100)
         pg.screenshot(path=f'{SP}/shots/d2-pagar.png')
         pg.click('[data-a="pg-ok"]'); pg.wait_for_timeout(600)
         d2=estado(pg); m=[x for x in d2['lancamentos'] if x.get('recorrencia')=='r-luz' and x['competencia']==d2['historico'][-1]['d'][:7]]
-        print('luz do mês:', m and (m[0]['valor'], m[0]['pago']), '| padrão continua', [x['valor'] for x in d2['recorrencias'] if x['id']=='r-luz'])
+        igual(m and (m[0]['valor'], m[0]['pago']), (287.45, True), 'luz paga com o valor do mês')
+        igual([x['valor'] for x in d2['recorrencias'] if x['id']=='r-luz'], [260], 'o valor do fixo não muda')
     # 3) próximo mês mostra o fixo novo e a fatura
     pg.click('[data-a="cx-mes"][data-v="1"]'); pg.wait_for_timeout(300)
     pg.click('[data-a="cx-mes"][data-v="1"]'); pg.wait_for_timeout(300)
     fat = pg.locator('.lanc.fatura:has-text("Nubank · Ana")')
-    print('fatura Nubank Ana daqui a 2 meses:', fat.count())
+    igual(fat.count(), 1, 'fatura do Nubank da Ana daqui a 2 meses')
     if fat.count():
         fat.first.click(); pg.wait_for_timeout(300)
-        print('Netflix na fatura futura:', pg.locator('.fatura-itens .lanc:has-text("Netflix")').count())
+        igual(pg.locator('.fatura-itens .lanc:has-text("Netflix")').count(), 1, 'o fixo novo já está na fatura futura')
         pg.screenshot(path=f'{SP}/shots/d3-fatura.png', full_page=True)
     # 4) IA no caixa (texto)
     pg.click('#nav [data-v="inicio"]'); pg.wait_for_timeout(300)
@@ -53,7 +55,8 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{SP}/shots/d4-ia-caixa.png')
     n_antes=len(estado(pg)['lancamentos'])
     pg.click('[data-a="ia-salvar"]'); pg.wait_for_timeout(800)
-    d4=estado(pg); print('IA caixa lançou:', len(d4['lancamentos'])-n_antes, '| parcelas Magazine:', sorted(x['parcela'] for x in d4['lancamentos'] if x['descricao']=='Magazine Luiza'))
+    d4=estado(pg); igual(len(d4['lancamentos'])-n_antes, 8, 'IA no caixa: 8 lançamentos')
+    igual(sorted(x['parcela'] for x in d4['lancamentos'] if x['descricao']=='Magazine Luiza'), ['2/6', '3/6', '4/6', '5/6', '6/6'], 'compra parcelada vira as parcelas que faltam')
     # 5) IA nos investimentos (imagem)
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.click('[data-a="inv-modo"][data-v="carteira"]'); pg.wait_for_timeout(200)
@@ -64,25 +67,26 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{SP}/shots/d5-ia-inv.png')
     n_inv=len(estado(pg)['investimentos'])
     pg.click('[data-a="ia-salvar"]'); pg.wait_for_timeout(800)
-    d5=estado(pg); print('IA invest: antes', n_inv, 'depois', len(d5['investimentos']), '| fotos', [len(i.get('fotos') or []) for i in d5['investimentos'] if i.get('fotos')])
+    d5=estado(pg); igual(len(d5['investimentos']), n_inv+1, 'IA nos investimentos: um novo')
+    sim(any(i.get('fotos') for i in d5['investimentos']), 'o print fica guardado no investimento')
     # 6) imagem no formulário
     pg.click('.inv >> nth=0'); pg.wait_for_timeout(300)
     with pg.expect_file_chooser() as fc: pg.click('[data-a="f-foto-add"]')
     fc.value.set_files(f'{SP}/print.jpg'); pg.wait_for_timeout(900)
-    print('miniaturas no form:', pg.locator('.foto img').count())
+    igual(pg.locator('.foto img').count(), 1, 'miniatura da imagem no formulário')
     pg.click('[data-a="f-salvar"]:not([data-mais])'); pg.wait_for_timeout(600)
     # 7) banco com pessoas
     pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(500)
     pg.click('.mais-abas [data-v="bancos"]'); pg.wait_for_timeout(400)
     pg.click('[data-a="banco"][data-id="b-nu"]'); pg.wait_for_timeout(300)
-    print('pessoas no Nubank:', pg.locator('.conta-ed').count())
+    igual(pg.locator('.conta-ed').count(), 2, 'duas pessoas no Nubank')
     pg.click('[data-a="bc-add"]'); pg.wait_for_timeout(150)
     pg.fill('[data-fbc="pessoa"][data-i="2"]', 'Ana')
     pg.click('[data-a="bc-cartao"][data-i="2"]'); pg.wait_for_timeout(150)
     pg.fill('[data-fbc="fechamento"][data-i="2"]', '7'); pg.fill('[data-fbc="vencimento"][data-i="2"]', '15')
     pg.screenshot(path=f'{SP}/shots/d6-banco.png')
     pg.click('[data-a="b-salvar"]'); pg.wait_for_timeout(600)
-    d7=estado(pg); print('contas Nubank:', [(c['pessoa'], c['cartao'], c['fechamento'], c['vencimento']) for c in d7['bancos'][0]['contas']])
+    d7=estado(pg); igual([(c['pessoa'], c['cartao'], c['fechamento'], c['vencimento']) for c in d7['bancos'][0]['contas']][-1], ('Ana', True, 7, 15), 'conta nova com cartão')
     # 8) categoria nova e fixo encerrado
     pg.click('.mais-abas [data-v="caixa"]'); pg.wait_for_timeout(400)
     pg.click('[data-a="categoria-nova"][data-v="despesa"]'); pg.wait_for_timeout(200)
@@ -90,6 +94,7 @@ with sync_playwright() as p:
     pg.click('[data-a="fixo"][data-id="r-musica"]'); pg.wait_for_timeout(300)
     pg.click('[data-a="lf-excluir"]'); pg.wait_for_timeout(200)
     pg.click('[data-a="escolha"][data-v="1"]'); pg.wait_for_timeout(600)
-    d8=estado(pg); print('Viagens:', any(c['nome']=='Viagens' for c in d8['categorias']), '| música fim:', [r.get('fim') for r in d8['recorrencias'] if r['id']=='r-musica'])
+    d8=estado(pg); sim(any(c['nome']=='Viagens' for c in d8['categorias']), 'categoria nova')
+    igual([r.get('fim') for r in d8['recorrencias'] if r['id']=='r-musica'], [mes()], 'fixo encerrado neste mês (o passado fica)')
     pg.screenshot(path=f'{SP}/shots/d7-mais.png', full_page=True)
     print('ERROS', erros); b.close()

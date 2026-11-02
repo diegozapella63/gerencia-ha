@@ -265,8 +265,26 @@ def nome_conta(c):
     return c.get("banco_nome", "") + (f" · {c['pessoa']}" if c.get("pessoa") else "")
 
 
-def data_caixa(l, contas):
-    """Dia em que o dinheiro sai ou entra: no cartão, o vencimento da fatura que pega a compra."""
+def data_vinculo(l, data):
+    """Despesa ligada a um recebimento fixo (plano de saúde descontado do salário): o dia em que o recebimento
+    daquele mês entra (o lançado, se já foi lançado; senão o dia do fixo). Igual ao dataVinculo do app.js."""
+    r = next((x for x in data.get("recorrencias", []) if x.get("id") == l.get("vinculo")), None)
+    ym = str(l.get("competencia") or l.get("data") or "")[:7]
+    if not r or not re.fullmatch(r"\d{4}-\d{2}", ym):
+        return None
+    m = next((x for x in data.get("lancamentos", []) if x.get("recorrencia") == r.get("id") and x.get("competencia") == ym), None)
+    if m and not m.get("pulado"):
+        return parse_data(m.get("data"))
+    return _data_mes(int(ym[:4]), int(ym[5:7]), r.get("dia")) if ativa_em(r, ym) else None
+
+
+def data_caixa(l, contas, data=None):
+    """Dia em que o dinheiro sai ou entra: no cartão, o vencimento da fatura que pega a compra; uma despesa ligada
+    a um recebimento fixo, o dia em que ele entra (precisa dos dados em `data`)."""
+    if data is not None and l.get("vinculo") and l.get("tipo") != "receita":
+        dv = data_vinculo(l, data)
+        if dv:
+            return dv
     d = parse_data(l.get("data"))
     c = contas.get(l.get("conta")) if l.get("cartao") else None
     if not d or not c or not c.get("cartao"):
@@ -338,7 +356,7 @@ def caixa(data, hoje=None):
     for l in data.get("lancamentos", []):
         if l.get("pulado"):
             continue
-        dc = data_caixa(l, cartoes)
+        dc = data_caixa(l, cartoes, data)
         if l.get("pago") and dc and dc.isoformat() <= hi:
             r["saldo"] += num(l.get("valor")) * (1 if l.get("tipo") == "receita" else -1)
             r["saldo"] -= sum(d["valor"] for d in descontos_de(l))
@@ -351,7 +369,7 @@ def caixa(data, hoje=None):
     for l in vistos:
         if l.get("ajuste"):
             continue
-        dc = data_caixa(l, cartoes)
+        dc = data_caixa(l, cartoes, data)
         if not dc:
             continue
         v = num(l.get("valor"))

@@ -363,7 +363,7 @@ def gerar_csv_lancamentos(d):
             continue
         rec = l.get("tipo") == "receita"
         aporte = l.get("aporte") or l.get("recorrencia") in aportes
-        dc = calc.data_caixa(l, contas)
+        dc = calc.data_caixa(l, contas, d)
         w.writerow([l.get("data") or "", dc.isoformat() if dc else "", "Recebimento" if rec else "Aporte" if aporte else "Despesa",
                     l.get("descricao", ""), cats.get(l.get("categoria"), "Ajuste de saldo" if l.get("ajuste") else ""),
                     calc.nome_conta(contas.get(l.get("conta"))), "Sim" if l.get("cartao") else "",

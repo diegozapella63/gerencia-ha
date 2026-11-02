@@ -35,7 +35,8 @@ class TestIAReal(unittest.TestCase):
         self.ha.fechar()
 
     def pedido(self):
-        return json.loads(self.ha.pedidos[-1][3])
+        """O último pedido à IA (o app também fala com o Home Assistant por outros motivos, como os sensores)."""
+        return json.loads([p for p in self.ha.pedidos if p[1] == "/services/ai_task/generate_data?return_response"][-1][3])
 
     def test_texto(self):
         r = S.ia_ler({"modo": "auto", "dica": "caixa", "texto": "farmácia 32,50"})

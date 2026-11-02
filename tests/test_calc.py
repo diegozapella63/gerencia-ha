@@ -207,6 +207,29 @@ class TestContas(unittest.TestCase):
         self.assertIsNone(dc(None))
 
 
+class TestDespesaLigada(unittest.TestCase):
+    """Plano de saúde descontado do salário (vínculo): sai do caixa no dia em que o salário entra, como na tela."""
+    DADOS = {"recorrencias": [{"id": "r-sal", "tipo": "receita", "valor": 5000, "dia": 5, "inicio": "2026-01", "fim": "2026-12"}],
+             "lancamentos": [{"id": "s-nov", "recorrencia": "r-sal", "competencia": "2026-11", "data": "2026-11-01"},
+                             {"id": "s-out", "recorrencia": "r-sal", "competencia": "2026-10", "data": "2026-10-07", "pulado": True}]}
+
+    def dc(self, **l):
+        return calc.data_caixa(dict({"tipo": "despesa", "vinculo": "r-sal"}, **l), {}, self.DADOS)
+
+    def test_dia_do_recebimento(self):
+        self.assertEqual(self.dc(competencia="2026-11", data="2026-11-20"), date(2026, 11, 1), "o salário lançado (adiantado)")
+        self.assertEqual(self.dc(competencia="2026-09", data="2026-09-20"), date(2026, 9, 5), "não lançado: o dia do fixo")
+        self.assertEqual(self.dc(data="2026-12-20"), date(2026, 12, 5), "sem competência: o mês da data")
+        self.assertEqual(self.dc(competencia="2026-10", data="2026-10-20"), date(2026, 10, 5), "salário pulado: o dia do fixo")
+
+    def test_quando_nao_vale(self):
+        self.assertEqual(self.dc(competencia="2027-01", data="2027-01-20"), date(2027, 1, 20), "o fixo acabou: a própria data")
+        self.assertEqual(self.dc(competencia="2026-11", data="2026-11-20", tipo="receita"), date(2026, 11, 20), "recebimento não segue vínculo")
+        self.assertEqual(calc.data_caixa({"vinculo": "r-sal", "data": "2026-11-20"}, {}), date(2026, 11, 20), "sem os dados: a própria data")
+        self.assertEqual(self.dc(vinculo="nada", data="2026-11-20"), date(2026, 11, 20))
+        self.assertIsNone(calc.data_vinculo({"vinculo": "r-sal", "data": ""}, self.DADOS))
+
+
 class TestDescontosERecorrencias(unittest.TestCase):
     def test_descontos_na_fonte(self):
         salario = {"tipo": "receita", "descricao": "Salário", "valor": 5000, "data": "2026-11-05", "conta": "c1", "pago": True,

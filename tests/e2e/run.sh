@@ -8,7 +8,8 @@
 #
 # Precisa de python3 e playwright (pip install playwright; playwright install chromium).
 # Usa as portas 8099 (GerencIA) e 8098 (InventarIA): não rode duas baterias ao mesmo tempo.
-# Um teste falha se o script der erro, se aparecer "Traceback" ou se a linha "ERROS [...]" não estiver vazia.
+# Um teste falha se o script der erro, se aparecer "Traceback", se a linha "ERROS [...]" (erros do JavaScript) não
+# estiver vazia ou se uma verificação imprimir "FALHOU ..." (_confere.py: igual, tem, sim...).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -22,7 +23,7 @@ parar() { for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null; done
 trap parar EXIT
 esperar() { for _ in $(seq 1 100); do curl -s -o /dev/null "$1" && return 0; sleep 0.05; done; return 1; }
 
-if [ $# -gt 0 ]; then names=("$@"); else names=($(cd "$HERE" && ls *.py | sed 's/\.py$//' | sort)); fi
+if [ $# -gt 0 ]; then names=("$@"); else names=($(cd "$HERE" && ls *.py | grep -v '^_' | sed 's/\.py$//' | sort)); fi
 pass=0; fail=0; skip=0; bad=()
 for t in "${names[@]}"; do
   f="$HERE/$t.py"
@@ -45,11 +46,11 @@ for t in "${names[@]}"; do
   (cd "$E2E_TMP" && timeout 400 python3 -u "$f" "$E2E_TMP") > "$E2E_TMP/logs/$t.txt" 2>&1
   code=$?
   erros=$(grep -h "^ERROS " "$E2E_TMP/logs/$t.txt" | grep -v "^ERROS \[\]$")
-  if [ $code -ne 0 ] || grep -q "Traceback" "$E2E_TMP/logs/$t.txt" || [ -n "$erros" ]; then
-    echo "XX $t"; (grep -h "Error\|^ERROS" "$E2E_TMP/logs/$t.txt" | head -3 | sed 's/^/     /')
+  if [ $code -ne 0 ] || grep -q "Traceback\|^FALHOU" "$E2E_TMP/logs/$t.txt" || [ -n "$erros" ]; then
+    echo "XX $t"; (grep -h "Error\|^ERROS \[.\|^FALHOU" "$E2E_TMP/logs/$t.txt" | head -5 | sed 's/^/     /')
     bad+=("$t"); fail=$((fail+1))
   else
-    echo "ok $t"; pass=$((pass+1))
+    echo "ok $t ($(grep -c '^ok ' "$E2E_TMP/logs/$t.txt") verificações)"; pass=$((pass+1))
   fi
 done
 parar

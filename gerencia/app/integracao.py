@@ -121,7 +121,7 @@ def _ocorrencias(d, ym_ini, ym_fim):
     for l in d.get("lancamentos", []):
         if l.get("pulado"):
             continue
-        dc = calc.data_caixa(l, contas)
+        dc = calc.data_caixa(l, contas, d)
         if dc and ym_ini <= dc.isoformat()[:7] <= ym_fim:
             out.append(dict(l, dc=dc.isoformat()))
     feitos = {(l.get("recorrencia"), l.get("competencia")) for l in d.get("lancamentos", []) if l.get("recorrencia")}
@@ -135,7 +135,7 @@ def _ocorrencias(d, ym_ini, ym_fim):
                      data=calc._data_mes(a, m, r.get("dia")).isoformat(), pago=False)
             for k in ("inicio", "fim", "dia"):
                 o.pop(k, None)
-            dc = calc.data_caixa(o, contas)
+            dc = calc.data_caixa(o, contas, d)
             if dc and ym_ini <= dc.isoformat()[:7] <= ym_fim:
                 out.append(dict(o, dc=dc.isoformat()))
         ym = add_ym(ym, 1)

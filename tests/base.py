@@ -50,7 +50,7 @@ class ServidorFalso:
                 self.end_headers()
                 self.wfile.write(dados)
 
-            do_GET = do_POST = _responder
+            do_GET = do_POST = do_PUT = do_DELETE = _responder
 
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
         self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
@@ -216,7 +216,10 @@ class Servidor:
                   "GERENCIA_BCB": "http://127.0.0.1:9/serie/{s}"})
         e.update(env or {})
         self.log = open(os.path.join(self.raiz, "server.log"), "w")
-        self.proc = subprocess.Popen([sys.executable, "-u", os.path.join(APP, "server.py")], env=e, stdout=self.log, stderr=subprocess.STDOUT, cwd=APP)
+        cmd = [sys.executable, "-u", os.path.join(APP, "server.py")]
+        if os.environ.get("GERENCIA_COBERTURA"):  # tools/cobertura.py: conta as linhas deste processo também
+            cmd[2:2] = [os.path.join(RAIZ, "tools", "cobertura.py"), "--filho", os.environ["GERENCIA_COBERTURA"]]
+        self.proc = subprocess.Popen(cmd, env=e, stdout=self.log, stderr=subprocess.STDOUT, cwd=APP)
         self.url = f"http://127.0.0.1:{self.porta}"
         for _ in range(100):
             try:

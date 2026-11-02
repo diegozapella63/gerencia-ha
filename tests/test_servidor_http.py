@@ -194,6 +194,33 @@ class TestHTTP(unittest.TestCase):
         st, _, r = self.s.get("/api/dicas")
         self.assertEqual(st, 200)
         self.assertIsInstance(r, dict)
+        st, _, r = self.s.post("/api/dicas/conferir")
+        self.assertEqual(st, 200)
+        self.assertIn("assinaturas", r)
+
+    def test_atualizar_indices_e_bens(self):
+        st, _, d = self.s.post("/api/indices/atualizar")
+        self.assertEqual((st, d["indices"]["erro"]), (200, "Sem resposta do Banco Central"), "o Banco Central do teste não responde")
+        st, _, b = self.s.post("/api/bens/atualizar")
+        self.assertEqual((st, b["ok"]), (200, False))
+
+    def test_falar(self):
+        st, _, r = self.s.post("/api/voz", b"\0\1" * 8000, cabecalhos={"Content-Type": "audio/wav"})
+        self.assertEqual(st, 200)
+        self.assertTrue(r["texto"])
+        st, _, r = self.s.post("/api/voz", b"\0" * 10, cabecalhos={"Content-Type": "audio/wav"})
+        self.assertEqual(st, 400)
+        self.assertTrue(r["erro"])
+
+    def test_backup_com_imagens_ida_e_volta(self):
+        _, _, f = self.s.post("/api/fotos", {"jpg": B64})
+        self.estado(investimentos=[{"id": "ft", "nome": "Com imagem", "valor": 5, "indexador": "parado", "fotos": [f["arquivo"]]}])
+        _, _, z = self.s.get("/api/export/zip")
+        os.remove(os.path.join(self.s.dirs["data"], "fotos", f["arquivo"]))
+        self.assertEqual(self.s.get("/fotos/" + f["arquivo"])[0], 404)
+        st, _, d = self.s.pedir("POST", "/api/importar", z, {"X-Nome-Arquivo": "backup.zip"})
+        self.assertEqual((st, d["investimentos"][0]["fotos"]), (200, [f["arquivo"]]))
+        self.assertEqual(self.s.get("/fotos/" + f["arquivo"], cru=True)[2], JPG, "a imagem volta do backup")
 
     # ---- rotas que não existem
     def test_nao_encontrado(self):

@@ -4839,5 +4839,19 @@ async function iniciar() {
   carregarVoz();
   carregarBens();
 }
+// Testes (tests/test_tela.py): com window.GERENCIA_TESTE = true antes de abrir, as funções de dentro ficam à mão.
+// Fora dos testes isto não existe e nada muda.
+if (window.GERENCIA_TESTE === true) {
+  window.GERENCIA_TESTE = {
+    S, normalizar, gerarExemplo, iso, pData, addMeses, diasUteis, parseNum, round2, semAcento, brl, brlS, plural, pct1, niceStep,
+    taxaAnual, valorHoje, partesHoje, taxaPartes, rendeMes, perdeMes, aliquota, rotuloTaxa, totais, porEscopo, projetar, registrarHistorico, grupos,
+    catsBens, taxaBem, nomeCatBem, addYm, ymDe, dataNoMes, somaMeses, nomeMes, dataCaixa, ocorrencia, ativaEm, proximaYm,
+    aportesFixos, aporteMensal, ehAporte, aportesPendentes, descontosDe, totalDescontos, liquidoDe, baixaVinculados, lancamentosEntre,
+    lancamentosCompetencia, acharLanc, materializar, saldoCaixa, resumoMes, saldoPrevisto, faturasDe, serieFluxo, mediaVariaveis,
+    variaveisDoMes, periodoFluxo, bancoPorNome, iaPago, iaNoCartao, prepararRevisaoCaixa, aplicarIACaixa, aplicarIAInvest, difSaldo,
+    donoDe, acharInvSaldo, mesesGratis, rendaReserva, economiaReal, dicaCategoria,
+    get IAS() { return IAS; }, set IAS(v) { IAS = v; },
+  };
+}
 iniciar();
 })();
