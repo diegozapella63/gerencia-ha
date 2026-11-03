@@ -25,7 +25,7 @@ with sync_playwright() as p:
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.click('[data-a="inv-modo"][data-v="evolucao"]'); pg.wait_for_timeout(500)
     igual(pg.locator('#aporte').count(), 0, 'Evolução sem campo para digitar o aporte')
-    igual(pg.inner_text('.aporte-info').split('\n'), ['R$ 800,00', 'Todo dia 6, saindo de Itaú · Ana.'], 'o aporte fixo do exemplo, com dia e conta')
+    igual(pg.inner_text('.aporte-info').split('\n'), ['R$ 800,00', 'Todo dia 6, saindo de Banco Coral · Ana.'], 'o aporte fixo do exemplo, com dia e conta')
     igual([x.strip() for x in pg.locator('.ctrl .btns-2 .btn').all_inner_texts()], ['Mudar o aporte', 'Outro aporte'], 'botões do aporte')
     pg.locator('.ctrl').screenshot(path=f'{SP}/shots/ap2-evolucao.png')
     pg.click('[data-a="aporte-ajustar"]'); pg.wait_for_timeout(400)

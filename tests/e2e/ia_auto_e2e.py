@@ -15,7 +15,7 @@ with sync_playwright() as p:
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(300); pg.click('.op[data-a="ia"]'); pg.wait_for_timeout(400)
     igual(pg.locator('.folha .seg').count(), 0, 'não pede para escolher o tipo')
     igual(pg.inner_text('[data-a="ia-arq"]'), 'Fatura, print, foto ou PDF', 'botão do arquivo')
-    pg.fill('#ia-txt', 'paguei 180 da luz ontem, tenho que pagar o boleto do IPVA e apliquei 15 mil no CDB do Inter a 112% do CDI')
+    pg.fill('#ia-txt', 'paguei 180 da luz ontem, tenho que pagar o boleto do IPVA e apliquei 15 mil no CDB do Banco Sol a 112% do CDI')
     pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2600)
     igual(pg.inner_text('.folha-cab h2'), 'Conferir o que a IA leu', 'janela de conferir')
     tem(pg.inner_text('.folha-corpo p'), 'Achei 1 lançamento e 1 investimento', 'diz o que achou')
@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # só investimento
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(300); pg.click('[data-a="ia-de"][data-ini="texto"]'); pg.wait_for_timeout(400)
-    pg.fill('#ia-txt', 'saldo da LCA do BB e do CDB do Inter'); pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2600)
+    pg.fill('#ia-txt', 'saldo da LCA do Banco Mar e do CDB do Banco Sol'); pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2600)
     igual(pg.inner_text('.folha-cab h2'), 'Conferir investimentos', 'da tela de investimentos: só investimentos')
     igual(pg.locator('.ia-sec').count(), 0, 'sem a parte de lançamentos')
     igual(pg.inner_text('[data-a="ia-salvar"]'), 'Salvar 2', 'os dois investimentos')

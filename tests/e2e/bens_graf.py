@@ -24,7 +24,7 @@ with sync_playwright() as p:
     pg.click('[data-a="inv-modo"][data-v="divisao"] >> nth=-1'); pg.wait_for_timeout(500)
     comps = pg.locator('.comp').all_inner_texts()
     nomes = [x.split('\n')[0] for x in comps]
-    sim(set(nomes) == {'XP', 'Nubank', 'Itaú', 'Inter', 'Caixa', 'Sicredi', 'Bens da casa'}, 'Divisão por banco com a fatia Bens da casa', nomes)
+    sim(set(nomes) == {'Corretora Norte', 'Banco Lua', 'Banco Coral', 'Banco Sol', 'Banco Azul', 'Banco Verde', 'Bens da casa'}, 'Divisão por banco com a fatia Bens da casa', nomes)
     total = valores(pg.inner_text('.stat-duo b >> nth=0'))[0]
     sim(abs(sum(valores(x)[-1] for x in comps) - total) <= len(comps), 'as fatias somam o total', (total, comps))
     bens = pg.locator('.comp[data-v="_bens"]').inner_text().split('\n')

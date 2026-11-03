@@ -30,7 +30,7 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 
-VERSAO = "1.24.0"
+VERSAO = "1.24.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1066,9 +1066,9 @@ IA_SIMULADA_HOLERITE = {"data": "", "creditos": [
     "total_creditos": 13050.00, "total_debitos": 1832.65, "liquido": 11217.35}
 
 IA_SIMULADA = {"itens": [
-    {"nome": "CDB Banco Inter 2028", "banco": "Inter", "tipo": "cdb", "valor": 15412.37, "aplicado": 15000,
+    {"nome": "CDB Banco Sol 2028", "banco": "Banco Sol", "tipo": "cdb", "valor": 15412.37, "aplicado": 15000,
      "data_valor": "", "indexador": "cdi_pct", "taxa": 112, "vencimento": "2028-03-13", "liquidez": "vencimento", "confianca": "alta"},
-    {"nome": "Tesouro Selic 2029", "banco": "XP", "tipo": "tesouro", "valor": 8350.10, "aplicado": 8000,
+    {"nome": "Tesouro Selic 2029", "banco": "Corretora Norte", "tipo": "tesouro", "valor": 8350.10, "aplicado": 8000,
      "data_valor": "", "indexador": "selic_mais", "taxa": 0.05, "vencimento": "2029-03-01", "liquidez": "diaria", "confianca": "media"},
 ]}
 def ia_simulada_saldos(texto, d, pessoa=None):
@@ -1096,7 +1096,7 @@ def ia_simulada_saldos(texto, d, pessoa=None):
         n = nome.lower()
         ex = next((i for i in invs if n in (bancos.get(i.get("banco"), "") or "").lower() or n in (i.get("nome") or "").lower()), None)
         parado = n in ("dinheiro", "em casa", "em espécie", "cofre")
-        out.append({"nome": ex.get("nome") if ex else nome.capitalize(), "banco": "" if parado else nome, "tipo": ex.get("tipo") if ex else ("dinheiro" if parado else "outro"),
+        out.append({"nome": ex.get("nome") if ex else nome[:1].upper() + nome[1:], "banco": "" if parado else nome, "tipo": ex.get("tipo") if ex else ("dinheiro" if parado else "outro"),
                     "valor": valor, "aporte": 0, "existente": ex.get("id") if ex else "", "dono": "" if dono in (None, "meu") else dono,
                     "indexador": ex.get("indexador") if ex else ("parado" if parado else "cdi_pct"), "taxa": ex.get("taxa") if ex else (0 if parado else 100),
                     "liquidez": ex.get("liquidez") if ex else "diaria", "confianca": "alta" if ex else "media"})
@@ -1120,8 +1120,8 @@ def ia_simulada_auto(texto, dica, d=None):
 
 
 IA_SIMULADA_CAIXA = {"itens": [
-    {"tipo": "despesa", "descricao": "iFood", "valor": 64.90, "data": "", "categoria": "c-restaurantes", "cartao": True, "banco": "Nubank"},
-    {"tipo": "despesa", "descricao": "Posto Shell", "valor": 210.00, "data": "", "categoria": "c-transporte", "cartao": True, "banco": "Nubank"},
+    {"tipo": "despesa", "descricao": "iFood", "valor": 64.90, "data": "", "categoria": "c-restaurantes", "cartao": True, "banco": "Banco Lua"},
+    {"tipo": "despesa", "descricao": "Posto Shell", "valor": 210.00, "data": "", "categoria": "c-transporte", "cartao": True, "banco": "Banco Lua"},
     {"tipo": "despesa", "descricao": "Magazine Luiza", "valor": 189.90, "data": "", "categoria": "c-compras", "parcela_atual": 2, "parcelas_total": 6, "cartao": True},
     {"tipo": "receita", "descricao": "Pix do João", "valor": 150.00, "data": "", "categoria": "c-reembolso"},
 ]}

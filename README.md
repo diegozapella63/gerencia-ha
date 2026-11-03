@@ -34,7 +34,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.
 - **Cartão de crédito**: compras, parcelas e fixos entram no mês em que a fatura vence, também nos gráficos dos próximos meses.
-- **Bancos com contas por pessoa**: "Nubank: Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5)".
+- **Bancos com contas por pessoa**: "Banco Lua: Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5)".
 - **Fluxo de caixa** mês a mês, com entradas, saídas, o que sobrou, saldo e previsão do dia a dia.
 - **Categorias** de gastos e de recebimentos.
 - **Investimentos** com rendimento no padrão de mercado (% do CDI, CDI +, prefixado, IPCA +, Selic +, poupança) e índices do Banco Central.

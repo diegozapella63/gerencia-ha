@@ -61,7 +61,7 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 
 ### Cartão de crédito
 
-Em **Mais > Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Nubank, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
+Em **Mais > Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
@@ -75,7 +75,7 @@ O aporte é um **tipo de conta a pagar**: o compromisso de aplicar nos seus inve
 - O aporte novo nasce **A aplicar**: para cadastrar o compromisso não precisa dizer o investimento.
 - Para dar como aplicado (no **Apliquei** da lista, ou marcando **Aplicado** no formulário), diga **em qual investimento** foi o dinheiro e quanto: o valor soma ao valor de hoje desse investimento. O app lembra o investimento para os próximos meses. Se um mês for diferente, o padrão continua o mesmo.
 
-**Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. Se você só sabe o total que o banco mostra agora, escolha **Quanto tem agora**: o aporte é a diferença entre esse total e o valor de hoje. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Inter" também soma ao CDB que já existe e lança a saída como aporte.
+**Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. Se você só sabe o total que o banco mostra agora, escolha **Quanto tem agora**: o aporte é a diferença entre esse total e o valor de hoje. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Banco Sol" também soma ao CDB que já existe e lança a saída como aporte.
 
 ### Dia a dia
 
@@ -121,13 +121,13 @@ Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Ho
 
 ### Atualizar saldos
 
-Quando chega uma listinha com o valor de agora de cada investimento (por exemplo, de um terceiro, no WhatsApp: "Nubank, valor atualizado, R$ 500 / Serasa, valor atualizado, R$ 600"), use **Atualizar saldos**: em **Adicionar** (no Início), no **Novo investimento** (o link embaixo dos quadrinhos) ou na **Carteira › Terceiros**, que já abre com a pessoa escolhida. Diga de quem são (Meus, uma pessoa ou Vários), cole a lista ou mande o print. A IA acha cada investimento pelo banco, pelo nome e pelo dono, e a conferência mostra, para cada um, o **aporte**: a diferença entre o saldo novo e o valor de hoje (ou o resgate, se for menos), com o total no alto. Dá para trocar para qual investimento vai cada linha; o que não tiver correspondente vira um investimento novo da pessoa. **Revisar antes** corrige os dados de uma linha sem sair da conferência. **Atualizar** grava os saldos novos de uma vez.
+Quando chega uma listinha com o valor de agora de cada investimento (por exemplo, de um terceiro, no WhatsApp: "Banco Lua, valor atualizado, R$ 500 / Serasa, valor atualizado, R$ 600"), use **Atualizar saldos**: em **Adicionar** (no Início), no **Novo investimento** (o link embaixo dos quadrinhos) ou na **Carteira › Terceiros**, que já abre com a pessoa escolhida. Diga de quem são (Meus, uma pessoa ou Vários), cole a lista ou mande o print. A IA acha cada investimento pelo banco, pelo nome e pelo dono, e a conferência mostra, para cada um, o **aporte**: a diferença entre o saldo novo e o valor de hoje (ou o resgate, se for menos), com o total no alto. Dá para trocar para qual investimento vai cada linha; o que não tiver correspondente vira um investimento novo da pessoa. **Revisar antes** corrige os dados de uma linha sem sair da conferência. **Atualizar** grava os saldos novos de uma vez.
 
 Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 ## Falar
 
-O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Nubank e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
+O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Banco Lua e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
 - O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto.
 - **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). No **Padrão do Home Assistant** fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.

@@ -34,7 +34,7 @@ with sync_playwright() as p:
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)
     if pg.locator('[data-a="cx-modo"][data-v="lista"]:not(.on)').count(): pg.click('[data-a="cx-modo"][data-v="lista"]'); pg.wait_for_timeout(300)
     linha = pg.locator('.lanc:has-text("Aporte nos investimentos")').first.inner_text()
-    tem(linha, 'Investimentos · Itaú · Ana · fixo', 'neste mês: o aporte fixo do exemplo, na conta do Itaú')
+    tem(linha, 'Investimentos · Banco Coral · Ana · fixo', 'neste mês: o aporte fixo do exemplo, na conta do Banco Coral')
     pg.click('[data-a="cx-mes"][data-v="-1"]'); pg.wait_for_timeout(400)
     linha = pg.locator('.lanc:has-text("Aporte nos investimentos")')
     igual(linha.count(), 1, 'no mês passado, o aporte aparece na lista')

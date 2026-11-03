@@ -25,8 +25,8 @@ with sync_playwright() as p:
     igual(len(lc), 1, 'as categorias com a mesma largura em todas as linhas')
     igual(lk, lc, 'a conta com a mesma largura da categoria, lado a lado')
     contas = [pg.locator('[data-iai="contasel"]').nth(i).evaluate('e => e.options[e.selectedIndex].text') for i in range(n)]
-    igual(contas[:2], ['Nubank · Ana · crédito', 'Nubank · Ana · crédito'], 'a conta do banco que a IA viu (Nubank), no crédito')
-    igual(contas, ['Nubank · Ana · crédito', 'Nubank · Ana · crédito', 'Nubank · Ana · crédito', 'Nubank · Ana'], 'contas sugeridas (recebimento sem débito ou crédito)')
+    igual(contas[:2], ['Banco Lua · Ana · crédito', 'Banco Lua · Ana · crédito'], 'a conta do banco que a IA viu (Banco Lua), no crédito')
+    igual(contas, ['Banco Lua · Ana · crédito', 'Banco Lua · Ana · crédito', 'Banco Lua · Ana · crédito', 'Banco Lua · Ana'], 'contas sugeridas (recebimento sem débito ou crédito)')
     esperadas = ['Sem conta']
     for bc in st0['bancos']:
         for c in bc['contas']:
@@ -43,7 +43,7 @@ with sync_playwright() as p:
     pg.click('[data-a="ia-salvar"]'); pg.wait_for_timeout(1200)
     novos = get('api/state')['lancamentos'][n0:]
     igual([(l['descricao'], l.get('conta'), l.get('cartao')) for l in novos],
-          [('iFood', outra.split('|')[0], False), ('Posto Shell', 'k-nu-ana', True)] + [('Magazine Luiza', 'k-nu-ana', True)] * 5 + [('Pix do João', 'k-nu-ana', False)],
+          [('iFood', outra.split('|')[0], False), ('Posto Shell', 'k-lua-ana', True)] + [('Magazine Luiza', 'k-lua-ana', True)] * 5 + [('Pix do João', 'k-lua-ana', False)],
           'salvos com a conta de cada linha (a parcelada vira as parcelas que faltam)')
-    igual(outra.split('|')[0], 'k-sicredi-beto', 'a outra conta é a do Sicredi (sem cartão)')
+    igual(outra.split('|')[0], 'k-verde-beto', 'a outra conta é a do Banco Verde (sem cartão)')
     print('ERROS', erros); b.close()

@@ -145,7 +145,7 @@ class TestSimulacoes(unittest.TestCase):
         d = exemplo()
         r = S.ia_simulada_saldos("Azul, valor atualizado, R$ 1.250,50\nDinheiro 300\nNovo Banco 2 mil", d)
         inv = r["investimentos"]
-        self.assertEqual([(i["nome"], i["valor"], i["existente"]) for i in inv], [("CDB Azul", 1250.5, "i1"), ("Dinheiro", 300, ""), ("Novo banco", 2000, "")])
+        self.assertEqual([(i["nome"], i["valor"], i["existente"]) for i in inv], [("CDB Azul", 1250.5, "i1"), ("Dinheiro", 300, ""), ("Novo Banco", 2000, "")], "o nome como foi escrito, com a primeira letra maiúscula")
         self.assertEqual((inv[1]["tipo"], inv[1]["indexador"]), ("dinheiro", "parado"))
         m = S.ia_simulada_saldos("Tudo dinheiro da mãe\nAzul 600", d)["investimentos"]
         self.assertEqual((m[0]["nome"], m[0]["dono"]), ("Poupança da Mãe", "Mãe"))

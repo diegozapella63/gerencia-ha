@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.24.0';
+const VERSAO = '1.24.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -331,20 +331,20 @@ function gerarExemplo() {
   const futuro = (m, dd = 15) => { const x = addMeses(h, m); x.setDate(dd); return iso(x); };
   const b = (id, nome, cor) => ({ id, nome, cor, obs: '' });
   const bancos = [
-    b('b-nu', 'Nubank', '#B79BFF'), b('b-inter', 'Inter', '#FFA23A'), b('b-itau', 'Itaú', '#FF8A65'),
-    b('b-xp', 'XP', '#B8B0B0'), b('b-caixa', 'Caixa', '#56AEFF'), b('b-sicredi', 'Sicredi', '#4CD3A5'),
+    b('b-lua', 'Banco Lua', '#B79BFF'), b('b-sol', 'Banco Sol', '#FFA23A'), b('b-coral', 'Banco Coral', '#FF8A65'),
+    b('b-norte', 'Corretora Norte', '#B8B0B0'), b('b-azul', 'Banco Azul', '#56AEFF'), b('b-verde', 'Banco Verde', '#4CD3A5'),
   ];
   const inv = (o) => Object.assign({ id: uid(), obs: '', vencimento: null, terceiro: '', titular: 'meu', criado_em: dia(200) }, o);
   const investimentos = [
-    inv({ nome: 'Reserva de emergência', banco: 'b-nu', tipo: 'caixinha', valor: 24380.52, data_valor: dia(17), indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria' }),
-    inv({ nome: 'CDB Inter 2028', banco: 'b-inter', tipo: 'cdb', valor: 15000, data_valor: dia(46), indexador: 'cdi_pct', taxa: 112, liquidez: 'vencimento', vencimento: futuro(17, 13) }),
-    inv({ nome: 'LCI Itaú', banco: 'b-itau', tipo: 'lci', valor: 20000, data_valor: dia(95), indexador: 'cdi_pct', taxa: 94, liquidez: 'vencimento', vencimento: iso(new Date(h.getTime() + 24 * 86400000)) }),
-    inv({ nome: 'Tesouro IPCA+ 2035', banco: 'b-xp', tipo: 'tesouro', valor: 18640.1, data_valor: dia(30), indexador: 'ipca_mais', taxa: 7.1, liquidez: 'vencimento', vencimento: '2035-05-15' }),
-    inv({ nome: 'Tesouro Selic 2029', banco: 'b-xp', tipo: 'tesouro', valor: 8200, data_valor: dia(30), indexador: 'selic_mais', taxa: 0.05, liquidez: 'diaria', vencimento: '2029-03-01' }),
-    inv({ nome: 'Ações e FIIs', banco: 'b-xp', tipo: 'acoes', valor: 12450, data_valor: dia(9), indexador: 'estimado', taxa: 10, liquidez: 'diaria' }),
-    inv({ nome: 'Poupança da mãe', banco: 'b-caixa', tipo: 'poupanca', valor: 9870.35, data_valor: dia(18), indexador: 'poupanca', taxa: 0, liquidez: 'diaria', titular: 'terceiros', terceiro: 'Mãe' }),
-    inv({ nome: 'CDB do Pedro', banco: 'b-sicredi', tipo: 'cdb', valor: 5300, data_valor: dia(73), indexador: 'cdi_pct', taxa: 105, liquidez: 'vencimento', vencimento: futuro(26, 2), titular: 'terceiros', terceiro: 'Pedro' }),
-    inv({ nome: 'Vaquinha da viagem', banco: 'b-nu', tipo: 'caixinha', valor: 2150, data_valor: dia(5), indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria', titular: 'terceiros', terceiro: 'Família' }),
+    inv({ nome: 'Reserva de emergência', banco: 'b-lua', tipo: 'caixinha', valor: 24380.52, data_valor: dia(17), indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria' }),
+    inv({ nome: 'CDB Sol 2028', banco: 'b-sol', tipo: 'cdb', valor: 15000, data_valor: dia(46), indexador: 'cdi_pct', taxa: 112, liquidez: 'vencimento', vencimento: futuro(17, 13) }),
+    inv({ nome: 'LCI Coral', banco: 'b-coral', tipo: 'lci', valor: 20000, data_valor: dia(95), indexador: 'cdi_pct', taxa: 94, liquidez: 'vencimento', vencimento: iso(new Date(h.getTime() + 24 * 86400000)) }),
+    inv({ nome: 'Tesouro IPCA+ 2035', banco: 'b-norte', tipo: 'tesouro', valor: 18640.1, data_valor: dia(30), indexador: 'ipca_mais', taxa: 7.1, liquidez: 'vencimento', vencimento: '2035-05-15' }),
+    inv({ nome: 'Tesouro Selic 2029', banco: 'b-norte', tipo: 'tesouro', valor: 8200, data_valor: dia(30), indexador: 'selic_mais', taxa: 0.05, liquidez: 'diaria', vencimento: '2029-03-01' }),
+    inv({ nome: 'Ações e FIIs', banco: 'b-norte', tipo: 'acoes', valor: 12450, data_valor: dia(9), indexador: 'estimado', taxa: 10, liquidez: 'diaria' }),
+    inv({ nome: 'Poupança da mãe', banco: 'b-azul', tipo: 'poupanca', valor: 9870.35, data_valor: dia(18), indexador: 'poupanca', taxa: 0, liquidez: 'diaria', titular: 'terceiros', terceiro: 'Mãe' }),
+    inv({ nome: 'CDB do Pedro', banco: 'b-verde', tipo: 'cdb', valor: 5300, data_valor: dia(73), indexador: 'cdi_pct', taxa: 105, liquidez: 'vencimento', vencimento: futuro(26, 2), titular: 'terceiros', terceiro: 'Pedro' }),
+    inv({ nome: 'Vaquinha da viagem', banco: 'b-lua', tipo: 'caixinha', valor: 2150, data_valor: dia(5), indexador: 'cdi_pct', taxa: 100, liquidez: 'diaria', titular: 'terceiros', terceiro: 'Família' }),
   ];
   contasExemplo(bancos);
   const d = normalizar({ exemplo: true, bancos, investimentos });
@@ -480,7 +480,7 @@ function apiDemo() {
       const sel = opcoes.find(o => o.id === S.d.ajustes.voz_motor);
       return { pronta: true, nome: (sel || opcoes[0]).nome, selecionada: sel ? sel.id : '', opcoes };
     },
-    async vozTexto() { await espera(900); return { texto: 'Gastei 45 reais no mercado hoje no cartão do Nubank e recebi 150 do João pelo Pix', nome: 'Home Assistant Cloud' }; },
+    async vozTexto() { await espera(900); return { texto: 'Gastei 45 reais no mercado hoje no cartão do Banco Lua e recebi 150 do João pelo Pix', nome: 'Home Assistant Cloud' }; },
     async iaUso() {
       const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
       const rec = [['fala', 'ok', 3.4, 1100, 0], ['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
@@ -501,7 +501,7 @@ function apiDemo() {
         debitos: [{ descricao: 'INSS', valor: 840, tipo: 'imposto' }, { descricao: 'Taxa administrativa', valor: 587.25, tipo: 'imposto' }, { descricao: 'Plano de saúde titular', valor: 320, tipo: 'saude' }, { descricao: 'Coparticipação', valor: 85.4, tipo: 'saude' }],
         total_creditos: 13050, total_debitos: 1832.65, liquido: 11217.35 }, entidade: 'simulada' };
       if (c.saldos || (c.so_invest && /\d/.test(c.texto || '') && !/apliquei|investi|aplica[çc]/i.test(c.texto || ''))) {
-        // na prévia, cada linha com um valor ("30.350 nubank", "Nubank, valor atualizado, R$ 500") acha o investimento pelo banco ou pelo nome
+        // na prévia, cada linha com um valor ("30.350 banco lua", "Banco Lua, valor atualizado, R$ 500") acha o investimento pelo banco ou pelo nome
         const linhas = String(c.texto || '').split(/[\n;]+/).map(x => x.trim()).filter(Boolean);
         let dono = c.pessoa || '';
         for (const l of linhas) { const m = l.match(/\b(?:da|do|de)\s+([a-zà-ú]+)\s*$/i); if (m && !/\d/.test(l) && !dono) dono = donoDe(m[1]); }
@@ -527,21 +527,21 @@ function apiDemo() {
       let inv = /cdb|tesouro|\blc[ia]\b|invest|apliquei|aplica[çc]|% do cdi|caixinha|rende/.test(t), cx = /gast|receb|pagu|pagar|compr|fatura|pix|mercado|boleto|conta de|sal[áa]rio/.test(t);
       if (!inv && !cx) { inv = c.dica === 'invest'; cx = !inv; }
       const lanc = !cx ? [] : /mercado/.test(t) && /jo[aã]o/.test(t) ? [
-        { tipo: 'despesa', descricao: 'Mercado', valor: 45, data: hj, categoria: 'c-mercado', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'despesa', descricao: 'Mercado', valor: 45, data: hj, categoria: 'c-mercado', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Banco Lua', situacao: 'feito', confianca: 'alta' },
         { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'feito', confianca: 'alta' },
       ] : [
-        { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
-        { tipo: 'despesa', descricao: 'Posto Shell', valor: 210, data: ont, categoria: 'c-transporte', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Nubank', situacao: 'feito', confianca: 'alta' },
-        { tipo: 'despesa', descricao: 'Magazine Luiza', valor: 189.9, data: iso(addMeses(hoje(), -1)), categoria: 'c-compras', parcela_atual: 2, parcelas_total: 6, cartao: true, banco: 'Nubank', situacao: '', confianca: 'media' },
+        { tipo: 'despesa', descricao: 'iFood', valor: 64.9, data: ont, categoria: 'c-restaurantes', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Banco Lua', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'despesa', descricao: 'Posto Shell', valor: 210, data: ont, categoria: 'c-transporte', parcela_atual: 0, parcelas_total: 0, cartao: true, banco: 'Banco Lua', situacao: 'feito', confianca: 'alta' },
+        { tipo: 'despesa', descricao: 'Magazine Luiza', valor: 189.9, data: iso(addMeses(hoje(), -1)), categoria: 'c-compras', parcela_atual: 2, parcelas_total: 6, cartao: true, banco: 'Banco Lua', situacao: '', confianca: 'media' },
         { tipo: 'despesa', descricao: 'IPVA', valor: 1480, data: iso(addMeses(hoje(), 1)), categoria: 'c-impostos', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'pendente', confianca: 'alta' },
         { tipo: 'receita', descricao: 'Pix do João', valor: 150, data: hj, categoria: 'c-reembolso', parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'feito', confianca: 'alta' },
       ];
       const cdb = d.investimentos.find(i => i.tipo === 'cdb');
       const invs = !inv ? [] : [
-        { nome: 'CDB Inter 2028', banco: 'Inter', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' },
-        { nome: 'LCA Banco do Brasil 2027', banco: 'Banco do Brasil', tipo: 'lci', valor: 10250, aplicado: 10000, data_valor: hj, indexador: 'cdi_pct', taxa: 93, vencimento: '2027-09-20', liquidez: 'vencimento', existente: '', confianca: 'media' },
+        { nome: 'CDB Sol 2028', banco: 'Banco Sol', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' },
+        { nome: 'LCA Banco Mar 2027', banco: 'Banco Mar', tipo: 'lci', valor: 10250, aplicado: 10000, data_valor: hj, indexador: 'cdi_pct', taxa: 93, vencimento: '2027-09-20', liquidez: 'vencimento', existente: '', confianca: 'media' },
       ];
-      if (c.modo === 'invest') return { itens: invs.length ? invs : [{ nome: 'CDB Inter 2028', banco: 'Inter', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' }], entidade: 'simulada' };
+      if (c.modo === 'invest') return { itens: invs.length ? invs : [{ nome: 'CDB Sol 2028', banco: 'Banco Sol', tipo: 'cdb', valor: 15412.37, aplicado: 15000, data_valor: hj, indexador: 'cdi_pct', taxa: 112, vencimento: '2028-03-13', liquidez: 'vencimento', existente: cdb ? cdb.id : '', confianca: 'alta' }], entidade: 'simulada' };
       return { lancamentos: lanc, investimentos: invs, entidade: 'simulada' };
     },
   };
@@ -1420,12 +1420,12 @@ function temCaixa() { return S.d.lancamentos.length > 0 || S.d.recorrencias.leng
 function contasExemplo(bancos) {
   const c = (id, pessoa, cartao, fechamento, vencimento) => ({ id, pessoa, cartao, fechamento, vencimento });
   const por = {
-    'b-nu': [c('k-nu-ana', 'Ana', true, 3, 10), c('k-nu-beto', 'Beto', true, 28, 5)],
-    'b-inter': [c('k-inter-ana', 'Ana', true, 25, 2)],
-    'b-itau': [c('k-itau-ana', 'Ana', false, 1, 10)],
-    'b-xp': [c('k-xp-ana', 'Ana', false, 1, 10)],
-    'b-caixa': [c('k-caixa-mae', 'Mãe', false, 1, 10)],
-    'b-sicredi': [c('k-sicredi-beto', 'Beto', false, 1, 10)],
+    'b-lua': [c('k-lua-ana', 'Ana', true, 3, 10), c('k-lua-beto', 'Beto', true, 28, 5)],
+    'b-sol': [c('k-sol-ana', 'Ana', true, 25, 2)],
+    'b-coral': [c('k-coral-ana', 'Ana', false, 1, 10)],
+    'b-norte': [c('k-norte-ana', 'Ana', false, 1, 10)],
+    'b-azul': [c('k-azul-mae', 'Mãe', false, 1, 10)],
+    'b-verde': [c('k-verde-beto', 'Beto', false, 1, 10)],
   };
   for (const b of bancos) b.contas = por[b.id] || [c(b.id + '-c1', '', false, 1, 10)];
 }
@@ -1442,21 +1442,21 @@ function caixaExemplo() {
 
   L({ tipo: 'receita', descricao: 'Ajuste de saldo', valor: 6200, data: inicio + '-01', pago: true, ajuste: true, categoria: '' });
   const fixos = [
-    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 11800, dia: 5, categoria: 'c-salario', conta: 'k-itau-ana',
+    R({ id: 'r-sal', tipo: 'receita', descricao: 'Salário', valor: 11800, dia: 5, categoria: 'c-salario', conta: 'k-coral-ana',
       descontos: [{ id: 'd-inss', descricao: 'INSS', modo: 'pct', valor: 7, base: '', categoria: 'c-impostos' },
         { id: 'd-taxa', descricao: 'Taxa administrativa', modo: 'pct', valor: 4.5, base: '', categoria: 'c-impostos' }] }),
-    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 698.46, dia: 5, categoria: 'c-saude', conta: 'k-itau-ana', vinculo: 'r-sal' }),
-    R({ id: 'r-alug', tipo: 'despesa', descricao: 'Aluguel', valor: 2300, dia: 10, categoria: 'c-moradia', conta: 'k-itau-ana' }),
-    R({ id: 'r-cond', tipo: 'despesa', descricao: 'Condomínio', valor: 680, dia: 10, categoria: 'c-moradia', conta: 'k-itau-ana' }),
-    R({ id: 'r-luz', tipo: 'despesa', descricao: 'Conta de luz', valor: 260, dia: 21, categoria: 'c-contas', conta: 'k-itau-ana' }),
-    R({ id: 'r-net', tipo: 'despesa', descricao: 'Internet', valor: 119.9, dia: 18, categoria: 'c-contas', conta: 'k-itau-ana' }),
-    R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-nu-beto', cartao: true }),
-    R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-nu-ana', cartao: true }),
-    R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-nu-ana', cartao: true }),
-    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-nu-beto', cartao: true }),
-    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-nu-ana', cartao: true }),
-    R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-itau-ana', aporte: true }),
-    R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-inter-ana', cartao: true }),
+    R({ id: 'r-plano', tipo: 'despesa', descricao: 'Plano de saúde', valor: 698.46, dia: 5, categoria: 'c-saude', conta: 'k-coral-ana', vinculo: 'r-sal' }),
+    R({ id: 'r-alug', tipo: 'despesa', descricao: 'Aluguel', valor: 2300, dia: 10, categoria: 'c-moradia', conta: 'k-coral-ana' }),
+    R({ id: 'r-cond', tipo: 'despesa', descricao: 'Condomínio', valor: 680, dia: 10, categoria: 'c-moradia', conta: 'k-coral-ana' }),
+    R({ id: 'r-luz', tipo: 'despesa', descricao: 'Conta de luz', valor: 260, dia: 21, categoria: 'c-contas', conta: 'k-coral-ana' }),
+    R({ id: 'r-net', tipo: 'despesa', descricao: 'Internet', valor: 119.9, dia: 18, categoria: 'c-contas', conta: 'k-coral-ana' }),
+    R({ id: 'r-ingles', tipo: 'despesa', descricao: 'Inglês', valor: 420, dia: 8, categoria: 'c-educacao', conta: 'k-lua-beto', cartao: true }),
+    R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-lua-ana', cartao: true }),
+    R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-lua-ana', cartao: true }),
+    R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-lua-beto', cartao: true }),
+    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-lua-ana', cartao: true }),
+    R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-coral-ana', aporte: true }),
+    R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-sol-ana', cartao: true }),
   ];
   // meses passados (e o atual até hoje): ocorrências confirmadas, com variação nos valores que mudam
   for (let ym = inicio; ym <= ymAtual; ym = addYm(ym, 1)) {
@@ -1477,13 +1477,13 @@ function caixaExemplo() {
     }
     const dia = d => dataNoMes(ym, d);
     const gastos = [
-      [2, 'Mercado', 'c-mercado', 180, 520, 'k-itau-ana', false], [9, 'Mercado', 'c-mercado', 150, 480, 'k-nu-ana', true],
-      [16, 'Mercado', 'c-mercado', 160, 430, 'k-itau-ana', false], [26, 'Hortifruti', 'c-mercado', 60, 140, 'k-nu-beto', true],
-      [6, 'iFood', 'c-restaurantes', 45, 120, 'k-nu-ana', true], [13, 'Restaurante', 'c-restaurantes', 90, 220, 'k-nu-beto', true],
-      [24, 'Padaria', 'c-restaurantes', 25, 60, 'k-itau-ana', false], [7, 'Combustível', 'c-transporte', 180, 260, 'k-inter-ana', true],
-      [20, 'Combustível', 'c-transporte', 170, 250, 'k-inter-ana', true], [11, 'Uber', 'c-transporte', 18, 46, 'k-nu-ana', true],
-      [17, 'Cinema', 'c-lazer', 60, 140, 'k-nu-beto', true], [23, 'Pet shop', 'c-pets', 120, 220, 'k-nu-beto', true],
-      [19, 'Farmácia', 'c-saude', 35, 160, 'k-nu-ana', true],
+      [2, 'Mercado', 'c-mercado', 180, 520, 'k-coral-ana', false], [9, 'Mercado', 'c-mercado', 150, 480, 'k-lua-ana', true],
+      [16, 'Mercado', 'c-mercado', 160, 430, 'k-coral-ana', false], [26, 'Hortifruti', 'c-mercado', 60, 140, 'k-lua-beto', true],
+      [6, 'iFood', 'c-restaurantes', 45, 120, 'k-lua-ana', true], [13, 'Restaurante', 'c-restaurantes', 90, 220, 'k-lua-beto', true],
+      [24, 'Padaria', 'c-restaurantes', 25, 60, 'k-coral-ana', false], [7, 'Combustível', 'c-transporte', 180, 260, 'k-sol-ana', true],
+      [20, 'Combustível', 'c-transporte', 170, 250, 'k-sol-ana', true], [11, 'Uber', 'c-transporte', 18, 46, 'k-lua-ana', true],
+      [17, 'Cinema', 'c-lazer', 60, 140, 'k-lua-beto', true], [23, 'Pet shop', 'c-pets', 120, 220, 'k-lua-beto', true],
+      [19, 'Farmácia', 'c-saude', 35, 160, 'k-lua-ana', true],
     ];
     for (const [d, desc, cat, a, b, conta, cartao] of gastos) {
       const data = dia(d);
@@ -1493,18 +1493,18 @@ function caixaExemplo() {
     }
   }
   // freelances e reembolsos pontuais
-  [[-5, 20, 1800], [-3, 22, 2400], [-1, 19, 1200]].forEach(([k, d, v]) => L({ tipo: 'receita', descricao: 'Freelance', valor: v, categoria: 'c-freelance', conta: 'k-inter-ana', data: dataNoMes(addYm(ymAtual, k), d), pago: true }));
-  L({ tipo: 'receita', descricao: 'Reembolso médico', valor: 340, categoria: 'c-reembolso', conta: 'k-itau-ana', data: dataNoMes(addYm(ymAtual, -2), 9), pago: true });
+  [[-5, 20, 1800], [-3, 22, 2400], [-1, 19, 1200]].forEach(([k, d, v]) => L({ tipo: 'receita', descricao: 'Freelance', valor: v, categoria: 'c-freelance', conta: 'k-sol-ana', data: dataNoMes(addYm(ymAtual, k), d), pago: true }));
+  L({ tipo: 'receita', descricao: 'Reembolso médico', valor: 340, categoria: 'c-reembolso', conta: 'k-coral-ana', data: dataNoMes(addYm(ymAtual, -2), 9), pago: true });
   // geladeira em 10x no cartão do Beto: as parcelas futuras aparecem nas próximas faturas
   const g = 'g-geladeira';
   for (let k = 0; k < 10; k++) {
-    L({ tipo: 'despesa', descricao: 'Geladeira', valor: 389.9, categoria: 'c-compras', conta: 'k-nu-beto', cartao: true, data: dataNoMes(addYm(ymAtual, -4 + k), 14), parcela: `${k + 1}/10`, grupo: g, pago: false });
+    L({ tipo: 'despesa', descricao: 'Geladeira', valor: 389.9, categoria: 'c-compras', conta: 'k-lua-beto', cartao: true, data: dataNoMes(addYm(ymAtual, -4 + k), 14), parcela: `${k + 1}/10`, grupo: g, pago: false });
   }
   // seguro do carro: fixo anual
-  R({ id: 'r-seguro', tipo: 'despesa', descricao: 'Seguro do carro', valor: 2380, dia: 12, categoria: 'c-transporte', conta: 'k-itau-ana', inicio: addYm(ymAtual, 3), freq: 'anual' });
+  R({ id: 'r-seguro', tipo: 'despesa', descricao: 'Seguro do carro', valor: 2380, dia: 12, categoria: 'c-transporte', conta: 'k-coral-ana', inicio: addYm(ymAtual, 3), freq: 'anual' });
   // IPTU atrasado (para mostrar o aviso)
   const atras = iso(new Date(hoje().getTime() - 3 * 86400000));
-  L({ tipo: 'despesa', descricao: 'IPTU', valor: 212.4, categoria: 'c-impostos', conta: 'k-itau-ana', data: atras, pago: false, parcela: '8/10' });
+  L({ tipo: 'despesa', descricao: 'IPTU', valor: 212.4, categoria: 'c-impostos', conta: 'k-coral-ana', data: atras, pago: false, parcela: '8/10' });
   return { lancamentos: lanc, recorrencias: rec };
 }
 

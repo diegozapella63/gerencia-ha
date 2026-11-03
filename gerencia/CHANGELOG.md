@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.24.1
+
+- **Carregar exemplo** e a prévia usam bancos inventados (Banco Lua, Banco Sol, Banco Coral, Corretora Norte, Banco Azul e Banco Verde), como os nomes das pessoas.
+
 ## 1.24.0
 
 - **Conversar com a IA**: o balão ao lado do microfone abre uma conversa em qualquer tela. Pergunte sobre o que está na tela ou sobre os seus dados ("o que vence esta semana?", "quanto rende a carteira?"), ou converse sobre outro assunto. Peça para **lançar** um gasto, **pagar** uma conta ou **atualizar um saldo**: a IA mostra o que vai fazer e você toca em **Confirmar** (ou **Editar**, que abre a janela de sempre e volta para a conversa). O microfone dentro dela dita a pergunta. A conversa fica guardada; a lixeira apaga. Some com Usar IA desligado.

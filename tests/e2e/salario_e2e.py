@@ -34,7 +34,7 @@ with sync_playwright() as p:
     # próximo mês: Recebi no salário
     pg.click('[data-a="cx-mes"][data-v="1"]'); pg.wait_for_timeout(400)
     sal=pg.locator('.lanc:has-text("Salário")').first
-    igual(sal.inner_text().split('\n')[1:], ['Salário', 'Salário · Itaú · Ana · fixo', '+ R$ 11.800,00', 'A receber'], 'mês que vem: o salário com o bruto padrão, a receber')
+    igual(sal.inner_text().split('\n')[1:], ['Salário', 'Salário · Banco Coral · Ana · fixo', '+ R$ 11.800,00', 'A receber'], 'mês que vem: o salário com o bruto padrão, a receber')
     sal.locator('[data-a="lanc-pagar"]').click(); pg.wait_for_timeout(500)
     igual(pg.inner_text('.folha-cab h2'), 'Confirmar recebimento', 'o círculo abre Confirmar recebimento')
     igual(pg.locator('[data-a="lf-pago"][data-v="1"].on').count(), 1, 'já como recebido')

@@ -47,12 +47,12 @@ with sync_playwright() as p:
     sim(lado_b['x'] > lista['x'] + lista['width'] - 1, 'no Caixa, o mês fica à direita da lista', (lado_b, lista))
     igual(pg.evaluate("getComputedStyle(document.querySelector('.cx-lado')).position"), 'sticky', 'o mês fica parado ao rolar')
     # banco na barra lateral
-    nu = [i for i in st['investimentos'] if i.get('banco') == 'b-nu']
-    pg.click('#lado [data-a="lado-banco"][data-v="b-nu"]'); pg.wait_for_timeout(400)
-    igual(sorted(pg.locator('.inv .inv-nome').all_inner_texts()), sorted(i['nome'] for i in nu), 'Nubank na barra: a Carteira só com os do Nubank')
-    igual(pg.inner_text('.chip.on >> nth=-1'), 'Nubank', 'com o filtro do banco')
+    nu = [i for i in st['investimentos'] if i.get('banco') == 'b-lua']
+    pg.click('#lado [data-a="lado-banco"][data-v="b-lua"]'); pg.wait_for_timeout(400)
+    igual(sorted(pg.locator('.inv .inv-nome').all_inner_texts()), sorted(i['nome'] for i in nu), 'Banco Lua na barra: a Carteira só com os do Banco Lua')
+    igual(pg.inner_text('.chip.on >> nth=-1'), 'Banco Lua', 'com o filtro do banco')
     marc = pg.locator('#lado [aria-current="page"]').all_inner_texts()
-    sim(len(marc) == 1 and 'Nubank' in marc[0], 'só o Nubank marcado na barra', marc)
+    sim(len(marc) == 1 and 'Banco Lua' in marc[0], 'só o Banco Lua marcado na barra', marc)
     igual(len(pg.evaluate("getComputedStyle(document.querySelector('.inv-lista')).gridTemplateColumns").split()), 2, 'Carteira em duas colunas')
     pessoa = pg.locator('#lado [data-a="pessoa"] >> nth=1')
     nome = pessoa.inner_text().split('\n')[1]
