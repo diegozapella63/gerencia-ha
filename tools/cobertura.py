@@ -1,7 +1,8 @@
 """Quanto do código do app (gerencia/app/*.py) os testes unitários percorrem, sem instalar nada.
-Uso: python3 tools/cobertura.py [--faltando arquivo.py]
+Uso: python3 tools/cobertura.py [--faltando arquivo.py | --faltando app.js]
 Conta também o server.py que os testes HTTP sobem em outro processo (tests/base.py: Servidor), pela variável
-GERENCIA_COBERTURA: cada processo grava as linhas que percorreu numa pasta, e a conta junta tudo."""
+GERENCIA_COBERTURA: cada processo grava as linhas que percorreu numa pasta, e a conta junta tudo.
+A tela (gerencia/app/www/app.js) é medida nos testes da tela pelo Profiler do Chromium (tests/tela_base.py)."""
 import json
 import os
 import signal
@@ -94,3 +95,22 @@ for nome in sorted(os.listdir(APP)):
                 ini = None
         print("   faltando:", " ".join(blocos))
 print(f"{'total':18} {100 * tot_v / max(1, tot_e):5.1f}%")
+
+# a tela: o app.js nos testes da tela (pelo Profiler do Chromium; ver tests/tela_base.py)
+try:
+    from tests import tela_base
+    js = tela_base.relatorio_cobertura_js()
+except Exception as e:  # noqa: BLE001
+    js = None
+    print("app.js: não deu para medir (" + str(e) + ")")
+if js and js["linhas"]:
+    print(f"\n{'www/app.js':18} {100 * js['linhas_ok'] / js['linhas']:5.1f}%  ({js['linhas_ok']}/{js['linhas']} linhas, "
+          f"{js['funcoes_ok']}/{js['funcoes']} funções = {100 * js['funcoes_ok'] / max(1, js['funcoes']):.1f}%)")
+    if faltando == "app.js":
+        falta, blocos, ini = js["faltando"], [], None
+        for i, l in enumerate(falta):
+            ini = l if ini is None else ini
+            if i + 1 == len(falta) or falta[i + 1] != l + 1:
+                blocos.append(f"{ini}-{l}" if l != ini else str(ini))
+                ini = None
+        print("   faltando:", " ".join(blocos))

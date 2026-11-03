@@ -21,6 +21,97 @@ try:
 except ImportError:  # pragma: no cover
     sync_playwright = None
 
+# ---- cobertura do app.js (só com tools/cobertura.py, que liga GERENCIA_COBERTURA): cada página nova grava, pelo
+# Profiler do Chromium, quais trechos do app.js rodaram; antes de fechar a página, o resultado vai para COBERTURA_JS.
+COBERTURA_JS = []
+
+
+def _instalar_cobertura():
+    from playwright.sync_api._generated import Browser, BrowserContext, Page
+    abertas = {}  # id(página) -> (página, sessão do Chromium)
+
+    def colher(pagina):
+        p, cdp = abertas.pop(id(pagina), (None, None))
+        if cdp:
+            try:
+                r = cdp.send("Profiler.takePreciseCoverage")
+                COBERTURA_JS.extend(x for x in r["result"] if x["url"].endswith("/www/app.js"))
+            except Exception:  # noqa: BLE001  (página já fechada)
+                pass
+
+    nova, fechar_p, fechar_c, fechar_b = BrowserContext.new_page, Page.close, BrowserContext.close, Browser.close
+
+    def new_page(self, *a, **k):
+        pg = nova(self, *a, **k)
+        try:
+            cdp = self.new_cdp_session(pg)
+            cdp.send("Profiler.enable")
+            cdp.send("Profiler.startPreciseCoverage", {"callCount": True, "detailed": True})
+            abertas[id(pg)] = (pg, cdp)
+        except Exception:  # noqa: BLE001
+            pass
+        return pg
+
+    def close_p(self, *a, **k):
+        colher(self)
+        return fechar_p(self, *a, **k)
+
+    def close_c(self, *a, **k):
+        for pg, _ in list(abertas.values()):
+            if pg.context == self:
+                colher(pg)
+        return fechar_c(self, *a, **k)
+
+    def close_b(self, *a, **k):
+        for pg, _ in list(abertas.values()):
+            colher(pg)
+        return fechar_b(self, *a, **k)
+
+    BrowserContext.new_page, Page.close, BrowserContext.close, Browser.close = new_page, close_p, close_c, close_b
+
+
+if os.environ.get("GERENCIA_COBERTURA") and sync_playwright:
+    _instalar_cobertura()
+
+
+def relatorio_cobertura_js(entradas=None):
+    """Linhas e funções do app.js que os testes da tela percorreram: {linhas, linhas_ok, funcoes, funcoes_ok, faltando: [linhas]}.
+    Uma linha conta como percorrida quando o primeiro caractere dela rodou; linhas vazias e só de comentário ficam fora."""
+    entradas = COBERTURA_JS if entradas is None else entradas
+    fonte = open(os.path.join(RAIZ, "gerencia", "app", "www", "app.js"), encoding="utf-8").read()
+    n = len(fonte)
+    rodou = bytearray(n)
+    funcoes = {}
+    for script in entradas:
+        cont = [0] * n
+        faixas = []
+        for f in script["functions"]:
+            r0 = f["ranges"][0]
+            if r0["startOffset"] > 0 or r0["endOffset"] < n:  # a função do arquivo todo não conta
+                k = (r0["startOffset"], r0["endOffset"])
+                funcoes[k] = funcoes.get(k, False) or r0["count"] > 0
+            faixas += f["ranges"]
+        for r in sorted(faixas, key=lambda r: (r["startOffset"], -r["endOffset"])):  # a de dentro vale sobre a de fora
+            a, b = r["startOffset"], min(r["endOffset"], n)
+            cont[a:b] = [r["count"]] * (b - a)
+        for i in range(n):
+            if cont[i] > 0:
+                rodou[i] = 1
+    linhas, ok, faltando, pos = 0, 0, [], 0
+    for num, linha in enumerate(fonte.split("\n"), 1):
+        t = linha.strip()
+        ini = pos + (len(linha) - len(linha.lstrip()))
+        pos += len(linha) + 1
+        if not t or t.startswith(("//", "/*", "*")):
+            continue
+        linhas += 1
+        if rodou[ini]:
+            ok += 1
+        else:
+            faltando.append(num)
+    return {"linhas": linhas, "linhas_ok": ok, "funcoes": len(funcoes), "funcoes_ok": sum(funcoes.values()), "faltando": faltando}
+
+
 HOJE = date(2026, 11, 2)
 INDEX = "file://" + os.path.join(RAIZ, "gerencia", "app", "www", "index.html")
 

@@ -29,7 +29,7 @@ Cada script confere com `tests/e2e/_confere.py` (`igual`, `tem`, `sim`, `perto`,
 
 ## Cobertura
 
-`python3 tools/cobertura.py` roda os testes e mostra quanto de cada arquivo do servidor foi percorrido (inclusive o `server.py` que os testes HTTP sobem em outro processo); `--faltando server.py` lista as linhas que nenhum teste passou. Só biblioteca padrão.
+`python3 tools/cobertura.py` roda os testes e mostra quanto de cada arquivo do servidor foi percorrido (inclusive o `server.py` que os testes HTTP sobem em outro processo) e do `app.js` nos testes da tela (pelo Profiler do Chromium: linhas e funções); `--faltando server.py` ou `--faltando app.js` lista as linhas que nenhum teste passou. Só biblioteca padrão (e o playwright, para a tela). Os testes visuais não entram nessa conta (Aplicar, Transferir e a conversa com o servidor de verdade estão neles).
 
 ## Variáveis do servidor para testar
 
