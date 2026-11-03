@@ -13,7 +13,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 - **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
-  - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber. Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
+  - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber (no mês de hoje, o que ficou sem pagar nos dois meses anteriores aparece primeiro; é para onde leva o aviso de contas atrasadas). Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
 - **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
@@ -31,7 +31,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ### No computador
 
-Com a tela larga (1000 pixels ou mais, como no ResolvIA, no CronologIA e no InventarIA), as abas de baixo viram uma **barra lateral**: Início, **Buscar** (ou a tecla /, que abre a Carteira com o cursor na busca), Caixa (com o número de contas atrasadas), Investimentos e Mais, e embaixo os **bancos** e as **pessoas** com dinheiro aqui, cada um abrindo a Carteira já filtrada. No alto à direita ficam **Falar**, esconder valores, **Ler com IA** e **Adicionar**. As seções ficam direto na página, com título grande; no Início, os destaques ficam ao lado do placar; no Caixa, o mês fica à direita da lista; na Carteira, os investimentos ficam em duas colunas. As janelas abrem no meio da tela. Em monitores grandes (Full HD, 2K, 4K) o app fica mais largo, com a Carteira em três colunas, e tudo cresce na mesma proporção, para aproveitar a tela. No celular e no tablet nada muda.
+Com a tela larga (1000 pixels ou mais, como no ResolvIA, no CronologIA e no InventarIA), as abas de baixo viram uma **barra lateral**: Início, **Buscar** (ou a tecla /, que abre a Carteira com o cursor na busca), Caixa (com o número de contas atrasadas), Investimentos e Mais, e embaixo os **bancos** e as **pessoas** com dinheiro aqui, cada um abrindo a Carteira já filtrada. No alto à direita ficam **Conversar com a IA**, **Falar**, esconder valores, **Ler com IA** e **Adicionar**. As seções ficam direto na página, com título grande; no Início, os destaques ficam ao lado do placar; no Caixa, o mês fica à direita da lista; na Carteira, os investimentos ficam em duas colunas. As janelas abrem no meio da tela. Em monitores grandes (Full HD, 2K, 4K) o app fica mais largo, com a Carteira em três colunas, e tudo cresce na mesma proporção, para aproveitar a tela. No celular e no tablet nada muda.
 
 ## Caixa
 
@@ -51,7 +51,7 @@ Cadastre o salário pelo **valor bruto** (o que você tem a receber), de prefer�
 
 - **Impostos na fonte**: cada imposto é uma porcentagem do bruto (INSS, imposto de renda, taxa administrativa…). Quando o salário entra, o imposto sai do caixa no mesmo dia, já pago, na categoria Impostos e taxas. Se o bruto mudar num mês, os impostos acompanham.
 - **Plano de saúde e outros descontos**: cadastre como uma despesa normal (pode ser fixa) e, em **Como é pago**, escolha **Descontado de: Salário**. A baixa dela depende do salário: quando ele for confirmado, a despesa fica paga no mesmo dia e na mesma conta. Se o valor mudar num mês (uma coparticipação, por exemplo), edite só aquele mês.
-- **Ler recibo com IA**: mande o PDF ou a foto do recibo (holerite, contracheque ou recibo de produção). O app preenche o bruto, transforma os impostos em porcentagem do bruto, sugere os outros descontos como despesas fixas ligadas e confere se o resultado bate com o líquido do recibo.
+- **Ler recibo com IA**: mande o PDF ou a foto do recibo (holerite, contracheque ou recibo de produção). O app preenche o bruto, transforma os impostos em porcentagem do bruto, sugere os outros descontos como despesas fixas ligadas (num recebimento de uma vez só, como despesas no mesmo dia e na mesma conta) e confere se o resultado bate com o líquido do recibo.
 
 Na lista do caixa, o salário mostra o bruto e, logo abaixo, os descontos e o líquido. Os gráficos e as categorias mostram o bruto como entrada e os impostos e o plano como saídas.
 
@@ -83,7 +83,7 @@ No gráfico de fluxo, os meses à frente somam os fixos, as parcelas e as fatura
 
 ### Acertar o saldo
 
-Se o saldo do app não bater com o do banco, use **Ajustar saldo** na aba Caixa. O app lança a diferença como ajuste.
+Se o saldo do app não bater com o do banco, use **Ajustar saldo** na aba Caixa. O app lança a diferença como ajuste. Saldo no vermelho: o campo mostra o sinal, e **Positivo** e **Negativo** trocam (o teclado numérico do celular não tem o "−").
 
 ## Dicas de economia
 
@@ -135,6 +135,17 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.
 - O áudio vai direto para o Home Assistant e não fica guardado no app.
 
+## Conversar com a IA
+
+O balão ao lado do microfone abre uma conversa com a IA, a qualquer momento e em qualquer tela. Ela vê os seus dados (caixa, contas a pagar, fixos, lançamentos recentes, investimentos e patrimônio) e o que está na tela aberta, então dá para perguntar "quanto gastei com mercado este mês?", "o que vence esta semana?" ou "quanto rende a minha carteira?". Também conversa sobre outros assuntos.
+
+E ela faz, sempre pedindo confirmação: peça para **lançar** um gasto ou recebimento ("gastei 45 no mercado no cartão"), **pagar** uma conta que já está no app ("paguei a luz, 190 reais"; vale também para o fixo do mês e a fatura do cartão) ou **atualizar um saldo** e **aplicar** num investimento ("apliquei 500 na reserva"). A resposta traz um cartão com o que vai ser feito:
+
+- **Confirmar** faz na hora, com as mesmas regras da leitura por IA (conta, categoria, cartão e fatura, parcelas). Se parecer repetido, abre a conferência antes.
+- **Editar** abre a janela de sempre (a conferência da leitura por IA ou o Confirmar pagamento) por cima da conversa; salvar ou o Voltar do celular voltam para ela.
+
+O microfone dentro da conversa dita a pergunta (precisa de uma fala para texto no Home Assistant, como no Falar). A conversa fica guardada no app (as últimas 60 mensagens): fechou, abre de onde parou; a lixeira no alto apaga. Usa a mesma IA de Ler com IA e respeita a chave **Usar IA**: desligada, o balão some.
+
 ## Imagens
 
 Investimentos podem guardar imagens (comprovante, print do banco, extrato): no formulário, toque em **Guardar** em **Imagens guardadas**. Essa área só guarda; no investimento novo, quem lê com IA são os quadrinhos do alto (**Colar mensagem** e **Imagem ou print**), e a imagem lida também fica guardada. Ao editar um investimento também: **Guardar** só guarda a imagem, sem IA. Para a IA ler, use **Ler com IA** no Adicionar. As imagens ficam em `/data/fotos` e entram no backup.
@@ -162,9 +173,9 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 ## Uso da IA
 
-Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos; as dicas de categoria acima da média continuam, porque não usam IA.
+Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.
 
-Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
+Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar, conversa) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 
 ## Sensores
 

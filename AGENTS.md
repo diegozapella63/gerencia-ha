@@ -23,13 +23,14 @@ gerencia/app/integracao.py    conexão com o CronologIA (contas a pagar, pagar, 
 gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
+gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes (ver tests/README.md)
 docs/                         capturas de tela do README
 ```
 
-Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos` e backups em `/share/gerencia`.
+Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup) e backups em `/share/gerencia`.
 
 ## Rodar no computador
 
@@ -56,7 +57,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 - **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
 - **InventarIA → GerencIA**: o InventarIA grava `share/inventario/integracao.json` e este app lê `/api/integracao/itens` e `/comodos` (`bens.py`, cache de 10 min). Só lê; nada muda lá. Patrimônio = investimentos meus + bens (os de terceiros ficam fora).
-- **Home Assistant**: IA pela ação `ai_task.generate_data` (anexos em `/media/gerencia/ia-temp`, apagados depois), fala para texto (`voz.py`), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
+- **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
 
 ## Como o dono gosta (interface)
 
@@ -64,7 +65,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - **Menos é mais**: textos curtos, sem explicar o óbvio, sem avisos repetidos.
 - Botões lado a lado com o mesmo tamanho e alinhados; números nunca cortados nem por cima uns dos outros (`ajustarTextos` diminui a fonte quando não cabe).
 - O que depende da IA respeita o interruptor **Usar IA** (desligado: some, inclusive as dicas). O que depende de uma integração só aparece com ela ligada.
-- Uma janela aberta de dentro de outra (Fatura, print ou foto a partir da Nova despesa) volta para ela no Voltar do celular, no X e no Cancelar.
+- Uma janela aberta de dentro de outra (Fatura, print ou foto a partir da Nova despesa; uma confirmação como Apagar lançamento; o Editar do chat) volta para ela no Voltar do celular, no X e no Cancelar (`abrirFolha(..., sobre)`).
 - Interruptores de análise (Descontar IR, Ocultar bens) começam desligados toda vez; filtros e abas ficam guardados.
 - Em http (sem https) não há câmera nem microfone: explicar e oferecer escolher a foto.
 - Celular primeiro (390 px); com 1000 px ou mais, barra lateral. Tema claro e escuro.

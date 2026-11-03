@@ -28,8 +28,9 @@ import integracao  # noqa: E402
 import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
+import chat  # noqa: E402
 
-VERSAO = "1.23.3"
+VERSAO = "1.24.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1258,6 +1259,74 @@ def ia_ler(corpo):
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 
+# ---------------------------------------------------------------- conversar com a IA (o balão ao lado do microfone)
+
+def _gravar_chat(caminho, texto):
+    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    gravar_arquivo(caminho, texto)
+
+
+CHAT = chat.Conversa(os.path.join(DATA_DIR, "chat.json"), _gravar_chat)
+
+
+def chat_estado():
+    return {"mensagens": CHAT.ler()}
+
+
+def chat_acoes(cruas, d):
+    """As ações que a IA propôs, limpas com as mesmas regras da leitura por IA (só fica o que o app consegue mostrar)."""
+    a = {
+        "lancamentos": ia_limpar_caixa({"itens": cruas.get("lancamentos") or []}, d)[:30],
+        "investimentos": _aporte_sem_saldo(ia_limpar({"itens": cruas.get("investimentos") or []}, d))[:20],
+        "pagar": chat.limpar_pagar(cruas.get("pagar"), d),
+    }
+    # um investimento novo sem nome nem valor não é ação
+    a["investimentos"] = [i for i in a["investimentos"] if i["existente"] or i["valor"] > 0 or i["aporte"] > 0]
+    return {k: v for k, v in a.items() if v}
+
+
+def chat_enviar(corpo, usuario=None):
+    d = ler()
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
+    texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
+    if not texto:
+        raise ValueError("Escreva uma mensagem.")
+    eu = {"id": chat.uid(), "papel": "eu", "texto": texto, "em": chat.agora()}
+    if corpo.get("fala"):
+        eu["fala"] = True
+    historico = CHAT.ler() + [eu]
+    if IA_MOCK:
+        time.sleep(0.6)
+        registrar_uso("chat", "ai_task.simulada", 2000, 300, 0, 0.6, "ok")
+        bruto = chat.simulado(texto, d)
+    else:
+        payload = {"task_name": "GerencIA: conversa",
+                   "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario)}
+        ent = d["ajustes"].get("ia_entidade") or ""
+        if ent:
+            payload["entity_id"] = ent
+        try:
+            res = ia_chamar("chat", payload, 0, timeout=120)
+        except ErroHA as e:
+            raise ValueError(str(e))
+        bruto = ((res or {}).get("service_response") or {}).get("data")
+        if bruto is None:
+            raise ValueError("A IA não devolveu resposta.")
+        if isinstance(bruto, str):
+            try:
+                bruto = extrair_json(bruto)
+            except ValueError:
+                pass  # respondeu só com texto: vale como resposta
+    resposta, cruas = chat.separar(bruto)
+    acoes = chat_acoes(cruas, d) if cruas else {}
+    ia = {"id": chat.uid(), "papel": "ia", "texto": resposta or ("Confira e confirme." if acoes else "Não entendi. Pode dizer de outro jeito?"),
+          "em": chat.agora()}
+    if acoes:
+        ia["acoes"] = acoes
+    return {"mensagens": CHAT.acrescentar(eu, ia)}
+
+
 # ---------------------------------------------------------------- dicas de economia (assinaturas conferidas na origem)
 
 DICAS_ARQ = os.path.join(DATA_DIR, "dicas.json")
@@ -1664,6 +1733,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, resumo_uso())
             if p == "/api/voz/status":
                 return self.enviar(200, voz_status())
+            if p == "/api/chat":
+                return self.enviar(200, chat_estado())
             if p == "/api/backups":
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
@@ -1733,6 +1804,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
             if p == "/api/voz":
                 return self.enviar(200, voz_texto(self.corpo()))
+            if p == "/api/chat":
+                return self.enviar(200, chat_enviar(self.corpo_json(), self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name")))
+            if p == "/api/chat/acao":
+                c = self.corpo_json()
+                return self.enviar(200, {"mensagens": CHAT.marcar(str(c.get("id") or ""), c.get("grupo"), c.get("estado"))})
+            if p == "/api/chat/limpar":
+                return self.enviar(200, {"mensagens": CHAT.limpar()})
             if p == "/api/backups/restaurar":
                 return self.enviar(200, restaurar_backup(self.corpo_json().get("nome", "")))
             if p == "/api/importar":

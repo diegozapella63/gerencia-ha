@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.23.3';
+const VERSAO = '1.24.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -164,6 +164,8 @@ const P = {
   repeat: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>',
   minus: '<path d="M5 12h14"/>',
   chevL: '<path d="m15 6-6 6 6 6"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.7 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>',
+  send: '<path d="M5 12h13M13 6l6 6-6 6"/>',
 };
 const ic = (n, c = 'ic') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -240,6 +242,8 @@ const taxaPartes = partes => { const t = partes.reduce((a, p) => a + (+p.valor |
 // quanto rende por mês; bens que perdem valor não entram (0) — a perda aparece à parte
 const rendeMes = (v, r) => Math.max(0, v * (Math.pow(1 + r, 1 / 12) - 1));
 const perdeMes = (v, r) => Math.max(0, -v * (Math.pow(1 + r, 1 / 12) - 1));
+// bem separado em partes: cada parte perde na sua taxa (a média pesada daria outro número que o da Evolução)
+const perdeMesInv = (i, v) => i.tipo === 'bens' && (i.partes || []).length ? partesHoje(i).reduce((a, p) => a + perdeMes(p.v, p.r), 0) : perdeMes(v, taxaAnual(i));
 const tipoDe = id => TIPOS.find(t => t.id === id) || TIPOS[TIPOS.length - 1];
 const idxDe = id => IDX.find(x => x.id === id) || IDX[0];
 const bancoDe = id => S.d.bancos.find(b => b.id === id);
@@ -391,6 +395,10 @@ const apiServidor = {
   backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
+  chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
+  chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
+  chatAcao: (id, grupo, estado) => fetch('api/chat/acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, grupo, estado }) }).then(jsonOk),
+  chatLimpar: () => fetch('api/chat/limpar', { method: 'POST' }).then(jsonOk),
 };
 function apiDemo() {
   let d = null;
@@ -456,6 +464,16 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
+    // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
+    async chat() { return { mensagens: clone(CHAT_DEMO) }; },
+    async chatEnviar(c) {
+      await espera(500);
+      CHAT_DEMO.push({ id: uid(), papel: 'eu', texto: c.texto, fala: !!c.fala }, Object.assign({ id: uid(), papel: 'ia' }, chatDemo(c.texto)));
+      CHAT_DEMO.splice(0, Math.max(0, CHAT_DEMO.length - 60));
+      return { mensagens: clone(CHAT_DEMO) };
+    },
+    async chatAcao(id, grupo, estado) { const m = CHAT_DEMO.find(x => x.id === id); if (m) m.estado = Object.assign({}, m.estado, { [grupo]: estado }); return { mensagens: clone(CHAT_DEMO) }; },
+    async chatLimpar() { CHAT_DEMO.length = 0; return { mensagens: [] }; },
     async vozStatus() {
       const opcoes = [{ id: 'stt.home_assistant_cloud', nome: 'Home Assistant Cloud', idioma: 'pt-BR', assistentes: ['Home Assistant'], preferido: true },
         { id: 'stt.google_ai_stt', nome: 'Google AI STT', idioma: 'pt-BR', assistentes: ['Gemini'], preferido: false }];
@@ -616,7 +634,7 @@ const iconeApp = () => `<svg class="app-ic" viewBox="0 0 32 32" aria-hidden="tru
   <text x="23.4" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">$</text></svg>`;
 function cabecalho(titulo, acoes = '', status = null) {
   const [cls, txt] = status || syncInfo();
-  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">${iconeApp()}Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoFalar()}</div>
+  return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">${iconeApp()}Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoChat()}${botaoFalar()}</div>
     <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
     <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
 }
@@ -626,7 +644,7 @@ function acoesTopo(acoes) {
   const olho = /data-a="olho"/.test(acoes)
     ? `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores" title="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>` : '';
   const v = S.ui.tab === 'investimentos' ? 'invest' : 'caixa';
-  return `<div class="top-acts">${botaoFalar()}${olho}<button class="btn" data-a="ia" data-v="${v}">${ic('ia', 'ic-s')}Ler com IA</button>
+  return `<div class="top-acts">${botaoChat()}${botaoFalar()}${olho}<button class="btn" data-a="ia" data-v="${v}">${ic('ia', 'ic-s')}Ler com IA</button>
     <button class="btn pri" data-a="novo">${ic('plus', 'ic-s')}Adicionar</button></div>`;
 }
 
@@ -837,9 +855,9 @@ function listaFiltrada() {
   const u = S.ui;
   let l = porEscopo(u.filtro === 'meus' ? 'meu' : u.filtro === 'terc' ? 'terc' : 'tudo');
   if (u.filtro === 'terc' && u.pessoa) l = l.filter(i => dono(i) === u.pessoa);
-  if (u.banco) l = l.filter(i => (i.banco || '') === u.banco);
-  const q = u.busca.trim().toLowerCase();
-  if (q) l = l.filter(i => [i.nome, bancoDe(i.banco)?.nome, tipoDe(i.tipo).nome, dono(i), i.obs].join(' ').toLowerCase().includes(q));
+  if (u.banco) l = l.filter(i => (i.banco || '-') === u.banco); // "-": Sem banco
+  const q = semAcento(u.busca);
+  if (q) l = l.filter(i => semAcento([i.nome, bancoDe(i.banco)?.nome, tipoDe(i.tipo).nome, dono(i), i.obs].join(' ')).includes(q));
   return l.map(i => ({ i, v: valorHoje(i) })).sort((a, b) => b.v - a.v);
 }
 
@@ -851,7 +869,7 @@ function telaInvest() {
       <button class="btn" data-a="ia" data-v="invest">${ic('ia')}Ler print com IA</button></div></div>`;
   }
   const nMeu = porEscopo('meu').length, nTerc = porEscopo('terc').length;
-  let html = cabecalho('Investimentos');
+  let html = cabecalho('Investimentos', `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`);
   // Buscar no alto, sempre à mostra, como no ResolvIA (digitar nele volta para a Carteira); no computador, a tecla / põe o cursor nele
   html += `<div class="busca inv-busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
     ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
@@ -870,7 +888,7 @@ function telaInvest() {
   const usados = [...new Set(d.investimentos.map(i => i.banco || ''))];
   if (usados.length > 1) {
     html += `<div class="chips rola"><button class="chip${!u.banco ? ' on' : ''}" data-a="banco-f" data-v="">Todos os bancos</button>
-      ${usados.map(id => { const b = bancoDe(id); return `<button class="chip${u.banco === id ? ' on' : ''}" data-a="banco-f" data-v="${esc(id)}" style="--c:${corOk(b?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(b?.nome || 'Sem banco')}</button>`; }).join('')}</div>`;
+      ${usados.map(id => { const b = bancoDe(id); return `<button class="chip${u.banco === (id || '-') ? ' on' : ''}" data-a="banco-f" data-v="${esc(id || '-')}" style="--c:${corOk(b?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(b?.nome || 'Sem banco')}</button>`; }).join('')}</div>`;
   }
   if (u.filtro === 'terc' && nTerc && iaOn()) html += `<button class="btn out larga ia-saldos-btn" data-a="ia-saldos" data-v="${esc(u.pessoa || '')}">${ic('ia', 'ic-s')}Atualizar saldos${u.pessoa ? ' de ' + esc(u.pessoa) : ''} com IA</button>`;
   const l = listaFiltrada();
@@ -909,7 +927,7 @@ function cardInv(i, v) {
     <div class="inv-top"><div class="inv-nome">${esc(i.nome)}</div><div class="inv-valor">${brl(v)}</div></div>
     <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${i.partes && i.partes.length > 1 ? plural(i.partes.length, 'categoria', 'categorias') : esc(nomeCatBem(i.partes && i.partes.length ? i.partes[0].categoria : i.categoria_bem))}` : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
     <div class="tags"><span class="tag taxa">${esc(rotuloTaxa(i))}</span>${tagDono(i)}${liq}</div>
-    <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : r < 0 ? `perde ≈ ${brl(perdeMes(v, r))} por mês` : 'Não rende'}</span>
+    <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : r < 0 ? `perde ≈ ${brl(perdeMesInv(i, v))} por mês` : 'Não rende'}</span>
       <span${velho ? ' style="color:var(--danger)"' : ''}>${dv ? 'valor de ' + fDataC(dv) + (dv.getFullYear() !== h.getFullYear() ? '/' + String(dv.getFullYear()).slice(2) : '') : ''}</span></div>
   </button>`;
 }
@@ -1145,7 +1163,7 @@ function grupos(lista, agrup) {
     else { k = i.liquidez === 'diaria' ? 'diaria' : 'venc'; nome = k === 'diaria' ? 'Liquidez diária' : 'Só no vencimento'; cor = k === 'diaria' ? 'var(--c1)' : 'var(--c2)'; }
     const g = m.get(k) || { k, nome, cor, v: 0, n: 0, mes: 0, perde: 0 };
     const v = valorHoje(i);
-    g.v += v; g.n++; g.mes += rendeMes(v, taxaAnual(i)); g.perde += perdeMes(v, taxaAnual(i));
+    g.v += v; g.n++; g.mes += rendeMes(v, taxaAnual(i)); g.perde += perdeMesInv(i, v);
     m.set(k, g);
   }
   return [...m.values()].sort((a, b) => b.v - a.v);
@@ -1546,7 +1564,11 @@ function caixaLista() {
   let lista = lancamentosEntre(ym, ym);
   if (u.cxFiltro === 'entradas') lista = lista.filter(ehRec);
   if (u.cxFiltro === 'saidas') lista = lista.filter(l => !ehRec(l));
-  if (u.cxFiltro === 'pendentes') lista = lista.filter(l => !l.pago);
+  if (u.cxFiltro === 'pendentes') {
+    lista = lista.filter(l => !l.pago);
+    // no mês de hoje, o que ficou para trás sem pagar (os 2 meses que o aviso de atrasadas conta) aparece primeiro
+    if (atual) lista = [...lancamentosEntre(addYm(ym, -2), addYm(ym, -1)).filter(l => !l.pago && !l.ajuste && !l.vinculo && !l.desconto && l.dc < hj), ...lista];
+  }
   const faturas = faturasDe(lista);
   const naFatura = new Set(faturas.flatMap(f => f.itens.map(l => l.id)));
   // impostos na fonte e despesas ligadas (plano de saúde) ficam dentro do recebimento; no filtro Saídas aparecem soltos
@@ -1883,13 +1905,15 @@ function ultimaConta(tipo) {
   return { conta: c?.id || '', cartao: false };
 }
 
+// aberta de dentro de outra janela (Apagar fixo do formulário, por exemplo), fica por cima dela: Cancelar, X e Voltar voltam
+// para a de baixo; escolher uma opção fecha todas e faz
 function escolher({ titulo, texto, opcoes }) {
   abrirFolha(() => ({
     titulo,
     corpo: `<p style="margin:0 0 4px;color:var(--text-2)">${texto}</p>`,
     pe: `<div class="pe-col">${opcoes.map((o, i) => `<button class="btn${o.perigo ? ' perigo' : o.pri ? ' pri' : ''}" data-a="escolha" data-v="${i}">${o.rotulo}</button>`).join('')}
       <button class="btn" data-a="fechar">Cancelar</button></div>`,
-  }));
+  }), null, !!FOLHA);
   FOLHA.opcoes = opcoes;
 }
 
@@ -2117,13 +2141,23 @@ function salvarLanc(alcance, eOutro) {
           d.lancamentos.push(Object.assign({}, base, { id: uid(), valor: k === n - 1 ? round2(base.valor - cada * (n - 1)) : cada,
             data: somaMeses(f.data, k), parcela: `${k + 1}/${n}`, grupo: g, pago: k === 0 ? base.pago : false }));
         }
-      } else d.lancamentos.push(Object.assign({ id: uid() }, base));
+      } else {
+        d.lancamentos.push(Object.assign({ id: uid() }, base));
+        // recebimento de uma vez só (recibo lido): o plano de saúde e os outros descontos conferidos no líquido viram
+        // despesas no mesmo dia e na mesma conta, para o caixa bater com o recibo
+        if (rec) for (const n of (f.ligadosNovos || []).filter(x => x.sel && x.valor > 0)) {
+          d.lancamentos.push({ id: uid(), tipo: 'despesa', descricao: n.descricao, valor: round2(n.valor), categoria: n.categoria || '', conta: base.conta || '', cartao: false,
+            data: base.data, pago: !!base.pago, obs: '' });
+        }
+      }
       if (rec && ridRec && recFinal) { criarLigados(d, f, ridRec, recFinal); baixaVinculados(d, recFinal); }
       return;
     }
     if (f.recorrencia && alcance === 'todos') {
       const r = d.recorrencias.find(x => x.id === f.recorrencia);
-      if (r) semDesc(Object.assign(r, { descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta, cartao: base.cartao, obs: base.obs, dia: +f.data.slice(8, 10) },
+      // um fixo do dia 31 aparece no dia 30 num mês de 30 dias: se a data não mudou, o dia do fixo continua o mesmo
+      const dia = r && dataNoMes(ymDe(f.data), r.dia) === f.data ? r.dia : +f.data.slice(8, 10);
+      if (r) semDesc(Object.assign(r, { descricao: base.descricao, valor: base.valor, categoria: base.categoria, conta: base.conta, cartao: base.cartao, obs: base.obs, dia },
         base.partes ? { partes: clone(base.partes) } : {}, base.descontos ? { descontos: clone(base.descontos) } : {}, base.vinculo ? { vinculo: base.vinculo } : {}));
     }
     const mat = Object.assign({}, base, { recorrencia: f.recorrencia, competencia: f.competencia });
@@ -2190,11 +2224,12 @@ function excluirLanc() {
 
 /* --------- confirmar pagamento, fatura e ajuste */
 let PG = null;
-function abrirPagar(id) {
+// chat: aberto pelo Editar de uma conta que a IA propôs pagar (por cima da conversa, e volta para ela)
+function abrirPagar(id, chat, valor) {
   const l = acharLanc(id);
   if (!l) return;
   const r = l.recorrencia ? S.d.recorrencias.find(x => x.id === l.recorrencia) : null;
-  PG = { l, valor: +l.valor || 0, inv: l.investimento || r?.investimento || '' };
+  PG = { l, valor: valor > 0 ? valor : +l.valor || 0, inv: l.investimento || r?.investimento || '', chat: chat || null };
   if (PG.inv && !S.d.investimentos.some(i => i.id === PG.inv)) PG.inv = '';
   abrirFolha(() => ({
     titulo: ehRec(l) ? 'Confirmar recebimento' : ehAporte(l) ? 'Confirmar aporte' : 'Confirmar pagamento',
@@ -2203,27 +2238,31 @@ function abrirPagar(id) {
       ${r ? `<div class="ajuda">Os próximos meses continuam com ${brl(r.valor)}.</div>` : ''}</div>
       ${ehAporte(l) ? campoInvestimentoAporte({ get investimento() { return PG.inv; }, set investimento(x) { PG.inv = x; }, valor: PG.valor, erroInv: PG.erroInv }, 'pg-inv') : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
-  }));
+  }), null, !!chat);
 }
 function confirmarPagar() {
   const { l, valor } = PG;
   if (!(valor > 0)) { toast('Coloque o valor.'); return; }
   const apo = ehAporte(l), inv0 = apo && PG.inv ? S.d.investimentos.find(i => i.id === PG.inv) : null;
   if (apo && !inv0 && invsDoAporte().length) { PG.erroInv = 'Escolha em qual investimento o aporte foi aplicado.'; pintarFolha(); return; }
+  const chat = PG.chat;
+  persistir(d => mutPagar(d, l, valor, inv0), ehRec(l) ? 'Recebimento confirmado' : inv0 ? `Aplicado em ${inv0.nome}` : apo ? 'Aporte confirmado' : 'Pagamento confirmado')
+    .then(ok => { if (!ok) return; if (chat) { fecharFolha(false, true); marcarAcaoChat(chat.id, chat.chave); } else fecharFolha(); });
+}
+// paga (ou recebe) um lançamento, ou o fixo do mês ainda não lançado; com investimento, o aporte soma nele
+function mutPagar(d, l, valor, inv0) {
   const novoValor = inv0 ? round2(valorHoje(inv0) + valor) : 0;
-  persistir(d => {
-    let x;
-    const extra = inv0 ? { investimento: inv0.id } : {};
-    if (l.virtual) d.lancamentos.push(x = materializar(l, Object.assign({ valor: round2(valor), pago: true }, extra)));
-    else { x = d.lancamentos.find(y => y.id === l.id); if (x) Object.assign(x, { pago: true, valor: round2(valor) }, extra); }
-    baixaVinculados(d, x);
-    if (inv0) {
-      const inv = d.investimentos.find(i => i.id === inv0.id);
-      if (inv) Object.assign(inv, { valor: novoValor, data_valor: iso(hoje()), atualizado_em: new Date().toISOString() });
-      const r = l.recorrencia && d.recorrencias.find(y => y.id === l.recorrencia);
-      if (r) r.investimento = inv0.id;
-    }
-  }, ehRec(l) ? 'Recebimento confirmado' : inv0 ? `Aplicado em ${inv0.nome}` : apo ? 'Aporte confirmado' : 'Pagamento confirmado').then(ok => { if (ok) fecharFolha(); });
+  let x;
+  const extra = inv0 ? { investimento: inv0.id } : {};
+  if (l.virtual) d.lancamentos.push(x = materializar(l, Object.assign({ valor: round2(valor), pago: true }, extra)));
+  else { x = d.lancamentos.find(y => y.id === l.id); if (x) Object.assign(x, { pago: true, valor: round2(valor) }, extra); }
+  baixaVinculados(d, x);
+  if (inv0) {
+    const inv = d.investimentos.find(i => i.id === inv0.id);
+    if (inv) Object.assign(inv, { valor: novoValor, data_valor: iso(hoje()), atualizado_em: new Date().toISOString() });
+    const r = l.recorrencia && d.recorrencias.find(y => y.id === l.recorrencia);
+    if (r) r.investimento = inv0.id;
+  }
 }
 function pagarFatura(k) {
   const [conta, dc] = k.split('|');
@@ -2242,11 +2281,15 @@ function pagarFatura(k) {
   });
 }
 let AJ = null;
+// o saldo pode estar negativo: o campo mostra o sinal, e Positivo/Negativo troca (no teclado numérico do celular não há "−")
+const ajTexto = () => (AJ.neg && AJ.abs ? '-' : '') + (AJ.abs || AJ.neg ? NF2.format(AJ.abs) : '');
 function abrirAjuste() {
-  AJ = { valor: round2(saldoCaixa()) };
+  const v = round2(saldoCaixa());
+  AJ = { abs: Math.abs(v), neg: v < 0, get valor() { return this.neg ? -this.abs : this.abs; } };
   abrirFolha(() => ({
     titulo: 'Ajustar saldo',
-    corpo: `<div class="campo"><label for="aj-v">Quanto você tem em conta hoje, somando tudo</label><div class="pref grande"><span>R$</span><input id="aj-v" data-aj="valor" inputmode="numeric" value="${NF2.format(Math.abs(AJ.valor))}"></div>
+    corpo: `<div class="campo"><label for="aj-v">Quanto você tem em conta hoje, somando tudo</label><div class="pref grande"><span>R$</span><input id="aj-v" data-aj="valor" inputmode="numeric" value="${ajTexto()}"></div>
+      <div class="seg aj-sinal">${[['+', 'Positivo'], ['-', 'Negativo']].map(([k, n]) => `<button class="${(k === '-') === AJ.neg ? 'on' : ''}" data-a="aj-sinal" data-v="${k}">${n}</button>`).join('')}</div>
       <div class="ajuda">A diferença entra como "Ajuste de saldo", fora das entradas, saídas e categorias.</div></div>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="aj-ok">Ajustar</button>`,
   }));
@@ -2477,6 +2520,255 @@ function telaFala() {
   };
 }
 const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<span>“${esc(s.ouvido)}”</span></div>` : '';
+
+/* ------------------------------------------------------------------ Conversar com a IA (o balão ao lado do microfone) */
+// A conversa fica guardada no app (as últimas mensagens). A IA vê os dados e o que está na tela aberta. Quando a pessoa pede
+// para lançar, pagar ou atualizar um saldo, a IA propõe e o cartão da ação pede Confirmar; Editar abre a janela de sempre
+// (a conferência da leitura por IA ou a de pagar) por cima da conversa, e volta para ela.
+let CH = null, CHG = null, chTimer = null;
+const chatPronto = () => iaOn() && (DEMO || !S.ia || S.ia.pronta !== false);
+const botaoChat = () => chatPronto() ? `<button class="mic-top" data-a="chat" aria-label="Conversar com a IA" title="Conversar com a IA">${ic('chat')}</button>` : '';
+const CH_SUGESTOES = {
+  inicio: ['Como estão minhas finanças este mês?', 'Quais contas vencem esta semana?', 'Gastei 45 no mercado'],
+  caixa: ['Onde eu mais gastei este mês?', 'Quais contas vencem esta semana?', 'Paguei a luz'],
+  investimentos: ['Quanto rende a carteira por mês?', 'O que vence primeiro?', 'Apliquei 500 na reserva'],
+  mais: ['O que dá para fazer neste app?', 'Gastei 45 no mercado', 'Quais contas vencem esta semana?'],
+};
+function abrirChat() {
+  if (CH) return;
+  CH = { msgs: null, texto: '', enviando: false, erro: '', rec: 'off', limpar: false };
+  abrirFolha(montarChat, () => { pararDitado(); CH = null; });
+  const s = CH;
+  api.chat().then(r => { if (CH !== s) return; s.msgs = r.mensagens || []; pintarFolha(1e9); focarChat(); })
+    .catch(e => { if (CH !== s) return; s.msgs = []; s.erro = 'Não consegui abrir a conversa. ' + (e.message || ''); pintarFolha(); });
+}
+// no celular o teclado só abre quando a pessoa toca no campo (senão cobre a conversa)
+function focarChat() { requestAnimationFrame(() => { const t = $('#ch-txt'); if (t && !matchMedia('(pointer: coarse)').matches) t.focus(); }); }
+function ajustarAlturaChat(t) { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 132) + 'px'; }
+// o que a IA escreve: **negrito**, listas com "- " e parágrafos; nada de HTML vindo dela
+function fmtIA(t) {
+  let html = '', lista = false;
+  for (const l of esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split('\n')) {
+    const m = /^\s*[-•*]\s+(.*)$/.exec(l);
+    if (m) { if (!lista) { html += '<ul>'; lista = true; } html += `<li>${m[1]}</li>`; continue; }
+    if (lista) { html += '</ul>'; lista = false; }
+    if (l.trim()) html += `<p>${l}</p>`;
+  }
+  return html + (lista ? '</ul>' : '');
+}
+const CH_FEITO = { lancamentos: 'Lançado', investimentos: 'Atualizado', pagar: 'Pago' };
+// feito: o cartão já confirmado não recalcula o antes → depois (o valor de hoje já mudou)
+function linhasAcaoChat(g, lista, feito) {
+  const li = (t, sub, v, cls) => `<li><span>${t}${sub ? `<small>${sub}</small>` : ''}</span><b${cls ? ` class="${cls}"` : ''}>${v}</b></li>`;
+  if (g === 'lancamentos') return lista.map(it => li(esc(it.descricao) + (it.parcelas_total ? ` · ${it.parcela_atual}/${it.parcelas_total}` : ''),
+    [it.data === iso(hoje()) ? 'hoje' : fData(pData(it.data)), catDe(it.categoria)?.nome, it.cartao ? 'no cartão' : '', it.situacao === 'pendente' ? (it.tipo === 'receita' ? 'a receber' : 'a pagar') : ''].filter(Boolean).map(esc).join(' · '),
+    brl(it.valor), it.tipo === 'receita' ? 'ent' : 'sai')).join('');
+  if (g === 'investimentos') return lista.map(it => {
+    const ex = it.existente && S.d.investimentos.find(i => i.id === it.existente);
+    if (ex && it.aporte > 0 && !(it.valor > 0)) return li(`Aplicar em ${esc(ex.nome)}`, feito ? '' : `${brl(valorHoje(ex))} → ${brl(valorHoje(ex) + it.aporte)}`, '+ ' + brl(it.aporte), 'ent');
+    if (ex) return li(`Saldo de ${esc(ex.nome)}`, feito ? '' : `hoje ${brl(valorHoje(ex))}`, brl(it.valor));
+    return li(`Novo: ${esc(it.nome)}`, esc([it.banco, rotuloTaxa(it)].filter(Boolean).join(' · ')), brl(it.valor || it.aporte));
+  }).join('');
+  return lista.map(it => li(esc(it.descricao), `vence ${fDataC(pData(it.vencimento))}${Math.abs(it.valor - it.valor_conta) > 0.005 ? ` · conta de ${brl(it.valor_conta)}` : ''}`, brl(it.valor), 'sai')).join('');
+}
+function cartaoAcaoChat(m, g, i) {
+  const chave = i == null ? g : `${g}.${i}`;
+  const est = (m.estado || {})[chave];
+  const lista = i == null ? m.acoes[g] : [m.acoes[g][i]];
+  const titulo = g === 'pagar' ? (lista[0].tipo === 'fatura' ? 'Pagar fatura' : 'Pagar conta') : g === 'lancamentos' ? (lista.length > 1 ? `Lançar ${lista.length}` : 'Lançar') : 'Investimentos';
+  const pe = est === 'feito' ? `<p class="ch-feito">${ic('check', 'ic-s')}${CH_FEITO[g]}</p>` : est === 'dispensado' ? '<p class="ch-feito off">Deixado de lado</p>'
+    : `<div class="ch-bts"><button class="btn" data-a="ch-editar" data-id="${esc(m.id)}" data-g="${chave}">Editar</button><button class="btn pri" data-a="ch-ok" data-id="${esc(m.id)}" data-g="${chave}">Confirmar</button></div>`;
+  return `<div class="ch-acao${est ? ' ' + est : ''}" data-g="${chave}"><p class="ch-acao-t">${titulo}</p><ul class="ch-itens">${linhasAcaoChat(g, lista, est === 'feito')}</ul>${pe}</div>`;
+}
+function acoesChatHTML(m) {
+  const a = m.acoes || {};
+  return [a.lancamentos?.length ? cartaoAcaoChat(m, 'lancamentos') : '', a.investimentos?.length ? cartaoAcaoChat(m, 'investimentos') : '',
+    ...(a.pagar || []).map((_, i) => cartaoAcaoChat(m, 'pagar', i))].join('');
+}
+function montarChat() {
+  const s = CH, on = s.rec === 'on', ocupado = on || s.rec === 'starting' || s.rec === 'transcrevendo';
+  let corpo;
+  if (!s.msgs) corpo = '<div class="ia-lendo"><span class="giro"></span><p>Abrindo a conversa…</p></div>';
+  else {
+    const vazio = s.msgs.length ? '' : `<div class="ch-vazio"><p>Pergunte sobre o que está na tela, peça para lançar, pagar ou atualizar um saldo, ou converse sobre outro assunto.</p>
+      <div class="ch-sug">${(CH_SUGESTOES[S.ui.tab] || CH_SUGESTOES.inicio).map(t => `<button class="chip" data-a="ch-sug" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`;
+    const msgs = s.msgs.map(m => m.papel === 'eu'
+      ? `<div class="ch-msg eu"><div class="ch-bolha">${m.fala ? ic('mic', 'ic-s') : ''}${esc(m.texto).replace(/\n/g, '<br>')}</div></div>`
+      : `<div class="ch-msg ia"><div class="ch-bolha">${fmtIA(m.texto)}</div>${acoesChatHTML(m)}</div>`).join('');
+    corpo = `<div class="ch-lista">${vazio}${msgs}${s.enviando ? '<div class="ch-msg ia"><div class="ch-bolha ch-pensando" aria-label="Pensando"><span></span><span></span><span></span></div></div>' : ''}</div>`;
+  }
+  const ph = on ? 'Ouvindo… toque no visto quando terminar' : s.rec === 'starting' ? 'Abrindo o microfone…' : s.rec === 'transcrevendo' ? 'Transcrevendo…' : 'Escreva para a IA';
+  const pe = s.limpar
+    ? '<div class="ch-pe ch-pe-limpar"><p>Apagar a conversa?</p><div class="ch-bts"><button class="btn" data-a="ch-limpar-nao">Cancelar</button><button class="btn perigo" data-a="ch-limpar-sim">Apagar</button></div></div>'
+    : `<div class="ch-pe">${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
+        ${vozPronta() ? `<button class="icbtn ch-mic${on ? ' on' : ''}" data-a="ch-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Falar'}"${s.rec === 'transcrevendo' || s.enviando ? ' disabled' : ''}>${ic(on ? 'check' : 'mic')}</button>` : ''}
+        <textarea id="ch-txt" data-ch="texto" rows="1" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
+        <button class="icbtn ch-env" data-a="ch-enviar" aria-label="Enviar"${s.enviando || ocupado || !s.texto.trim() ? ' disabled' : ''}>${ic('send')}</button></div></div>`;
+  return {
+    titulo: 'Conversar com a IA',
+    cab: s.msgs && s.msgs.length ? `<button class="icbtn" data-a="ch-limpar" aria-label="Apagar a conversa" title="Apagar a conversa">${ic('trash')}</button>` : '',
+    corpo, pe,
+    depois: el => { const t = $('#ch-txt', el); if (t) ajustarAlturaChat(t); },
+  };
+}
+// o texto da tela que a pessoa está vendo vai junto: "sobre o que está aqui" funciona
+function textoTela() {
+  const app = $('#app');
+  return app ? app.innerText.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim().slice(0, 3000) : '';
+}
+async function enviarChat(texto, fala) {
+  const s = CH;
+  texto = String(texto || '').trim();
+  if (!s || s.enviando || !texto || !s.msgs) return;
+  const temp = { id: 'enviando', papel: 'eu', texto, fala: !!fala };
+  Object.assign(s, { msgs: [...s.msgs, temp], enviando: true, erro: '', texto: '', limpar: false });
+  pintarFolha(1e9);
+  try {
+    const r = await api.chatEnviar({ texto, tela: textoTela(), aba: S.ui.tab, fala: !!fala });
+    if (CH !== s) return;
+    s.msgs = r.mensagens || [];
+  } catch (e) {
+    if (CH !== s) return;
+    s.msgs = s.msgs.filter(m => m !== temp);
+    s.texto = texto; // o que foi escrito (ou falado) volta para o campo, para mandar de novo
+    s.erro = e.message || 'Não consegui falar com a IA.';
+  }
+  s.enviando = false;
+  pintarFolha(1e9);
+}
+async function comecarDitado() {
+  if (!CH || CHG || CH.rec !== 'off') return;
+  Object.assign(CH, { rec: 'starting', erro: '' });
+  pintarFolha();
+  const s = CH;
+  let g = DEMO && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? new GravadorSimulado() : new Gravador();
+  CHG = g;
+  try { await g.start(); }
+  catch (err) {
+    g.cancel(); CHG = null;
+    if (!DEMO) { if (CH === s) { s.rec = 'off'; s.erro = erroMicrofone(err); pintarFolha(); } return; }
+    g = new GravadorSimulado(); CHG = g; await g.start(); // na prévia, sem microfone: segue simulado
+  }
+  if (CH !== s || CHG !== g) { g.cancel(); if (CHG === g) CHG = null; return; }
+  s.rec = 'on'; pintarFolha();
+  clearInterval(chTimer);
+  chTimer = setInterval(() => {
+    if (!CHG) return clearInterval(chTimer);
+    const sec = CHG.segundos(), t = $('#ch-txt');
+    if (t) t.placeholder = `Ouvindo… ${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')} · toque no visto quando terminar`;
+    if (sec >= VOZ_MAX_S) terminarDitado();
+  }, 250);
+}
+function pararDitado() { clearInterval(chTimer); if (CHG) CHG.cancel(); CHG = null; }
+async function terminarDitado() {
+  const g = CHG, s = CH;
+  if (!g || !s) return;
+  clearInterval(chTimer); CHG = null;
+  const pcm = g.stop();
+  if (pcm.length < VOZ_TAXA * 0.4) { s.rec = 'off'; s.erro = 'Não ouvi nada. Toque no microfone e fale.'; pintarFolha(); return; }
+  s.rec = 'transcrevendo'; pintarFolha();
+  try {
+    const r = await api.vozTexto(pcm);
+    if (CH !== s) return;
+    s.rec = 'off';
+    if (!String(r.texto || '').trim()) { s.erro = 'Não ouvi nada. Toque no microfone e fale.'; pintarFolha(); return; }
+    enviarChat(r.texto, true);
+  } catch (e) {
+    if (CH !== s) return;
+    s.rec = 'off'; s.erro = e.message || 'Não consegui transcrever.'; pintarFolha();
+  }
+}
+// ---- as ações que a IA propôs: Confirmar faz direto; Editar abre a janela de sempre por cima da conversa
+function acaoChat(mid, chave) {
+  const m = CH && (CH.msgs || []).find(x => x.id === mid);
+  const [g, i] = String(chave || '').split('.');
+  if (!m || !m.acoes || !(m.acoes[g] || []).length || (m.estado || {})[chave]) return null;
+  const lista = i == null ? m.acoes[g] : [m.acoes[g][+i]].filter(Boolean);
+  return lista.length ? { m, g, chave, lista } : null;
+}
+function marcarAcaoChat(mid, chave) {
+  const marcarAqui = () => { const m = CH && (CH.msgs || []).find(x => x.id === mid); if (m) { m.estado = Object.assign({}, m.estado, { [chave]: 'feito' }); pintarFolha(); } };
+  marcarAqui();
+  return api.chatAcao(mid, chave, 'feito').then(r => { if (CH && r && r.mensagens) { CH.msgs = r.mensagens; pintarFolha(); } }).catch(() => { /* feito nos dados; o cartão fica marcado aqui */ });
+}
+// os lançamentos e investimentos propostos passam pelo mesmo caminho da leitura por IA (conta, categoria, repetidos, parcelas)
+function iasDoChat(a) {
+  IAS = { dica: a.g === 'investimentos' ? 'invest' : 'caixa', etapa: 'revisao', rec: 'off', arquivo: null, texto: '', erro: '', conta: '', cartao: false,
+    situacao: 'auto', futuras: true, ouvido: '', saldos: false, pessoa: '', soInvest: false, so: '',
+    itens: a.g === 'lancamentos' ? clone(a.lista).map(it => Object.assign({ marcado: true }, it)) : [],
+    invs: a.g === 'investimentos' ? clone(a.lista).map(it => Object.assign({ marcado: true }, it, { dono: donoDe(it.dono) })) : [],
+    chat: { id: a.m.id, chave: a.chave } };
+  if (IAS.itens.length) prepararRevisaoCaixa();
+  return IAS;
+}
+function editarAcaoChat(mid, chave) {
+  const a = acaoChat(mid, chave);
+  if (!a) return;
+  if (a.g === 'pagar') { if (!a.lista[0].id.startsWith('f:') && acharLanc(a.lista[0].id)) abrirPagar(a.lista[0].id, { id: mid, chave }, a.lista[0].valor); else pagarDoChat(a); return; }
+  iasDoChat(a);
+  abrirFolha(montarIA, () => { IAS = null; }, true);
+}
+function confirmarAcaoChat(mid, chave) {
+  const a = acaoChat(mid, chave);
+  if (!a) return;
+  if (a.g === 'pagar') { pagarDoChat(a); return; }
+  const s = iasDoChat(a);
+  // parece repetido (já tem um igual lançado): mostra a conferência em vez de lançar direto
+  if (s.itens.some(i => i.dup)) { abrirFolha(montarIA, () => { IAS = null; }, true); return; }
+  const ml = s.itens.filter(i => i.marcado), mi = s.invs.filter(i => i.marcado);
+  const msg = ml.length ? (ml.length > 1 ? `${ml.length} lançamentos lançados` : 'Lançado') : mi.length > 1 ? 'Investimentos atualizados' : mi[0]?.aporte > 0 && !(mi[0]?.valor > 0) ? 'Aporte aplicado' : 'Investimento atualizado';
+  persistir(d => { if (ml.length) aplicarIACaixa(d, ml); if (mi.length) aplicarIAInvest(d, mi); }, msg)
+    .then(ok => { if (IAS === s) IAS = null; if (ok) marcarAcaoChat(mid, chave); });
+}
+// na prévia, sem IA: respostas de exemplo com os dados da tela (como a IA simulada do servidor, chat.simulado)
+const CHAT_DEMO = [];
+function chatDemo(texto) {
+  const t = semAcento(texto), hj = iso(hoje()), ym = hj.slice(0, 7);
+  const valor = (x => x ? parseNum(x[1]) * (x[2] ? 1000 : 1) : 0)(/(\d+(?:[.,]\d{1,2})?)\s*(mil\b)?/.exec(t));
+  const abertas = lancamentosEntre(addYm(ym, -1), addYm(ym, 1)).filter(l => !l.pago && l.tipo !== 'receita' && !l.ajuste);
+  const conta = /\bpaguei\b/.test(t) && abertas.find(l => t.includes(semAcento(l.descricao)));
+  if (conta) {
+    const v = (x => x ? parseNum(x[1]) : 0)(/(\d+(?:[.,]\d{1,2})?)/.exec(t.split(semAcento(conta.descricao))[1] || ''));
+    return { texto: `Certo: marco **${conta.descricao}** como paga. Confira e confirme.`,
+      acoes: { pagar: [{ id: conta.id, descricao: conta.descricao, vencimento: conta.dc || conta.data, valor_conta: +conta.valor, valor: v || +conta.valor, tipo: conta.recorrencia ? 'fixo' : 'conta' }] } };
+  }
+  const inv = /\b(apliquei|investi|guardei)\b/.test(t) && S.d.investimentos.find(i => semAcento(i.nome).split(/\s+/).some(w => w.length > 3 && t.includes(w)));
+  if (inv && valor) return { texto: `Anotei o aporte em **${inv.nome}**. Confira e confirme.`,
+    acoes: { investimentos: [{ existente: inv.id, nome: inv.nome, banco: '', tipo: inv.tipo, valor: 0, aporte: valor, indexador: inv.indexador, taxa: inv.taxa, vencimento: '', liquidez: inv.liquidez || 'vencimento', dono: '', confianca: 'alta' }] } };
+  if (/\b(gastei|comprei|paguei)\b/.test(t) && valor) {
+    const m = /\b(?:no|na|em|de|do|da)\s+([a-z]+)/.exec(t), nome = m ? m[1][0].toUpperCase() + m[1].slice(1) : 'Gasto';
+    return { texto: `Lanço **${nome}**, ${brl(valor)}. Confira e confirme.`,
+      acoes: { lancamentos: [{ tipo: 'despesa', descricao: nome, valor, data: hj, categoria: /mercado/.test(t) ? 'c-mercado' : 'c-outros-gastos', parcela_atual: 0, parcelas_total: 0,
+        cartao: /cartao/.test(t), banco: '', situacao: 'feito', confianca: 'alta' }] } };
+  }
+  if (/saldo|caixa|quanto (eu )?tenho/.test(t)) return { texto: `O saldo do caixa hoje é **${brl(saldoCaixa())}**.` };
+  if (/vence|a pagar|\bcontas\b/.test(t)) {
+    const prox = abertas.filter(l => (l.dc || l.data) >= hj).sort((x, y) => (x.dc || x.data).localeCompare(y.dc || y.data)).slice(0, 5);
+    return { texto: prox.length ? 'As próximas contas:\n' + prox.map(l => `- ${l.descricao}: ${brl(+l.valor)}, ${fDataC(pData(l.dc || l.data))}`).join('\n') : 'Não tem conta a pagar nos próximos dias.' };
+  }
+  return { texto: 'Na prévia eu respondo só exemplos. No app, a IA do Home Assistant responde sobre o seu caixa, as contas e os investimentos, lança, marca contas pagas, atualiza saldos e conversa sobre outros assuntos.' };
+}
+function pagarDoChat(a) {
+  const it = a.lista[0];
+  if (it.id.startsWith('f:')) {
+    const k = it.id.slice(2), f = faturasDe(lancamentosEntre(ymDe(k.split('|')[1]), ymDe(k.split('|')[1]))).find(x => x.k === k);
+    if (!f || f.itens.every(l => l.pago)) { toast('Essa fatura não está mais em aberto.'); return; }
+    persistir(d => {
+      for (const l of f.itens) {
+        if (l.pago) continue;
+        if (l.virtual) d.lancamentos.push(materializar(l, { pago: true }));
+        else { const x = d.lancamentos.find(y => y.id === l.id); if (x) x.pago = true; }
+      }
+    }, 'Fatura paga').then(ok => { if (ok) marcarAcaoChat(a.m.id, a.chave); });
+    return;
+  }
+  const l = acharLanc(it.id);
+  if (!l || l.pago) { toast('Essa conta não está mais em aberto.'); return; }
+  // aporte: precisa dizer em qual investimento foi aplicado, como no Apliquei do caixa
+  if (ehAporte(l) && invsDoAporte().length) { abrirPagar(it.id, { id: a.m.id, chave: a.chave }, it.valor); return; }
+  persistir(d => mutPagar(d, l, it.valor > 0 ? it.valor : +l.valor || 0, null), ehRec(l) ? 'Recebimento confirmado' : 'Pagamento confirmado')
+    .then(ok => { if (ok) marcarAcaoChat(a.m.id, a.chave); });
+}
 
 function abrirIA(modo, inicio, opts) {
   // a IA separa sozinha lançamentos (gastos, recebimentos, a pagar e a receber) e investimentos: não se escolhe antes.
@@ -2819,6 +3111,7 @@ async function salvarIA() {
     if (mi.length) aplicarIAInvest(d, mi);
   }, msg).then(ok => {
     if (!ok) return;
+    if (s.chat) { fecharFolha(false, true); marcarAcaoChat(s.chat.id, s.chat.chave); return; } // aberta do chat: volta para a conversa
     fecharFolha();
     if (ml.length) { S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; } else { S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; }
     render();
@@ -3029,7 +3322,8 @@ function dicaCategoria() {
 
 function dicasVisiveis() {
   const fora = new Set(S.d.ajustes.dicas_fora || []);
-  const subs = ((S.dicas && S.dicas.dicas) || []).filter(x => !fora.has(x.id) && realDe(x).real >= 10)
+  // os planos anuais vêm do preço conferido pela IA: com Usar IA desligado, ficam só as dicas de categoria
+  const subs = (iaOn() && S.dicas && S.dicas.dicas || []).filter(x => !fora.has(x.id) && realDe(x).real >= 10)
     .sort((a, b) => realDe(b).real - realDe(a).real);
   const cat = dicaCategoria();
   return { subs, cat: cat && !fora.has(cat.id) ? cat : null };
@@ -3215,7 +3509,7 @@ function secaoDescontos(f) {
   h += `<div class="sub-lbl">Outros descontos ligados</div>`;
   if (lig.length) {
     h += lig.map(o => `<div class="lig-l">${o.existe ? ic('repeat', 'ic-s') : `<input type="checkbox" data-lfn="${o.i}"${o.sel ? ' checked' : ''} aria-label="Criar ${esc(o.descricao)}">`}
-      <span>${esc(o.descricao)}${o.existe ? (o.atualiza ? ' · valor do recibo neste mês' : '') : ' · nova despesa fixa ligada'}</span><b>− ${brl(o.valor)}</b></div>`).join('');
+      <span>${esc(o.descricao)}${o.existe ? (o.atualiza ? ' · valor do recibo neste mês' : '') : f.recorrencia || f.repete === 'mensal' || f.repete === 'anual' ? ' · nova despesa fixa ligada' : ' · despesa no mesmo dia'}</span><b>− ${brl(o.valor)}</b></div>`).join('');
   }
   h += `<div class="ajuda">${f.recorrencia || f.repete === 'mensal'
     ? 'Outros descontos (plano de saúde…): na despesa, em "Como é pago", escolha este recebimento.'
@@ -3546,7 +3840,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos' };
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -3737,12 +4031,13 @@ window.addEventListener('popstate', () => {
   if (nivel() < alvo) voltarHist(nivel()); // entradas que sobraram de folhas já fechadas
 });
 
+// como escolher: de dentro de outra janela, fica por cima dela e o Cancelar volta para ela
 function confirmar({ titulo, texto, botao, perigo, acao }) {
   abrirFolha(() => ({
     titulo,
     corpo: `<p style="margin:0;font-size:17px;color:var(--text-2)">${texto}</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn ${perigo ? 'perigo' : 'pri'}" data-a="confirmar">${botao}</button>`,
-  }));
+  }), null, !!FOLHA);
   FOLHA.confirmar = acao;
 }
 
@@ -4029,7 +4324,7 @@ function salvarInvestimento(eOutro) {
   const nomeBanco = bancos.find(b => b.id === f.banco)?.nome || '';
   const inv = {
     id: f.id || uid(),
-    nome: (f.nome || '').trim() || `${tipoDe(f.tipo).nome}${nomeBanco ? ' ' + nomeBanco : ''}`,
+    nome: (f.nome || '').trim() || `${tipoDe(f.tipo).nome}${nomeBanco && f.tipo !== 'dinheiro' && f.tipo !== 'bens' ? ' ' + nomeBanco : ''}`,
     banco: f.tipo === 'dinheiro' || f.tipo === 'bens' ? '' : f.banco || '', tipo: f.tipo, valor: Math.round(f.valor * 100) / 100, data_valor: f.data_valor || iso(hoje()),
     indexador: f.indexador, taxa: ix.taxa ? +f.taxa : 0, liquidez: f.liquidez, vencimento: f.vencimento || null,
     // bens: a taxa vem da tabela de perda por categoria (Mais › Invest)
@@ -4126,8 +4421,8 @@ function pintarLado() {
   const bancos = [...pb].sort((a, b) => b[1] - a[1]);
   if (bancos.length) {
     h += `<div class="side-h"><span>Bancos</span><small>${bancos.length}</small></div><div class="side-lista">${bancos.map(([id, v]) => {
-      const b = bancoDe(id), on = naCarteira && u.banco === id && u.filtro === 'todos';
-      return `<button class="side-item" data-a="lado-banco" data-v="${esc(id)}"${on ? ' aria-current="page"' : ''}><span class="side-tile" style="--c:${corOk(b?.cor) || 'var(--c0)'}">${esc((b?.nome || '?').slice(0, 1).toUpperCase())}</span><span class="sl-nome">${esc(b?.nome || 'Sem banco')}</span><span class="sl-num">${compacto(v)}</span></button>`;
+      const b = bancoDe(id), on = naCarteira && u.banco === (id || '-') && u.filtro === 'todos';
+      return `<button class="side-item" data-a="lado-banco" data-v="${esc(id || '-')}"${on ? ' aria-current="page"' : ''}><span class="side-tile" style="--c:${corOk(b?.cor) || 'var(--c0)'}">${esc((b?.nome || '?').slice(0, 1).toUpperCase())}</span><span class="sl-nome">${esc(b?.nome || 'Sem banco')}</span><span class="sl-num">${compacto(v)}</span></button>`;
     }).join('')}</div>`;
   }
   const ps = pessoas();
@@ -4194,6 +4489,7 @@ function render() {
   if (FOLHA) pintarFolha();
 }
 
+const MAIS_ANCORA = { indices: 'invest', 'perda-bens': 'invest', dicas: 'caixa', fixos: 'caixa', ia: 'integracoes', bens: 'integracoes' };
 function irPara(tab, ancora) {
   S.ui.tab = tab;
   salvarUI();
@@ -4216,7 +4512,11 @@ document.addEventListener('click', ev => {
   if (!el) return;
   const a = el.dataset.a, v = el.dataset.v, id = el.dataset.id;
   switch (a) {
-    case 'tab': irPara(v, el.dataset.ancora); break;
+    case 'tab':
+      // um atalho para um quadro de Mais (Índices, Dicas...) abre a aba onde ele está
+      if (v === 'mais' && MAIS_ANCORA[el.dataset.ancora]) { S.ui.maisAba = MAIS_ANCORA[el.dataset.ancora]; salvarUI(); }
+      irPara(v, el.dataset.ancora);
+      break;
     case 'novo':
       if (S.ui.tab === 'investimentos') abrirInvestimento(null, S.ui.filtro === 'terc' && S.ui.pessoa ? { titular: 'terceiros', terceiro: S.ui.pessoa } : null);
       else if (S.ui.tab === 'caixa') abrirLancamento(null, { tipo: S.ui.cxFiltro === 'entradas' ? 'receita' : 'despesa' });
@@ -4248,6 +4548,7 @@ document.addEventListener('click', ev => {
     case 'fatura-pagar': pagarFatura(v); break;
     case 'cx-ajuste': abrirAjuste(); break;
     case 'aj-ok': confirmarAjuste(); break;
+    case 'aj-sinal': if (AJ) { AJ.neg = v === '-'; pintarFolha(); } break;
     case 'cx-modo': S.ui.cxModo = v; S.ui.cxSel = null; salvarUI(); render(); break;
     case 'cx-mes': S.ui.cxMes = +v === 0 ? null : addYm(mesCaixa(), +v); S.ui.faturaAberta = null; S.ui.cxSel = null; render(); break;
     case 'cx-filtro': S.ui.cxFiltro = v; salvarUI(); render(); break;
@@ -4331,6 +4632,17 @@ document.addEventListener('click', ev => {
     case 'falar': if (!vozPronta()) break; abrirIA(S.ui.tab === 'investimentos' ? 'invest' : 'caixa', 'voz'); break;
     case 'ia-falar': comecarFala(); break;
     case 'fala-mic': if (IAS && IAS.rec === 'on') terminarFala(); else comecarFala(); break;
+    case 'chat': if (chatPronto()) abrirChat(); break;
+    case 'ch-enviar': if (CH) enviarChat(CH.texto); break;
+    case 'ch-sug': if (CH) enviarChat(v); break;
+    case 'ch-mic': if (CH && CH.rec === 'on') terminarDitado(); else comecarDitado(); break;
+    case 'ch-ok': confirmarAcaoChat(id, el.dataset.g); break;
+    case 'ch-editar': editarAcaoChat(id, el.dataset.g); break;
+    case 'ch-limpar': if (CH) { CH.limpar = true; pintarFolha(); } break;
+    case 'ch-limpar-nao': if (CH) { CH.limpar = false; pintarFolha(); } break;
+    case 'ch-limpar-sim':
+      if (CH) api.chatLimpar().then(r => { if (CH) { Object.assign(CH, { msgs: r.mensagens || [], limpar: false, erro: '' }); pintarFolha(); } }).catch(e => toast('Não consegui apagar. ' + (e.message || '')));
+      break;
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
     case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '', sobre: !!el.dataset.sobre }); break;
@@ -4381,10 +4693,6 @@ document.addEventListener('click', ev => {
     case 'foto-ver': verFoto(v); break;
     case 'inv': abrirInvestimento(id); break;
     case 'olho': S.oculto = !S.oculto; store.set('oculto', S.oculto); render(); break;
-    case 'buscar':
-      S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; render(); window.scrollTo(0, 0);
-      { const q = $('#q'); if (q) q.focus(); }
-      break;
     case 'busca-limpar': S.ui.busca = ''; render(); { const q = $('#q'); if (q) q.focus(); } break;
     case 'filtro': S.ui.filtro = v; S.ui.pessoa = null; salvarUI(); render(); break;
     case 'pessoa-f': S.ui.pessoa = v || null; render(); break;
@@ -4534,6 +4842,12 @@ document.addEventListener('click', ev => {
 
 document.addEventListener('input', ev => {
   const el = ev.target;
+  if (el.dataset.ch === 'texto' && CH) {
+    CH.texto = el.value;
+    ajustarAlturaChat(el);
+    const b = $('.ch-env'); if (b) b.disabled = CH.enviando || !CH.texto.trim();
+    return;
+  }
   if (el.dataset.fparte && F) {
     const dig = el.value.replace(/\D/g, '').slice(0, 13), v = dig ? parseInt(dig, 10) / 100 : 0;
     F.partes = Object.assign({}, F.partes, { [el.dataset.fparte]: v });
@@ -4598,8 +4912,17 @@ document.addEventListener('input', ev => {
     } else AP.data = el.value;
     return;
   }
-  if ((el.dataset.pg && PG) || (el.dataset.aj && AJ)) {
-    const alvo = el.dataset.pg ? PG : AJ;
+  if (el.dataset.aj && AJ) {
+    // um "-" digitado deixa negativo; apagar o "-" (com números no campo) deixa positivo; campo vazio mantém o sinal
+    const dig = el.value.replace(/\D/g, '').slice(0, 13);
+    if (/[-−]/.test(el.value)) AJ.neg = true; else if (dig && AJ.neg && !el.value.startsWith('-')) AJ.neg = false;
+    AJ.abs = dig ? parseInt(dig, 10) / 100 : 0;
+    el.value = dig ? ajTexto() : (AJ.neg ? '-' : '');
+    document.querySelectorAll('[data-a="aj-sinal"]').forEach(b => b.classList.toggle('on', (b.dataset.v === '-') === AJ.neg));
+    return;
+  }
+  if (el.dataset.pg && PG) {
+    const alvo = PG;
     const dig = el.value.replace(/\D/g, '').slice(0, 13);
     alvo.valor = dig ? parseInt(dig, 10) / 100 : 0;
     el.value = dig ? NF2.format(alvo.valor) : '';
@@ -4699,6 +5022,7 @@ document.addEventListener('keydown', ev => {
   }
   if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
+  if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
 document.addEventListener('change', ev => {

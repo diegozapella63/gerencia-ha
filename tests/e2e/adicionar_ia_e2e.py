@@ -2,7 +2,7 @@
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
 from _confere import igual, tem, sim
-OLHO = {"inicio": True, "caixa": True, "investimentos": False, "mais": False}
+OLHO = {"inicio": True, "caixa": True, "investimentos": True, "mais": False}
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 with sync_playwright() as p:

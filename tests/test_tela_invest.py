@@ -209,10 +209,7 @@ class TestCarteira(_TelaInvest):
         self.clicar('#app [data-a="banco-f"]:text-is("Todos os bancos")')
         self.assertEqual(self.nomes(), ["Poupança do Beto", "Caixinha da Carla"])
 
-    # BUG: o chip "Sem banco" tem data-v="" (o mesmo de "Todos os bancos") e S.ui.banco vira null: mostra todos os bancos.
-    # Reproduzir: Invest › Carteira com um investimento sem banco (Dinheiro) e outros com banco; tocar em "Sem banco".
-    # O mesmo acontece no "Sem banco" da barra lateral do computador (lado-banco com data-v="").
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_filtro_sem_banco_mostra_so_os_sem_banco(self):
         self.invest()
         self.clicar('#app [data-a="banco-f"]:text-is("Sem banco")')
@@ -268,10 +265,7 @@ class TestBusca(_TelaInvest):
                 self.assertEqual(self.nomes(), esperado)
                 self.assertTrue(self.resumo()[0].startswith(f"{len(esperado)} investimento"))
 
-    # BUG: a busca da Carteira só ignora maiúsculas, não acentos ("poupanca" não acha "Poupança"); o cartão dos bens, na
-    # mesma tela, já busca sem acento (semAcento). No celular é comum digitar sem acento.
-    # Reproduzir: Invest › Buscar, digitar "poupanca" com uma Poupança cadastrada: "Nenhum investimento com esse filtro."
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_busca_sem_acento(self):
         self.invest()
         self.preencher("#q", "poupanca")
@@ -648,10 +642,7 @@ class TestFormulario(_TelaInvest):
         self.assertEqual((i["tipo"], i["banco"], i["indexador"], i["taxa"], i["vencimento"]), ("dinheiro", "", "parado", 0, None))
         self.assertEqual(self.texto(f'#app .inv[data-id="{i["id"]}"] .inv-meta'), "Em espécie")
 
-    # BUG: sem nome, o nome vem do tipo e do banco escolhido; em Dinheiro e Bens o banco nem aparece (e é salvo vazio), mas o
-    # nome sai "Dinheiro Banco Azul" / "Bens Banco Azul" (o primeiro banco, que ficou escolhido escondido).
-    # Reproduzir: com um banco cadastrado, Novo investimento › tipo Dinheiro, só o valor, Salvar.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_sem_nome_dinheiro_e_bens_nao_levam_banco_no_nome(self):
         for tipo, nome in (("dinheiro", "Dinheiro"), ("bens", "Bens")):
             with self.subTest(tipo):
@@ -899,7 +890,7 @@ class TestEditar(_TelaInvest):
         self.assertEqual(self.textos(".folha .folha-pe .btn"), ["Cancelar", "Excluir"])
         self.clicar('.folha [data-a="fechar"]:text-is("Cancelar")')
         self.assertIn("LCI Verde", [i["nome"] for i in self.dados()["investimentos"]], "cancelar não exclui")
-        self.editar("lci")
+        self.assertEqual(self.folha(), "Editar investimento", "Cancelar volta para o investimento")
         self.clicar('.folha [data-a="f-excluir"]')
         self.clicar('.folha [data-a="confirmar"]')
         self.assertEqual(self.aviso(), "Investimento excluído")
@@ -909,7 +900,6 @@ class TestEditar(_TelaInvest):
     # BUG: o "Excluir investimento?" abre no lugar do formulário; Cancelar (ou o Voltar) fecha tudo e a pessoa perde a
     # edição, em vez de voltar para o investimento (AGENTS.md: "Uma janela aberta de dentro de outra volta para ela no Voltar
     # do celular, no X e no Cancelar"). Reproduzir: abrir um investimento, tocar na lixeira, Cancelar: cai na Carteira.
-    @unittest.expectedFailure
     def test_cancelar_a_exclusao_volta_para_o_investimento(self):
         self.invest()
         self.editar("lci")
@@ -1034,6 +1024,15 @@ class TestVencimentosEDono(_TelaInvest):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestBensDaCasa(_TelaInvest):
+    def test_bem_em_partes_perde_por_mes_somando_as_partes(self):
+        """Cada parte perde na sua taxa (como no valor de hoje e na Evolução), não na média pesada sobre o total."""
+        partes = [{"categoria": "imoveis", "valor": 500000, "taxa": 0}, {"categoria": "veiculos", "valor": 60000, "taxa": 15},
+                  {"categoria": "moveis", "valor": 20000, "taxa": 10}]
+        casa = inv("casa", "Casa e carro", 580000, "deprecia", 1.9, tipo="bens", partes=partes)
+        self.invest(base(bancos=BANCOS, investimentos=[casa]))
+        esperado = 60000 * (1 - 0.85 ** (1 / 12)) + 20000 * (1 - 0.9 ** (1 / 12))
+        self.assertIn(f"perde ≈ {brl(esperado)} por mês", self.texto('#app .inv[data-id="casa"] .inv-pe'))
+
     def test_cartao_dos_bens_na_carteira(self):
         self.invest(bens=BENS)
         for filtro, n in (("todos", 1), ("meus", 1), ("terc", 0)):
@@ -1189,10 +1188,7 @@ class TestComputador(_TelaInvest):
         self.clicar('#lado [data-a="buscar"]')
         self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.invModo, document.activeElement.id]"), ["investimentos", "carteira", "q"])
 
-    # BUG: há dois "case 'buscar'" no switch de cliques (app.js); o primeiro ganha e não limpa os filtros, então o irBuscar()
-    # ("como o Buscar dos outros apps: procura em todos os investimentos") nunca roda pelo clique, só pela tecla /.
-    # Reproduzir (computador): Invest › Terceiros › Banco Verde; tocar em Buscar na barra lateral: a lista continua filtrada.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_buscar_da_barra_lateral_procura_em_todos(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS), ui={"tab": "investimentos", "filtro": "terc", "banco": "b-verde"})
         self.clicar('#lado [data-a="buscar"]')
@@ -1216,10 +1212,7 @@ class TestComputador(_TelaInvest):
         self.assertEqual(self.nomes(), ["Poupança do Beto"])
         self.assertEqual(self.js("[T.S.ui.filtro, T.S.ui.pessoa, T.S.ui.banco]"), ["terc", "Beto", None])
 
-    # BUG: no computador, o DOCS.md diz que no alto à direita ficam Falar, esconder valores, Ler com IA e Adicionar, mas na
-    # tela Investimentos (a que mais mostra valores) não há o olho: só no Início e no Caixa (no celular também falta).
-    # Reproduzir: Invest, no computador: no alto à direita há Ler com IA e Adicionar, sem o olho.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_esconder_valores_tambem_no_invest(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS), ui={"tab": "investimentos"})
         self.assertEqual(self.conta('.top-acts [data-a="olho"]'), 1)

@@ -250,10 +250,7 @@ class TestInicio(TelaMais):
         self.assertIn("CDB Azul está sem atualizar há mais de 2 meses", self.linha("#app .op", "Atualize os valores"),
                       "só o CDB: dinheiro parado não precisa atualizar")
 
-    # BUG: o aviso Índices do Início leva para Mais, mas fica na aba de Mais que estava aberta (aqui, Bancos), sem os
-    # índices: a âncora "indices" só existe em Mais › Invest e o app não troca a aba. O mesmo acontece no "Ver as N dicas"
-    # (âncora "dicas", em Mais › Caixa).
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: o aviso Índices abria a aba de Mais que estivesse aberta)
     def test_tocar_nos_indices_abre_mais_invest_nos_indices(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"maisAba": "bancos"})
         self.assertIn("CDI 13,65% · Selic 13,75% · IPCA 4,5%", self.linha("#app .op", "Índices"))
@@ -373,7 +370,6 @@ class TestMaisBancos(TelaMais):
     # BUG: a confirmação "Excluir banco?" é aberta de dentro de "Editar banco", mas o Cancelar fecha tudo em vez de voltar
     # para o banco (a regra do AGENTS.md: uma janela aberta de dentro de outra volta para ela no Voltar, no X e no Cancelar).
     # Igual nas outras confirmações abertas de uma janela (Apagar categoria?, Restaurar esta versão?, Apagar lançamento?).
-    @unittest.expectedFailure
     def test_cancelar_a_exclusao_volta_para_editar_banco_sem_apagar(self):
         self.abrir_bancos()
         self.clicar('[data-a="banco"][data-id="b-azul"]')
@@ -696,16 +692,33 @@ class TestDicas(TelaMais):
         self.ir("inicio")
         self.assertIn("Restaurantes acima da média", self.texto(".card.dicas"), "não usa IA")
 
-    # BUG: com Usar IA desligado, a dica de plano anual (que só existe porque a IA conferiu o preço) continua no Início.
-    # Pelo DOCS (Uso da IA) e pelo AGENTS.md, desligada a IA só ficam as dicas de categoria. O servidor continua
-    # entregando as dicas já conferidas e o cardDicas não olha o Usar IA.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: com a IA desligada a dica de plano anual continuava no Início)
     def test_com_a_ia_desligada_a_dica_de_plano_anual_some_do_inicio(self):
         self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"ia": False}))
         self.assertNotIn("plano anual", self.tela())
 
 
 # ---------------------------------------------------------------------------------------------------------------
+class TestAtalhosParaMais(TelaMais):
+    """Os atalhos do Início para um quadro de Mais abrem a aba certa (até a 1.24.0 abriam a aba que estivesse aberta)."""
+
+    def atalho(self, ancora):
+        self.abrir(base(bancos=BANCOS), ui={"maisAba": "aparencia"})
+        # o botão entra e é tocado no mesmo passo (a tela pode se redesenhar no meio e levar o botão embora)
+        self.js("(document.querySelector('#app').insertAdjacentHTML('beforeend', `<button id=at data-a=tab data-v=mais data-ancora=${a}>x</button>`), document.getElementById('at').click(), true)", ancora)
+        self.esperar()
+        return self.js("T.S.ui.maisAba")
+
+    def test_dicas_abre_mais_caixa(self):
+        self.assertEqual(self.atalho("dicas"), "caixa")
+
+    def test_indices_abre_mais_invest(self):
+        self.assertEqual(self.atalho("indices"), "invest")
+
+    def test_ancora_desconhecida_mantem_a_aba(self):
+        self.assertEqual(self.atalho("outra"), "aparencia")
+
+
 class TestNavegacao(TelaMais):
     def setUp(self):
         self.js("(localStorage.removeItem('gerencia.ui'), true)")

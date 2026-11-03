@@ -1,5 +1,18 @@
 # Mudanças
 
+## 1.24.0
+
+- **Conversar com a IA**: o balão ao lado do microfone abre uma conversa em qualquer tela. Pergunte sobre o que está na tela ou sobre os seus dados ("o que vence esta semana?", "quanto rende a carteira?"), ou converse sobre outro assunto. Peça para **lançar** um gasto, **pagar** uma conta ou **atualizar um saldo**: a IA mostra o que vai fazer e você toca em **Confirmar** (ou **Editar**, que abre a janela de sempre e volta para a conversa). O microfone dentro dela dita a pergunta. A conversa fica guardada; a lixeira apaga. Some com Usar IA desligado.
+- **Cancelar volta para onde estava**: nas confirmações abertas de dentro de outra janela (Apagar lançamento, fixo ou parcela, Excluir investimento ou banco, Apagar categoria, Restaurar versão), Cancelar, X e Voltar voltam para ela em vez de fechar tudo.
+- **Contas atrasadas**: o aviso do Início leva até elas. Em A pagar e receber, o mês de hoje mostra primeiro o que ficou sem pagar nos dois meses anteriores.
+- **Ajustar saldo** com o saldo no vermelho mostra o sinal, com Positivo e Negativo para trocar.
+- Mudar só o valor de um fixo do dia 31 num mês de 30 dias não muda mais o dia dele.
+- Recibo lido num recebimento de uma vez só: o plano de saúde (e os outros descontos conferidos no líquido) é lançado no mesmo dia, e o caixa bate com o recibo.
+- Com **Usar IA** desligado, somem também a dica de plano anual e o Atualizar saldos.
+- Os atalhos **Índices** e **Ver as dicas** do Início abrem a aba certa de Mais.
+- **Investimentos**: Sem banco mostra só os sem banco; a busca ignora acentos; Dinheiro e Bens sem nome não levam o nome de um banco; o Buscar da barra lateral procura em todos; esconder valores também na aba Invest; um bem separado em categorias mostra a perda por mês somando cada parte.
+- Por dentro: as telas inteiras testadas (caixa, investimentos, IA, câmera, fala, Mais, navegação e o chat) e todos os testes visuais conferindo valores.
+
 ## 1.23.3
 
 - **Despesa ligada a um recebimento**: os sensores do Home Assistant e as contas que aparecem no CronologIA passam a usar o mesmo dia da tela (o dia em que o recebimento entra). Antes, o saldo do caixa no sensor podia ficar diferente do app.

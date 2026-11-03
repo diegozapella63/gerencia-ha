@@ -918,10 +918,7 @@ class TestReciboDePagamento(TelaIA):
         plano = next(r for r in recs if r["tipo"] == "despesa")
         self.assertEqual((plano["descricao"], plano["valor"], plano["categoria"], plano["vinculo"]), ("Plano de saúde", 250, "c-saude", sal["id"]))
 
-    # BUG: lido o recibo num recebimento "Uma vez", a tela mostra o plano de saúde como "nova despesa fixa ligada" (marcado)
-    # e confere o líquido de R$ 3.900 contando com ele, mas ao salvar o plano some: só o salário e os impostos são
-    # gravados, e o caixa fica com R$ 4.150 líquidos, diferente do recibo. O que a tela confere deveria ser o que é salvo.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: o plano conferido no líquido sumia ao salvar um recebimento de uma vez)
     def test_recibo_avulso_nao_perde_o_plano_que_entrou_no_liquido(self):
         self.abrir(base(bancos=BANCOS))
         self.ler_recibo()
@@ -930,6 +927,8 @@ class TestReciboDePagamento(TelaIA):
         d = self.dados()
         planos = [x for x in d["lancamentos"] + d["recorrencias"] if x.get("descricao") == "Plano de saúde"]
         self.assertEqual([p["valor"] for p in planos], [250], "o plano conferido no líquido também é gravado")
+        sal = next(x for x in d["lancamentos"] if x["tipo"] == "receita")
+        self.assertEqual((planos[0]["data"], planos[0]["conta"], planos[0]["tipo"]), (sal["data"], sal["conta"], "despesa"), "no mesmo dia e na mesma conta")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -956,9 +955,7 @@ class TestIADesligada(TelaIA):
         self.esperar()
         self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1))
 
-    # BUG: com a IA desligada, Início › Adicionar ainda mostra "Atualizar saldos" (a leitura da listinha pela IA); tocar só
-    # avisa que a IA está desligada. O Ler com IA do mesmo menu já some. DOCS: "Desligada, os botões somem nos aparelhos todos."
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0)
     def test_adicionar_sem_atualizar_saldos(self):
         self.abrir(base(bancos=BANCOS, investimentos=[CDB], ajustes=IA_DESLIGADA))
         self.clicar('#nav [data-a="novo"]')

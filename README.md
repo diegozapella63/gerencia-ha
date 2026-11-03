@@ -42,6 +42,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Evolução projetada** de 1 a 10 anos, com desconto de IR e valor em dinheiro de hoje. O aporte por mês vem das contas a pagar do tipo **Aporte**, o compromisso de aplicar todo mês.
 - **Leitura por IA**: fatura em PDF, print, foto de papel ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
 - **Falar**: o microfone no alto de cada tela. Fale os gastos e recebimentos; o Home Assistant transcreve e a IA separa os lançamentos para você conferir.
+- **Conversar com a IA**: o balão ao lado do microfone. Pergunte sobre o que está na tela ou sobre o seu dinheiro, ou peça para lançar, pagar uma conta ou atualizar um saldo: a IA mostra e você confirma.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
 - **Fotos** em lançamentos e investimentos.
 - **Sensores** no Home Assistant: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês.
@@ -66,6 +67,7 @@ gerencia/app/assinaturas.py   dicas de economia conferidas na origem
 gerencia/app/integracao.py    contas a pagar para o CronologIA
 gerencia/app/bens.py          bens do InventarIA
 gerencia/app/voz.py           Falar (fala para texto do Home Assistant)
+gerencia/app/chat.py          Conversar com a IA (o que a IA vê, as ações e a conversa guardada)
 gerencia/app/www/             interface (HTML, CSS e JavaScript, sem etapa de build)
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes unitários, do servidor e visuais

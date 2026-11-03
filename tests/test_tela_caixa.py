@@ -289,7 +289,6 @@ class TestEditarExcluir(Caixa):
     # chamam abrirFolha sem "sobre"), então Cancelar, X e o Voltar do celular fecham tudo. Pelo AGENTS.md, uma janela aberta
     # de dentro de outra volta para ela. Reproduzir: Caixa › tocar num lançamento › lixeira › Cancelar: volta para a tela do
     # caixa, não para a Despesa.
-    @unittest.expectedFailure
     def test_cancelar_exclusao_volta_para_o_lancamento(self):
         self.caixa(lancamentos=[PADARIA])
         self.clicar('.lanc[data-id="l1"]')
@@ -557,10 +556,7 @@ class TestFixos(Caixa):
         self.mes(1)
         self.assertEqual(self.pg.locator('.dia-cab b').all_text_contents(), ["dom, 20 de dez"], "dezembro no dia 20")
 
-    # BUG: num fixo do dia 31 (aluguel), o mês de 30 dias mostra a data 30/11; ao mudar só o valor e salvar em
-    # "Todos os meses", o dia do fixo passa a ser 30 (salvarLanc grava dia = dia da data do formulário) e dezembro,
-    # janeiro... caem no dia 30. Reproduzir: fixo de dia 31 › abrir o de novembro › trocar o valor › Todos os meses.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: o fixo do dia 31 virava do dia 30 ao salvar num mês de 30 dias)
     def test_mudar_so_o_valor_de_um_fixo_do_dia_31_num_mes_de_30_dias_mantem_o_dia(self):
         self.caixa(recorrencias=[fixo("r-alug", "Aluguel", 1500, 31, "2026-01", categoria="c-moradia")])
         self.abrir_fixo(id="r-alug")
@@ -844,13 +840,30 @@ class TestAjusteSaldo(Caixa):
         self.clicar('[data-a="cx-cat-tipo"][data-v="receita"]')
         self.assertEqual(self.textos('.comp .nm b'), ["Salário"], "o ajuste não entra nas categorias")
 
-    # BUG: com o saldo negativo (−R$ 500,00), o campo de Ajustar saldo mostra 500,00 (Math.abs) e não aceita sinal:
-    # quem redigita o que vê lança um ajuste de +R$ 1.000. Reproduzir: só uma despesa paga de 500 › Caixa › Ajustar saldo.
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: o saldo negativo aparecia sem o sinal)
     def test_ajuste_com_saldo_negativo_mostra_o_sinal(self):
         self.caixa(lancamentos=[desp("l-al", "Aluguel", 500, "2026-11-01", True)])
         self.clicar('[data-a="cx-ajuste"]')
         self.assertIn(self.pg.input_value('#aj-v'), ("-500,00", "−500,00"), "o saldo de hoje é −R$ 500,00, não R$ 500,00")
+        self.assertEqual(self.texto('[data-a="aj-sinal"].on'), "Negativo")
+
+    def test_ajuste_negativo_pelo_botao_e_pelo_sinal(self):
+        self.caixa(lancamentos=[desp("l-al", "Aluguel", 500, "2026-11-01", True)])
+        self.clicar('[data-a="cx-ajuste"]')
+        self.digitar('#aj-v', '30000')
+        self.assertEqual(self.pg.input_value('#aj-v'), "-300,00", "o sinal continua ao redigitar")
+        self.clicar('[data-a="aj-ok"]')
+        aj = self.ajustes()[0]
+        self.assertEqual((aj["tipo"], aj["valor"]), ("receita", 200), "de −500 para −300: entra 200")
+
+    def test_ajuste_positivo_quando_estava_negativo(self):
+        self.caixa(lancamentos=[desp("l-al", "Aluguel", 500, "2026-11-01", True)])
+        self.clicar('[data-a="cx-ajuste"]')
+        self.clicar('[data-a="aj-sinal"][data-v="+"]')
+        self.digitar('#aj-v', '10000')
+        self.clicar('[data-a="aj-ok"]')
+        aj = self.ajustes()[0]
+        self.assertEqual((aj["tipo"], aj["valor"]), ("receita", 600), "de −500 para +100: entra 600")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -947,7 +960,7 @@ class TestListaCaixa(Caixa):
 
     def test_filtros_tudo_entradas_saidas_e_a_pagar(self):
         self.caixa(lancamentos=LISTA)
-        casos = (("entradas", ["l-sal", "l-freela"]), ("saidas", ["l-alug", "l-merc", "l-net"]), ("pendentes", ["l-net", "l-freela"]),
+        casos = (("entradas", ["l-sal", "l-freela"]), ("saidas", ["l-alug", "l-merc", "l-net"]), ("pendentes", ["l-luz", "l-net", "l-freela"]),  # a Luz de outubro, atrasada, vem primeiro
                  ("tudo", ["l-sal", "l-alug", "l-merc", "l-net", "l-freela"]))
         for filtro, esperado in casos:
             with self.subTest(filtro=filtro):
@@ -1158,10 +1171,7 @@ class TestAvisos(Caixa):
         self.assertEqual(self.textos('[data-a="cx-filtro"].on'), ["A pagar e receber"])
         self.assertEqual(self.ids(), ["l-net"])
 
-    # BUG: o aviso "Uma conta atrasada" conta as contas dos últimos 2 meses, mas tocar nele abre o caixa no mês atual
-    # (cx-ir zera cxMes): uma conta de outubro não aparece e a tela diz "Nada com esse filtro em novembro."
-    # Reproduzir: só uma despesa a pagar de 30/10 › Início › tocar em "Uma conta atrasada".
-    @unittest.expectedFailure
+    # (era bug até a 1.24.0: o aviso abria o mês de hoje, sem a conta atrasada do mês passado)
     def test_tocar_no_aviso_mostra_a_conta_atrasada_do_mes_passado(self):
         self.inicio(lancamentos=[desp("l-luz", "Luz", 150, "2026-10-30", False)])
         self.clicar('#app .op[data-a="cx-ir"]')
