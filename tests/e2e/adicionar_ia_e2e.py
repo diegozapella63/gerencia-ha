@@ -1,5 +1,8 @@
+"""Os jeitos de adicionar com IA em cada tela (quadrinhos, colar, arquivo, falar) e o X que volta para a janela de baixo."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
+from _confere import igual, tem, sim
+OLHO = {"inicio": True, "caixa": True, "investimentos": False, "mais": False}
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 with sync_playwright() as p:
@@ -13,44 +16,47 @@ with sync_playwright() as p:
     for tab in ('inicio', 'caixa', 'investimentos', 'mais'):
         pg.click(f'#nav [data-v="{tab}"]'); pg.wait_for_timeout(400)
         vis = [x for x in pg.locator('.cab button').all() if x.is_visible()]
-        print('1 cabeçalho', tab, ':', [x.get_attribute('data-a') for x in vis])
+        igual([x.get_attribute('data-a') for x in vis], ['falar', 'olho'] if OLHO[tab] else ['falar'], f'cabeçalho de {tab}')
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.screenshot(path=f'{SP}/shots/ai-invest-cab.png', clip={'x': 0, 'y': 0, 'width': 412, 'height': 260})
     # Invest › Adicionar: Novo investimento com os quadrinhos
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(500)
-    print('2 janela:', pg.inner_text('.folha-cab h2'), '| quadrinhos:', [x.replace('\n', ' ') for x in pg.locator('.imp-tile').all_inner_texts()])
+    igual(pg.inner_text('.folha-cab h2'), 'Novo investimento', 'Adicionar nos investimentos')
+    igual([x.replace('\n', ' ').replace('\xa0', ' ') for x in pg.locator('.imp-tile').all_inner_texts()], ['Colar mensagem', 'Imagem ou print', 'Digitalizar com IA', 'Falar'], 'quadrinhos do investimento')
     pg.screenshot(path=f'{SP}/shots/ai-novo-inv.png')
     with pg.expect_file_chooser() as fc: pg.click('[data-a="ia-de"][data-ini="arquivo"]')
     fc.value.set_files(f'{SP}/print.jpg'); pg.wait_for_timeout(1200)
-    print('3 arquivo: janela', pg.inner_text('.folha-cab h2'), '| escolha de tipo:', pg.locator('.folha .seg').count(), '| anexo', pg.locator('.ia-prev').count())
+    igual((pg.inner_text('.folha-cab h2'), pg.locator('.folha .seg').count(), pg.locator('.ia-prev').count()), ('Imagem ou print', 0, 1), 'escolheu o arquivo: abre com ele, sem escolher tipo')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    print('  X volta para:', pg.inner_text('.folha-cab h2')); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
+    igual(pg.inner_text('.folha-cab h2'), 'Novo investimento', 'X volta para o Novo investimento'); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # Caixa › Adicionar: Nova despesa com os quadrinhos
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(500)
-    print('4 janela:', pg.inner_text('.folha-cab h2'), '| quadrinhos:', [x.replace('\n', ' ') for x in pg.locator('.imp-tile').all_inner_texts()])
+    igual(pg.inner_text('.folha-cab h2'), 'Nova despesa', 'Adicionar no caixa')
+    igual([x.replace('\n', ' ').replace('\xa0', ' ') for x in pg.locator('.imp-tile').all_inner_texts()], ['Colar mensagem', 'Fatura, print ou foto', 'Digitalizar com IA', 'Falar'], 'quadrinhos da despesa')
     pg.screenshot(path=f'{SP}/shots/ai-nova-despesa.png')
     pg.click('[data-a="ia-de"][data-ini="texto"]'); pg.wait_for_timeout(500)
-    print('5 colar: janela', pg.inner_text('.folha-cab h2'), '| escolha de tipo:', pg.locator('.folha .seg').count(), '| foco', pg.evaluate('document.activeElement.id'))
+    igual((pg.inner_text('.folha-cab h2'), pg.locator('.folha .seg').count(), pg.evaluate('document.activeElement.id')), ('Colar mensagem', 0, 'ia-txt'), 'colar: o teclado abre no texto')
     pg.keyboard.type('gastei 45 no mercado ontem'); pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2600)
-    print('  revisão:', pg.inner_text('.folha-cab h2'))
+    igual(pg.inner_text('.folha-cab h2'), 'Conferir lançamentos', 'revisão dos lançamentos')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    print('  X volta para:', pg.inner_text('.folha-cab h2')); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
+    igual(pg.inner_text('.folha-cab h2'), 'Nova despesa', 'X volta para a Nova despesa'); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(500)
     pg.click('[data-a="ia-de"][data-ini="voz"]'); pg.wait_for_timeout(1500)
-    print('6 falar:', pg.inner_text('.folha-cab h2'), '|', pg.inner_text('.folha-corpo')[:40].replace('\n', ' '))
+    igual(pg.inner_text('.folha-cab h2'), 'Falar', 'Falar')
+    tem(pg.inner_text('.folha-corpo'), 'Ouvindo', 'já ouvindo')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    print('  X volta para:', pg.inner_text('.folha-cab h2')); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
+    igual(pg.inner_text('.folha-cab h2'), 'Nova despesa', 'X volta para a Nova despesa'); pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # editar não mostra os quadrinhos
     pg.locator('.lanc[data-a="lanc"]').first.click(); pg.wait_for_timeout(400)
-    print('7 editar: quadrinhos', pg.locator('.imp-tile').count())
+    igual(pg.locator('.imp-tile').count(), 0, 'editar um lançamento não mostra os quadrinhos')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # Início › Adicionar ainda tem Ler com IA
     pg.click('#nav [data-v="inicio"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
-    print('8 Início › Adicionar:', [x.split('\n')[0] for x in pg.locator('.escolhas .op').all_inner_texts()])
+    igual([x.split('\n')[0] for x in pg.locator('.escolhas .op').all_inner_texts()], ['Despesa', 'Recebimento', 'Aporte', 'Ler com IA', 'Investimento', 'Atualizar saldos'], 'Início › Adicionar')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # computador: Ler com IA continua no alto à direita
     pg.set_viewport_size({'width': 1366, 'height': 860}); pg.wait_for_timeout(300)
-    print('9 computador:', [x.strip() for x in pg.locator('.top-acts > *').all_inner_texts() if x.strip()])
+    igual([x.strip() for x in pg.locator('.top-acts > *').all_inner_texts() if x.strip()], ['Ler com IA', 'Adicionar'], 'no computador, os botões no alto à direita')
     print('ERROS', erros); b.close()

@@ -3,70 +3,15 @@
 O app.js abre com window.GERENCIA_TESTE = true e deixa as funções de dentro à mão (só nos testes). O relógio fica
 parado em 02/11/2026 10:00 (segunda-feira), no fuso de São Paulo. Os cálculos que existem nos dois lados (calc.py e
 app.js) são conferidos um contra o outro: a tela e os sensores do Home Assistant precisam dar o mesmo número.
-Precisa do playwright (pip install playwright; playwright install chromium); sem ele, estes testes são pulados.
+Base e ajudantes em tests/tela_base.py. Sem o playwright, estes testes são pulados.
 """
 import math
-import os
 import unittest
 from datetime import date
 
-from tests.base import RAIZ, INDICES
+from tests.base import INDICES
+from tests.tela_base import Tela, base, BANCOS, HOJE
 import calc
-
-try:
-    from playwright.sync_api import sync_playwright
-except ImportError:  # pragma: no cover
-    sync_playwright = None
-
-HOJE = date(2026, 11, 2)
-INDEX = "file://" + os.path.join(RAIZ, "gerencia", "app", "www", "index.html")
-
-
-def base(**mais):
-    """Dados mínimos (como o servidor guarda), com os índices de exemplo."""
-    d = {"indices": dict(INDICES), "ajustes": {"corrigir": True}, "bancos": [], "investimentos": [], "lancamentos": [], "recorrencias": []}
-    d.update(mais)
-    return d
-
-
-BANCOS = [
-    {"id": "b-azul", "nome": "Banco Azul", "cor": "#56AEFF", "contas": [
-        {"id": "k-ana", "pessoa": "Ana", "cartao": True, "fechamento": 5, "vencimento": 12},
-        {"id": "k-beto", "pessoa": "Beto", "cartao": True, "fechamento": 25, "vencimento": 5}]},
-    {"id": "b-verde", "nome": "Banco Verde", "cor": "#4CD3A5", "contas": [{"id": "k-verde", "pessoa": "Ana", "cartao": False, "fechamento": 1, "vencimento": 10}]},
-]
-
-
-@unittest.skipUnless(sync_playwright, "precisa do playwright")
-class Tela(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.pw = sync_playwright().start()
-        cls.b = cls.pw.chromium.launch()
-        ctx = cls.b.new_context(timezone_id="America/Sao_Paulo", locale="pt-BR")
-        cls.pg = ctx.new_page()
-        cls.erros = []
-        cls.pg.on("pageerror", lambda e: cls.erros.append(str(e)))
-        cls.pg.clock.set_fixed_time("2026-11-02T10:00:00-03:00")
-        cls.pg.add_init_script("window.GERENCIA_DEMO = true; window.GERENCIA_TESTE = true;")
-        cls.pg.goto(INDEX)
-        cls.pg.wait_for_function("window.GERENCIA_TESTE && window.GERENCIA_TESTE.S && window.GERENCIA_TESTE.S.d")
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.b.close()
-        cls.pw.stop()
-
-    def tearDown(self):
-        self.assertEqual(self.erros, [], "nenhum erro na página")
-
-    def js(self, expr, arg=None):
-        """Roda uma expressão com T (as funções do app) e a (o argumento)."""
-        return self.pg.evaluate(f"(a) => {{ const T = window.GERENCIA_TESTE; return ({expr}); }}", arg)
-
-    def usar(self, d):
-        """Troca os dados do app (um objeto novo: a memória dos cálculos recomeça)."""
-        self.js("(T.S.d = T.normalizar(a), T.S.bens = null, T.S.oculto = false, true)", d)
 
 
 # ---------------------------------------------------------------------------------------------------------------

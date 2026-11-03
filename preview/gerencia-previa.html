@@ -1148,7 +1148,7 @@ input[readonly] { opacity: .8; }
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.23.2';
+const VERSAO = '1.23.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5983,6 +5983,15 @@ async function iniciar() {
   carregarDicas();
   carregarVoz();
   carregarBens();
+}
+// Só nos testes (tests/test_tela*.py abrem a página com window.GERENCIA_TESTE = true): qualquer função ou variável
+// daqui de dentro pelo nome (GERENCIA_TESTE.totais, GERENCIA_TESTE.S, GERENCIA_TESTE.IAS = ...). No app, nada disso existe.
+if (window.GERENCIA_TESTE === true) {
+  const ler = nome => { try { return eval(nome); } catch (e) { return undefined; } }; // eslint-disable-line no-eval
+  window.GERENCIA_TESTE = new Proxy({}, {
+    get: (_, k) => typeof k === 'string' && /^[A-Za-z_$][\w$]*$/.test(k) && k !== 'then' ? ler(k) : undefined,
+    set: (_, k, v) => { if (/^[A-Za-z_$][\w$]*$/.test(k)) eval(`${k} = v`); return true; }, // eslint-disable-line no-eval
+  });
 }
 iniciar();
 })();

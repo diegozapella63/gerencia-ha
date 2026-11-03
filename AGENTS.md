@@ -43,7 +43,7 @@ Abra `http://localhost:8099`. Em **Carregar exemplo** aparecem dados inventados.
 ## Checklist de toda mudança
 
 1. Implementar. Servidor: só biblioteca padrão do Python. Tela: `gerencia/app/www/app.js` (um IIFE; ações por `data-a`, janelas de baixo com `abrirFolha`/`pintarFolha`/`fecharFolha`, gravação com `persistir`). Cálculo novo vale nos dois lados (`calc.py` e `app.js`).
-2. Testar: `python3 -m unittest discover -s tests -t .` e os visuais ligados à mudança (`tests/e2e/run.sh nome ...`). Toda mudança ou bug corrigido vem com o teste dele.
+2. Testar: `python3 -m unittest discover -s tests -t .` (servidor e tela; a tela precisa do playwright) e os visuais ligados à mudança (`tests/e2e/run.sh nome ...`). Toda mudança ou bug corrigido vem com o teste dele: na tela, em `tests/test_tela_<área>.py` (ver `tests/README.md`); no servidor, no `tests/test_*.py` da parte; num visual, com verificações do `_confere.py`.
 3. Subir a versão nos três lugares (iguais): `gerencia/config.yaml` (`version:`), `gerencia/app/server.py` (`VERSAO`) e `gerencia/app/www/app.js` (`const VERSAO`). Correção = patch (1.23.0 → 1.23.1); novidade = minor (1.23.x → 1.24.0).
 4. `gerencia/CHANGELOG.md`: nova seção no topo, em português, do ponto de vista de quem usa (o que mudou na tela, não no código).
 5. `gerencia/DOCS.md` quando muda o comportamento ou aparece algo novo.

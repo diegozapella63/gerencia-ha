@@ -1,5 +1,7 @@
+"""Atualizar saldos com IA (de uma pessoa de fora): conferir, aporte no existente e investimento novo dela."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
+from _confere import igual, tem, sim
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -20,32 +22,41 @@ with sync_playwright() as p:
     texto = f"{banco}, valor atualizado, R$ {int(alvo['valor']) + 1500}\nSerasa, valor atualizado, R$ 600"
     # Novo investimento > Ler: textos de investimento
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
-    print('0 adicionar tem Atualizar saldos:', pg.locator('.op[data-a="ia-saldos"]').count())
+    igual(pg.locator('.op[data-a="ia-saldos"]').count(), 1, 'Adicionar tem Atualizar saldos')
     pg.click('.op[data-a="novo-inv"]'); pg.wait_for_timeout(400)
-    print('  link no novo investimento:', pg.locator('.imp-saldos').count())
+    igual(pg.locator('.imp-saldos').count(), 1, 'o novo investimento oferece atualizar saldos')
     pg.click('[data-a="ia-de"][data-ini="texto"]'); pg.wait_for_timeout(400)
-    print('  ler do novo investimento:', pg.inner_text('.folha-cab h2'), '|', pg.get_attribute('#ia-txt', 'placeholder')[:50])
+    igual(pg.inner_text('.folha-cab h2'), 'Colar mensagem', 'ler um texto')
+    tem(pg.get_attribute('#ia-txt', 'placeholder'), 'Ex.:', 'com exemplo de investimento')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     if pg.locator('.folha').count(): pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(400)
     # Carteira > Terceiros > pessoa
     pg.click('[data-a="filtro"][data-v="terc"]'); pg.wait_for_timeout(300)
     if pg.locator(f'[data-a="pessoa-f"][data-v="{pessoa}"]').count(): pg.click(f'[data-a="pessoa-f"][data-v="{pessoa}"]'); pg.wait_for_timeout(300)
-    print('1 botão:', pg.inner_text('.ia-saldos-btn'))
+    igual(pg.inner_text('.ia-saldos-btn'), f'Atualizar saldos de {pessoa} com IA', 'botão com o nome da pessoa')
     pg.click('.ia-saldos-btn'); pg.wait_for_timeout(400)
-    print('2 janela:', pg.inner_text('.folha-cab h2'), '| dono marcado:', pg.inner_text('[data-a="ias-pessoa"].on'))
+    igual(pg.inner_text('.folha-cab h2'), f'Atualizar saldos de {pessoa}', 'janela da pessoa')
+    igual(pg.inner_text('[data-a="ias-pessoa"].on'), pessoa, 'a pessoa já marcada')
     pg.screenshot(path=f'{SP}/shots/saldos-entrada.png')
     pg.fill('#ia-txt', texto); pg.wait_for_timeout(100)
     pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2500)
-    print('3 conferir:', pg.inner_text('.folha-cab h2'), '| resumo:', pg.inner_text('.ia-saldos-res').replace('\n', ' ') if pg.locator('.ia-saldos-res').count() else '-')
-    for it in pg.locator('.ia-item').all(): print('   ', it.inner_text().replace('\n', ' | '))
-    print('  botão:', pg.inner_text('[data-a="ia-salvar"]'))
+    igual(pg.inner_text('.folha-cab h2'), 'Conferir os saldos', 'janela de conferir')
+    tem(pg.inner_text('.ia-saldos-res') if pg.locator('.ia-saldos-res').count() else '', 'Aportes R$', 'resumo com os aportes')
+    itens = pg.locator('.ia-item').all_inner_texts()
+    igual(len(itens), 2, 'um item por saldo')
+    tem(itens[0], alvo['nome'], 'o primeiro é o investimento que já existe')
+    tem(itens[0], '+ R$', 'com a diferença')
+    tem(itens[1], 'Serasa', 'o segundo é novo')
+    tem(itens[1], 'R$ 600,00', 'com o valor')
+    igual(pg.inner_text('[data-a="ia-salvar"]'), 'Atualizar 2', 'botão')
     pg.screenshot(path=f'{SP}/shots/saldos-conferir.png', full_page=False)
     # troca o segundo para um investimento existente e depois volta a novo
     pg.click('[data-a="ia-salvar"]'); pg.wait_for_timeout(1200)
     st2 = get('api/state')
     a2 = [i for i in st2['investimentos'] if i['id'] == alvo['id']][0]
     novo = [i for i in st2['investimentos'] if i['nome'] == 'Serasa']
-    print('4 salvou:', alvo['valor'], '->', a2['valor'], '| novo Serasa:', [(n['titular'], n.get('terceiro'), n['valor']) for n in novo], '| aviso', pg.locator('.toast').all_inner_texts())
-    print('  uso:', get('api/ia/uso')['today'].get('kinds'))
+    igual(a2['valor'], int(alvo['valor']) + 1500, 'o saldo novo no investimento que existia')
+    igual([(n['titular'], n.get('terceiro'), n['valor']) for n in novo], [('terceiros', pessoa, 600)], 'o novo fica com a mesma pessoa')
+    igual(get('api/ia/uso')['today'].get('kinds', {}).get('saldos'), 1, 'conta no uso da IA')
     print('ERROS', erros); b.close()

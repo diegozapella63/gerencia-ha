@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.23.2';
+const VERSAO = '1.23.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4839,19 +4839,14 @@ async function iniciar() {
   carregarVoz();
   carregarBens();
 }
-// Testes (tests/test_tela.py): com window.GERENCIA_TESTE = true antes de abrir, as funções de dentro ficam à mão.
-// Fora dos testes isto não existe e nada muda.
+// Só nos testes (tests/test_tela*.py abrem a página com window.GERENCIA_TESTE = true): qualquer função ou variável
+// daqui de dentro pelo nome (GERENCIA_TESTE.totais, GERENCIA_TESTE.S, GERENCIA_TESTE.IAS = ...). No app, nada disso existe.
 if (window.GERENCIA_TESTE === true) {
-  window.GERENCIA_TESTE = {
-    S, normalizar, gerarExemplo, iso, pData, addMeses, diasUteis, parseNum, round2, semAcento, brl, brlS, plural, pct1, niceStep,
-    taxaAnual, valorHoje, partesHoje, taxaPartes, rendeMes, perdeMes, aliquota, rotuloTaxa, totais, porEscopo, projetar, registrarHistorico, grupos,
-    catsBens, taxaBem, nomeCatBem, addYm, ymDe, dataNoMes, somaMeses, nomeMes, dataCaixa, ocorrencia, ativaEm, proximaYm,
-    aportesFixos, aporteMensal, ehAporte, aportesPendentes, descontosDe, totalDescontos, liquidoDe, baixaVinculados, lancamentosEntre,
-    lancamentosCompetencia, acharLanc, materializar, saldoCaixa, resumoMes, saldoPrevisto, faturasDe, serieFluxo, mediaVariaveis,
-    variaveisDoMes, periodoFluxo, bancoPorNome, iaPago, iaNoCartao, prepararRevisaoCaixa, aplicarIACaixa, aplicarIAInvest, difSaldo,
-    donoDe, acharInvSaldo, mesesGratis, rendaReserva, economiaReal, dicaCategoria,
-    get IAS() { return IAS; }, set IAS(v) { IAS = v; },
-  };
+  const ler = nome => { try { return eval(nome); } catch (e) { return undefined; } }; // eslint-disable-line no-eval
+  window.GERENCIA_TESTE = new Proxy({}, {
+    get: (_, k) => typeof k === 'string' && /^[A-Za-z_$][\w$]*$/.test(k) && k !== 'then' ? ler(k) : undefined,
+    set: (_, k, v) => { if (/^[A-Za-z_$][\w$]*$/.test(k)) eval(`${k} = v`); return true; }, // eslint-disable-line no-eval
+  });
 }
 iniciar();
 })();

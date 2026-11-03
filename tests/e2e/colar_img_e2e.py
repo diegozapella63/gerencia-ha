@@ -1,3 +1,5 @@
+"""Colar ou soltar uma imagem na Nova despesa e no Novo investimento abre a leitura com a imagem; X volta."""
+from _confere import igual, tem, sim
 import sys, base64
 from playwright.sync_api import sync_playwright
 SP = sys.argv[1]; erros = []
@@ -16,25 +18,26 @@ with sync_playwright() as p:
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1500)
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
-    print('1 Novo investimento:', pg.inner_text('.imp-campo .lbl'), '|', [x.replace('\n', ' ') for x in pg.locator('.imp-tile').all_inner_texts()])
-    print('  ajuda:', pg.inner_text('.imp-ajuda'))
+    igual(pg.inner_text('.imp-campo .lbl'), 'Trazer de mensagem ou imagem', 'Novo investimento: trazer de mensagem ou imagem')
+    igual([x.replace('\n', ' ').replace('\xa0', ' ') for x in pg.locator('.imp-tile').all_inner_texts()], ['Colar mensagem', 'Imagem ou print', 'Digitalizar com IA', 'Falar'], 'os quadrinhos')
+    igual(pg.inner_text('.imp-ajuda'), 'Dá para colar a imagem direto aqui.', 'ajuda')
     pg.screenshot(path=f'{SP}/shots/colar-inv.png')
     pg.evaluate(JS, [img, 'paste']); pg.wait_for_timeout(1200)
-    print('2 colou imagem:', pg.inner_text('.folha-cab h2'), '| escolha de tipo:', pg.locator('.folha .seg').count(), '| anexo', pg.locator('.ia-prev').count())
+    igual((pg.inner_text('.folha-cab h2'), pg.locator('.folha .seg').count(), pg.locator('.ia-prev').count()), ('Imagem ou print', 0, 1), 'colou: abre a leitura com a imagem, sem escolher tipo')
     pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2800)
-    print('  leu:', pg.inner_text('.folha-cab h2'))
+    igual(pg.inner_text('.folha-cab h2'), 'Conferir investimentos', 'leu os investimentos')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    print('  X volta para:', pg.inner_text('.folha-cab h2'))
+    igual(pg.inner_text('.folha-cab h2'), 'Novo investimento', 'X volta para o Novo investimento')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
     pg.evaluate(JS, [img, 'drop']); pg.wait_for_timeout(1200)
-    print('3 soltou imagem na despesa:', pg.inner_text('.folha-cab h2'), '| escolha de tipo:', pg.locator('.folha .seg').count(), '| anexo', pg.locator('.ia-prev').count())
+    igual((pg.inner_text('.folha-cab h2'), pg.locator('.folha .seg').count(), pg.locator('.ia-prev').count()), ('Fatura, print ou foto', 0, 1), 'soltou na despesa: abre com a imagem')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    print('  X volta para:', pg.inner_text('.folha-cab h2'))
+    igual(pg.inner_text('.folha-cab h2'), 'Nova despesa', 'X volta para a Nova despesa')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # colar texto num campo do formulário continua normal
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
     pg.click('#lf-desc'); pg.keyboard.insert_text('Mercado')
-    print('4 texto no campo:', pg.input_value('#lf-desc'), '| janela', pg.inner_text('.folha-cab h2'))
+    igual((pg.input_value('#lf-desc'), pg.inner_text('.folha-cab h2')), ('Mercado', 'Nova despesa'), 'colar texto num campo é só texto')
     print('ERROS', erros); b.close()

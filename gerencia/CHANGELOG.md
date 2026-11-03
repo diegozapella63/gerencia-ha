@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.23.3
+
+- **Despesa ligada a um recebimento**: os sensores do Home Assistant e as contas que aparecem no CronologIA passam a usar o mesmo dia da tela (o dia em que o recebimento entra). Antes, o saldo do caixa no sensor podia ficar diferente do app.
+- Por dentro: muito mais testes (servidor quase todo, cálculos da tela um a um, conexão com o CronologIA) e testes visuais que conferem os valores, não só se abriu sem erro.
+
 ## 1.23.2
 
 - **Ler com IA**: liquidez "diária" escrita com acento (como a IA costuma responder) agora fica como diária, e não "no vencimento".

@@ -229,3 +229,118 @@ class TestNova(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBordasDoContrato(unittest.TestCase):
+    """O que o CronologIA mostra e faz em casos de borda (o formato não pode mudar sem mudar o outro app)."""
+
+    def base(self, lancamentos=(), recorrencias=()):
+        d = dados()
+        d["lancamentos"], d["recorrencias"] = list(lancamentos), list(recorrencias)
+        return d
+
+    def contas(self, d, de=date(2026, 11, 1), ate=date(2026, 11, 30), hoje=HOJE):
+        return I.listar(d, de, ate, hoje)["contas"]
+
+    def test_aporte_entra_como_conta(self):
+        d = self.base(recorrencias=[{"id": "r-ap", "tipo": "despesa", "descricao": "Reserva", "valor": 500, "dia": 20, "inicio": "2026-11", "aporte": True}])
+        self.assertEqual([(c["id"], c["tipo"]) for c in self.contas(d)], [("v:r-ap:2026-11", "fixo")], "o compromisso de aplicar")
+
+    def test_fixo_encerrado_some_depois_do_fim(self):
+        d = self.base(recorrencias=[{"id": "r", "tipo": "despesa", "descricao": "Academia", "valor": 99, "dia": 10, "inicio": "2026-01", "fim": "2026-10"}])
+        c = self.contas(d, hoje=date(2026, 11, 1))
+        self.assertEqual([(x["id"], x["atrasada"]) for x in c], [("v:r:2026-09", True), ("v:r:2026-10", True)], "só os atrasados de antes do fim; novembro não")
+
+    def test_fixo_anual_so_no_mes_dele(self):
+        d = self.base(recorrencias=[{"id": "r", "tipo": "despesa", "descricao": "IPVA", "valor": 900, "dia": 15, "inicio": "2026-03", "freq": "anual"}])
+        self.assertEqual(self.contas(d), [], "em novembro não")
+        c = self.contas(d, date(2027, 3, 1), date(2027, 3, 31), hoje=date(2027, 3, 1))
+        self.assertEqual([(x["id"], x["vencimento"]) for x in c], [("v:r:2027-03", "2027-03-15")])
+
+    def test_dia_31_em_fevereiro_vira_o_ultimo_dia(self):
+        d = self.base(recorrencias=[{"id": "r", "tipo": "despesa", "descricao": "Aluguel", "valor": 2000, "dia": 31, "inicio": "2026-01"}])
+        c = self.contas(d, date(2027, 2, 1), date(2027, 2, 28), hoje=date(2027, 2, 1))
+        self.assertEqual([x["vencimento"] for x in c if not x["atrasada"]], ["2027-02-28"])
+        self.assertEqual([x["vencimento"] for x in c if x["atrasada"]], ["2026-12-31", "2027-01-31"], "e os de dezembro e janeiro sem pagar")
+
+    def test_fixo_pulado_no_mes_nao_aparece(self):
+        d = self.base(lancamentos=[{"id": "p", "tipo": "despesa", "descricao": "Internet", "valor": 120, "data": "2026-11-25", "recorrencia": "r-net", "competencia": "2026-11", "pulado": True}],
+                      recorrencias=[{"id": "r-net", "tipo": "despesa", "descricao": "Internet", "valor": 120, "dia": 25, "inicio": "2026-11"}])
+        self.assertEqual(self.contas(d), [])
+
+    def test_fixo_no_cartao_vai_para_a_fatura(self):
+        d = self.base(recorrencias=[{"id": "r-mus", "tipo": "despesa", "descricao": "Música", "valor": 21.9, "dia": 8, "inicio": "2026-11", "conta": "cc", "cartao": True}])
+        c = self.contas(d, date(2026, 12, 1), date(2026, 12, 31))
+        self.assertEqual([(x["id"], x["tipo"], x["valor"], x["itens"]) for x in c], [("f:cc|2026-12-10", "fatura", 21.9, 1)], "compra do dia 8 (fecha dia 5): fatura de dezembro")
+
+    def test_fatura_de_dezembro_vence_em_janeiro(self):
+        d = self.base(lancamentos=[{"id": "k", "tipo": "despesa", "descricao": "Presentes", "valor": 300, "data": "2026-12-20", "conta": "cc", "cartao": True}])
+        c = self.contas(d, date(2027, 1, 1), date(2027, 1, 31))
+        self.assertEqual([x["id"] for x in c], ["f:cc|2027-01-10"])
+
+    def test_fatura_toda_paga_fica_paga(self):
+        d = self.base(lancamentos=[{"id": "k", "tipo": "despesa", "descricao": "Mercado", "valor": 80, "data": "2026-11-06", "conta": "cc", "cartao": True, "pago": True}])
+        f = self.contas(d, date(2026, 12, 1), date(2026, 12, 31))[0]
+        self.assertEqual((f["pago"], f["atrasada"], f["descricao"], f["conta"]), (True, False, "Fatura Banco Azul · Ana", "Banco Azul · Ana"))
+
+    def test_pagar_fatura_lanca_o_fixo_do_cartao_e_desfazer_desmarca(self):
+        d = self.base(lancamentos=[{"id": "k", "tipo": "despesa", "descricao": "Mercado", "valor": 80, "data": "2026-11-06", "conta": "cc", "cartao": True}],
+                      recorrencias=[{"id": "r-mus", "tipo": "despesa", "descricao": "Música", "valor": 21.9, "dia": 8, "inicio": "2026-11", "conta": "cc", "cartao": True}])
+        I.pagar(d, "f:cc|2026-12-10")
+        self.assertEqual(sorted((l["descricao"], l["pago"], l.get("competencia")) for l in d["lancamentos"]), [("Mercado", True, None), ("Música", True, "2026-11")])
+        I.pagar(d, "f:cc|2026-12-10", pago=False)
+        self.assertEqual({l["pago"] for l in d["lancamentos"]}, {False})
+        self.assertEqual(len(d["lancamentos"]), 2, "desfazer não apaga o fixo lançado")
+
+    def test_pagar_com_valor_zero_ou_desfazer_nao_muda_o_valor(self):
+        d = self.base(lancamentos=[{"id": "l", "tipo": "despesa", "descricao": "Gás", "valor": 110, "data": "2026-11-12"}])
+        I.pagar(d, "l", valor=0)
+        self.assertEqual((d["lancamentos"][0]["valor"], d["lancamentos"][0]["pago"]), (110, True))
+        I.pagar(d, "l", valor=999, pago=False)
+        self.assertEqual((d["lancamentos"][0]["valor"], d["lancamentos"][0]["pago"]), (110, False))
+        I.pagar(d, "l", valor=118.456)
+        self.assertEqual(d["lancamentos"][0]["valor"], 118.46)
+
+    def test_recebimento_nao_se_paga_por_aqui(self):
+        d = self.base(lancamentos=[{"id": "s", "tipo": "receita", "descricao": "Salário", "valor": 5000, "data": "2026-11-05"}])
+        with self.assertRaisesRegex(ValueError, "recebimento"):
+            I.pagar(d, "s")
+
+    def test_ids_que_nao_existem(self):
+        d = self.base()
+        for cid, msg in (("v:r-sumiu:2026-11", "Fixo não encontrado"), ("l-sumiu", "Conta não encontrada"), ("f:cc|2026-12-10", "Fatura não encontrada"), ("", "Conta não encontrada")):
+            with self.subTest(cid=cid), self.assertRaisesRegex(LookupError, msg):
+                I.pagar(d, cid)
+
+    def test_paga_e_antiga_nao_aparece_fora_do_periodo(self):
+        d = self.base(lancamentos=[{"id": "l", "tipo": "despesa", "descricao": "Paga em outubro", "valor": 10, "data": "2026-10-20", "pago": True}])
+        self.assertEqual(self.contas(d), [], "só as atrasadas sem pagar voltam")
+
+    def test_mesma_data_em_ordem_de_nome(self):
+        d = self.base(lancamentos=[{"id": n, "tipo": "despesa", "descricao": n, "valor": 1, "data": "2026-11-20"} for n in ("Luz", "Água", "Gás")])
+        self.assertEqual([c["descricao"] for c in self.contas(d)], ["Gás", "Luz", "Água"])
+
+    def test_conta_sem_nome_e_conta_do_banco(self):
+        d = self.base(lancamentos=[{"id": "l", "tipo": "despesa", "descricao": "", "valor": 5, "data": "2026-11-20", "conta": "cc"}])
+        c = self.contas(d)[0]
+        self.assertEqual((c["descricao"], c["conta"]), ("Conta", "Banco Azul · Ana"))
+
+    def test_nova_limpa_o_que_vem(self):
+        d = self.base()
+        cid = I.nova(d, {"descricao": "  " + "x" * 200, "valor": "45.678", "vencimento": "2026-11-30", "categoria": "c-nao-existe", "repete": "semanal"})
+        l = d["lancamentos"][0]
+        self.assertEqual((cid, len(l["descricao"]), l["valor"], l["categoria"], d["recorrencias"]), (l["id"], 120, 45.68, "", []), "repete desconhecido vira conta avulsa")
+        for corpo, msg in (({"descricao": "A", "valor": "abc", "vencimento": "2026-11-30"}, "Coloque o valor"),
+                           ({"descricao": "A", "valor": -3, "vencimento": "2026-11-30"}, "Coloque o valor"),
+                           ({"descricao": "A", "valor": 3, "vencimento": "30/11/2026"}, "vencimento inválida")):
+            with self.subTest(corpo=corpo), self.assertRaisesRegex(ValueError, msg):
+                I.nova(d, corpo)
+
+    def test_nova_mensal_aparece_com_o_id_do_fixo(self):
+        d = self.base()
+        cid = I.nova(d, {"descricao": "Faxina", "valor": 200, "vencimento": "2026-11-28", "categoria": "c-casa", "repete": "mensal"})
+        c = self.contas(d)
+        self.assertEqual([(x["id"], x["vencimento"], x["categoria"]) for x in c], [(cid, "2026-11-28", "Casa")])
+        I.pagar(d, cid, valor=210)
+        self.assertEqual([(l["valor"], l["competencia"]) for l in d["lancamentos"]], [(210, "2026-11")])
+        self.assertEqual(d["recorrencias"][0]["valor"], 200, "pagar com outro valor não muda o fixo")
