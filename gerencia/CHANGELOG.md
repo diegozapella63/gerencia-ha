@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.24.3
+
+- **Ler recibo** num salário fixo: se o plano de saúde tinha sido apagado só daquele mês e o recibo traz o plano, ele volta para o mês, e o caixa bate com o líquido.
+- Em Mais › Integrações, enquanto o Home Assistant não responde, o app pergunta pela situação da IA uma vez só (antes repetia a cada redesenho).
+- Por dentro: a tela quase toda testada (99% das linhas do app).
+
 ## 1.24.2
 
 - **Aplicar mais** e **Transferir**, abertos de um investimento, voltam para ele no Cancelar, no X e no Voltar do celular.

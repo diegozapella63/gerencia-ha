@@ -1205,7 +1205,7 @@ input[readonly] { opacity: .8; }
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.24.2';
+const VERSAO = '1.24.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4784,7 +4784,8 @@ function criarLigados(d, f, rid, rec) {
     if (r) {
       if (Math.abs((+r.valor || 0) - n.valor) < 0.005) continue;
       const m = d.lancamentos.find(l => l.recorrencia === r.id && l.competencia === ym);
-      if (m) m.valor = n.valor;
+      // o recibo traz o plano: se ele tinha sido apagado só deste mês, volta (senão o caixa não bate com o líquido)
+      if (m) { m.valor = n.valor; if (m.pulado) { delete m.pulado; m.pago = !!rec.pago; } }
       else d.lancamentos.push(materializar(Object.assign({}, r, { valor: n.valor, data: rec.data, recorrencia: r.id, competencia: ym, pago: !!rec.pago, conta: rec.conta || r.conta, cartao: false })));
     } else {
       d.recorrencias.push({ id: 'r-' + uid(), tipo: 'despesa', descricao: n.descricao, valor: n.valor, categoria: n.categoria, conta: rec.conta || '', cartao: false,
@@ -5695,7 +5696,11 @@ function render() {
   { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
   ajustarTextos();
   requestAnimationFrame(ajustarTextos);
-  if (S.ui.tab === 'mais' && !S.ia && !DEMO && iaOn()) api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {});
+  // um pedido de cada vez: enquanto a resposta não chega, redesenhar Mais não pede de novo
+  if (S.ui.tab === 'mais' && !S.ia && !S.iaPedido && !DEMO && iaOn()) {
+    S.iaPedido = true;
+    api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {}).finally(() => { S.iaPedido = false; });
+  }
   if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.usoPedido && (!S.uso || Date.now() - (S.usoEm || 0) > 30000)) {
     S.usoPedido = true;
     api.iaUso().then(u => { S.uso = u; }).catch(() => { if (!S.uso) S.uso = { today: null, days: [] }; })
