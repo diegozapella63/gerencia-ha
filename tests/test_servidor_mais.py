@@ -4,6 +4,7 @@ import json
 import os
 import time
 import unittest
+from unittest import mock
 from datetime import date, timedelta
 
 from tests.base import ServidorFalso, importar_servidor, porta_fechada, RAIZ
@@ -391,12 +392,25 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         d = dados(bancos=[{"id": "b", "nome": "Banco Azul", "cor": "#123456"}], investimentos=[
             {"id": "1", "nome": "CDB <b>Azul</b>", "banco": "b", "valor": 1000, "indexador": "cdi_pct", "taxa": 100, "tipo": "cdb", "vencimento": "2028-01-01"},
             {"id": "2", "nome": "Da Mãe", "valor": 500, "indexador": "parado", "titular": "terceiros", "terceiro": "Mãe"}])
-        d["ajustes"]["cor"] = "#ff0000;background:url(x)"
+        d["ajustes"].update(cor="#ff0000;background:url(x)", cor_dia=False)
         h = S.gerar_relatorio(d)
         h = h.decode() if isinstance(h, bytes) else h
         self.assertIn("CDB &lt;b&gt;Azul&lt;/b&gt;", h, "o nome não vira HTML")
         self.assertIn("Mãe", h)
         self.assertNotIn("url(x)", h, "a cor não injeta CSS")
+        self.assertIn(":root{--a:#ff0000}", h, "com a Cor do dia desligada, a cor escolhida")
+
+    def test_relatorio_na_cor_do_dia(self):
+        class Dia(date):
+            @classmethod
+            def today(cls):
+                return date(2026, 11, 11)
+        d = dados(investimentos=[{"id": "1", "nome": "CDB Azul", "valor": 1000, "indexador": "parado", "tipo": "cdb"}])
+        d["ajustes"]["cor"] = "#8BD45F"  # escolhida antes: a Cor do dia vale mesmo assim
+        with mock.patch.object(S.calc, "date", Dia):
+            h = S.gerar_relatorio(d)
+        h = h.decode() if isinstance(h, bytes) else h
+        self.assertIn(":root{--a:#FF5A4F}", h, "11/11/2026: Vermelho")
 
     def test_bens_quando_o_inventaria_quebra(self):
         Trocar(self, BENS=type("B", (), {"ler": lambda self, forcar=False: (_ for _ in ()).throw(KeyError("x"))})())

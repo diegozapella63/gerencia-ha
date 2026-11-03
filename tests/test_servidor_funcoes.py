@@ -40,6 +40,14 @@ class TestDados(unittest.TestCase):
         self.assertEqual(S.normalizar({"rev": "abc"})["rev"], 0)
         self.assertNotIn("outro", d)
 
+    def test_cor_do_dia_ligada_por_padrao(self):
+        self.assertIs(S.vazio()["ajustes"]["cor_dia"], True)
+        self.assertIs(S.normalizar({"ajustes": {"cor": "#8BD45F"}})["ajustes"]["cor_dia"], True, "quem já tinha escolhido uma cor também fica com a do dia")
+        self.assertIs(S.normalizar({"ajustes": {"cor": "#8BD45F", "cor_dia": False}})["ajustes"]["cor_dia"], False, "desligada continua desligada")
+        for lixo in (None, "nao", 0, []):
+            with self.subTest(cor_dia=lixo):
+                self.assertIs(S.normalizar({"ajustes": {"cor_dia": lixo}})["ajustes"]["cor_dia"], True, "só um False desliga")
+
     def test_historico_um_ponto_por_dia(self):
         d = exemplo()
         S.registrar_historico(d, hoje=date(2026, 11, 1))

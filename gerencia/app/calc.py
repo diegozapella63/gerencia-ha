@@ -143,6 +143,43 @@ def rende_mes(v, r):
     return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
 
 
+# ---------------------------------------------------------------- cor do app (Mais › Aparência)
+
+# As cores do app, as mesmas do app.js (CORES_APP); o azul é o padrão do GerencIA.
+CORES_APP = [
+    ("Vermelho", "#FF5A4F"), ("Coral", "#FF8A65"), ("Laranja", "#FFA23E"), ("Ouro", "#F2C14E"), ("Verde", "#8BD45F"), ("Menta", "#4ED3A6"),
+    ("Turquesa", "#3CCBDA"), ("Azul", "#56AEFF"), ("Índigo", "#8F9BFF"), ("Lilás", "#B99BFF"), ("Rosa", "#FF77A9"), ("Grafite", "#B5B9C2"),
+]
+COR_PADRAO = "#56AEFF"
+
+
+def _neutra(h):
+    c = [int(h[i:i + 2], 16) for i in (1, 3, 5)]
+    return max(c) - min(c) < 40
+
+
+# A Cor do dia passa por elas em ordem, uma por dia, sem as neutras (Grafite).
+CORES_DIA = [c for c in CORES_APP if not _neutra(c[1])]
+
+
+def numero_do_dia(hoje):
+    """Dias desde 01/01/1970 (no app.js: Math.floor(Date.UTC(ano, mês, dia) / 86400000), com a data local)."""
+    return (hoje - date(1970, 1, 1)).days
+
+
+def cor_do_dia(hoje=None):
+    return CORES_DIA[numero_do_dia(hoje or date.today()) % len(CORES_DIA)][1]
+
+
+def cor_app(ajustes, hoje=None):
+    """A cor que vale: a do dia (ligada por padrão; só um False desliga) ou a escolhida, sem nada além de #rrggbb."""
+    ajustes = ajustes or {}
+    if ajustes.get("cor_dia") is not False:
+        return cor_do_dia(hoje)
+    c = re.sub(r"[^#0-9A-Fa-f]", "", str(ajustes.get("cor") or ""))[:7]
+    return c if re.fullmatch(r"#[0-9A-Fa-f]{6}", c) else COR_PADRAO
+
+
 def fmt_num(x, casas=2):
     s = f"{x:,.{casas}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")

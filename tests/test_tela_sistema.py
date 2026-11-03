@@ -663,6 +663,27 @@ class TestTemaDoHomeAssistant(TelaServidor):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+class TestCorDoDiaComOAppAberto(TelaSistema):
+    """Com o app aberto, a Cor do dia confere a cada minuto se o dia virou (o relógio de 1 min fica em __aCadaMinuto)."""
+
+    MINUTO = "(() => { const si = window.setInterval; window.setInterval = (fn, ms, ...a) => { if (ms === 60000) { window.__aCadaMinuto = fn; return 0; } return si(fn, ms, ...a); }; })();"
+
+    def test_o_relogio_de_um_minuto_troca_a_cor_quando_o_dia_vira(self):
+        erros = []
+        pg = self.nova_pagina(erros, self.MINUTO)
+        self.addCleanup(pg.close)
+        pg.wait_for_function(PRONTO)
+        acento = lambda: pg.evaluate("document.documentElement.style.getPropertyValue('--accent')")
+        self.assertEqual(acento(), "#FFA23E", "02/11/2026: Laranja")
+        pg.evaluate("window.__aCadaMinuto()")
+        self.assertEqual(acento(), "#FFA23E", "o mesmo dia: a mesma cor")
+        pg.clock.set_fixed_time("2026-11-03T00:00:20-03:00")
+        pg.evaluate("window.__aCadaMinuto()")
+        self.assertEqual(acento(), "#F2C14E", "virou o dia: Ouro, sem recarregar")
+        self.assertEqual(erros, [])
+
+
+# ---------------------------------------------------------------------------------------------------------------
 class TestPrevia(TelaSistema):
     """A prévia (apiDemo): o que ela não faz avisa, e o que ela simula responde como o servidor."""
 

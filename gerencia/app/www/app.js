@@ -3,11 +3,23 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.24.3';
+const VERSAO = '1.25.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#56AEFF', '#B79BFF', '#4CD3A5', '#FFA23A', '#FF77A8', '#F2C14E', '#FF8A65', '#E04B8A', '#FF5A4E', '#B8B0B0'];
+// cores do app com nome, em forma de etiqueta (as mesmas do CronologIA e do ResolvIA; o azul é o do GerencIA)
+const CORES_APP = [
+  ['Vermelho', '#FF5A4F'], ['Coral', '#FF8A65'], ['Laranja', '#FFA23E'], ['Ouro', '#F2C14E'], ['Verde', '#8BD45F'], ['Menta', '#4ED3A6'],
+  ['Turquesa', '#3CCBDA'], ['Azul', '#56AEFF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
+];
+const rgbHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+// Cor do dia (Mais › Aparência, ligada por padrão): as cores do app em ordem, uma por dia, sem as neutras (Grafite).
+// O dia é a data daqui contada desde 01/01/1970: a mesma cor o dia todo, em todo aparelho (igual ao calc.cor_do_dia).
+const neutra = h => { const c = rgbHex(h); return Math.max(...c) - Math.min(...c) < 40; };
+const CORES_DIA = CORES_APP.filter(([, h]) => !neutra(h));
+const numeroDoDia = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+const corDoDia = (d = new Date()) => CORES_DIA[((numeroDoDia(d) % CORES_DIA.length) + CORES_DIA.length) % CORES_DIA.length][1];
 const BANCOS_COMUNS = ['Nubank', 'Itaú', 'Bradesco', 'Banco do Brasil', 'Caixa', 'Santander', 'Inter', 'BTG Pactual',
   'XP', 'C6 Bank', 'Sicredi', 'Sicoob', 'Mercado Pago', 'PicPay', 'Rico', 'Banrisul', 'Safra', 'Viacredi'];
 
@@ -56,7 +68,7 @@ function taxaBem(k) {
 }
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -584,6 +596,10 @@ function temaHA() {
 }
 // Na prévia, o modo automático respeita o tema escolhido no visualizador.
 const TEMA_HOST = document.documentElement.getAttribute('data-theme');
+// a cor que vale agora: a do dia (só um "desligado" explícito desliga) ou a escolhida em Aparência
+const corDiaOn = () => S.d.ajustes.cor_dia !== false;
+const corDoApp = () => corDiaOn() ? corDoDia() : (corOk(S.d.ajustes.cor) || AJUSTES_PADRAO.cor);
+let diaDaCor = null; // o dia da cor posta por último
 function aplicarTema() {
   if (!S.d) return;
   const a = S.d.ajustes;
@@ -594,13 +610,21 @@ function aplicarTema() {
     const t = a.tema === 'claro' ? 'light' : a.tema === 'escuro' ? 'dark' : temaHA();
     if (root.dataset.theme !== t) root.dataset.theme = t;
   }
-  const cor = corOk(a.cor) || AJUSTES_PADRAO.cor;
-  root.style.setProperty('--accent', cor);
+  diaDaCor = numeroDoDia();
+  root.style.setProperty('--accent', corDoApp());
   root.dataset.ia = a.ia === false ? 'off' : 'on';
   const meta = $('meta[name="theme-color"]');
   if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0f1318';
 }
 if (!DEMO) setInterval(() => { if (S.d && S.d.ajustes.tema === 'auto') aplicarTema(); }, 2000);
+// Com a Cor do dia, o app aberto troca de cor à meia-noite sem recarregar (confere a cada minuto e ao voltar para ele).
+function conferirCorDoDia() {
+  if (!S.d || !corDiaOn() || numeroDoDia() === diaDaCor) return;
+  if (S.ui.tab === 'mais' && maisAba() === 'aparencia') render(); else aplicarTema();
+}
+setInterval(conferirCorDoDia, 60000);
+window.addEventListener('focus', conferirCorDoDia);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) conferirCorDoDia(); });
 try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', aplicarTema); } catch (e) { /* antigo */ }
 
 /* ------------------------------------------------------------------ peças */
@@ -3740,18 +3764,12 @@ const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span cla
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo) => `<button class="sw${on ? ' on' : ''}" data-a="ajuste" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
 const linhaChave = (k, on, titulo, texto) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo)}</div>`;
-// cores do app com nome, em forma de etiqueta (as mesmas do CronologIA e do ResolvIA; o azul é o do GerencIA)
-const CORES_APP = [
-  ['Vermelho', '#FF5A4F'], ['Coral', '#FF8A65'], ['Laranja', '#FFA23E'], ['Ouro', '#F2C14E'], ['Verde', '#8BD45F'], ['Menta', '#4ED3A6'],
-  ['Turquesa', '#3CCBDA'], ['Azul', '#56AEFF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
-];
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
+// a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
 function corAppAtual() {
-  const c = (corOk(S.d.ajustes.cor) || AJUSTES_PADRAO.cor).toUpperCase();
-  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-  const [r, g, b] = rgb(c);
+  const [r, g, b] = rgbHex(corDoApp().toUpperCase());
   let melhor = null, dist = 1e9;
-  for (const [, hex] of CORES_APP) { const [r2, g2, b2] = rgb(hex); const dd = Math.abs(r - r2) + Math.abs(g - g2) + Math.abs(b - b2); if (dd < dist) { dist = dd; melhor = hex; } }
+  for (const [, hex] of CORES_APP) { const [r2, g2, b2] = rgbHex(hex); const dd = Math.abs(r - r2) + Math.abs(g - g2) + Math.abs(b - b2); if (dd < dist) { dist = dd; melhor = hex; } }
   return dist <= 24 ? melhor : null;
 }
 
@@ -3943,7 +3961,7 @@ function maisAparencia() {
       <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Automático', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
         `<button role="radio" aria-checked="${a.tema === k}" class="${a.tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
     <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
-
+      ${linhaChave('cor_dia', corDiaOn(), 'Cor do dia', 'Muda a cor do app todo dia.')}
       <div class="tag-cores" role="radiogroup" aria-label="Cor do app">${CORES_APP.map(([n, hex]) =>
         `<button class="tsw${cor === hex ? ' on' : ''}" role="radio" aria-checked="${cor === hex}" style="--a:${hex}" data-a="cor" data-v="${hex}">
           <svg viewBox="-5 -5 40 30" aria-hidden="true"><path class="sw-ring" d="${TAG_SW}"/><path class="sw-gap" d="${TAG_SW}"/><path class="sw-fill" d="${TAG_SW}${FURO_SW}"/><path class="sw-check" d="m14.6 10.3 3.2 3.2 6.5-6.9"/></svg>
@@ -4748,7 +4766,8 @@ document.addEventListener('click', ev => {
         acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.exemplo = false; d._hist = []; }, 'Tudo apagado') });
       break;
     case 'tema': S.d.ajustes.tema = v; aplicarTema(); render(); persistir(d => { d.ajustes.tema = v; }); break;
-    case 'cor': S.d.ajustes.cor = v; aplicarTema(); render(); persistir(d => { d.ajustes.cor = v; }); break;
+    // escolher uma cor desliga a Cor do dia e fica com ela
+    case 'cor': Object.assign(S.d.ajustes, { cor: v, cor_dia: false }); aplicarTema(); render(); persistir(d => { Object.assign(d.ajustes, { cor: v, cor_dia: false }); }); break;
     case 'ajuste': {
       const k = el.dataset.k; const nv = S.d.ajustes[k] === false;
       persistir(d => { d.ajustes[k] = nv; }).then(ok => {

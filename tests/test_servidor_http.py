@@ -58,6 +58,16 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual((novo["rev"], len(novo["bancos"]), novo["schema"]), (d["rev"] + 1, 1, 1), "só os campos do usuário; lixo sai")
         self.assertEqual(self.s.get("/api/rev")[2]["rev"], novo["rev"])
 
+    def test_cor_do_dia_ligada_por_padrao_e_desligada_quando_escolhida(self):
+        d = self.estado()
+        self.assertIs(d["ajustes"]["cor_dia"], True, "ligada sem ninguém escolher")
+        a = {k: v for k, v in d["ajustes"].items() if k != "cor_dia"}
+        self.assertIs(self.estado(ajustes=dict(a, cor="#8BD45F"))["ajustes"]["cor_dia"], True, "quem só tinha a cor salva fica com a do dia")
+        novo = self.estado(ajustes=dict(a, cor="#8BD45F", cor_dia=False))
+        self.assertEqual((novo["ajustes"]["cor"], novo["ajustes"]["cor_dia"]), ("#8BD45F", False), "escolher uma cor desliga e guarda")
+        self.assertIs(self.estado()["ajustes"]["cor_dia"], False, "e continua desligada")
+        self.assertIs(self.estado(ajustes=dict(a, cor_dia=True))["ajustes"]["cor_dia"], True)
+
     def test_indices_a_mao(self):
         st, _, r = self.s.put("/api/indices", {"cdi": 500})
         self.assertEqual((st, r["erro"]), (400, "Valor fora do esperado."))

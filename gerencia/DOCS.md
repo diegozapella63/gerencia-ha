@@ -11,7 +11,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ## Telas
 
-- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Aparência › Cor do app), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
+- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Aparência › Cor do app, ou a Cor do dia), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber (no mês de hoje, o que ficou sem pagar nos dois meses anteriores aparece primeiro; é para onde leva o aviso de contas atrasadas). Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
@@ -26,7 +26,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Invest*: índices de mercado.
   - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
   - *Dados*: exportar, relatório, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
-  - *Aparência*: tema e cor do app.
+  - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
   - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
 
 ### No computador

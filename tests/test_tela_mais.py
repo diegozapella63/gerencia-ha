@@ -562,12 +562,87 @@ class TestAparenciaEDados(TelaMais):
         self.assertNotEqual(claro, escuro, "o fundo muda com o tema do sistema")
         self.assertEqual(escuro, escuro_fixo, "no escuro do sistema, igual ao tema Escuro")
 
+    # ---- Cor do app e Cor do dia (o relógio parado em 02/11/2026: a cor do dia é o Laranja)
+    def acento(self):
+        return self.js("document.documentElement.style.getPropertyValue('--accent')")
+
+    def marcada(self):
+        """As etiquetas de cor marcadas (o nome)."""
+        return self.js("[...document.querySelectorAll('#cor .tsw[aria-checked=\"true\"]')].map(b => b.textContent.trim())")
+
+    def chave_cor_dia(self):
+        return self.js("document.querySelector('#cor [data-a=\"ajuste\"][data-k=\"cor_dia\"]').getAttribute('aria-checked')")
+
+    def test_cor_do_dia_ligada_por_padrao(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.assertEqual(self.linha("#cor .linha-sw", "Cor do dia"), "Cor do dia Muda a cor do app todo dia.")
+        self.assertEqual(self.chave_cor_dia(), "true")
+        self.assertEqual(self.acento(), "#FFA23E", "02/11/2026: Laranja, no app todo")
+        self.assertEqual(self.marcada(), ["Laranja"], "a cor do dia é a marcada")
+
+    def test_quem_ja_tinha_escolhido_uma_cor_tambem_fica_com_a_do_dia(self):
+        self.abrir(base(ajustes={"cor": "#8BD45F"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.assertEqual((self.chave_cor_dia(), self.acento(), self.marcada()), ("true", "#FFA23E", ["Laranja"]))
+
+    def test_cor_do_dia_muda_todo_dia_pela_paleta(self):
+        self.abrir(base())
+        dias = {"2026-11-02": "#FFA23E", "2026-11-03": "#F2C14E", "2026-11-10": "#FF77A9", "2026-11-11": "#FF5A4F"}
+        self.assertEqual({d: self.js("T.corDoDia(T.pData(a))", d) for d in dias}, dias, "Laranja, Ouro; Rosa e de volta ao Vermelho")
+        self.assertNotIn("Grafite", [n for n, _ in self.js("T.CORES_DIA")], "sem as neutras")
+
     def test_cor_do_app(self):
         self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
         self.clicar('[data-a="cor"][data-v="#8BD45F"]')
-        self.assertEqual(self.dados()["ajustes"]["cor"], "#8BD45F")
-        self.assertEqual(self.js("document.documentElement.style.getPropertyValue('--accent')"), "#8BD45F", "a cor vale no app todo")
-        self.assertEqual(self.js("document.querySelector('.tsw.on').textContent.trim()"), "Verde")
+        self.assertEqual((self.dados()["ajustes"]["cor"], self.dados()["ajustes"]["cor_dia"]), ("#8BD45F", False), "escolher uma cor desliga a Cor do dia")
+        self.assertEqual(self.acento(), "#8BD45F", "a cor vale no app todo")
+        self.assertEqual(self.marcada(), ["Verde"])
+        self.assertEqual(self.chave_cor_dia(), "false")
+
+    def test_escolher_a_propria_cor_do_dia_tambem_desliga(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.clicar('[data-a="cor"][data-v="#FFA23E"]')
+        self.assertEqual((self.dados()["ajustes"]["cor"], self.dados()["ajustes"]["cor_dia"]), ("#FFA23E", False))
+        self.assertEqual((self.chave_cor_dia(), self.acento()), ("false", "#FFA23E"), "fica com ela, mesmo amanhã")
+
+    def test_ligar_a_cor_do_dia_volta_para_ela_e_desligar_volta_para_a_escolhida(self):
+        self.abrir(base(ajustes={"cor": "#8BD45F", "cor_dia": False}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.assertEqual((self.chave_cor_dia(), self.acento(), self.marcada()), ("false", "#8BD45F", ["Verde"]))
+        self.clicar('#cor [data-a="ajuste"][data-k="cor_dia"]')
+        self.assertIs(self.dados()["ajustes"]["cor_dia"], True)
+        self.assertEqual((self.chave_cor_dia(), self.acento(), self.marcada()), ("true", "#FFA23E", ["Laranja"]))
+        self.clicar('#cor [data-a="ajuste"][data-k="cor_dia"]')
+        self.assertEqual((self.dados()["ajustes"]["cor_dia"], self.dados()["ajustes"]["cor"]), (False, "#8BD45F"))
+        self.assertEqual((self.acento(), self.marcada()), ("#8BD45F", ["Verde"]))
+
+    def mudar_relogio(self, quando):
+        self.pg.clock.set_fixed_time(quando)
+        self.addCleanup(lambda: self.pg.clock.set_fixed_time("2026-11-02T10:00:00-03:00"))
+
+    def test_a_meia_noite_a_cor_muda_sem_recarregar(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.mudar_relogio("2026-11-02T23:59:00-03:00")
+        self.js("(window.dispatchEvent(new Event('focus')), true)")
+        self.esperar()
+        self.assertEqual(self.acento(), "#FFA23E", "ainda é dia 2")
+        self.mudar_relogio("2026-11-03T00:00:30-03:00")
+        self.js("(window.dispatchEvent(new Event('focus')), true)")
+        self.esperar()
+        self.assertEqual((self.acento(), self.marcada()), ("#F2C14E", ["Ouro"]), "dia 3: Ouro, também marcado em Aparência")
+
+    def test_voltar_para_o_app_no_outro_dia_troca_a_cor(self):
+        self.abrir(base(bancos=BANCOS))
+        self.mudar_relogio("2026-11-04T08:00:00-03:00")
+        self.js("(document.dispatchEvent(new Event('visibilitychange')), true)")
+        self.esperar()
+        self.assertEqual(self.acento(), "#8BD45F", "dia 4: Verde, em qualquer tela")
+        self.assertIn('fill="var(--accent)"', self.js("document.querySelector('.app-ic').outerHTML"), "o ícone do app segue a cor")
+
+    def test_com_a_cor_do_dia_desligada_o_dia_nao_muda_a_cor(self):
+        self.abrir(base(ajustes={"cor": "#8BD45F", "cor_dia": False}))
+        self.mudar_relogio("2026-11-03T00:00:30-03:00")
+        self.js("(window.dispatchEvent(new Event('focus')), true)")
+        self.esperar()
+        self.assertEqual(self.acento(), "#8BD45F")
 
     def test_criar_backup_avisa_onde_ficou(self):
         self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})

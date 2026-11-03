@@ -150,6 +150,20 @@ class TestIgualAoServidor(Tela):
         self.assertAlmostEqual(self.js("T.saldoCaixa()"), 4600, places=2)
         self.assertAlmostEqual(calc.caixa(d, hoje=HOJE)["saldo"], 4600, places=2, msg="o saldo do servidor (sensores) é o mesmo")
 
+    def test_cor_do_dia(self):
+        """A Cor do dia é a mesma na tela e no relatório do servidor, pela data daqui (não a de Greenwich)."""
+        self.assertEqual(self.js("T.CORES_APP"), [list(c) for c in calc.CORES_APP], "as mesmas cores")
+        self.assertEqual(self.js("T.CORES_DIA"), [list(c) for c in calc.CORES_DIA], "e as mesmas sem as neutras")
+        for dia in ("2026-11-02", "2026-11-03", "2026-11-10", "2026-11-11", "2027-02-28", "2028-02-29", "1970-01-01", "1969-12-31"):
+            with self.subTest(dia=dia):
+                d = date.fromisoformat(dia)
+                self.assertEqual(self.js("T.numeroDoDia(T.pData(a))", dia), calc.numero_do_dia(d))
+                self.assertEqual(self.js("T.corDoDia(T.pData(a))", dia), calc.cor_do_dia(d))
+        # 23:30 em São Paulo já é dia 3 em Greenwich: vale o dia 2 daqui; 00:10 do dia 3, a do dia 3
+        self.assertEqual(self.js("T.corDoDia(new Date('2026-11-03T02:30:00Z'))"), calc.cor_do_dia(date(2026, 11, 2)))
+        self.assertEqual(self.js("T.corDoDia(new Date('2026-11-03T03:10:00Z'))"), calc.cor_do_dia(date(2026, 11, 3)))
+        self.assertEqual(self.js("T.corDoDia()"), calc.cor_do_dia(HOJE), "sem data: hoje")
+
 # ---------------------------------------------------------------------------------------------------------------
 class TestInvestimentos(Tela):
     def test_projecao_sem_aporte_nem_ir(self):

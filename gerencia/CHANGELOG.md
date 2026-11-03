@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.25.0
+
+- **Cor do dia**: a cor do app muda todo dia, passando pelas cores de Mais › Aparência (sem o Grafite). Vem ligada, também para quem já tinha escolhido uma cor, e é a mesma o dia todo, em todos os aparelhos; com o app aberto, troca à meia-noite. A cor do dia aparece marcada em Cor do app; tocar numa cor desliga a Cor do dia e fica com ela. O placar, o ícone, os gráficos e o relatório seguem a cor.
+
 ## 1.24.3
 
 - **Ler recibo** num salário fixo: se o plano de saúde tinha sido apagado só daquele mês e o recibo traz o plano, ele volta para o mês, e o caixa bate com o líquido.

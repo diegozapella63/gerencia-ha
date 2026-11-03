@@ -30,7 +30,7 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 
-VERSAO = "1.24.3"
+VERSAO = "1.25.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -70,7 +70,8 @@ INDICES_PADRAO = {
 }
 
 # sensores: desligado até ligar em Mais › Integrações; sensores_v marca os dados que já têm essa escolha
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
+# cor_dia: a Cor do dia (Mais › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
@@ -118,6 +119,8 @@ def normalizar(d):
         # antes os sensores vinham ligados sem ninguém escolher: agora ficam desligados até ligar
         if "sensores_v" not in d["ajustes"]:
             base["ajustes"]["sensores"] = False
+    # só um "desligado" de verdade desliga a Cor do dia
+    base["ajustes"]["cor_dia"] = base["ajustes"].get("cor_dia") is not False
     try:
         base["rev"] = int(base["rev"])
     except (TypeError, ValueError):
@@ -433,7 +436,7 @@ def restaurar_backup(nome):
 def gerar_relatorio(d):
     ind = d["indices"]
     corrigir = d["ajustes"].get("corrigir", True)
-    cor = re.sub(r"[^#0-9A-Fa-f]", "", d["ajustes"].get("cor", "#56AEFF"))[:7] or "#56AEFF"
+    cor = calc.cor_app(d["ajustes"])
     bancos = {b.get("id"): b for b in d["bancos"]}
     t = calc.totais(d)
     e = html.escape

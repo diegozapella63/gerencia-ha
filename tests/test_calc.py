@@ -1,6 +1,6 @@
-"""calc.py: números do jeito brasileiro, taxas, valor de hoje, totais e o caixa."""
+"""calc.py: números do jeito brasileiro, taxas, valor de hoje, totais, o caixa e a Cor do dia."""
 import unittest
-from datetime import date
+from datetime import date, timedelta
 
 from tests.base import INDICES
 import calc
@@ -307,6 +307,48 @@ class TestCaixa(unittest.TestCase):
 
     def test_vazio(self):
         self.assertEqual(calc.caixa({}, hoje=self.HOJE), {"saldo": 0, "entrou_mes": 0, "saiu_mes": 0, "a_receber_mes": 0, "a_pagar_mes": 0, "atrasado": 0})
+
+
+class TestCorDoDia(unittest.TestCase):
+    """A Cor do dia: as cores do app em ordem, uma por dia, sem as neutras; o dia contado desde 01/01/1970."""
+
+    def test_paleta_sem_as_neutras(self):
+        nomes = [n for n, _ in calc.CORES_DIA]
+        self.assertEqual(nomes, ["Vermelho", "Coral", "Laranja", "Ouro", "Verde", "Menta", "Turquesa", "Azul", "Índigo", "Lilás", "Rosa"],
+                         "as do seletor, na mesma ordem, sem o Grafite")
+        self.assertIn(("Grafite", "#B5B9C2"), calc.CORES_APP, "o Grafite continua para escolher à mão")
+
+    def test_numero_do_dia(self):
+        self.assertEqual(calc.numero_do_dia(date(1970, 1, 1)), 0)
+        self.assertEqual(calc.numero_do_dia(date(2026, 11, 2)), 20759, "Math.floor(Date.UTC(2026, 10, 2) / 86400000)")
+
+    def test_datas_fixas(self):
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 2)), "#FFA23E", "20759 % 11 = 2: Laranja")
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 3)), "#F2C14E", "amanhã a próxima: Ouro")
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 4)), "#8BD45F", "Verde")
+
+    def test_depois_da_ultima_volta_para_a_primeira(self):
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 10)), "#FF77A9", "Rosa, a última")
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 11)), "#FF5A4F", "Vermelho, a primeira")
+        self.assertEqual(calc.cor_do_dia(date(2026, 11, 22)), calc.cor_do_dia(date(2026, 11, 11)), "11 dias depois, a mesma")
+
+    def test_um_ciclo_passa_por_todas_uma_vez(self):
+        ciclo = [calc.cor_do_dia(date(2026, 11, 11) + timedelta(days=i)) for i in range(11)]
+        self.assertEqual(ciclo, [h for _, h in calc.CORES_DIA])
+        self.assertNotIn("#B5B9C2", [calc.cor_do_dia(date(2026, 1, 1) + timedelta(days=i)) for i in range(400)], "nunca o Grafite")
+
+    def test_ligada_por_padrao(self):
+        hoje = date(2026, 11, 2)
+        for ajustes in ({}, None, {"cor": "#8BD45F"}, {"cor": "#8BD45F", "cor_dia": True}, {"cor_dia": None}):
+            with self.subTest(ajustes=ajustes):
+                self.assertEqual(calc.cor_app(ajustes, hoje), "#FFA23E", "só um False desliga, mesmo para quem já tinha escolhido uma cor")
+
+    def test_desligada_fica_a_escolhida(self):
+        hoje = date(2026, 11, 2)
+        self.assertEqual(calc.cor_app({"cor": "#8BD45F", "cor_dia": False}, hoje), "#8BD45F")
+        self.assertEqual(calc.cor_app({"cor_dia": False}, hoje), "#56AEFF", "sem cor escolhida, o azul do GerencIA")
+        self.assertEqual(calc.cor_app({"cor": "#ff0000;background:url(x)", "cor_dia": False}, hoje), "#ff0000", "nada além de #rrggbb")
+        self.assertEqual(calc.cor_app({"cor": "azul", "cor_dia": False}, hoje), "#56AEFF")
 
 
 if __name__ == "__main__":
