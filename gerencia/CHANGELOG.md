@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.24.2
+
+- **Aplicar mais** e **Transferir**, abertos de um investimento, voltam para ele no Cancelar, no X e no Voltar do celular.
+- Num bem separado por categoria (Bens), Aplicar mais, Transferir e o saldo lido pela IA mudam as partes na mesma proporção: antes o valor de hoje não mudava (e numa transferência o dinheiro sumia).
+- Um desconto do salário guardado em reais (de versões antigas) aparece em reais, não como porcentagem.
+
 ## 1.24.1
 
 - **Carregar exemplo** e a prévia usam bancos inventados (Banco Lua, Banco Sol, Banco Coral, Corretora Norte, Banco Azul e Banco Verde), como os nomes das pessoas.

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.24.1';
+const VERSAO = '1.24.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2259,7 +2259,7 @@ function mutPagar(d, l, valor, inv0) {
   baixaVinculados(d, x);
   if (inv0) {
     const inv = d.investimentos.find(i => i.id === inv0.id);
-    if (inv) Object.assign(inv, { valor: novoValor, data_valor: iso(hoje()), atualizado_em: new Date().toISOString() });
+    if (inv) definirValor(inv, novoValor, iso(hoje()));
     const r = l.recorrencia && d.recorrencias.find(y => y.id === l.recorrencia);
     if (r) r.investimento = inv0.id;
   }
@@ -3184,7 +3184,7 @@ function aplicarIAInvest(d, itens) {
       if (ex) {
         // "apliquei 3 mil no CDB": a IA manda o aporte sem o saldo, e ele soma ao valor de hoje
         const valor = it.aporte > 0 && !(it.valor > 0) ? round2(valorHoje(ex) + it.aporte) : it.valor;
-        Object.assign(ex, { valor, data_valor: it.aporte > 0 && !(it.valor > 0) ? hj : it.data_valor || hj, atualizado_em: new Date().toISOString() });
+        definirValor(ex, valor, it.aporte > 0 && !(it.valor > 0) ? hj : it.data_valor || hj);
         if (!ex.vencimento && it.vencimento) ex.vencimento = it.vencimento;
         if (foto) ex.fotos = [...(ex.fotos || []), foto];
         continue;
@@ -3500,7 +3500,9 @@ function secaoDescontos(f) {
     <button class="btn peq out" data-a="lf-ler-recibo"${f.lendoRecibo ? ' disabled' : ''}>${f.lendoRecibo ? '<span class="giro mini"></span>Lendo…' : ic('ia', 'ic-s') + 'Ler recibo com IA'}</button></div>`;
   h += f.descontos.map((x, i) => `<div class="desc-ed2">
     <input class="inp" data-lfd="descricao" data-i="${i}" value="${esc(x.descricao)}" placeholder="Ex.: INSS" aria-label="Nome do imposto" autocomplete="off">
-    <div class="pref"><input data-lfd="valor" data-i="${i}" inputmode="decimal" value="${x.valor ? NFP4.format(x.valor) : ''}" placeholder="0" aria-label="Porcentagem do bruto"><span>%</span></div>
+    ${x.modo === 'fixo' // um desconto em reais (de dados antigos): fica em reais
+      ? `<div class="pref"><span>R$</span><input data-lfd="valor" data-i="${i}" inputmode="numeric" value="${x.valor ? NF2.format(x.valor) : ''}" placeholder="0,00" aria-label="Valor do desconto"></div>`
+      : `<div class="pref"><input data-lfd="valor" data-i="${i}" inputmode="decimal" value="${x.valor ? NFP4.format(x.valor) : ''}" placeholder="0" aria-label="Porcentagem do bruto"><span>%</span></div>`}
     <button class="icbtn" data-a="lf-desc-rm" data-v="${i}" aria-label="Tirar imposto">${ic('x')}</button>
     <b class="desc-v" id="lfd-v-${i}">− ${brl(valorDesc(l, x))}</b></div>`).join('');
   h += `<div class="chips" style="margin:6px 0 0">${DESC_RAPIDOS.map(([n], k) => [n, k]).filter(([n]) => n === 'Outro imposto' || !f.descontos.some(x => semAcento(x.descricao) === semAcento(n))).map(([n, k]) =>
@@ -4078,7 +4080,7 @@ function abrirAplicar(invId) {
   const pend = inv.titular === 'terceiros' ? [] : aportesPendentes();
   const conta = (contas().find(c => c.id === ultimaConta('despesa').conta && !c.cartao) || contas().find(c => !c.cartao) || contas()[0])?.id || '';
   AP = { inv: invId, modo: 'aplicou', valor: 0, total: 0, data: iso(hoje()), destino: pend[0] ? pend[0].id : inv.titular === 'terceiros' ? 'nenhum' : 'novo', conta, erro: '' };
-  abrirFolha(montarAplicar);
+  abrirFolha(montarAplicar, null, !!FOLHA); // aberto do investimento: Cancelar, X e Voltar voltam para ele
   requestAnimationFrame(() => { const v = $('#ap-v'); if (v) v.focus(); });
 }
 function montarAplicar() {
@@ -4125,7 +4127,7 @@ function confirmarAplicar() {
   persistir(d => {
     const inv = d.investimentos.find(i => i.id === a.inv);
     if (!inv) return;
-    Object.assign(inv, { valor: novoValor, data_valor: hj, atualizado_em: new Date().toISOString() });
+    definirValor(inv, novoValor, hj);
     if (pl) {
       if (pl.virtual) d.lancamentos.push(materializar(pl, { valor: round2(a.valor), pago: true, investimento: inv.id }));
       else { const x = d.lancamentos.find(y => y.id === pl.id); if (x) Object.assign(x, { valor: round2(a.valor), pago: true, investimento: inv.id }); }
@@ -4139,13 +4141,29 @@ function confirmarAplicar() {
   }, `Aplicado ${brl(a.valor, 0)} em ${inv0.nome}`).then(ok => { if (ok) { AP = null; fecharFolha(); } });
 }
 
+// O novo valor de hoje de um investimento. Num bem separado por categoria, o valor de hoje é a soma das partes: elas
+// mudam na mesma proporção (senão Aplicar e Transferir não mudariam nada nele, ou o dinheiro sumiria).
+function definirValor(inv, novo, data) {
+  novo = round2(novo);
+  const ps = inv.tipo === 'bens' && Array.isArray(inv.partes) && inv.partes.length ? partesHoje(inv) : null;
+  if (ps) {
+    const tot = ps.reduce((a, p) => a + p.v, 0);
+    let resto = novo;
+    inv.partes = inv.partes.map((p, k) => {
+      const v = k === ps.length - 1 ? resto : tot > 0 ? round2(ps[k].v * novo / tot) : 0;
+      resto = round2(resto - v);
+      return Object.assign({}, p, { valor: v });
+    });
+  }
+  Object.assign(inv, { valor: novo, data_valor: data || iso(hoje()), atualizado_em: new Date().toISOString() });
+}
 // Transferir de um investimento para outro: sai do valor de hoje de um e soma no do outro. O caixa não muda.
 let TR = null;
 function abrirTransferir(invId) {
   const inv = S.d.investimentos.find(i => i.id === invId);
   if (!inv) return;
   TR = { de: invId, para: '', valor: 0, apagar: false, erro: '' };
-  abrirFolha(montarTransferir, () => { TR = null; });
+  abrirFolha(montarTransferir, () => { TR = null; }, !!FOLHA);
   requestAnimationFrame(() => { const v = $('#tr-v'); if (v) v.focus(); });
 }
 function transferirAjuda() {
@@ -4195,9 +4213,9 @@ function confirmarTransferir() {
   persistir(d => {
     const de = d.investimentos.find(i => i.id === t.de), para = d.investimentos.find(i => i.id === t.para);
     if (!de || !para) return;
-    Object.assign(para, { valor: vPara, data_valor: hj, atualizado_em: agora });
+    definirValor(para, vPara, hj);
     if (apagar) d.investimentos = d.investimentos.filter(i => i.id !== de.id);
-    else Object.assign(de, { valor: vDe, data_valor: hj, atualizado_em: agora });
+    else definirValor(de, vDe, hj);
   }, `Transferido ${brl(t.valor, 0)} de ${de0.nome} para ${para0.nome}`).then(ok => { if (ok) { TR = null; F = null; fecharFolha(); } });
 }
 
