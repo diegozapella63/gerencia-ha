@@ -16,7 +16,7 @@ with sync_playwright() as p:
     for tab in ('inicio', 'caixa', 'investimentos', 'mais'):
         pg.click(f'#nav [data-v="{tab}"]'); pg.wait_for_timeout(400)
         vis = [x for x in pg.locator('.cab button').all() if x.is_visible()]
-        igual([x.get_attribute('data-a') for x in vis], ['falar', 'olho'] if OLHO[tab] else ['falar'], f'cabeçalho de {tab}')
+        igual([x.get_attribute('data-a') for x in vis], ['chat', 'falar', 'olho'] if OLHO[tab] else ['chat', 'falar'], f'cabeçalho de {tab}: chat ao lado do microfone')
     pg.click('#nav [data-v="investimentos"]'); pg.wait_for_timeout(300)
     pg.screenshot(path=f'{SP}/shots/ai-invest-cab.png', clip={'x': 0, 'y': 0, 'width': 412, 'height': 260})
     # Invest › Adicionar: Novo investimento com os quadrinhos
@@ -59,4 +59,5 @@ with sync_playwright() as p:
     # computador: Ler com IA continua no alto à direita
     pg.set_viewport_size({'width': 1366, 'height': 860}); pg.wait_for_timeout(300)
     igual([x.strip() for x in pg.locator('.top-acts > *').all_inner_texts() if x.strip()], ['Ler com IA', 'Adicionar'], 'no computador, os botões no alto à direita')
+    igual(pg.locator('.top-acts [data-a="chat"]').count(), 1, 'e o chat no alto à direita')
     print('ERROS', erros); b.close()

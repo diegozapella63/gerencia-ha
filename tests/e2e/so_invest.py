@@ -1,5 +1,8 @@
+"""Colar mensagem a partir do Novo investimento: só investimentos (nada vai para o caixa); um valor com banco ou nome é o
+saldo dele, "dinheiro" vira um investimento sem rendimento e o dono vem do texto ("tudo dinheiro da mãe")."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
+from _confere import igual, tem, sim
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -15,11 +18,15 @@ with sync_playwright() as p:
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
     pg.click('[data-a="ia-de"][data-ini="texto"]'); pg.wait_for_timeout(400)
     pg.fill('#ia-txt', '15mil dinheiro\n30.350,00 nubank\n\nTudo dinheiro da mãe'); pg.click('[data-a="ia-ler"]'); pg.wait_for_timeout(2600)
-    print('1 conferir:', pg.inner_text('.folha-cab h2'), '| lançamentos', pg.locator('[data-iai="contasel"]').count(), '| investimentos', pg.locator('.ia-item').count())
-    for it in pg.locator('.ia-item').all(): print('   ', it.inner_text().split('\n')[0], '|', [x for x in it.inner_text().split('\n') if 'Novo' in x or 'Aporte' in x or 'Atualiza' in x])
+    igual(pg.inner_text('.folha-cab h2'), 'Conferir investimentos', 'conferir só investimentos')
+    igual(pg.locator('[data-iai="contasel"]').count(), 0, 'nenhum lançamento para o caixa')
+    itens = [it.inner_text().split('\n') for it in pg.locator('.ia-item').all()]
+    igual([x[0] for x in itens], ['Dinheiro', 'Nubank'], 'um investimento por valor')
+    igual([[y for y in x if y.startswith('Novo investimento de')] for x in itens], [['Novo investimento de Mãe, com R$ 15.000,00'], ['Novo investimento de Mãe, com R$ 30.350,00']], 'novos, da Mãe, com o saldo lido ("15mil", "30.350,00")')
     pg.screenshot(path=f'{SP}/shots/so-invest.png')
     pg.click('[data-a="ia-salvar"]'); pg.wait_for_timeout(1200)
     st = get('api/state')
-    novos = st['investimentos'][ni0:]
-    print('2 salvou: lançamentos +', len(st['lancamentos']) - nl0, '| investimentos novos', [(i['nome'], i['titular'], i.get('terceiro'), i['valor'], i['indexador']) for i in novos])
+    igual(len(st['lancamentos']) - nl0, 0, 'salvar não lança nada no caixa')
+    igual([(i['nome'], i['tipo'], i['titular'], i.get('terceiro'), i['valor'], i['indexador']) for i in st['investimentos'][ni0:]],
+          [('Dinheiro', 'dinheiro', 'terceiros', 'Mãe', 15000, 'parado'), ('Nubank', 'outro', 'terceiros', 'Mãe', 30350, 'cdi_pct')], 'os novos da Mãe: o dinheiro sem rendimento e o saldo do Nubank')
     print('ERROS', erros); b.close()

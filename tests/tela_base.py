@@ -49,7 +49,9 @@ _ABRIR = """async (a) => {
   let r = await T.api.save(Object.assign({ bancos: [], investimentos: [], lancamentos: [], recorrencias: [], ajustes: {}, exemplo: false,
     categorias: T.clone(T.CATEGORIAS_PADRAO) }, d, { rev, substituir_historico: true, historico: d.historico || [] }));
   if (d.indices) r = await T.api.indices({ cdi: d.indices.cdi, selic: d.indices.selic, ipca: d.indices.ipca, tr: d.indices.tr });
-  Object.assign(T.S.ui, JSON.parse(window.__UI0), a.ui || {});
+  const u0 = JSON.parse(window.__UI0);
+  for (const k of Object.keys(T.S.ui)) if (!(k in u0)) delete T.S.ui[k]; // o que um teste deixou (ex.: descAberto) não passa para o próximo
+  Object.assign(T.S.ui, u0, a.ui || {});
   Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, dicas: null, ia: null, uso: null, backups: null });
   T.S.d = T.normalizar(r);
   const t = document.getElementById('toast'); if (t) { t.classList.remove('on'); t.textContent = ''; }

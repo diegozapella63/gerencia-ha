@@ -1,0 +1,978 @@
+"""A tela do GerencIA nas áreas Início, Mais e navegação, testada num Chromium de verdade (sem servidor).
+
+Confere o que a pessoa vê e faz: boas-vindas e exemplo, os cards e avisos do Início com os números batendo com os
+dados, Mais (bancos, categorias, fixos, integrações, aparência, dados), dicas de economia, abas e o que fica guardado,
+barra lateral no computador, o Voltar do celular com janelas umas sobre as outras, conflito ao salvar, avisos e
+números longos. Os cálculos puros ficam em tests/test_tela.py; a base e os ajudantes, em tests/tela_base.py.
+Para andar rápido, as animações do CSS ficam desligadas nestes testes (o comportamento é o mesmo).
+
+Um teste marcado com @unittest.expectedFailure mostra um defeito achado (comentário "BUG"): quando for corrigido,
+ele passa a "unexpected success" e o marcador sai.
+
+Dados sempre inventados (Ana, Beto, Carla, Banco Azul, Banco Verde): nunca nomes, bancos ou valores reais.
+"""
+import unittest
+
+from tests.tela_base import Tela, base, BANCOS
+
+
+def brl0(v):
+    """Como o app mostra um valor sem centavos (R$ 1.234)."""
+    return "R$ " + f"{int(v + 0.5):,}".replace(",", ".")
+
+
+def rende_mes(v, r):
+    """O rendimento de um mês de quem rende r ao ano."""
+    return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# dados de exemplo (inventados)
+
+# o caixa de novembro: entrou 5.000 e saiu 1.200; a luz de outubro atrasou, a internet vence em 3 dias e a academia em 6
+LANC = [
+    {"id": "l-sal", "tipo": "receita", "descricao": "Salário", "valor": 5000, "data": "2026-11-01", "pago": True, "conta": "k-verde", "categoria": "c-salario"},
+    {"id": "l-alug", "tipo": "despesa", "descricao": "Aluguel", "valor": 1200, "data": "2026-11-01", "pago": True, "conta": "k-verde", "categoria": "c-moradia"},
+    {"id": "l-luz", "tipo": "despesa", "descricao": "Luz", "valor": 150, "data": "2026-10-30", "pago": False, "categoria": "c-contas"},
+    {"id": "l-net", "tipo": "despesa", "descricao": "Internet", "valor": 100, "data": "2026-11-05", "pago": False, "categoria": "c-contas"},
+    {"id": "l-acad", "tipo": "despesa", "descricao": "Academia", "valor": 90, "data": "2026-11-08", "pago": False, "categoria": "c-saude"},
+]
+
+# valores de hoje (02/11/2026): o valor de hoje é o próprio valor
+INV_CDB = {"id": "i-cdb", "nome": "CDB Azul", "banco": "b-azul", "tipo": "cdb", "valor": 10000, "data_valor": "2026-11-02", "indexador": "cdi_pct",
+           "taxa": 100, "liquidez": "vencimento", "vencimento": "2027-11-03", "titular": "meu"}
+INV_TES = {"id": "i-tes", "nome": "Tesouro Verde", "banco": "b-verde", "tipo": "tesouro", "valor": 4000, "data_valor": "2026-11-02", "indexador": "selic_mais",
+           "taxa": 0, "liquidez": "diaria", "titular": "meu"}
+INV_CARLA = {"id": "i-carla", "nome": "Poupança da Carla", "banco": "b-verde", "tipo": "poupanca", "valor": 2500, "data_valor": "2026-11-02",
+             "indexador": "poupanca", "taxa": 0, "liquidez": "diaria", "titular": "terceiros", "terceiro": "Carla"}
+INVS = [INV_CDB, INV_TES, INV_CARLA]
+RENDE_MEU = rende_mes(10000, 0.1365) + rende_mes(4000, 0.1375)  # CDI 13,65% e Selic 13,75% (índices da base)
+
+# bens do InventarIA como o servidor entrega (/api/bens), inventados
+BENS = {"ok": True, "hoje": 30000, "registrado": 36000, "perde_ano": 4200, "n": 12, "versao": "1.18.0",
+        "categorias": [{"id": "eletronicos", "nome": "Eletrônicos", "taxa": 20, "registrado": 16000, "hoje": 12000, "n": 5},
+                       {"id": "moveis", "nome": "Móveis", "taxa": 10, "registrado": 20000, "hoje": 18000, "n": 7}],
+        "comodos": [{"id": "sala", "nome": "Sala", "hoje": 20000, "n": 8}, {"id": "quarto", "nome": "Quarto", "hoje": 10000, "n": 4}]}
+
+# fixos: salário, aluguel, internet no cartão, IPTU uma vez por ano e uma academia que parou em outubro
+FIXOS = [
+    {"id": "r-sal", "tipo": "receita", "descricao": "Salário", "valor": 5000, "dia": 5, "inicio": "2026-01", "conta": "k-verde", "categoria": "c-salario"},
+    {"id": "r-alug", "tipo": "despesa", "descricao": "Aluguel", "valor": 1200, "dia": 10, "inicio": "2026-01", "conta": "k-verde", "categoria": "c-moradia"},
+    {"id": "r-net", "tipo": "despesa", "descricao": "Internet", "valor": 100, "dia": 15, "inicio": "2026-01", "conta": "k-ana", "cartao": True, "categoria": "c-contas"},
+    {"id": "r-iptu", "tipo": "despesa", "descricao": "IPTU", "valor": 800, "dia": 1, "inicio": "2026-02", "freq": "anual", "categoria": "c-impostos"},
+    {"id": "r-acad", "tipo": "despesa", "descricao": "Academia", "valor": 90, "dia": 3, "inicio": "2025-01", "fim": "2026-10", "categoria": "c-saude"},
+]
+
+# uma assinatura com plano anual mais barato e a dica como o servidor entrega (/api/dicas), com o preço já conferido
+SPOTIFY = {"id": "r-spot", "tipo": "despesa", "descricao": "Spotify", "valor": 23.9, "dia": 22, "inicio": "2026-01", "conta": "k-ana", "cartao": True,
+           "categoria": "c-assinaturas"}
+_ASS = {"chave": "r:r-spot", "rid": "r-spot", "origem": "fixo", "servico": "spotify", "nome": "Spotify", "descricao": "Spotify", "valor": 23.9, "freq_anual": False,
+        "conta": "k-ana", "cartao": True, "categoria": "c-assinaturas", "dia": 22, "fonte": "https://www.spotify.com/br-pt/premium/", "dominio": "spotify.com",
+        "conferido": "2026-10-18", "status": "ok", "texto": "Dá para economizar no plano anual.", "plano": "Premium Individual", "moeda": "BRL",
+        "mensal": 23.9, "anual": 239, "pct": 16.7, "economia_ano": 47.8, "preco_anual": 239, "estimado": False}
+DICA_SPOTIFY = "anual:r:r-spot"
+DICAS = {"dicas": [dict(_ASS, id=DICA_SPOTIFY)], "assinaturas": [_ASS], "conferindo": False,
+         "catalogo": ["Nabu Casa", "Claude", "Spotify", "Microsoft 365", "Deezer"], "dolar": None}
+
+# restaurantes: outubro bem acima da média de julho a setembro
+RESTAURANTES = [{"id": f"rest{m}", "tipo": "despesa", "descricao": "Restaurante", "valor": v, "data": f"2026-{m:02d}-15", "pago": True, "categoria": "c-restaurantes"}
+                for m, v in ((7, 400), (8, 450), (9, 500), (10, 900))]
+
+SEM_ANIMACAO = "*, *::before, *::after { transition: none !important; animation: none !important; }"
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TelaMais(Tela):
+    """A base da tela com ajudantes a mais e sem animações."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.pg.add_style_tag(content=SEM_ANIMACAO)
+        cls.pg.set_default_timeout(5000)  # um clique que não acha o botão falha logo, sem esperar 30 s
+
+    def abrir(self, d=None, ui=None, bens=None):
+        # um pedido de dicas agendado por um teste anterior não entra no meio deste
+        self.js("(clearTimeout(T.dicasAgenda), clearTimeout(T.dicasTimer), true)")
+        super().abrir(d, ui, bens)
+
+    def esperar_aviso(self, parte, ms=3000):
+        """Espera o aviso (toast) com este texto e devolve o texto inteiro."""
+        self.pg.wait_for_function("t => { const e = document.getElementById('toast'); return e.classList.contains('on') && e.textContent.includes(t); }",
+                                  arg=parte, timeout=ms)
+        return self.aviso()
+
+    def guardado(self):
+        """O que a tela guardou no aparelho (localStorage): abas, filtros e modos."""
+        return self.js("JSON.parse(localStorage.getItem('gerencia.ui') || '{}')")
+
+    def trocar_api(self, nome, corpo_js):
+        """Troca uma função da api por uma falsa (JavaScript) até o fim do teste."""
+        self.js("(window.__api0 = window.__api0 || {}, (a[0] in window.__api0) || (window.__api0[a[0]] = T.api[a[0]]), "
+                "T.api[a[0]] = new Function('return (' + a[1] + ')')(), true)", [nome, corpo_js])
+        self.addCleanup(lambda: self.js("(T.api[a] = window.__api0[a], delete window.__api0[a], true)", nome))
+
+    def pares(self, sel):
+        """[rótulo, valor] de cada coluna (span + b), pelo texto de verdade (sem as maiúsculas do CSS)."""
+        return self.js("[...document.querySelectorAll(a)].map(d => [d.querySelector('span').textContent.trim(), d.querySelector('b').textContent.trim()])", sel)
+
+    def linha(self, sel, contem):
+        """O texto do primeiro elemento que contém este texto (como aparece, com os espaços juntados), ou None."""
+        return self.js("(e => e ? e.innerText.replace(/\\s+/g, ' ').trim() : null)([...document.querySelectorAll(a[0])].find(e => e.innerText.includes(a[1])))",
+                       [sel, contem])
+
+    def rotulo_placar(self):
+        return self.js("document.querySelector('.placar-num').getAttribute('aria-label')")
+
+    def visivel(self, sel):
+        return self.pg.locator(sel).first.is_visible() if self.conta(sel) else False
+
+    def cortados(self, sel):
+        """[(texto, scrollWidth, clientWidth)] dos elementos cujo conteúdo não cabe (número cortado)."""
+        return self.js("[...document.querySelectorAll(a)].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => [e.textContent, e.scrollWidth, e.clientWidth])", sel)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestBoasVindasEExemplo(TelaMais):
+    def test_sem_dados_mostra_boas_vindas_com_os_caminhos_para_comecar(self):
+        self.abrir(base())
+        self.assertIn("Vamos começar", self.tela())
+        botoes = [t.strip() for t in self.textos(".comeco .btns button")]
+        self.assertEqual(botoes, ["Cadastrar salário e gastos fixos", "Cadastrar investimento", "Ler fatura ou print com IA", "Importar backup", "Ver com dados de exemplo"])
+        self.assertEqual(self.conta(".placar-cols"), 0, "sem números ainda")
+
+    def test_boas_vindas_sem_o_botao_de_ia_com_a_ia_desligada(self):
+        self.abrir(base(ajustes={"ia": False}))
+        self.assertFalse(self.visivel('.comeco [data-a="ia"]'), "Ler fatura ou print com IA some com a IA desligada")
+        self.assertTrue(self.visivel('.comeco [data-a="novo-inv"]'))
+
+    def test_ver_com_dados_de_exemplo_carrega_e_avisa_que_e_exemplo(self):
+        self.abrir(base())
+        self.clicar('[data-a="carregar-exemplo"]')
+        self.assertEqual(self.esperar_aviso("Exemplo"), "Exemplo carregado")
+        d = self.dados()
+        self.assertTrue(d["exemplo"])
+        self.assertTrue(d["investimentos"] and d["lancamentos"] and d["recorrencias"] and d["bancos"], "investimentos, caixa e bancos de exemplo")
+        self.assertIn("Patrimônio", self.js("document.querySelector('.placar-cab').textContent"))
+        self.assertIn("Estes valores são de demonstração", self.texto(".exemplo"))
+        self.assertTrue(self.visivel('.exemplo [data-a="apagar-exemplo"]'))
+
+    def test_apagar_exemplo_pede_confirmacao_e_volta_ao_comeco(self):
+        self.abrir(base())
+        self.clicar('[data-a="carregar-exemplo"]')
+        self.clicar('[data-a="apagar-exemplo"]')
+        self.assertEqual(self.folha(), "Apagar exemplo?")
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        d = self.dados()
+        self.assertEqual((d["exemplo"], d["bancos"], d["investimentos"], d["lancamentos"], d["recorrencias"]), (False, [], [], [], []))
+        self.assertEqual(self.esperar_aviso("Exemplo apagado"), "Exemplo apagado")
+        self.assertIn("Vamos começar", self.tela())
+        self.assertEqual(self.conta(".exemplo"), 0, "sem o aviso de exemplo")
+
+    def test_cancelar_apagar_exemplo_mantem_os_dados(self):
+        self.abrir(base())
+        self.clicar('[data-a="carregar-exemplo"]')
+        n = len(self.dados()["investimentos"])
+        self.clicar('[data-a="apagar-exemplo"]')
+        self.clicar('.folha-pe [data-a="fechar"]')
+        self.assertIsNone(self.folha())
+        self.assertEqual(len(self.dados()["investimentos"]), n)
+        self.assertTrue(self.dados()["exemplo"])
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestInicio(TelaMais):
+    def test_so_com_caixa_o_placar_mostra_o_saldo_e_o_mes(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC))
+        self.assertEqual(self.rotulo_placar(), "Saldo em caixa de R$ 3.800")
+        self.assertEqual(self.pares(".placar-cols > div"), [["Entrou", "R$ 5.000"], ["Saiu", "R$ 1.200"], ["Sobrou", "R$ 3.800"]])
+
+    def test_aviso_de_conta_atrasada_com_o_valor(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC))
+        self.assertEqual(self.linha("#app .op", "atrasada"), "Uma conta atrasada Luz R$ 150")
+
+    def test_aviso_do_que_vence_em_ate_5_dias(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC))
+        self.assertEqual(self.linha("#app .op", "próximos 5 dias"), "Vence nos próximos 5 dias Internet R$ 100",
+                         "a internet vence em 3 dias; a academia, em 6, fica de fora")
+
+    def test_compras_atrasadas_no_cartao_viram_um_aviso_so_da_fatura(self):
+        lanc = [{"id": "c1", "tipo": "despesa", "descricao": "Farmácia", "valor": 120, "data": "2026-10-01", "conta": "k-ana", "cartao": True, "pago": False},
+                {"id": "c2", "tipo": "despesa", "descricao": "Mercado", "valor": 180, "data": "2026-10-03", "conta": "k-ana", "cartao": True, "pago": False}]
+        self.abrir(base(bancos=BANCOS, lancamentos=lanc))
+        self.assertEqual(self.linha("#app .op", "atrasada"), "Uma conta atrasada Fatura Banco Azul · Ana R$ 300", "a fatura de 12/10 com as duas compras")
+
+    def test_tocar_no_aviso_de_atrasada_abre_o_caixa_no_a_pagar(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC))
+        self.pg.locator("#app .op", has_text="atrasada").first.click()
+        self.esperar()
+        u = self.js("T.S.ui")
+        self.assertEqual((u["tab"], u["cxModo"], u["cxFiltro"], u["cxMes"]), ("caixa", "lista", "pendentes", None))
+
+    def test_patrimonio_e_so_o_seu_sem_o_dinheiro_de_terceiros(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.assertEqual(self.rotulo_placar(), "Patrimônio de R$ 14.000", "10.000 + 4.000; os 2.500 da Carla ficam de fora")
+        self.assertEqual(self.pares(".placar-cols > div"), [["Investimentos", "2"], ["Bancos", "2"], ["Por mês", "+" + brl0(RENDE_MEU)]])
+
+    def test_dinheiro_de_terceiros_por_pessoa(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        card = self.linha("#app .card.flush", "Dinheiro de terceiros")
+        self.assertIn("Dinheiro de terceiros R$ 2.500", card)
+        self.assertIn("Carla 1 investimento · Banco Verde R$ 2.500", card)
+
+    def test_destaques_batem_com_os_investimentos(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.assertIn(brl0(RENDE_MEU), self.linha(".hl-row", "Rende por mês"))
+        self.assertEqual(self.linha(".hl-row", "Melhor rendimento"), "Melhor rendimento Tesouro Verde 13,75% Selic")
+        self.assertEqual(self.linha(".hl-row", "Maior banco"), "Maior banco Banco Azul 61% R$ 10.000", "10.000 de 16.500")
+        self.assertEqual(self.linha(".hl-row", "Vence primeiro"), "Vence primeiro CDB Azul 03/11/2027 R$ 10.000", "a mais de 90 dias: mostra a data")
+
+    def test_card_do_caixa_do_mes_com_saldo_de_hoje_e_do_fim_do_mes(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
+        card = self.linha(".cx-card", "Caixa de")
+        self.assertTrue(card.startswith("Caixa de novembro"), card)
+        self.assertEqual(self.pares(".cx-card .cx-resumo > div"), [["Entrou", "R$ 5.000"], ["Saiu", "R$ 1.200"], ["Sobrou", "R$ 3.800"]])
+        self.assertIn("+ R$ 190 a pagar", card, "internet e academia de novembro")
+        self.assertIn("Saldo hoje R$ 3.800 · fim do mês R$ 3.460", card, "3.800 menos luz, internet e academia")
+
+    def test_investimento_que_vence_em_breve_avisa(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, vencimento="2026-11-20")]))
+        self.assertEqual(self.linha("#app .op", "Vence em"), "Vence em 18 dias CDB Azul · decida para onde vai o dinheiro 18 dias")
+        self.assertIn("em 18 dias", self.linha(".hl-row", "Vence primeiro"))
+
+    def test_investimento_vencido_avisa(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, vencimento="2026-10-01")]))
+        self.assertEqual(self.linha("#app .op", "venceu"), "Um investimento venceu CDB Azul")
+
+    def test_valor_sem_atualizar_ha_mais_de_2_meses_avisa(self):
+        parado = {"id": "din", "nome": "Cofre", "tipo": "dinheiro", "valor": 300, "data_valor": "2026-01-01", "indexador": "parado"}
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, data_valor="2026-08-01"), parado]))
+        self.assertIn("CDB Azul está sem atualizar há mais de 2 meses", self.linha("#app .op", "Atualize os valores"),
+                      "só o CDB: dinheiro parado não precisa atualizar")
+
+    # BUG: o aviso Índices do Início leva para Mais, mas fica na aba de Mais que estava aberta (aqui, Bancos), sem os
+    # índices: a âncora "indices" só existe em Mais › Invest e o app não troca a aba. O mesmo acontece no "Ver as N dicas"
+    # (âncora "dicas", em Mais › Caixa).
+    @unittest.expectedFailure
+    def test_tocar_nos_indices_abre_mais_invest_nos_indices(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"maisAba": "bancos"})
+        self.assertIn("CDI 13,65% · Selic 13,75% · IPCA 4,5%", self.linha("#app .op", "Índices"))
+        self.pg.locator("#app .op", has_text="Índices").first.click()
+        self.esperar()
+        self.assertEqual(self.js("T.S.ui.tab"), "mais")
+        self.assertTrue(self.visivel("#indices"), "a seção Índices de mercado (Mais › Invest) na tela")
+
+    def test_bens_do_inventaria_somam_no_patrimonio(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS), bens=BENS)
+        self.assertEqual(self.rotulo_placar(), "Patrimônio de R$ 44.000")
+        self.assertEqual(self.pares(".placar-cols > div")[:2], [["Investido", "R$ 14.000"], ["Bens", "R$ 30.000"]])
+        self.assertEqual(self.linha(".hl-row", "Bens da casa"), "Bens da casa 12 itens no InventarIA R$ 30.000 perdem ≈ R$ 4.200/ano")
+
+    def test_bens_desligados_nao_somam_nem_aparecem(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, ajustes={"bens": False}), bens=BENS)
+        self.assertEqual(self.rotulo_placar(), "Patrimônio de R$ 14.000")
+        self.assertIsNone(self.linha(".hl-row", "Bens da casa"))
+
+    def test_esconder_valores_vale_em_todas_as_telas_e_fica_guardado(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
+        self.addCleanup(lambda: self.js("(T.S.oculto = false, localStorage.setItem('gerencia.oculto', 'false'), true)"))
+        self.clicar('.cab-linha [data-a="olho"]')
+        self.assertEqual(self.rotulo_placar(), "Patrimônio de R$ •••••")
+        self.assertNotIn("14.000", self.tela())
+        self.ir("caixa")
+        self.assertIn("R$ •••••", self.tela())
+        self.assertNotIn("5.000", self.tela())
+        self.assertEqual(self.js("localStorage.getItem('gerencia.oculto')"), "true")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestMaisBancos(TelaMais):
+    def abrir_bancos(self, d=None):
+        self.abrir(d or base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+
+    def banco(self, id_):
+        return next(b for b in self.dados()["bancos"] if b["id"] == id_)
+
+    def test_lista_os_bancos_com_pessoas_cartoes_e_investimentos(self):
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
+        self.assertEqual(self.js("document.querySelector('.sync').textContent.trim()"), "2 bancos · 3 contas · 2 cartões")
+        self.assertEqual(self.linha(".banco-row", "Banco Azul"), "B Banco Azul Ana (cartão) · Beto (cartão) · 1 investimento · R$ 10.000")
+        self.assertEqual(self.linha(".banco-row", "Banco Verde"), "B Banco Verde Ana · 2 investimentos · R$ 6.500")
+
+    def test_cadastrar_banco_com_pessoa_e_cartao(self):
+        self.abrir_bancos()
+        self.clicar('.btn[data-a="banco"]')
+        self.assertEqual(self.folha(), "Novo banco")
+        self.preencher("#b-nome", "Banco Roxo")
+        self.assertEqual(self.pg.input_value('[data-fbc="pessoa"]'), "Ana", "começa com quem está usando o app")
+        self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
+        self.preencher('[data-fbc="fechamento"]', "3")
+        self.preencher('[data-fbc="vencimento"]', "10")
+        self.clicar('[data-a="b-salvar"]')
+        self.assertIsNone(self.folha(), "salvou e fechou")
+        roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")
+        self.assertEqual([(c["pessoa"], c["cartao"], c["fechamento"], c["vencimento"]) for c in roxo["contas"]], [("Ana", True, 3, 10)])
+        self.assertEqual(self.esperar_aviso("Banco"), "Banco cadastrado")
+        self.assertIsNotNone(self.linha(".banco-row", "Banco Roxo"), "já aparece na lista")
+
+    def test_banco_sem_nome_nao_salva(self):
+        self.abrir_bancos()
+        self.clicar('.btn[data-a="banco"]')
+        self.clicar('[data-a="b-salvar"]')
+        self.assertEqual(self.folha(), "Novo banco", "a janela continua aberta")
+        self.assertEqual(self.texto(".folha .msg-erro"), "Dê um nome ao banco.")
+        self.assertEqual(len(self.dados()["bancos"]), 2)
+
+    def test_banco_com_nome_repetido_nao_salva(self):
+        self.abrir_bancos()
+        self.clicar('.btn[data-a="banco"]')
+        self.preencher("#b-nome", "banco azul")
+        self.clicar('[data-a="b-salvar"]')
+        self.assertEqual(self.texto(".folha .msg-erro"), "Já existe um banco com esse nome.", "sem diferença de maiúsculas")
+        self.assertEqual(len(self.dados()["bancos"]), 2)
+
+    def test_dia_do_cartao_so_aceita_numeros_e_fica_dentro_do_mes(self):
+        self.abrir_bancos()
+        self.clicar('[data-a="banco"][data-id="b-verde"]')
+        self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
+        self.digitar('[data-fbc="fechamento"]', "4x5")
+        self.assertEqual(self.pg.input_value('[data-fbc="fechamento"]'), "45", "letras não entram")
+        self.digitar('[data-fbc="vencimento"]', "12")
+        self.clicar('[data-a="b-salvar"]')
+        c = self.banco("b-verde")["contas"][0]
+        self.assertEqual((c["cartao"], c["fechamento"], c["vencimento"]), (True, 31, 12), "dia 45 vira o último dia possível (31)")
+
+    def test_editar_banco_troca_a_cor_e_adiciona_pessoa(self):
+        self.abrir_bancos()
+        self.clicar('[data-a="banco"][data-id="b-verde"]')
+        self.assertEqual(self.folha(), "Editar banco")
+        self.clicar('.folha [data-a="b-cor"][data-v="#FF77A8"]')
+        self.clicar('.folha [data-a="bc-add"]')
+        self.preencher('[data-fbc="pessoa"][data-i="1"]', "Carla")
+        self.clicar('[data-a="b-salvar"]')
+        verde = self.banco("b-verde")
+        self.assertEqual((verde["cor"], [c["pessoa"] for c in verde["contas"]]), ("#FF77A8", ["Ana", "Carla"]))
+        self.assertEqual(self.esperar_aviso("Banco"), "Banco salvo")
+        self.assertEqual(self.js("document.querySelector('[data-a=\"banco\"][data-id=\"b-verde\"] .ini').style.getPropertyValue('--c')"), "#FF77A8",
+                         "a cor nova na lista")
+
+    def test_excluir_banco_pede_confirmacao_e_solta_investimentos_e_lancamentos(self):
+        lanc = [{"id": "c1", "tipo": "despesa", "descricao": "Farmácia", "valor": 120, "data": "2026-10-01", "conta": "k-ana", "cartao": True, "pago": True}]
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=[INV_CDB], lancamentos=lanc))
+        self.clicar('[data-a="banco"][data-id="b-azul"]')
+        self.clicar('.folha [data-a="b-excluir"]')
+        self.assertEqual(self.folha(), "Excluir banco?")
+        self.assertIn("1 investimento fica sem banco.", self.folha_texto())
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        d = self.dados()
+        self.assertEqual([b["nome"] for b in d["bancos"]], ["Banco Verde"])
+        self.assertEqual(d["investimentos"][0]["banco"], "")
+        self.assertEqual((d["lancamentos"][0]["conta"], d["lancamentos"][0]["cartao"]), ("", False), "a compra perde a conta e o cartão que sumiram")
+        self.assertEqual(self.esperar_aviso("Banco"), "Banco excluído")
+
+    # BUG: a confirmação "Excluir banco?" é aberta de dentro de "Editar banco", mas o Cancelar fecha tudo em vez de voltar
+    # para o banco (a regra do AGENTS.md: uma janela aberta de dentro de outra volta para ela no Voltar, no X e no Cancelar).
+    # Igual nas outras confirmações abertas de uma janela (Apagar categoria?, Restaurar esta versão?, Apagar lançamento?).
+    @unittest.expectedFailure
+    def test_cancelar_a_exclusao_volta_para_editar_banco_sem_apagar(self):
+        self.abrir_bancos()
+        self.clicar('[data-a="banco"][data-id="b-azul"]')
+        self.clicar('.folha [data-a="b-excluir"]')
+        self.clicar('.folha-pe [data-a="fechar"]')
+        self.assertEqual(len(self.dados()["bancos"]), 2, "nada apagado")
+        self.assertEqual(self.folha(), "Editar banco")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestMaisCaixa(TelaMais):
+    def abrir_caixa(self, d):
+        self.abrir(d, ui={"tab": "mais", "maisAba": "caixa"})
+
+    def test_nova_categoria_de_gasto_com_cor(self):
+        self.abrir_caixa(base())
+        self.clicar('[data-a="categoria-nova"][data-v="despesa"]')
+        self.assertEqual(self.folha(), "Nova categoria")
+        self.assertEqual(self.texto('.folha [data-a="cat-tipo"].on'), "Gasto", "pelo botão de Gastos, já é de gasto")
+        self.preencher("#cat-nome", "Viagens")
+        self.clicar('.folha [data-a="cat-cor"][data-v="#E04B8A"]')
+        self.clicar('[data-a="cat-salvar"]')
+        self.assertIsNone(self.folha())
+        nova = self.dados()["categorias"][-1]
+        self.assertEqual((nova["nome"], nova["tipo"], nova["cor"]), ("Viagens", "despesa", "#E04B8A"))
+        self.assertEqual(self.esperar_aviso("Categoria"), "Categoria criada")
+        self.assertEqual(self.pg.locator('#categorias [data-a="categoria"]', has_text="Viagens").count(), 1)
+
+    def test_categoria_sem_nome_nao_salva(self):
+        self.abrir_caixa(base())
+        n = len(self.dados()["categorias"])
+        self.clicar('[data-a="categoria-nova"][data-v="receita"]')
+        self.clicar('[data-a="cat-salvar"]')
+        self.assertEqual(self.texto(".folha .msg-erro"), "Dê um nome.")
+        self.assertEqual(len(self.dados()["categorias"]), n)
+
+    def test_editar_categoria_mostra_quantos_usam_e_troca_nome_e_cor(self):
+        lanc = [{"id": "m1", "tipo": "despesa", "descricao": "Feira", "valor": 80, "data": "2026-11-01", "pago": True, "categoria": "c-mercado"}]
+        rec = [{"id": "r-m", "tipo": "despesa", "descricao": "Cesta", "valor": 200, "dia": 3, "inicio": "2026-01", "categoria": "c-mercado"}]
+        self.abrir_caixa(base(lancamentos=lanc, recorrencias=rec))
+        self.clicar('[data-a="categoria"][data-id="c-mercado"]')
+        self.assertEqual(self.folha(), "Editar categoria")
+        self.assertIn("2 lançamentos usam esta categoria.", self.folha_texto())
+        self.preencher("#cat-nome", "Supermercado")
+        self.clicar('.folha [data-a="cat-cor"][data-v="#F2C14E"]')
+        self.clicar('[data-a="cat-salvar"]')
+        c = next(x for x in self.dados()["categorias"] if x["id"] == "c-mercado")
+        self.assertEqual((c["nome"], c["cor"]), ("Supermercado", "#F2C14E"))
+        self.assertEqual(self.esperar_aviso("Categoria"), "Categoria salva")
+
+    def test_apagar_categoria_deixa_os_lancamentos_sem_categoria(self):
+        lanc = [{"id": "m1", "tipo": "despesa", "descricao": "Feira", "valor": 80, "data": "2026-11-01", "pago": True, "categoria": "c-mercado"},
+                {"id": "o1", "tipo": "despesa", "descricao": "Cinema", "valor": 40, "data": "2026-11-01", "pago": True, "categoria": "c-lazer"}]
+        rec = [{"id": "r-m", "tipo": "despesa", "descricao": "Cesta", "valor": 200, "dia": 3, "inicio": "2026-01", "categoria": "c-mercado"}]
+        self.abrir_caixa(base(lancamentos=lanc, recorrencias=rec))
+        self.clicar('[data-a="categoria"][data-id="c-mercado"]')
+        self.clicar('.folha [data-a="cat-excluir"]')
+        self.assertEqual(self.folha(), "Apagar categoria?")
+        self.assertIn("Os lançamentos dela ficam sem categoria.", self.folha_texto())
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        d = self.dados()
+        self.assertNotIn("c-mercado", [c["id"] for c in d["categorias"]])
+        self.assertEqual([l["categoria"] for l in d["lancamentos"]], ["", "c-lazer"], "só os dela ficam sem categoria")
+        self.assertEqual(d["recorrencias"][0]["categoria"], "", "o fixo também")
+        self.assertEqual(self.esperar_aviso("Categoria"), "Categoria apagada")
+
+    def test_fixos_separados_com_o_total_por_mes_e_sem_os_parados(self):
+        self.abrir_caixa(base(bancos=BANCOS, recorrencias=FIXOS))
+        self.assertEqual(self.js("document.querySelector('#fixos .mais-aside').textContent"), "R$ 3.700 por mês", "5.000 menos 1.300 de gastos mensais")
+        self.assertEqual(self.js("[...document.querySelectorAll('#fixos h3')].map(h => h.textContent)"), ["Recebimentos · R$ 5.000", "Gastos · R$ 1.300", "Uma vez por ano"])
+        self.assertIn("Todo dia 15 · Banco Azul · Ana · cartão", self.linha("#fixos .banco-row", "Internet"))
+        self.assertIn("Todo ano, 1 de fevereiro", self.linha("#fixos .banco-row", "IPTU"))
+        self.assertIsNone(self.linha("#fixos .banco-row", "Academia"), "parou em outubro: sai da lista")
+
+    def test_tocar_no_fixo_abre_o_do_proximo_mes(self):
+        self.abrir_caixa(base(bancos=BANCOS, recorrencias=FIXOS))
+        self.clicar('#fixos [data-a="fixo"][data-id="r-alug"]')
+        self.assertEqual(self.folha(), "Despesa")
+        self.assertEqual(self.js("[T.LF.competencia, T.LF.data, T.LF.valor]"), ["2026-12", "2026-12-10", 1200])
+        self.assertEqual([t.strip() for t in self.textos(".folha-pe .btn")], ["Só este mês", "Todos os meses"])
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestIntegracoes(TelaMais):
+    def abrir_int(self, d=None, bens=None):
+        self.abrir(d or base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisAba": "integracoes"}, bens=bens)
+
+    def test_desligar_usar_ia_some_com_os_botoes_de_ia(self):
+        self.abrir_int()
+        self.clicar('#ia [data-a="ajuste"][data-k="ia"]')
+        self.assertFalse(self.dados()["ajustes"]["ia"])
+        self.assertEqual(self.js("document.querySelector('.sync').textContent.trim()"), "IA desligada")
+        self.assertIn("Desligado: os botões de IA somem em todos os aparelhos.", self.texto("#ia"))
+        self.assertEqual((self.conta("#uso-ia"), self.conta("#ia-ent")), (0, 0), "somem o Uso da IA e a escolha da IA")
+        self.ir("caixa")
+        self.clicar('#nav [data-a="novo"]')
+        self.assertEqual(self.folha(), "Nova despesa")
+        self.assertEqual(self.conta(".imp-tile"), 0, "sem Colar mensagem, Fatura e Digitalizar")
+        self.clicar('.folha-cab [data-a="fechar"]')
+        self.ir("inicio")
+        self.clicar('#nav [data-a="novo"]')
+        self.assertFalse(self.visivel('.escolhas [data-a="ia"]'), "Ler com IA some do Adicionar")
+
+    def test_falar_so_aparece_com_a_ia_ligada(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
+        self.addCleanup(lambda: self.js("(T.S.voz = null, true)"))
+        self.js("(T.S.voz = { pronta: true, nome: 'Fala de teste', opcoes: [] }, T.render(), true)")
+        self.assertGreater(self.conta('.cab [data-a="falar"]'), 0, "o microfone no alto")
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes={"ia": False}))
+        self.assertEqual(self.conta('[data-a="falar"]'), 0)
+
+    def test_uso_da_ia_com_hoje_7_dias_e_o_mes(self):
+        self.js("(T.S.usoSel = null, true)")
+        self.abrir_int()
+        self.pg.wait_for_selector("#uso-ia .uso-tile")
+        tiles = self.js("[...document.querySelectorAll('#uso-ia .uso-tile')].map(t => [t.querySelector('.uk').textContent, t.querySelector('.v').textContent])")
+        self.assertEqual(tiles, [["Hoje", "5"], ["7 dias", "16"], ["Este mês", "38"]])
+        self.assertEqual(self.conta("#uso-ia .uso-bar"), 7, "uma barra por dia")
+        self.assertEqual(self.js("document.querySelector('#uso-ia .uso-cap').textContent"), "Hoje: 5 chamadas, 1 sem cota.")
+        self.clicar("#uso-ia .uso-bar", 3)
+        self.assertEqual(self.js("document.querySelector('#uso-ia .uso-cap').textContent"), "Sex, 30/10: 2 chamadas, 1 com erro.", "tocar num dia mostra o dele")
+
+    def test_ligar_os_sensores(self):
+        self.abrir_int()
+        self.assertIn("Desligado: nenhum sensor no Home Assistant.", self.texto("#sensores"))
+        self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
+        self.assertTrue(self.dados()["ajustes"]["sensores"])
+        self.assertIn("Ligado: sensor.gerencia_patrimonio", self.texto("#sensores"))
+
+    def test_contas_no_cronologia_mostra_quando_foi_usada(self):
+        self.abrir_int()
+        self.addCleanup(lambda: self.js("(T.S.integracaoUltimo = null, true)"))
+        self.assertIn("Nenhum app conectou ainda.", self.texto("#outros-apps"))
+        self.js("(T.S.integracaoUltimo = { app: 'CronologIA', em: '2026-11-02T09:15:00-03:00' }, T.render(), true)")
+        self.assertIn("CronologIA usou hoje às 09:15.", self.texto("#outros-apps"))
+
+    def test_desligar_o_cronologia_esconde_o_estado_da_ligacao(self):
+        self.abrir_int()
+        self.clicar('#outros-apps [data-a="ajuste"][data-k="integracao"]')
+        self.assertFalse(self.dados()["ajustes"]["integracao"])
+        t = self.texto("#outros-apps")
+        self.assertIn("Desligado: o CronologIA não vê as contas do GerencIA.", t)
+        self.assertNotIn("Nenhum app conectou ainda.", t)
+
+    def test_bens_do_inventaria_ligado_mostra_o_total_e_a_perda_em_mais_invest(self):
+        self.abrir_int(bens=BENS)
+        self.assertIn("Ligado: R$ 30.000 em 12 itens.", self.texto("#bens"))
+        self.assertTrue(self.visivel('#bens [data-a="bens-atualizar"]'))
+        self.clicar('[data-a="mais-aba"][data-v="invest"]')
+        self.assertEqual(self.js("[...document.querySelectorAll('#perda-bens .bens-tx input')].map(i => [i.dataset.bensTaxa, i.value])"),
+                         [["moveis", "10"], ["eletronicos", "20"]], "a perda por ano de cada categoria, da que vale mais para a que vale menos")
+
+    def test_bens_desligado_some_da_carteira_e_da_perda_de_valor(self):
+        self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes={"bens": False}), bens=BENS)
+        self.assertIn("Desligado: o patrimônio fica só com os investimentos.", self.texto("#bens"))
+        self.assertEqual(self.conta('#bens [data-a="bens-atualizar"]'), 0)
+        self.clicar('[data-a="mais-aba"][data-v="invest"]')
+        self.assertEqual(self.conta("#perda-bens"), 0, "sem bens, sem a tabela de perda de valor")
+        self.ir("investimentos")
+        self.assertEqual(self.conta(".inv-ro"), 0, "sem o cartão Bens da casa na Carteira")
+
+    def test_inventaria_fora_do_ar_oferece_tentar_de_novo(self):
+        self.abrir_int(bens={"ok": False, "motivo": "O InventarIA não respondeu."})
+        self.assertIn("O InventarIA não respondeu.", self.texto("#bens"))
+        self.assertEqual(self.texto('#bens [data-a="bens-atualizar"]').strip(), "Tentar de novo")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestAparenciaEDados(TelaMais):
+    def test_tema_claro_e_escuro(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.clicar('[data-a="tema"][data-v="claro"]')
+        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("light", "claro"))
+        self.assertEqual(self.js("document.querySelector('[data-a=\"tema\"][data-v=\"claro\"]').getAttribute('aria-checked')"), "true")
+        self.clicar('[data-a="tema"][data-v="escuro"]')
+        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("dark", "escuro"))
+
+    def test_tema_automatico_segue_o_sistema(self):
+        self.abrir(base(ajustes={"tema": "escuro"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.addCleanup(lambda: self.pg.emulate_media(color_scheme="null"))
+        fundo = lambda: self.js("getComputedStyle(document.body).backgroundColor")
+        self.pg.emulate_media(color_scheme="light")
+        escuro_fixo = fundo()
+        self.clicar('[data-a="tema"][data-v="auto"]')
+        self.assertEqual(self.dados()["ajustes"]["tema"], "auto")
+        claro = fundo()
+        self.pg.emulate_media(color_scheme="dark")
+        self.esperar()
+        escuro = fundo()
+        self.assertNotEqual(claro, escuro, "o fundo muda com o tema do sistema")
+        self.assertEqual(escuro, escuro_fixo, "no escuro do sistema, igual ao tema Escuro")
+
+    def test_cor_do_app(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.clicar('[data-a="cor"][data-v="#8BD45F"]')
+        self.assertEqual(self.dados()["ajustes"]["cor"], "#8BD45F")
+        self.assertEqual(self.js("document.documentElement.style.getPropertyValue('--accent')"), "#8BD45F", "a cor vale no app todo")
+        self.assertEqual(self.js("document.querySelector('.tsw.on').textContent.trim()"), "Verde")
+
+    def test_criar_backup_avisa_onde_ficou(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.clicar('[data-a="backup"]')
+        self.assertEqual(self.esperar_aviso("Backup"), "Backup salvo em share/gerencia/gerencia-2026-11-02.zip")
+
+    def test_lista_os_backups_da_pasta(self):
+        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.pg.wait_for_selector(".bk-row")
+        linhas = self.js("[...document.querySelectorAll('.bk-row')].map(r => [r.querySelector('b').textContent, r.querySelector('span').textContent])")
+        self.assertEqual(len(linhas), 3)
+        self.assertEqual(linhas[0], ["02/11/2026 às 07:00", "178 KB · gerencia-2026-11-02-2105.zip"], "o mais novo primeiro")
+
+    def test_restaurar_backup_pede_confirmacao_e_troca_os_dados(self):
+        self.trocar_api("restaurarBackup", "async (nome) => { window.__restaurado = nome; return { bancos: [{ id: 'b-lilas', nome: 'Banco Lilás', cor: '#B79BFF', "
+                                           "contas: [] }], investimentos: [], lancamentos: [], recorrencias: [] }; }")
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.pg.wait_for_selector(".bk-row")
+        self.clicar('[data-a="bk-restaurar"]')
+        self.assertEqual(self.folha(), "Restaurar backup?")
+        self.assertIn("gerencia-2026-11-02-2105.zip", self.folha_texto())
+        self.assertIsNone(self.js("window.__restaurado || null"), "antes de confirmar, nada muda")
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        self.assertEqual(self.esperar_aviso("Backup"), "Backup restaurado")
+        self.assertEqual(self.js("window.__restaurado"), "gerencia-2026-11-02-2105.zip")
+        self.assertEqual([b["nome"] for b in self.dados()["bancos"]], ["Banco Lilás"])
+
+    def test_versoes_anteriores_lista_e_pede_confirmacao_para_restaurar(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisAba": "dados"})
+        self.clicar('[data-a="versoes"]')
+        self.assertEqual(self.folha(), "Versões anteriores")
+        self.pg.wait_for_selector(".versao-row")
+        self.assertEqual(self.conta(".versao-row"), 3, "as 3 mais recentes")
+        self.assertIn("1 investimento · R$ 10.000 · automática", self.texto(".versao-row"))
+        self.clicar('.versao-row [data-a="restaurar"]')
+        self.assertEqual(self.folha(), "Restaurar esta versão?")
+
+    def test_apagar_tudo_pede_confirmacao_e_mantem_categorias_e_preferencias(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB], lancamentos=LANC, recorrencias=FIXOS, ajustes={"tema": "escuro"}),
+                   ui={"tab": "mais", "maisAba": "dados"})
+        self.js("T.persistir(d => { d.categorias.push(a); })", {"id": "c-viagens", "nome": "Viagens", "tipo": "despesa", "cor": "#E04B8A"})
+        self.esperar()
+        self.clicar('[data-a="apagar-tudo"]')
+        self.assertEqual(self.folha(), "Apagar tudo?")
+        self.assertIn("Saem 1 investimento e 2 bancos.", self.folha_texto())
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        d = self.dados()
+        self.assertEqual((d["bancos"], d["investimentos"], d["lancamentos"], d["recorrencias"]), ([], [], [], []))
+        self.assertIn("c-viagens", [c["id"] for c in d["categorias"]], "as categorias continuam")
+        self.assertEqual(d["ajustes"]["tema"], "escuro", "as preferências continuam")
+        self.assertEqual(self.esperar_aviso("apagado"), "Tudo apagado")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestDicas(TelaMais):
+    def abrir_dicas(self, d, ui=None, assinaturas=True):
+        """Abre com estes dados e as dicas que o servidor entregou (o preço do Spotify já conferido na página oficial)."""
+        self.abrir(d, ui=ui)
+        self.js("(T.S.dicas = a, T.render(), true)", DICAS if assinaturas else dict(DICAS, dicas=[], assinaturas=[]))
+        self.esperar()
+
+    def test_dica_de_plano_anual_aparece_no_inicio_com_a_economia_real(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]))
+        card = self.linha(".card.dicas", "Dicas")
+        self.assertIsNotNone(card, "o quadro de dicas aparece")
+        self.assertIn("Spotify no plano anual R$ 239 por ano em vez de R$ 23,90 por mês, 2 meses grátis.", card)
+        real = self.js("T.economiaReal(23.9, 239)")
+        self.assertGreater(real["real"], 10)
+        self.assertEqual(self.js("document.querySelector('.card.dicas .dica-v').firstChild.textContent"), brl0(real["real"]),
+                         "a economia real: o desconto menos o que o dinheiro renderia")
+        self.assertIn(f"Desconto de {brl0(real['desconto'])} menos {brl0(real['rende'])}", card)
+        self.assertIn("Preço conferido em spotify.com em 18/10/2026", card)
+
+    def test_agora_nao_dispensa_a_dica(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]))
+        self.clicar(f'[data-a="dica-fora"][data-v="{DICA_SPOTIFY}"]')
+        self.assertEqual(self.dados()["ajustes"]["dicas_fora"], [DICA_SPOTIFY])
+        self.assertEqual(self.conta(".card.dicas"), 0)
+        self.assertEqual(self.esperar_aviso("Dica"), "Dica dispensada")
+
+    def test_mostrar_dispensadas_traz_a_dica_de_volta(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"dicas_fora": [DICA_SPOTIFY]}), ui={"tab": "mais", "maisAba": "caixa"})
+        self.assertEqual(self.texto('[data-a="dicas-voltar"]').strip(), "Mostrar dispensadas (1)")
+        self.clicar('[data-a="dicas-voltar"]')
+        self.assertEqual(self.dados()["ajustes"]["dicas_fora"], [])
+        self.assertEqual(self.esperar_aviso("Dicas"), "Dicas de volta")
+        self.ir("inicio")
+        self.assertIn("Spotify no plano anual", self.texto(".card.dicas"))
+
+    def test_mudar_para_anual_abre_a_janela_com_o_preco_e_a_data(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]))
+        self.clicar(f'[data-a="dica-anual"][data-v="{DICA_SPOTIFY}"]')
+        self.assertEqual(self.folha(), "Spotify no plano anual")
+        self.assertEqual(self.pg.input_value("#da-valor"), "239,00", "o preço da página oficial")
+        self.assertEqual(self.pg.input_value("#da-data"), "2026-11-22", "a próxima cobrança, no dia 22")
+        self.assertIn("Você economiza", self.texto("#da-eco"))
+
+    def test_confirmar_o_anual_para_o_mensal_e_cria_o_fixo_anual(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]))
+        self.clicar(f'[data-a="dica-anual"][data-v="{DICA_SPOTIFY}"]')
+        self.clicar('[data-a="da-ok"]')
+        self.assertIsNone(self.folha())
+        mensal, anual = self.dados()["recorrencias"]
+        self.assertEqual(mensal["fim"], "2026-10", "o mensal para antes de novembro")
+        self.assertEqual((anual["descricao"], anual["valor"], anual["freq"], anual["inicio"], anual["dia"], anual["conta"], anual["cartao"]),
+                         ("Spotify", 239, "anual", "2026-11", 22, "k-ana", True))
+        self.assertEqual(self.esperar_aviso("anual"), "Pronto: agora é anual")
+
+    def test_dica_de_categoria_acima_da_media(self):
+        self.abrir_dicas(base(lancamentos=RESTAURANTES), assinaturas=False)
+        card = self.linha(".card.dicas", "Dicas")
+        self.assertIn("Restaurantes acima da média Em outubro foram R$ 900, R$ 450 a mais que a média de julho a setembro.", card)
+        self.assertEqual(self.js("document.querySelector('.card.dicas .dica-v').firstChild.textContent"), "+R$ 450")
+
+    def test_dicas_desligadas_nas_opcoes_somem_do_inicio(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], lancamentos=RESTAURANTES, ajustes={"dicas": False}))
+        self.assertEqual(self.conta(".card.dicas"), 0)
+
+    def test_com_a_ia_desligada_a_dica_de_categoria_continua(self):
+        self.abrir_dicas(base(lancamentos=RESTAURANTES, ajustes={"ia": False}), ui={"tab": "mais", "maisAba": "caixa"}, assinaturas=False)
+        self.assertIn("Com a IA desligada, os planos anuais não são conferidos.", self.texto("#dicas"))
+        self.ir("inicio")
+        self.assertIn("Restaurantes acima da média", self.texto(".card.dicas"), "não usa IA")
+
+    # BUG: com Usar IA desligado, a dica de plano anual (que só existe porque a IA conferiu o preço) continua no Início.
+    # Pelo DOCS (Uso da IA) e pelo AGENTS.md, desligada a IA só ficam as dicas de categoria. O servidor continua
+    # entregando as dicas já conferidas e o cardDicas não olha o Usar IA.
+    @unittest.expectedFailure
+    def test_com_a_ia_desligada_a_dica_de_plano_anual_some_do_inicio(self):
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"ia": False}))
+        self.assertNotIn("plano anual", self.tela())
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestNavegacao(TelaMais):
+    def setUp(self):
+        self.js("(localStorage.removeItem('gerencia.ui'), true)")
+
+    def nova_despesa_com_colar(self):
+        """Nova despesa (pelo Adicionar do Caixa) e, por cima dela, Colar mensagem: duas janelas."""
+        self.abrir(base(bancos=BANCOS), ui={"tab": "caixa"})
+        self.clicar('#nav [data-a="novo"]')
+        self.assertEqual(self.folha(), "Nova despesa", "no Caixa, o Adicionar já abre a despesa")
+        self.clicar('.imp-tile[data-ini="texto"]')
+        self.assertEqual((self.folha(), self.niveis()), ("Colar mensagem", 2))
+
+    def test_menu_de_baixo_troca_de_aba(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
+        for aba, titulo in (("caixa", "Caixa"), ("investimentos", "Investimentos"), ("mais", "Mais"), ("inicio", "Início")):
+            self.ir(aba)
+            self.assertEqual(self.js("document.querySelector('.cab h1').textContent"), titulo)
+            self.assertEqual(self.js("document.querySelector('#nav [aria-current=\"page\"]').dataset.v"), aba, "a aba aberta fica marcada")
+
+    def test_aba_filtros_e_modos_ficam_guardados(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
+        self.ir("caixa")
+        self.clicar('[data-a="cx-modo"][data-v="fluxo"]')
+        self.ir("investimentos")
+        self.clicar('[data-a="filtro"][data-v="meus"]')
+        self.clicar('[data-a="inv-modo"][data-v="evolucao"]')
+        self.ir("mais")
+        self.clicar('[data-a="mais-aba"][data-v="dados"]')
+        g = self.guardado()
+        self.assertEqual((g["tab"], g["cxModo"], g["filtro"], g["invModo"], g["maisAba"]), ("mais", "fluxo", "meus", "evolucao", "dados"))
+
+    def test_descontar_ir_e_ocultar_bens_nao_ficam_guardados(self):
+        carro = {"id": "carro", "nome": "Carro", "tipo": "bens", "valor": 30000, "data_valor": "2026-11-02", "indexador": "deprecia", "taxa": 15, "categoria_bem": "veiculos"}
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB, carro]), ui={"tab": "investimentos", "invModo": "evolucao"})
+        self.clicar('[data-a="g"][data-k="gIR"]')
+        self.clicar('[data-a="g"][data-k="gSemBens"]')
+        self.assertEqual(self.js("[T.S.ui.gIR, T.S.ui.gSemBens]"), [True, True], "ligados na tela")
+        g = self.guardado()
+        self.assertNotIn("gIR", g)
+        self.assertNotIn("gSemBens", g)
+        self.assertEqual(g["invModo"], "evolucao", "o resto fica guardado")
+
+    def test_voltar_do_celular_fecha_so_a_janela_de_cima(self):
+        self.nova_despesa_com_colar()
+        self.voltar()
+        self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1))
+        self.voltar()
+        self.assertEqual(self.niveis(), 0)
+
+    def test_voltar_com_tres_janelas_fecha_uma_de_cada_vez(self):
+        self.nova_despesa_com_colar()
+        self.js("(T.abrirFolha(() => ({ titulo: 'Terceira', corpo: '<p>três</p>' }), null, true), true)")
+        self.assertEqual((self.folha(), self.niveis()), ("Terceira", 3))
+        self.voltar()
+        self.assertEqual((self.folha(), self.niveis()), ("Colar mensagem", 2))
+        self.voltar()
+        self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1))
+        self.voltar()
+        self.assertEqual(self.niveis(), 0)
+
+    def test_x_volta_para_a_janela_de_baixo(self):
+        self.nova_despesa_com_colar()
+        self.clicar('.folha-cab [data-a="fechar"]')
+        self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1))
+
+    def test_cancelar_volta_para_a_janela_de_baixo(self):
+        self.nova_despesa_com_colar()
+        self.clicar('.folha-pe [data-a="fechar"]')
+        self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1))
+
+    def test_o_que_foi_digitado_na_janela_de_baixo_continua_ao_voltar(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "caixa"})
+        self.clicar('#nav [data-a="novo"]')
+        self.digitar("#lf-valor", "4590")
+        self.preencher("#lf-desc", "Padaria do bairro")
+        self.clicar('.imp-tile[data-ini="texto"]')
+        self.voltar()
+        self.assertEqual((self.pg.input_value("#lf-valor"), self.pg.input_value("#lf-desc")), ("45,90", "Padaria do bairro"))
+
+    def test_fundo_escuro_fecha_a_janela(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
+        self.clicar('#nav [data-a="novo"]')
+        self.assertEqual(self.folha(), "Adicionar")
+        self.pg.locator("#folhas .veu").click(position={"x": 20, "y": 20})
+        self.esperar()
+        self.assertEqual(self.niveis(), 0)
+
+    def test_salvar_na_janela_de_cima_fecha_todas(self):
+        self.trocar_api("iaLer", "async () => ({ lancamentos: [{ tipo: 'despesa', descricao: 'Padaria', valor: 12.5, data: '2026-11-02', categoria: 'c-restaurantes', "
+                                  "parcela_atual: 0, parcelas_total: 0, cartao: false, banco: '', situacao: 'feito', confianca: 'alta' }], investimentos: [] })")
+        self.nova_despesa_com_colar()
+        self.preencher("#ia-txt", "padaria 12,50")
+        self.clicar('[data-a="ia-ler"]')
+        self.pg.wait_for_selector('[data-a="ia-salvar"]')
+        self.clicar('[data-a="ia-salvar"]')
+        self.assertEqual(self.niveis(), 0, "fechou as duas janelas")
+        self.assertEqual([(l["descricao"], l["valor"]) for l in self.dados()["lancamentos"]], [("Padaria", 12.5)])
+        self.assertEqual(self.esperar_aviso("IA"), "1 lançamento pela IA")
+
+    def test_busca_no_invest_filtra_e_limpa(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS), ui={"tab": "investimentos", "invModo": "carteira"})
+        self.preencher("#q", "carla")
+        self.assertEqual(self.textos(".inv .inv-nome"), ["Poupança da Carla"], "acha pela pessoa")
+        self.preencher("#q", "banco verde")
+        self.assertEqual(sorted(self.textos(".inv .inv-nome")), ["Poupança da Carla", "Tesouro Verde"], "acha pelo banco")
+        self.preencher("#q", "nada disso")
+        self.assertIn("Nenhum investimento com esse filtro.", self.tela())
+        self.clicar('[data-a="busca-limpar"]')
+        self.assertEqual(self.conta(".inv"), 3)
+        self.assertEqual(self.js("document.activeElement.id"), "q", "o cursor continua na busca")
+
+    def test_digitar_na_busca_da_evolucao_volta_para_a_carteira(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS), ui={"tab": "investimentos", "invModo": "evolucao"})
+        self.preencher("#q", "cdb")
+        self.assertEqual(self.js("T.S.ui.invModo"), "carteira")
+        self.assertEqual(self.textos(".inv .inv-nome"), ["CDB Azul"])
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestComputador(TelaMais):
+    """Com 1000 px ou mais: barra lateral, ações no alto à direita e janelas no meio."""
+    LARGURA, ALTURA = 1200, 800
+
+    def test_barra_lateral_no_lugar_do_menu_de_baixo(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.assertTrue(self.visivel("#lado"))
+        self.assertFalse(self.visivel("#nav"))
+        self.assertEqual([t.strip() for t in self.textos(".top-acts .btn")], ["Ler com IA", "Adicionar"], "as ações no alto à direita")
+        nomes = self.js("[...document.querySelectorAll('#lado .side-nav .side-link span:first-of-type')].map(s => s.textContent)")
+        self.assertEqual(nomes, ["Início", "Buscar", "Caixa", "Investimentos", "Mais"])
+        self.clicar('#lado [data-a="tab"][data-v="mais"]')
+        self.assertEqual(self.js("[...document.querySelectorAll('#lado [aria-current=\"page\"]')].map(e => e.textContent.trim())"), ["Mais"], "a seção aberta marcada")
+
+    def test_caixa_na_barra_lateral_mostra_quantas_contas_atrasaram(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC))
+        self.assertEqual(self.texto('#lado [data-v="caixa"] .side-badge'), "1")
+        self.assertEqual(self.conta('#lado [data-a="buscar"]'), 0, "sem investimentos, sem o Buscar")
+
+    def test_bancos_e_pessoas_na_barra_lateral_abrem_a_carteira_filtrada(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.assertEqual(self.js("[...document.querySelectorAll('#lado [data-a=\"lado-banco\"] .sl-nome')].map(s => s.textContent)"), ["Banco Azul", "Banco Verde"])
+        self.clicar('#lado [data-a="lado-banco"][data-v="b-verde"]')
+        u = self.js("T.S.ui")
+        self.assertEqual((u["tab"], u["invModo"], u["filtro"], u["banco"]), ("investimentos", "carteira", "todos", "b-verde"))
+        self.assertEqual(sorted(self.textos(".inv .inv-nome")), ["Poupança da Carla", "Tesouro Verde"])
+        self.clicar('#lado [data-a="pessoa"][data-v="Carla"]')
+        self.assertEqual(self.textos(".inv .inv-nome"), ["Poupança da Carla"])
+        self.assertEqual(self.js("[...document.querySelectorAll('#lado [aria-current=\"page\"]')].map(e => e.querySelector('.sl-nome').textContent)"), ["Carla"],
+                         "só a pessoa aberta fica marcada")
+
+    def test_tecla_barra_abre_a_busca(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.pg.keyboard.press("/")
+        self.esperar()
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.invModo, document.activeElement.id]"), ["investimentos", "carteira", "q"])
+
+    def test_janelas_abrem_no_meio_da_tela(self):
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.clicar('.top-acts [data-a="novo"]')
+        self.assertEqual(self.folha(), "Adicionar")
+        f = self.pg.locator("#folhas .folha").bounding_box()
+        meio = 272 + (self.LARGURA - 272) / 2
+        self.assertAlmostEqual(f["x"] + f["width"] / 2, meio, delta=20, msg="no meio do espaço ao lado da barra")
+        self.assertAlmostEqual(f["y"] + f["height"] / 2, self.ALTURA / 2, delta=40, msg="no meio da altura, não presa embaixo")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestReabrir(TelaMais):
+    """O que fica guardado ao fechar e abrir o app de novo (recarrega a página)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.UI0 = cls.pg.evaluate("window.__UI0")
+
+    def reabrir(self, guardado):
+        self.pg.evaluate("u => localStorage.setItem('gerencia.ui', JSON.stringify(u))", guardado)
+        self.addCleanup(lambda: self.pg.evaluate("() => localStorage.removeItem('gerencia.ui')"))
+        self.pg.reload()
+        self.pg.wait_for_function("window.GERENCIA_TESTE && window.GERENCIA_TESTE.S && window.GERENCIA_TESTE.S.d")
+        self.pg.evaluate("u => { window.__UI0 = u; }", self.UI0)
+        self.pg.add_style_tag(content=SEM_ANIMACAO)
+        self.esperar()
+
+    def test_reabrir_volta_na_aba_e_nos_modos_guardados(self):
+        self.reabrir({"tab": "caixa", "cxModo": "fluxo", "invModo": "divisao", "maisAba": "dados", "filtro": "terc"})
+        u = self.js("T.S.ui")
+        self.assertEqual((u["tab"], u["cxModo"], u["invModo"], u["maisAba"], u["filtro"]), ("caixa", "fluxo", "divisao", "dados", "terc"))
+        self.assertEqual(self.js("document.querySelector('.cab h1').textContent"), "Caixa")
+        self.assertEqual(self.js("T.iso(T.hoje())"), "2026-11-02", "o relógio continua parado")
+
+    def test_reabrir_descontar_ir_e_ocultar_bens_comecam_desligados(self):
+        self.reabrir({"tab": "investimentos", "invModo": "evolucao", "gIR": True, "gSemBens": True})
+        self.assertEqual(self.js("[T.S.ui.gIR, T.S.ui.gSemBens, T.S.ui.invModo]"), [False, False, "evolucao"])
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestConflitoAvisosENumeros(TelaMais):
+    def outro_aparelho_salva(self):
+        """Outro aparelho grava um banco a mais (a revisão da prévia sobe; esta tela fica com a velha)."""
+        self.js("""T.api.save({ rev: T.S.d.rev, bancos: T.S.d.bancos.concat([{ id: 'b-lilas', nome: 'Banco Lilás', cor: '#B79BFF',
+            contas: [{ id: 'k-lilas', pessoa: 'Carla', cartao: false, fechamento: 1, vencimento: 10 }] }]), investimentos: T.S.d.investimentos,
+            ajustes: T.S.d.ajustes, exemplo: false, lancamentos: T.S.d.lancamentos, recorrencias: T.S.d.recorrencias, categorias: T.S.d.categorias }).then(() => true)""")
+
+    def cadastrar_banco_roxo(self):
+        self.clicar('.btn[data-a="banco"]')
+        self.preencher("#b-nome", "Banco Roxo")
+        self.clicar('[data-a="b-salvar"]')
+
+    def test_conflito_ao_salvar_avisa_e_recarrega_os_dados(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.outro_aparelho_salva()
+        self.cadastrar_banco_roxo()
+        self.assertEqual(self.esperar_aviso("aparelho"), "Os dados mudaram em outro aparelho. Confira e tente de novo.")
+        self.assertEqual([b["nome"] for b in self.dados()["bancos"]], ["Banco Azul", "Banco Verde", "Banco Lilás"], "os dados do outro aparelho")
+        self.assertIsNotNone(self.linha(".banco-row", "Banco Lilás"), "a lista já mostra o que mudou")
+        self.assertEqual((self.folha(), self.pg.input_value("#b-nome")), ("Novo banco", "Banco Roxo"), "a janela continua, com o que foi digitado")
+
+    def test_depois_do_conflito_salvar_de_novo_nao_perde_nada(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.outro_aparelho_salva()
+        self.cadastrar_banco_roxo()
+        self.clicar('[data-a="b-salvar"]')
+        self.assertIsNone(self.folha())
+        self.assertEqual([b["nome"] for b in self.dados()["bancos"]], ["Banco Azul", "Banco Verde", "Banco Lilás", "Banco Roxo"])
+
+    def test_erro_ao_salvar_avisa_e_nao_muda_nada(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.trocar_api("save", "async () => { throw new Error('Sem conexão.'); }")
+        self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
+        self.assertEqual(self.esperar_aviso("salvar"), "Não consegui salvar. Sem conexão.")
+        self.assertFalse(self.dados()["ajustes"]["sensores"])
+        self.assertIn("Desligado", self.texto("#sensores"), "a chave continua desligada")
+
+    def test_numeros_longos_cabem_nos_destaques_do_inicio(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, valor=987654321.98), INV_TES]))
+        self.assertGreater(self.conta(".hl-n"), 3)
+        self.assertEqual(self.cortados(".hl-n"), [], "nenhum número cortado")
+
+    def test_numeros_longos_cabem_na_carteira_sem_cobrir_o_nome(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, valor=987654321.98), INV_TES]), ui={"tab": "investimentos", "invModo": "carteira"})
+        self.assertEqual(self.js("document.querySelector('.inv-valor').textContent"), "R$ 987.654.321,98")
+        self.assertEqual(self.cortados(".inv-valor"), [])
+        nome, valor = self.pg.locator(".inv .inv-nome").first.bounding_box(), self.pg.locator(".inv .inv-valor").first.bounding_box()
+        self.assertLessEqual(nome["x"] + nome["width"], valor["x"] + 1, "o nome termina antes do valor")
+
+    def test_numeros_grandes_do_placar_nao_se_sobrepoem(self):
+        # uma casa com muito dinheiro: 12 milhões investidos e 4,5 milhões em bens
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, valor=12345678.9)]), bens=dict(BENS, hoje=4567890, n=300))
+        cols = self.js("""[...document.querySelectorAll('.placar-cols > div')].map(d => { const r = document.createRange(); r.selectNodeContents(d.querySelector('b'));
+            const t = r.getBoundingClientRect(), c = d.getBoundingClientRect(); return [t.left, t.right, c.left, c.right]; })""")
+        self.assertEqual(len(cols), 3)
+        for k, (tl, tr, cl, cr) in enumerate(cols):
+            self.assertGreaterEqual(tl, cl - 0.5, f"o número {k + 1} começa dentro da coluna")
+            self.assertLessEqual(tr, cr + 0.5, f"o número {k + 1} termina dentro da coluna")
+        self.assertLessEqual(self.js("document.querySelector('.placar').scrollWidth"), self.js("document.querySelector('.placar').clientWidth") + 1, "o placar cabe na tela")
+
+    def test_os_dois_numeros_do_par_ficam_do_mesmo_tamanho_e_cabem(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), bens=dict(BENS, hoje=876543210.55, perde_ano=4321, n=1200))
+        self.clicar('.hl-row[data-a="bens"]')
+        self.assertEqual(self.folha(), "Bens da casa")
+        self.assertIn("Por categoria", self.folha_texto())
+        self.js("(T.ajustarTextos(), true)")
+        self.assertEqual(self.cortados(".folha .stat-duo b"), [])
+        tamanhos = self.js("[...document.querySelectorAll('.folha .stat-duo > div > b')].map(b => getComputedStyle(b).fontSize)")
+        self.assertEqual(len(set(tamanhos)), 1, f"Hoje e Perdem por ano do mesmo tamanho ({tamanhos})")
+
+
+if __name__ == "__main__":
+    unittest.main()

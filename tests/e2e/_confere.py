@@ -49,5 +49,11 @@ def valores(texto):
     return [float(x.replace(".", "").replace(",", ".")) for x in re.findall(r"R\$\s*(\d[\d.]*(?:,\d{1,2})?)", texto or "")]
 
 
+def valores_s(texto):
+    """Como valores, mas com o sinal: "−R$ 1.234", "-R$ 5" e "R$ -367" saem negativos."""
+    return [(-1 if (s1 or s2) else 1) * float(n.replace(".", "").replace(",", "."))
+            for s1, s2, n in re.findall(r"([−-])?\s*R\$\s*([−-])?\s*(\d[\d.]*(?:,\d{1,2})?)", texto or "")]
+
+
 def perto(a, b, o_que, tol=0.011):
     return _saida(a is not None and b is not None and abs(a - b) <= tol, o_que, f"veio {a!r}, esperado {b!r}")
