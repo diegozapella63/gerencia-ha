@@ -776,6 +776,82 @@ class TestDicas(TelaMais):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+class TestRelatorioNoTema(TelaMais):
+    """O relatório de patrimônio (uma página do servidor) abre no tema que o app está usando; no papel, branco."""
+
+    def url(self, tema):
+        self.abrir(base(bancos=BANCOS, ajustes={"tema": tema}))
+        self.js("(T.aplicarTema(), true)")
+        return self.js("T.urlRelatorio()")
+
+    def test_app_escuro_abre_o_relatorio_escuro(self):
+        self.assertEqual(self.url("escuro"), "relatorio?tema=escuro")
+
+    def test_app_claro_abre_o_relatorio_claro(self):
+        self.assertEqual(self.url("claro"), "relatorio?tema=claro")
+
+    def fundo(self, tema, impressao=False, esquema="light", ha=None):
+        """A cor de fundo do relatório de verdade (gerado pelo server.py) num Chromium."""
+        import os
+        import tempfile
+        from tests.base import importar_servidor
+        S = importar_servidor()
+        d = S.vazio()
+        d["investimentos"] = [{"id": "1", "nome": "CDB Azul", "valor": 1000, "indexador": "parado"}]
+        arq = os.path.join(tempfile.mkdtemp(), "relatorio.html")
+        with open(arq, "wb") as f:
+            f.write(S.gerar_relatorio(d, tema))
+        pg = self.ctx.new_page()
+        try:
+            if ha is not None:  # aberto dentro do Home Assistant, com este modo escuro
+                pg.add_init_script(f"window.parent = {{ document: {{ querySelector: s => s === 'home-assistant' ? {{ hass: {{ themes: {{ darkMode: {str(ha).lower()} }} }} }} : null }} }};")
+            pg.emulate_media(media="print" if impressao else "screen", color_scheme=esquema)
+            pg.goto("file://" + arq)
+            return pg.evaluate("getComputedStyle(document.body).backgroundColor")
+        finally:
+            pg.close()
+
+    def test_relatorio_escuro_e_claro_na_tela(self):
+        self.assertEqual(self.fundo("escuro"), "rgb(15, 19, 24)")
+        self.assertEqual(self.fundo("claro", esquema="dark"), "rgb(255, 255, 255)", "o tema do app vale mais que o do aparelho")
+
+    def test_relatorio_automatico_segue_o_aparelho(self):
+        self.assertEqual(self.fundo(None, esquema="dark"), "rgb(15, 19, 24)")
+        self.assertEqual(self.fundo(None, esquema="light"), "rgb(255, 255, 255)")
+
+    def test_relatorio_automatico_dentro_do_home_assistant_segue_o_tema_dele(self):
+        self.assertEqual(self.fundo(None, esquema="light", ha=True), "rgb(15, 19, 24)", "HA escuro com o aparelho claro")
+        self.assertEqual(self.fundo(None, esquema="dark", ha=False), "rgb(255, 255, 255)", "HA claro com o aparelho escuro")
+
+    def test_relatorio_no_celular_nao_corta_o_valor(self):
+        """390 px com um valor de milhão: o banco vai embaixo do nome e a página não rola para o lado."""
+        import os
+        import tempfile
+        from tests.base import importar_servidor
+        S = importar_servidor()
+        d = S.vazio()
+        d["bancos"] = [{"id": "b", "nome": "Corretora Norte"}]
+        d["investimentos"] = [{"id": "1", "nome": "Tesouro Selic 2029 com nome comprido", "banco": "b", "valor": 1218500, "indexador": "parado", "tipo": "tesouro"}]
+        arq = os.path.join(tempfile.mkdtemp(), "relatorio.html")
+        with open(arq, "wb") as f:
+            f.write(S.gerar_relatorio(d, "escuro"))
+        pg = self.ctx.new_page()
+        try:
+            pg.set_viewport_size({"width": 390, "height": 844})
+            pg.goto("file://" + arq)
+            self.assertFalse(pg.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth"), "nada sai da tela")
+            self.assertEqual(pg.inner_text(".inv td small"), "Tesouro · Corretora Norte")
+            self.assertFalse(pg.locator(".inv td:nth-child(2)").is_visible(), "a coluna Banco some no celular")
+            pg.set_viewport_size({"width": 1100, "height": 800})
+            self.assertTrue(pg.locator(".inv td:nth-child(2)").is_visible(), "no computador, a coluna Banco volta")
+            self.assertEqual(pg.inner_text(".inv td small"), "Tesouro")
+        finally:
+            pg.close()
+
+    def test_relatorio_escuro_imprime_em_branco(self):
+        self.assertEqual(self.fundo("escuro", impressao=True, esquema="dark"), "rgb(255, 255, 255)")
+
+
 class TestAtalhosParaMais(TelaMais):
     """Os atalhos do Início para um quadro de Mais abrem a tela (e a aba de Configurações) onde ele está."""
 

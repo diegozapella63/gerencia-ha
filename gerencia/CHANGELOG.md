@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.26.1
+
+- **Relatório de patrimônio** abre no mesmo tema do app (claro ou escuro, inclusive o automático do Home Assistant). Ao imprimir ou salvar em PDF, sai sempre em fundo branco.
+- No celular, o banco aparece embaixo do nome do investimento e o **Valor hoje** não fica mais cortado na beirada.
+
 ## 1.26.0
 
 - **Mais** agora é um menu, como no InventarIA: **Bancos**, **Caixa** (fixos, categorias e dicas de economia), **Invest** (índices de mercado e perda de valor dos bens), **Relatório de patrimônio** e, por último, **Configurações**. Cada um abre a sua tela, com **‹ Mais** no alto para voltar; o Voltar do celular e arrastar para a direita também voltam ao menu.

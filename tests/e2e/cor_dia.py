@@ -28,7 +28,7 @@ with sync_playwright() as p:
     igual(acento(), COR, f'Início: a cor do dia ({NOME})')
     pg.screenshot(path=f'{SP}/shots/cor-dia-inicio.png')
     relatorio = urllib.request.urlopen(B + 'relatorio').read().decode()
-    tem(relatorio, f':root{{--a:{COR}}}', 'o relatório na cor do dia')
+    tem(relatorio, f':root{{--a:{COR};', 'o relatório na cor do dia')
     # Mais › Configurações › Aparência
     ir_mais(pg, 'config', 'aparencia', 500)
     igual(' '.join(pg.inner_text('#cor .linha-sw').split()), 'Cor do dia Muda a cor do app todo dia.', 'a chave com a explicação curta')
@@ -44,7 +44,7 @@ with sync_playwright() as p:
     igual((a.get('cor'), a.get('cor_dia')), (OUTRA, False), f'tocar em {OUTRO}: guarda a cor e desliga a Cor do dia')
     igual((chave(), acento(), marcada()), ('false', OUTRA, [OUTRO]), 'a chave desliga e a cor escolhida vale')
     pg.locator('#cor').screenshot(path=f'{SP}/shots/cor-dia-escolhida.png')
-    tem(urllib.request.urlopen(B + 'relatorio').read().decode(), f':root{{--a:{OUTRA}}}', 'o relatório na cor escolhida')
+    tem(urllib.request.urlopen(B + 'relatorio').read().decode(), f':root{{--a:{OUTRA};', 'o relatório na cor escolhida')
     pg.reload(); pg.wait_for_timeout(900)
     igual(acento(), OUTRA, 'recarregando, continua a escolhida')
     # ligar de novo: volta para a do dia

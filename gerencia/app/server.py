@@ -30,7 +30,7 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 
-VERSAO = "1.26.0"
+VERSAO = "1.26.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -433,8 +433,12 @@ def restaurar_backup(nome):
 
 # ---------------------------------------------------------------- relatório
 
-def gerar_relatorio(d):
+def gerar_relatorio(d, tema=None):
+    """O relatório de patrimônio (HTML para ver, imprimir ou salvar em PDF). tema: "claro" ou "escuro" (o app manda o que está
+    usando); sem ele, vale o de Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro."""
     ind = d["indices"]
+    tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
+    attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
     corrigir = d["ajustes"].get("corrigir", True)
     cor = calc.cor_app(d["ajustes"])
     bancos = {b.get("id"): b for b in d["bancos"]}
@@ -461,14 +465,16 @@ def gerar_relatorio(d):
             v = calc.valor_hoje(inv, ind, corrigir)
             venc = calc.parse_data(inv.get("vencimento"))
             linhas.append(
-                "<tr><td>{}<small>{}</small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
+                # no celular a coluna Banco some e o banco vai embaixo do nome (senão o valor fica cortado)
+                "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
                     e(inv.get("nome", "")), e(calc.TIPOS.get(inv.get("tipo"), "")),
+                    (" · " if calc.TIPOS.get(inv.get("tipo")) else "") + e(bancos.get(inv.get("banco"), {}).get("nome", "")) if bancos.get(inv.get("banco")) else "",
                     e(bancos.get(inv.get("banco"), {}).get("nome", "")), e(calc.rotulo_taxa(inv)),
                     venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
                     calc.fmt_brl(v)))
         partes.append(
             f"<section><h2>{titulo}<span>{calc.fmt_brl(soma)}</span></h2>"
-            "<table><thead><tr><th>Investimento</th><th>Banco</th><th>Rendimento</th>"
+            "<table class=inv><thead><tr><th>Investimento</th><th>Banco</th><th>Rendimento</th>"
             "<th>Vencimento</th><th class=n>Valor hoje</th></tr></thead><tbody>"
             + "".join(linhas) + "</tbody></table></section>")
 
@@ -477,32 +483,41 @@ def gerar_relatorio(d):
         f"<td class=n>{calc.fmt_pct(v / t['total'] * 100 if t['total'] else 0)}%</td></tr>"
         for n, v in sorted(por_banco.items(), key=lambda x: -x[1]))
 
-    return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+    claro = "--bg:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--btn:#fff"
+    escuro = "--bg:#0f1318;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--btn:#18202a"
+    # no automático, sem o tema do app: o do Home Assistant (a página abre dentro dele) ou o do aparelho
+    script_tema = "" if tema else """<script>try{var h=parent!==window?parent.document.querySelector('home-assistant'):null,m=h&&h.hass&&h.hass.themes?h.hass.themes.darkMode:null;
+if(typeof m==='boolean')document.documentElement.setAttribute('data-theme',m?'dark':'light')}catch(e){}</script>"""
+    return f"""<!doctype html><html lang="pt-BR"{attr_tema}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Relatório GerencIA</title>
+<meta name="color-scheme" content="light dark">
+<title>Relatório GerencIA</title>{script_tema}
 <style>
-:root{{--a:{cor}}}
+:root{{--a:{cor};{claro};color-scheme:light}}
+:root[data-theme="dark"]{{{escuro};color-scheme:dark}}
+@media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{{escuro};color-scheme:dark}}}}
 *{{box-sizing:border-box}}
-body{{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#141a22;background:#fff;margin:0;padding:24px 16px 48px}}
+body{{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg);margin:0;padding:24px 16px 48px}}
 main{{max-width:860px;margin:0 auto}}
 .barra{{display:flex;gap:8px;margin-bottom:20px}}
-.barra a,.barra button{{font:inherit;font-weight:600;padding:10px 16px;border-radius:12px;border:1px solid #d6dbe2;background:#fff;color:#141a22;text-decoration:none;cursor:pointer}}
+.barra a,.barra button{{font:inherit;font-weight:600;padding:10px 16px;border-radius:12px;border:1px solid var(--borda);background:var(--btn);color:var(--fg);text-decoration:none;cursor:pointer}}
 .barra button{{background:var(--a);border-color:transparent;color:#0b0f14}}
 h1{{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}}
-.sub{{color:#5b6573;margin:0 0 20px}}
+.sub{{color:var(--mut);margin:0 0 20px}}
 .resumo{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}}
-.resumo div{{border:1px solid #e3e7ec;border-radius:12px;padding:12px}}
+.resumo div{{border:1px solid var(--linha);border-radius:12px;padding:12px}}
 .resumo b{{display:block;font-size:20px}}
-.resumo span{{color:#5b6573;font-size:13px}}
+.resumo span{{color:var(--mut);font-size:13px}}
 h2{{font-size:17px;display:flex;justify-content:space-between;border-bottom:2px solid var(--a);padding-bottom:6px;margin:28px 0 6px}}
 table{{width:100%;border-collapse:collapse;font-size:13.5px}}
-th{{text-align:left;color:#5b6573;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid #e3e7ec}}
-td{{padding:8px 6px;border-bottom:1px solid #eef1f4;vertical-align:top}}
-td small{{display:block;color:#5b6573}}
+th{{text-align:left;color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--linha)}}
+td{{padding:8px 6px;border-bottom:1px solid var(--linha2);vertical-align:top}}
+td small{{display:block;color:var(--mut)}}
 .n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
-.rodape{{color:#5b6573;font-size:12px;margin-top:28px}}
-@media (max-width:600px){{.resumo{{grid-template-columns:1fr}} th:nth-child(4),td:nth-child(4){{display:none}}}}
-@media print{{.barra{{display:none}} body{{padding:0}} section{{break-inside:avoid}}}}
+.rodape{{color:var(--mut);font-size:12px;margin-top:28px}}
+.bm{{display:none}}
+@media (max-width:600px){{.resumo{{grid-template-columns:1fr}} .inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
+@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};color-scheme:light}} .barra{{display:none}} body{{padding:0}} section{{break-inside:avoid}}}}
 </style></head><body><main>
 <div class="barra"><a href="./">Voltar</a><button onclick="window.print()">Imprimir ou salvar PDF</button></div>
 <h1>Relatório de patrimônio</h1>
@@ -1749,7 +1764,7 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/versoes":
                 return self.enviar(200, listar_versoes())
             if p in ("/relatorio", "/relatorio.html"):
-                corpo = gerar_relatorio(ler())
+                corpo = gerar_relatorio(ler(), (q.get("tema") or [None])[0])
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")

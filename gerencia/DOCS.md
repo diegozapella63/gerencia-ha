@@ -238,7 +238,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 - **Importar** traz de volta um `.zip` ou `.json` exportado pelo GerencIA; antes, o app guarda uma cópia do que existe.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
 - **Exportar** (Mais › Configurações › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
-- **Relatório de patrimônio** (linha própria em Mais): por dono e por banco, para imprimir ou salvar em PDF.
+- **Relatório de patrimônio** (linha própria em Mais): por dono e por banco, para imprimir ou salvar em PDF. Abre no mesmo tema do app (claro ou escuro); no papel sai sempre branco.
 - **Começar do zero** apaga lançamentos, fixos, investimentos e bancos; índices, categorias e preferências continuam, e uma cópia fica em Versões anteriores.
 
 ## Avisos

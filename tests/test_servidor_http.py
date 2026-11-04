@@ -95,6 +95,7 @@ class TestHTTP(unittest.TestCase):
         st, _, html = self.s.get("/relatorio")
         self.assertIn(b"CDB Exemplo", html)
         self.assertIn("attachment", self.s.get("/relatorio?baixar=1")[1]["Content-Disposition"])
+        self.assertIn(b'data-theme="dark"', self.s.get("/relatorio?tema=escuro")[2], "o relatório no tema do app")
 
     def test_backup_na_pasta_share_e_restaurar(self):
         self.estado(investimentos=[{"id": "i1", "nome": "Antes do backup", "valor": 1, "indexador": "parado"}])

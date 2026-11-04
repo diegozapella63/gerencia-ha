@@ -398,7 +398,7 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         self.assertIn("CDB &lt;b&gt;Azul&lt;/b&gt;", h, "o nome não vira HTML")
         self.assertIn("Mãe", h)
         self.assertNotIn("url(x)", h, "a cor não injeta CSS")
-        self.assertIn(":root{--a:#ff0000}", h, "com a Cor do dia desligada, a cor escolhida")
+        self.assertIn(":root{--a:#ff0000;", h, "com a Cor do dia desligada, a cor escolhida")
 
     def test_relatorio_na_cor_do_dia(self):
         class Dia(date):
@@ -410,7 +410,32 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         with mock.patch.object(S.calc, "date", Dia):
             h = S.gerar_relatorio(d)
         h = h.decode() if isinstance(h, bytes) else h
-        self.assertIn(":root{--a:#FF5A4F}", h, "11/11/2026: Vermelho")
+        self.assertIn(":root{--a:#FF5A4F;", h, "11/11/2026: Vermelho")
+
+    def relatorio(self, tema=None, ajuste="auto"):
+        d = dados(investimentos=[{"id": "1", "nome": "CDB Azul", "valor": 1000, "indexador": "parado"}])
+        d["ajustes"]["tema"] = ajuste
+        return S.gerar_relatorio(d, tema).decode()
+
+    def test_relatorio_no_tema_que_o_app_manda(self):
+        self.assertIn('<html lang="pt-BR" data-theme="dark">', self.relatorio("escuro"))
+        self.assertIn('<html lang="pt-BR" data-theme="light">', self.relatorio("claro", ajuste="escuro"), "vale o que o app está usando")
+
+    def test_relatorio_sem_o_app_usa_mais_aparencia(self):
+        self.assertIn('data-theme="dark"', self.relatorio(ajuste="escuro"))
+        self.assertIn('data-theme="light"', self.relatorio("qualquer", ajuste="claro"), "tema desconhecido: o de Mais › Aparência")
+
+    def test_relatorio_automatico_segue_o_home_assistant_e_o_aparelho(self):
+        h = self.relatorio()
+        self.assertIn('<html lang="pt-BR">', h)
+        self.assertIn("parent.document.querySelector('home-assistant')", h, "o tema do Home Assistant, quando abre dentro dele")
+        self.assertIn('@media (prefers-color-scheme:dark){:root:not([data-theme="light"])', h, "senão, o do aparelho")
+        self.assertNotIn("home-assistant", self.relatorio("escuro"), "com o tema do app, não precisa adivinhar")
+
+    def test_relatorio_no_papel_e_sempre_claro(self):
+        h = self.relatorio("escuro")
+        impressao = h[h.index("@media print"):]
+        self.assertIn(':root,:root[data-theme],:root:not([data-theme="light"]){--bg:#fff;--fg:#141a22', impressao)
 
     def test_bens_quando_o_inventaria_quebra(self):
         Trocar(self, BENS=type("B", (), {"ler": lambda self, forcar=False: (_ for _ in ()).throw(KeyError("x"))})())

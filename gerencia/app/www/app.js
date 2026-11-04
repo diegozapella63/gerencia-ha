@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.26.0';
+const VERSAO = '1.26.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -631,6 +631,8 @@ function aplicarTema() {
   if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0f1318';
 }
 if (!DEMO) setInterval(() => { if (S.d && S.d.ajustes.tema === 'auto') aplicarTema(); }, 2000);
+// o relatório (uma página do servidor) abre no mesmo tema que o app está usando agora
+const urlRelatorio = () => 'relatorio?tema=' + (document.documentElement.dataset.theme === 'light' ? 'claro' : 'escuro');
 // Com a Cor do dia, o app aberto troca de cor à meia-noite sem recarregar (confere a cada minuto e ao voltar para ele).
 function conferirCorDoDia() {
   if (!S.d || !corDiaOn() || numeroDoDia() === diaDaCor) return;
@@ -4878,7 +4880,7 @@ document.addEventListener('click', ev => {
       api.atualizarIndices().then(d => { S.d = normalizar(d); render(); toast(S.d.indices.erro ? 'Banco Central não respondeu. Mantive os valores.' : 'Índices atualizados'); })
         .catch(e => { toast('Não consegui atualizar. ' + e.message); render(); });
       break;
-    case 'relatorio': if (DEMO) toast('Na prévia o relatório não abre. No app, ele abre pronto para imprimir.'); else location.href = 'relatorio'; break;
+    case 'relatorio': if (DEMO) toast('Na prévia o relatório não abre. No app, ele abre pronto para imprimir.'); else location.href = urlRelatorio(); break;
     case 'demo-arq': toast('Na prévia os arquivos não são baixados.'); break;
     case 'backup': api.backup().then(r => { toast(`Backup salvo em ${r.pasta}/${r.arquivo}`); S.backups = null; render(); }).catch(e => toast('Não consegui criar o backup. ' + e.message)); break;
     case 'importar': $('#arquivo').click(); break;
