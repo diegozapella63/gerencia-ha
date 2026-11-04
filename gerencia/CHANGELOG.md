@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.26.0
+
+- **Mais** agora é um menu, como no InventarIA: **Bancos**, **Caixa** (fixos, categorias e dicas de economia), **Invest** (índices de mercado e perda de valor dos bens), **Relatório de patrimônio** e, por último, **Configurações**. Cada um abre a sua tela, com **‹ Mais** no alto para voltar; o Voltar do celular e arrastar para a direita também voltam ao menu.
+- **Configurações** fica com as abas Integrações, Dados, Aparência e Opções. O Relatório de patrimônio saiu de Dados e ganhou a sua linha no menu.
+- Quem estava numa aba de Mais volta no mesmo lugar, já no caminho novo (por exemplo, Mais › Configurações › Dados).
+- O ícone de Mais, embaixo e na barra lateral, agora são três pontos.
+
 ## 1.25.0
 
 - **Cor do dia**: a cor do app muda todo dia, passando pelas cores de Mais › Aparência (sem o Grafite). Vem ligada, também para quem já tinha escolhido uma cor, e é a mesma o dia todo, em todos os aparelhos; com o app aberto, troca à meia-noite. A cor do dia aparece marcada em Cor do app; tocar numa cor desliga a Cor do dia e fica com ela. O placar, o ícone, os gráficos e o relatório seguem a cor.

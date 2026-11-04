@@ -942,7 +942,7 @@ class TestEditar(_TelaInvest):
 # ---------------------------------------------------------------------------------------------------------------
 class TestIndices(_TelaInvest):
     def mais_invest(self, d=None):
-        self.abrir(d or base(bancos=BANCOS, investimentos=[CDB]), ui={"tab": "mais", "maisAba": "invest"})
+        self.abrir(d or base(bancos=BANCOS, investimentos=[CDB]), ui={"tab": "mais", "maisTela": "invest"})
 
     def test_editar_um_indice_a_mao(self):
         self.mais_invest()

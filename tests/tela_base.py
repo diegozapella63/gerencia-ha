@@ -146,6 +146,9 @@ _ABRIR = """async (a) => {
   Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, dicas: null, ia: null, uso: null, backups: null });
   T.S.d = T.normalizar(r);
   const t = document.getElementById('toast'); if (t) { t.classList.remove('on'); t.textContent = ''; }
+  // o histórico começa sem janelas nem telas de Mais; uma tela de Mais aberta aqui ganha a entrada dela (o Voltar volta ao menu)
+  try { history.replaceState(null, ''); } catch (e) { /* ok */ }
+  T.TELA_VISTA = ''; T.TELA_DE = null;
   T.render();
   return true;
 }"""
@@ -199,9 +202,19 @@ class Tela(unittest.TestCase):
         self.pg.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
 
     def ir(self, aba):
-        """Vai para uma aba: inicio, caixa, investimentos ou mais."""
+        """Vai para uma aba: inicio, caixa, investimentos ou mais (o menu)."""
         self.pg.click(f'#nav [data-a="tab"][data-v="{aba}"]')
         self.esperar()
+
+    def ir_mais(self, tela, aba=None):
+        """Pelo menu de Mais, abre uma tela (bancos, caixa, invest ou config) e, em Configurações, uma aba
+        (integracoes, dados, aparencia ou opcoes), como a pessoa faz."""
+        self.ir("mais")
+        self.pg.click(f'#app .menu-row[data-v="{tela}"]')
+        self.esperar()
+        if aba:
+            self.pg.click(f'#app .mais-abas [data-a="mais-aba"][data-v="{aba}"]')
+            self.esperar()
 
     def clicar(self, sel, n=0):
         self.pg.locator(sel).nth(n).click()

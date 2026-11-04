@@ -770,7 +770,21 @@ details summary { list-style-position: inside; }
 .vinc-st { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 50px; color: var(--text-2); font-size: 15px; }
 .vinc-st .ic-s { color: var(--accent-text); flex: none; }
 
-/* ---------- Mais em abas, como no ResolvIA, no CronologIA e no InventarIA */
+/* ---------- Mais: um menu, como no InventarIA (cada função na sua linha, Configurações por último) */
+.menu-list { list-style: none; margin: 22px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.menu-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.menu-row:active { background: var(--card-2); }
+@media (hover: hover) { .menu-row:hover { background: var(--card-2); } }
+.menu-row .mb { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.menu-row b { font-size: 17px; font-weight: 600; }
+.menu-row .mb span { color: var(--muted); font-size: 14px; line-height: 1.35; }
+/* numa tela de Mais, o caminho de volta para o menu, no alto */
+.uplink { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin: 8px 0 0 -6px; padding: 6px 10px 6px 4px; border-radius: 10px; color: var(--text-2); font-weight: 500; }
+.uplink:active { background: var(--card-2); color: var(--text); }
+@media (hover: hover) { .uplink:hover { background: var(--card-2); color: var(--text); } }
+.uplink + .cab-linha h1 { margin-top: 2px; }
+
+/* ---------- Configurações em abas, como no ResolvIA, no CronologIA e no InventarIA */
 .mais-abas {
   position: sticky; top: 0; z-index: 15; display: flex; gap: 2px; padding: 4px; margin: 4px 0 18px;
   border-radius: 14px; background: var(--card-2); border: 1px solid var(--line); box-shadow: 0 0 0 8px var(--bg);
@@ -787,7 +801,7 @@ details summary { list-style-position: inside; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mais-abas button.on { background: #2c333d; } }
 .mais-abas .ic-s { width: 17px; height: 17px; }
 @media (max-width: 600px) { .mais-abas .ic-s { display: none; } .mais-abas button { padding: 0 8px; font-size: 14.5px; } }
-.mais-painel { min-height: calc(100dvh - 160px); }
+.mais-painel.abas { min-height: calc(100dvh - 160px); }
 .mais-head { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
 .mais-head h2 { flex: 1; min-width: 0; margin: 0; font: 600 25px/1.1 var(--font-d); letter-spacing: .005em; }
 .mais-ic { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 17%, transparent); color: var(--accent-text); }
@@ -936,7 +950,7 @@ details summary { list-style-position: inside; }
 .cam-pronto { justify-self: end; padding: 12px 16px; border-radius: 14px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 15px; }
 .cam-pronto:disabled { background: rgba(255,255,255,.18); color: rgba(255,255,255,.6); }
 
-/* IA desligada em Mais › Integrações: os botões de IA somem */
+/* IA desligada em Mais › Configurações › Integrações: os botões de IA somem */
 [data-ia="off"] [data-a="ia"], [data-ia="off"] .imp-campo, [data-ia="off"] [data-a="lf-ler-recibo"], [data-ia="off"] [data-a="ia-saldos"] { display: none !important; }
 
 /* ---------- Falar: o microfone no alto de cada tela, à direita (como no CronologIA e no ResolvIA) */
@@ -1016,6 +1030,9 @@ details summary { list-style-position: inside; }
   .cab { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: start; }
   .cab-topo { grid-column: 1; grid-row: 1; min-height: 18px; }
   .cab-linha { grid-column: 1; grid-row: 2; }
+  .cab > .uplink { grid-column: 1; grid-row: 2; justify-self: start; }
+  .cab > .uplink + .cab-linha { grid-row: 3; }
+  .cab:has(> .uplink) > .top-acts { grid-row: 1 / span 3; }
   .cab-topo > .mic-top, .cab-linha > .icbtn { display: none; }
   .cab h1 { margin-top: 8px; font-size: 46px; }
   .top-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 8px; }
@@ -1108,7 +1125,7 @@ details summary { list-style-position: inside; }
 @media (min-width: 1900px) {
   html { zoom: var(--z); }
   .folha { max-height: calc(86vh / var(--z)); }
-  .mais-painel { min-height: 0; }
+  .mais-painel.abas { min-height: 0; }
 }
 
 /* Bens no InventarIA: a perda por ano de cada categoria, e as linhas da janela Bens da casa */
@@ -1205,7 +1222,7 @@ input[readonly] { opacity: .8; }
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.25.0';
+const VERSAO = '1.26.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1216,7 +1233,7 @@ const CORES_APP = [
   ['Turquesa', '#3CCBDA'], ['Azul', '#56AEFF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
 ];
 const rgbHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-// Cor do dia (Mais › Aparência, ligada por padrão): as cores do app em ordem, uma por dia, sem as neutras (Grafite).
+// Cor do dia (Mais › Configurações › Aparência, ligada por padrão): as cores do app em ordem, uma por dia, sem as neutras (Grafite).
 // O dia é a data daqui contada desde 01/01/1970: a mesma cor o dia todo, em todo aparelho (igual ao calc.cor_do_dia).
 const neutra = h => { const c = rgbHex(h); return Math.max(...c) - Math.min(...c) < 40; };
 const CORES_DIA = CORES_APP.filter(([, h]) => !neutra(h));
@@ -1340,6 +1357,8 @@ const P = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chart: '<path d="M4 19h16"/><path d="m5 15 4-5 4 3 6-7"/>',
   sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  // Mais (três pontos, como no InventarIA)
+  dots: '<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
@@ -1384,6 +1403,17 @@ const P = {
 const ic = (n, c = 'ic') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
 /* ------------------------------------------------------------------ estado */
+// Até a 1.25, Mais era em abas (maisAba). Agora Mais é um menu: Bancos, Caixa e Invest viraram telas (maisTela) e as
+// outras abas ficaram em Configurações. Quem abre o app atualizado volta no mesmo lugar, já no caminho novo.
+function uiGuardada() {
+  const u = store.get('ui', {});
+  if (u && typeof u === 'object' && u.maisTela === undefined && u.maisAba) {
+    const tela = ['bancos', 'caixa', 'invest'].includes(u.maisAba) ? u.maisAba : 'config';
+    u.maisTela = u.tab === 'mais' ? tela : '';
+    if (tela !== 'config') u.maisAba = 'integracoes';
+  }
+  return u;
+}
 const S = {
   d: null,
   usuario: null,
@@ -1391,15 +1421,16 @@ const S = {
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
     invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gSemBens: false, gAgrup: 'banco', gSel: null,
-    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null, maisAba: 'bancos',
-  }, store.get('ui', {}), { gIR: false, gSemBens: false }), // Descontar IR e Ocultar bens começam desligados toda vez
+    cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null,
+    maisTela: '', maisAba: 'integracoes',
+  }, uiGuardada(), { gIR: false, gSemBens: false }), // Descontar IR e Ocultar bens começam desligados toda vez
   ia: null,
   dicas: null,
   bens: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba });
 };
 
 function normalizar(d) {
@@ -1822,7 +1853,7 @@ if (!DEMO) setInterval(() => { if (S.d && S.d.ajustes.tema === 'auto') aplicarTe
 // Com a Cor do dia, o app aberto troca de cor à meia-noite sem recarregar (confere a cada minuto e ao voltar para ele).
 function conferirCorDoDia() {
   if (!S.d || !corDiaOn() || numeroDoDia() === diaDaCor) return;
-  if (S.ui.tab === 'mais' && maisAba() === 'aparencia') render(); else aplicarTema();
+  if (maisTela() === 'config' && maisAba() === 'aparencia') render(); else aplicarTema();
 }
 setInterval(conferirCorDoDia, 60000);
 window.addEventListener('focus', conferirCorDoDia);
@@ -1858,11 +1889,14 @@ const iconeApp = () => `<svg class="app-ic" viewBox="0 0 32 32" aria-hidden="tru
   <path d="M2 16h2.4M12.8 16h2.4M16.8 16h2.4M27.6 16h2.4" stroke="var(--bg)" stroke-width="1.6"/>
   <text x="8.6" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">R</text>
   <text x="23.4" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">$</text></svg>`;
-function cabecalho(titulo, acoes = '', status = null) {
+// status: [classe, texto] da linha embaixo do título (sem ele, a dos índices; false, sem a linha);
+// volta: numa tela de Mais, o caminho de volta para o menu no alto ("‹ Mais"), como no InventarIA
+function cabecalho(titulo, acoes = '', status = null, volta = false) {
   const [cls, txt] = status || syncInfo();
   return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">${iconeApp()}Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoChat()}${botaoFalar()}</div>
+    ${volta ? `<button class="uplink" data-a="mais-volta">${ic('chevL', 'ic-s')}Mais</button>` : ''}
     <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
-    <p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`;
+    ${status === false ? '' : `<p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`}`;
 }
 
 // No computador, as ações ficam no alto à direita, como no ResolvIA e no CronologIA: Falar, esconder valores, Ler com IA e Adicionar.
@@ -4603,7 +4637,7 @@ function cardDicasMais() {
   const subs = (st && st.assinaturas) || [];
   let h = `<section class="card" id="dicas">${maisCab('percent', 'Dicas de economia')}
     ${maisLead(`Assinaturas dos fixos e faturas com plano anual mais barato, pelo preço da página oficial. Reconhece ${esc(juntarE(catalogo))}.`)}`;
-  if (S.d.ajustes.dicas === false) return h + `<div class="status manual">Desligadas em Mais › Opções.</div></section>`;
+  if (S.d.ajustes.dicas === false) return h + `<div class="status manual">Desligadas em Mais › Configurações › Opções.</div></section>`;
   // conferir o plano anual depende da IA; as dicas de categoria acima da média, não
   if (!iaOn()) return h + `<div class="status manual">Com a IA desligada, os planos anuais não são conferidos.</div></section>`;
   if (!st) h += `<div class="status manual">Carregando…</div>`;
@@ -4855,10 +4889,13 @@ function cardCategorias() {
     <h3>Gastos</h3><div class="chips">${grupo('despesa')}<button class="chip add" data-a="categoria-nova" data-v="despesa">${ic('plus', 'ic-s')}Nova</button></div>
     <h3>Recebimentos</h3><div class="chips" style="margin:0">${grupo('receita')}<button class="chip add" data-a="categoria-nova" data-v="receita">${ic('plus', 'ic-s')}Nova</button></div></section>`;
 }
-function cardFixos() {
+// só os que ainda vão acontecer (um fixo parado some da lista; o que ele já lançou continua no caixa)
+function fixosAtivos() {
   const ym = ymHoje();
-  // só os que ainda vão acontecer (um fixo parado some da lista; o que ele já lançou continua no caixa)
-  const ativos = S.d.recorrencias.filter(r => { for (let k = 1; k <= 12; k++) if (ativaEm(r, addYm(ym, k))) return true; return false; });
+  return S.d.recorrencias.filter(r => { for (let k = 1; k <= 12; k++) if (ativaEm(r, addYm(ym, k))) return true; return false; });
+}
+function cardFixos() {
+  const ativos = fixosAtivos();
   if (!ativos.length) return '';
   const quando = r => (r.freq === 'anual' ? `Todo ano, ${r.dia} de ${MESES_LONGOS[+String(r.inicio).slice(5) - 1]}` : `Todo dia ${r.dia}`) + (r.fim ? ` · até ${nomeMes(r.fim, true)}` : '');
   const linha = r => `<button class="banco-row" data-a="fixo" data-id="${esc(r.id)}"><span class="ini" style="--c:${corCat(r)}">${esc((r.descricao || '?').slice(0, 1).toUpperCase())}</span>
@@ -4951,13 +4988,16 @@ function salvarBanco() {
     .then(ok => { if (ok) fecharFolha(); });
 }
 
-/* ------------------------------------------------------------------ Mais */
-/* ------------------------------------------------------------------ Mais: abas no alto, como no ResolvIA, no CronologIA e no InventarIA */
-const MAIS_ABAS = [
-  ['bancos', 'Bancos', 'bank'], ['caixa', 'Caixa', 'fluxo'], ['invest', 'Invest', 'trend'], ['integracoes', 'Integrações', 'blocks'],
-  ['dados', 'Dados', 'archive'], ['aparencia', 'Aparência', 'palette'], ['opcoes', 'Opções', 'toggle-right'],
+/* ------------------------------------------------------------------ Mais: um menu, como no InventarIA */
+// Mais abre um menu: cada função tem a sua linha e a sua tela (Bancos, Caixa, Invest), o Relatório de patrimônio abre
+// direto e, por último, Configurações, com as abas Integrações, Dados, Aparência e Opções.
+// A tela aberta fica em S.ui.maisTela ('' é o menu); a aba de Configurações, em S.ui.maisAba.
+const MAIS_TELAS = { bancos: 'Bancos', caixa: 'Caixa', invest: 'Invest', config: 'Configurações' };
+const CONFIG_ABAS = [
+  ['integracoes', 'Integrações', 'blocks'], ['dados', 'Dados', 'archive'], ['aparencia', 'Aparência', 'palette'], ['opcoes', 'Opções', 'toggle-right'],
 ];
-const maisAba = () => MAIS_ABAS.some(([k]) => k === S.ui.maisAba) ? S.ui.maisAba : 'bancos';
+const maisTela = () => S.ui.tab === 'mais' && Object.keys(MAIS_TELAS).includes(S.ui.maisTela) ? S.ui.maisTela : '';
+const maisAba = () => CONFIG_ABAS.some(([k]) => k === S.ui.maisAba) ? S.ui.maisAba : 'integracoes';
 const iaOn = () => S.d.ajustes.ia !== false;
 // cabeçalho de seção: o ícone num quadradinho no tom da cor do app e o título grande
 // the header of a card: an icon tile (like the CronologIA and the ResolvIA), the title and, on the right, a number
@@ -4975,28 +5015,54 @@ function corAppAtual() {
   return dist <= 24 ? melhor : null;
 }
 
+const maisPe = () => `<p class="foot"><b>GerencIA</b><br>v${VERSAO}${DEMO ? ' · prévia: as alterações ficam só nesta tela' : ''}</p>`;
 function telaMais() {
-  const aba = maisAba();
+  const tela = maisTela();
+  if (!tela) return menuMais();
   const d = S.d;
-  let status = ['', `GerencIA ${VERSAO}`];
-  if (aba === 'bancos') {
+  let status = ['', `GerencIA ${VERSAO}`], corpo;
+  if (tela === 'bancos') {
     const cs = d.bancos.flatMap(b => b.contas || []);
     status = ['', d.bancos.length ? `${plural(d.bancos.length, 'banco', 'bancos')} · ${plural(cs.length, 'conta', 'contas')} · ${plural(cs.filter(c => c.cartao).length, 'cartão', 'cartões')}` : 'Nenhum banco ainda'];
-  } else if (aba === 'invest') status = syncInfo();
-  else if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
-  const corpo = { bancos: maisBancos, caixa: maisCaixa, invest: maisInvest, integracoes: maisIntegracoes, dados: maisDados, aparencia: maisAparencia, opcoes: maisOpcoes }[aba]();
-  return `${cabecalho('Mais', '', status)}
-    <div class="mais-abas" role="tablist" aria-label="Seções de Mais">${MAIS_ABAS.map(([k, n, i]) =>
-      `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
-    <div class="mais-painel" role="tabpanel" aria-label="${MAIS_ABAS.find(([k]) => k === aba)[1]}">${corpo}</div>
-    <p class="foot"><b>GerencIA</b><br>v${VERSAO}${DEMO ? ' · prévia: as alterações ficam só nesta tela' : ''}</p>`;
+    corpo = `<div class="mais-painel">${maisBancos()}</div>`;
+  } else if (tela === 'caixa') {
+    const n = fixosAtivos().length;
+    status = ['', `${n ? plural(n, 'fixo', 'fixos') : 'Nenhum fixo ainda'} · ${plural(d.categorias.length, 'categoria', 'categorias')}`];
+    corpo = `<div class="mais-painel">${maisCaixa()}</div>`;
+  } else if (tela === 'invest') {
+    status = syncInfo();
+    corpo = `<div class="mais-painel">${maisInvest()}</div>`;
+  } else {
+    const aba = maisAba();
+    if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
+    const painel = { integracoes: maisIntegracoes, dados: maisDados, aparencia: maisAparencia, opcoes: maisOpcoes }[aba]();
+    corpo = `<div class="mais-abas" role="tablist" aria-label="Seções de Configurações">${CONFIG_ABAS.map(([k, n, i]) =>
+        `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
+      <div class="mais-painel abas" role="tabpanel" aria-label="${CONFIG_ABAS.find(([k]) => k === aba)[1]}">${painel}</div>`;
+  }
+  return `${cabecalho(MAIS_TELAS[tela], '', status, true)}${corpo}${maisPe()}`;
+}
+
+/* --------- o menu: uma linha por função (o ícone no quadradinho dos títulos das seções), Configurações por último */
+function menuMais() {
+  const linhas = [
+    ['bancos', 'bank', 'Bancos', 'Quem tem conta e os cartões.'],
+    ['caixa', 'fluxo', 'Caixa', 'Fixos, categorias e dicas de economia.'],
+    ['invest', 'trend', 'Invest', cardPerdaBens() ? 'Índices de mercado e perda de valor dos bens.' : 'Índices de mercado: CDI, Selic, IPCA e TR.'],
+    ['', 'file', 'Relatório de patrimônio', 'Para imprimir ou salvar em PDF.'],
+    ['config', 'sliders', 'Configurações', 'Integrações, dados, aparência e opções.'],
+  ];
+  return `${cabecalho('Mais', '', false)}
+    <nav aria-label="Mais"><ul class="menu-list">${linhas.map(([k, i, t, s]) => `<li><button class="menu-row" ${k ? `data-a="mais-tela" data-v="${k}"` : 'data-a="relatorio"'}>
+      <span class="mais-ic" aria-hidden="true">${ic(i)}</span><span class="mb"><b>${t}</b><span>${s}</span></span>${ic('chev', 'chev')}</button></li>`).join('')}</ul></nav>
+    ${maisPe()}`;
 }
 
 /* --------- Bancos */
 function maisBancos() {
   const d = S.d;
-  let h = `<section class="card" id="bancos">${maisCab('bank', 'Bancos e contas')}
-    ${maisLead('Quem tem conta em cada banco e os cartões, com fechamento e vencimento.')}`;
+  // a tela já se chama Bancos: o quadro vai sem título, como as telas de uma coisa só do InventarIA
+  let h = `<section class="card" id="bancos">${maisLead('Quem tem conta em cada banco e os cartões, com fechamento e vencimento.')}`;
   for (const b of d.bancos) {
     const l = d.investimentos.filter(i => i.banco === b.id);
     const v = l.reduce((s, i) => s + valorHoje(i), 0);
@@ -5136,7 +5202,6 @@ function maisDados() {
         ${exp('csv', 'Investimentos (CSV)', 'Um investimento por linha.', 'Baixar CSV')}
         ${exp('json', 'Dados completos (JSON)', 'Todos os campos.', 'Baixar JSON')}
         ${exp('zip', 'Tudo (ZIP)', 'Dados, planilhas e imagens. É o que o Importar traz de volta.', 'Baixar ZIP')}
-        <li id="relatorio"><div class="ot"><b>Relatório de patrimônio</b><span>Por dono e por banco, para imprimir ou salvar em PDF.</span></div><button class="btn peq" data-a="relatorio">${ic('file', 'ic-s')}Abrir relatório</button></li>
       </ul></section>
     <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
       ${maisLead('Cópia completa em <code>share/gerencia</code>. O backup do Home Assistant também inclui o app.')}
@@ -5145,7 +5210,7 @@ function maisDados() {
       ${maisLead('Um .zip ou .json exportado pelo GerencIA. Antes, o app guarda uma cópia do que existe.')}
       <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></section>
     <section class="card" id="versoes">${maisCab('clock', 'Versões anteriores')}
-      ${maisLead('Cópia automática a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.')}
+      ${maisLead('Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.')}
       <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></section>
     <section class="card" id="onde">${maisCab('database', 'Onde ficam os dados')}
       ${maisLead('<code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, no backup do Home Assistant. Sem internet, só os índices, a IA e as dicas param.')}</section>
@@ -5252,6 +5317,21 @@ window.addEventListener('popstate', () => {
   if (CAM && CAM.h > alvo) fecharCamera(true);
   while (FOLHA && FOLHA.h > alvo) fecharFolha(true, true);
   if (nivel() < alvo) voltarHist(nivel()); // entradas que sobraram de folhas já fechadas
+  // as telas de Mais (marcarTela): saiu da entrada da tela aberta, volta para onde se estava;
+  // caiu na entrada de uma tela que já não está aberta (sobrou), volta mais uma
+  if (alvo || FOLHA || CAM || !S.d) return;
+  const t = histTela(), agora = maisTela();
+  if (t && t !== agora) { try { history.back(); } catch (e) { /* ok */ } }
+  else if (!t && agora) {
+    const de = TELA_DE;
+    TELA_DE = null;
+    TELA_VISTA = '';
+    S.ui.maisTela = '';
+    if (de) S.ui.tab = de;
+    salvarUI();
+    render();
+    window.scrollTo(0, 0);
+  }
 });
 
 // como escolher: de dentro de outra janela, fica por cima dela e o Cancelar volta para ela
@@ -5417,7 +5497,7 @@ function montarTransferir() {
       ${tudo ? `<div class="campo"><div class="lbl">${esc(de.nome)} fica zerado</div><div class="chips c2" style="margin:0">
         <button class="chip${!t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="">Manter na carteira</button>
         <button class="chip${t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="1">Tirar da carteira</button></div>
-        ${t.apagar ? '<div class="ajuda">Uma cópia fica em Mais › Dados › Versões anteriores.</div>' : ''}</div>` : ''}
+        ${t.apagar ? '<div class="ajuda">Uma cópia fica em Mais › Configurações › Dados › Versões anteriores.</div>' : ''}</div>` : ''}
       <p class="nota" style="margin:4px 0 0">Não mexe no caixa.</p>`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="tr-ok">Transferir${t.valor ? ' ' + brl(t.valor, 0) : ''}</button>`,
   };
@@ -5624,7 +5704,7 @@ function abrirVersoes() {
 /* ------------------------------------------------------------------ render */
 const ABAS = [
   ['inicio', 'Início', 'home'], ['caixa', 'Caixa', 'fluxo'], ['add', 'Adicionar', 'plus'],
-  ['investimentos', 'Invest', 'wallet'], ['mais', 'Mais', 'sliders'],
+  ['investimentos', 'Invest', 'wallet'], ['mais', 'Mais', 'dots'],
 ];
 function pintarNav() {
   $('#nav .in').innerHTML = ABAS.map(([k, n, i]) => k === 'add'
@@ -5654,7 +5734,7 @@ function pintarLado() {
     ${d.investimentos.length ? `<button class="side-link" data-a="buscar">${ic('search')}<span>Buscar</span><kbd aria-hidden="true">/</kbd></button>` : ''}
     ${link('caixa', 'Caixa', 'fluxo', nAtr ? `<span class="side-badge" title="${plural(nAtr, 'conta atrasada', 'contas atrasadas')}">${nAtr}</span>` : '')}
     ${link('investimentos', 'Investimentos', 'wallet')}
-    ${link('mais', 'Mais', 'sliders')}</nav>`;
+    ${link('mais', 'Mais', 'dots')}</nav>`;
   const pb = new Map();
   for (const i of d.investimentos) pb.set(i.banco || '', (pb.get(i.banco || '') || 0) + valorHoje(i));
   const bancos = [...pb].sort((a, b) => b[1] - a[1]);
@@ -5710,6 +5790,7 @@ function render() {
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
   pintarNav();
   pintarLado();
+  marcarTela();
   desenharGraficos();
   { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
   ajustarTextos();
@@ -5719,12 +5800,12 @@ function render() {
     S.iaPedido = true;
     api.iaStatus().then(st => { S.ia = st; if (S.ui.tab === 'mais') render(); }).catch(() => {}).finally(() => { S.iaPedido = false; });
   }
-  if (S.ui.tab === 'mais' && maisAba() === 'integracoes' && iaOn() && !S.usoPedido && (!S.uso || Date.now() - (S.usoEm || 0) > 30000)) {
+  if (maisTela() === 'config' && maisAba() === 'integracoes' && iaOn() && !S.usoPedido && (!S.uso || Date.now() - (S.usoEm || 0) > 30000)) {
     S.usoPedido = true;
     api.iaUso().then(u => { S.uso = u; }).catch(() => { if (!S.uso) S.uso = { today: null, days: [] }; })
       .finally(() => { S.usoPedido = false; S.usoEm = Date.now(); if (S.ui.tab === 'mais') render(); });
   }
-  if (S.ui.tab === 'mais' && maisAba() === 'dados' && S.backups == null && !S.bkPedido) {
+  if (maisTela() === 'config' && maisAba() === 'dados' && S.backups == null && !S.bkPedido) {
     S.bkPedido = true;
     api.backups().then(b => { S.backups = b; }).catch(() => { S.backups = []; }).finally(() => { S.bkPedido = false; if (S.ui.tab === 'mais') render(); });
   }
@@ -5732,9 +5813,30 @@ function render() {
   if (FOLHA) pintarFolha();
 }
 
-const MAIS_ANCORA = { indices: 'invest', 'perda-bens': 'invest', dicas: 'caixa', fixos: 'caixa', ia: 'integracoes', bens: 'integracoes' };
-function irPara(tab, ancora) {
+// Uma tela de Mais ocupa uma entrada no histórico ({ tela }): o Voltar do celular (ou do navegador) volta para onde
+// se estava, o menu (ou a aba do atalho que abriu a tela). Saindo da tela de outro jeito (‹ Mais, a barra de baixo,
+// arrastar), a entrada dela é desfeita, para o Voltar seguinte não cair nela. As janelas (folhas) ficam por cima.
+let TELA_VISTA = '', TELA_DE = null;
+const histTela = () => { try { return (history.state && history.state.tela) || ''; } catch (e) { return ''; } };
+function marcarTela() {
+  if (FOLHA || CAM) return;
+  const agora = maisTela(), antes = TELA_VISTA;
+  TELA_VISTA = agora;
+  if (agora === antes) return;
+  try {
+    if (agora) { if (histTela()) history.replaceState({ tela: agora }, ''); else history.pushState({ tela: agora }, ''); }
+    else if (histTela() === antes) history.back();
+  } catch (e) { /* ok */ }
+}
+// um atalho para um quadro de Mais (Índices, Dicas...) abre a tela (e a aba de Configurações) onde ele está
+const MAIS_ANCORA = { indices: ['invest'], 'perda-bens': ['invest'], dicas: ['caixa'], fixos: ['caixa'], ia: ['config', 'integracoes'], bens: ['config', 'integracoes'] };
+function irPara(tab, ancora, tela = '') {
+  const de = S.ui.tab, antes = maisTela();
   S.ui.tab = tab;
+  S.ui.maisTela = tab === 'mais' && Object.keys(MAIS_TELAS).includes(tela) ? tela : '';
+  const agora = maisTela();
+  if (!agora) TELA_DE = null;
+  else if (agora !== antes) TELA_DE = (antes || de === 'mais') ? null : de; // do menu (ou de outra tela de Mais), o Voltar vai ao menu
   salvarUI();
   render();
   if (entraDe) { // arrastou para o lado: a tela nova entra pelo lado para onde o dedo foi
@@ -5755,11 +5857,14 @@ document.addEventListener('click', ev => {
   if (!el) return;
   const a = el.dataset.a, v = el.dataset.v, id = el.dataset.id;
   switch (a) {
-    case 'tab':
-      // um atalho para um quadro de Mais (Índices, Dicas...) abre a aba onde ele está
-      if (v === 'mais' && MAIS_ANCORA[el.dataset.ancora]) { S.ui.maisAba = MAIS_ANCORA[el.dataset.ancora]; salvarUI(); }
-      irPara(v, el.dataset.ancora);
+    case 'tab': { // a barra de baixo (Mais abre o menu) ou um atalho para um quadro de Mais
+      const al = v === 'mais' && MAIS_ANCORA[el.dataset.ancora];
+      if (al && al[1]) S.ui.maisAba = al[1];
+      irPara(v, el.dataset.ancora, al ? al[0] : '');
       break;
+    }
+    case 'mais-tela': irPara('mais', null, v); break;
+    case 'mais-volta': irPara('mais'); break;
     case 'novo':
       if (S.ui.tab === 'investimentos') abrirInvestimento(null, S.ui.filtro === 'terc' && S.ui.pessoa ? { titular: 'terceiros', terceiro: S.ui.pessoa } : null);
       else if (S.ui.tab === 'caixa') abrirLancamento(null, { tipo: S.ui.cxFiltro === 'entradas' ? 'receita' : 'despesa' });
@@ -5814,7 +5919,7 @@ document.addEventListener('click', ev => {
     case 'escolha': { const o = FOLHA && FOLHA.opcoes && FOLHA.opcoes[+v]; fecharFolha(); if (o) o.acao(); break; }
     case 'fixo': { const r = S.d.recorrencias.find(x => x.id === id); if (r) abrirLancamento(`v:${r.id}:${proximaYm(r)}`); break; }
     case 'dica-anual': abrirDicaAnual(v); break;
-    case 'aporte-ajustar': { const fx = aportesFixos(); if (fx.length === 1) abrirLancamento(`v:${fx[0].id}:${proximaYm(fx[0])}`); else { S.ui.maisAba = 'caixa'; irPara('mais', 'fixos'); } break; }
+    case 'aporte-ajustar': { const fx = aportesFixos(); if (fx.length === 1) abrirLancamento(`v:${fx[0].id}:${proximaYm(fx[0])}`); else irPara('mais', 'fixos', 'caixa'); break; }
     case 'aporte-novo': novoAporte(); break;
     case 'dica-fora': persistir(d => { d.ajustes.dicas_fora = [...new Set([...(d.ajustes.dicas_fora || []), v])].slice(-200); }, 'Dica dispensada'); break;
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
@@ -5887,8 +5992,8 @@ document.addEventListener('click', ev => {
       if (CH) api.chatLimpar().then(r => { if (CH) { Object.assign(CH, { msgs: r.mensagens || [], limpar: false, erro: '' }); pintarFolha(); } }).catch(e => toast('Não consegui apagar. ' + (e.message || '')));
       break;
     case 'fala-ok': terminarFala(); break;
-    case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA(v); break;
-    case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '', sobre: !!el.dataset.sobre }); break;
+    case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.'); break; } abrirIA(v); break;
+    case 'ia-saldos': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.'); break; } abrirIA('invest', null, { saldos: true, pessoa: v || '', sobre: !!el.dataset.sobre }); break;
     case 'ias-pessoa': IAS.pessoa = v; pintarFolha(); break;
     case 'ia-de': {
       if (!iaOn()) break;
@@ -6227,7 +6332,8 @@ document.addEventListener('input', ev => {
   if (el.dataset.ui === 'busca') { S.ui.busca = el.value; if (S.ui.invModo !== 'carteira' && el.value) { S.ui.invModo = 'carteira'; salvarUI(); } render(); return; }
 });
 
-// Arrastar para o lado troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais.
+// Arrastar para o lado troca de aba no celular, como no ResolvIA, no CronologIA e no InventarIA: Início ⇄ Caixa ⇄ Invest ⇄ Mais
+// (numa tela de Mais, para a direita volta ao menu).
 // Não vale começando na borda da tela (é o Voltar do celular), num campo, num gráfico (lá o dedo mostra os valores),
 // numa fileira que rola para o lado, com uma janela aberta ou no computador (lá há a barra lateral).
 const ABAS_ARRASTE = ['inicio', 'caixa', 'investimentos', 'mais'];
@@ -6251,6 +6357,8 @@ document.addEventListener('touchend', ev => {
   const t = ev.changedTouches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
   if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.at > 800) return;
   const d = dx < 0 ? 1 : -1; // dedo para a esquerda: a próxima aba
+  // numa tela de Mais (Bancos, Configurações...), arrastar para a direita volta para o menu
+  if (maisTela()) { if (d < 0) { entraDe = d; irPara('mais'); } return; }
   const i = ABAS_ARRASTE.indexOf(S.ui.tab), j = i + d;
   if (i < 0 || j < 0 || j >= ABAS_ARRASTE.length) return;
   entraDe = d;
@@ -6350,7 +6458,7 @@ function montarBens() {
       <button class="link" data-a="bens-evolucao" style="margin:0 0 6px">${ic('chart', 'ic-s')}Ver na Evolução</button>
       <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · −${pct(c.taxa)}% ao ano`, c.hoje)).join('')}
       <h3 class="ia-sec">Por cômodo</h3>${b.comodos.map(c => linha(c.nome, plural(c.n, 'item', 'itens'), c.hoje)).join('')}
-      <p class="nota">Pelo valor de cada item no InventarIA, menos a perda por ano desde a data desse valor. As taxas ficam em Mais › Integrações.</p>`,
+      <p class="nota">Pelo valor de cada item no InventarIA, menos a perda por ano desde a data desse valor. As taxas ficam em Mais › Invest.</p>`,
     pe: `<button class="btn" data-a="fechar">Fechar</button><button class="btn pri" data-a="bens-atualizar">${ic('refresh', 'ic-s')}Atualizar</button>`,
   };
 }

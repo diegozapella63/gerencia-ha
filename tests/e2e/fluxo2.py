@@ -3,7 +3,7 @@ investimentos, imagem no formulário, banco com pessoas, categoria nova e fixo e
 import sys
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, estado, mes
+from _confere import igual, tem, sim, estado, mes, ir_mais
 SP=sys.argv[1]; erros=[]
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':396,'height':860}, device_scale_factor=2, extra_http_headers={'X-Remote-User-Display-Name': 'Ana'})
@@ -76,8 +76,7 @@ with sync_playwright() as p:
     igual(pg.locator('.foto img').count(), 1, 'miniatura da imagem no formulário')
     pg.click('[data-a="f-salvar"]:not([data-mais])'); pg.wait_for_timeout(600)
     # 7) banco com pessoas
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(500)
-    pg.click('.mais-abas [data-v="bancos"]'); pg.wait_for_timeout(400)
+    ir_mais(pg, 'bancos')
     pg.click('[data-a="banco"][data-id="b-lua"]'); pg.wait_for_timeout(300)
     igual(pg.locator('.conta-ed').count(), 2, 'duas pessoas no Banco Lua')
     pg.click('[data-a="bc-add"]'); pg.wait_for_timeout(150)
@@ -88,7 +87,7 @@ with sync_playwright() as p:
     pg.click('[data-a="b-salvar"]'); pg.wait_for_timeout(600)
     d7=estado(pg); igual([(c['pessoa'], c['cartao'], c['fechamento'], c['vencimento']) for c in d7['bancos'][0]['contas']][-1], ('Ana', True, 7, 15), 'conta nova com cartão')
     # 8) categoria nova e fixo encerrado
-    pg.click('.mais-abas [data-v="caixa"]'); pg.wait_for_timeout(400)
+    ir_mais(pg, 'caixa')
     pg.click('[data-a="categoria-nova"][data-v="despesa"]'); pg.wait_for_timeout(200)
     pg.fill('#cat-nome', 'Viagens'); pg.click('[data-a="cat-salvar"]'); pg.wait_for_timeout(500)
     pg.click('[data-a="fixo"][data-id="r-musica"]'); pg.wait_for_timeout(300)

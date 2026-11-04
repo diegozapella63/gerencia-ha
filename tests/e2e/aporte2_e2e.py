@@ -54,7 +54,7 @@ with sync_playwright() as p:
     igual(pg.inner_text('.aporte-info').split('\n'), ['R$ 1.000,00', '2 aportes fixos nas contas a pagar.'], 'Evolução: a soma dos aportes fixos')
     igual([x.strip() for x in pg.locator('.ctrl .btns-2 .btn').all_inner_texts()], ['Ver os aportes', 'Outro aporte'], 'com dois aportes: Ver os aportes')
     pg.click('[data-a="aporte-ajustar"]'); pg.wait_for_timeout(500)
-    igual((pg.inner_text('.cab h1'), pg.inner_text('.mais-abas button.on').strip()), ('Mais', 'Caixa'), 'com dois, abre Mais › Caixa (os fixos)')
+    igual((pg.inner_text('.cab h1'), pg.inner_text('.uplink').strip()), ('Caixa', 'Mais'), 'com dois, abre Mais › Caixa (os fixos)')
     # 5 trocar de Aporte para Despesa
     cats_despesa = len([c for c in get('api/state')['categorias'] if c.get('tipo', 'despesa') == 'despesa'])
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(300)

@@ -4,7 +4,7 @@ da lista; apagar tudo leva os lançamentos dele."""
 import sys, json, urllib.request
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, mes
+from _confere import igual, tem, sim, mes, ir_mais
 MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
@@ -27,7 +27,7 @@ with sync_playwright() as p:
     d = get('api/state')
     igual([(r['descricao'], r.get('freq'), r['inicio'], r['dia'], r['valor']) for r in d['recorrencias']], [('Recebimento', 'anual', d_anual.isoformat()[:7], d_anual.day, 24000)], 'recebimento fixo todo ano criado')
     igual([(l['valor'], l['pago'], l['data']) for l in d['lancamentos']], [(24000, True, d_anual.isoformat())], 'o deste ano lançado e recebido')
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300); pg.click('[data-a="mais-aba"][data-v="caixa"]'); pg.wait_for_timeout(400)
+    ir_mais(pg, 'caixa')
     igual(pg.locator('#fixos .banco-row').count(), 1, 'o fixo na lista de Fixos')
     pg.locator('#fixos .banco-row').first.click(); pg.wait_for_timeout(400)
     pg.click('[data-a="lf-excluir"]'); pg.wait_for_timeout(400)
@@ -46,7 +46,7 @@ with sync_playwright() as p:
     pg.click('[data-a="lf-set"][data-k="repete"][data-v="mensal"]'); pg.click('[data-a="lf-salvar"]:not([data-mais])'); pg.wait_for_timeout(800)
     d = get('api/state'); n0 = len(d['lancamentos'])
     igual(n0, 2, 'o fixo mensal lançou o primeiro mês')
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300); pg.click('[data-a="mais-aba"][data-v="caixa"]'); pg.wait_for_timeout(400)
+    ir_mais(pg, 'caixa')
     igual(pg.locator('#fixos .banco-row').count(), 1, 'só o fixo mensal na lista')
     pg.locator('#fixos .banco-row').first.click(); pg.wait_for_timeout(400)
     pg.click('[data-a="lf-excluir"]'); pg.wait_for_timeout(400)

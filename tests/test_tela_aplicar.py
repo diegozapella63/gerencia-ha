@@ -511,7 +511,7 @@ class TestTransferir(_Tela):
         self.clicar('.folha [data-a="tr-tudo"]')
         self.clicar('.folha [data-a="tr-apagar"][data-v="1"]')
         self.assertEqual([t.strip() for t in self.textos('.folha [data-a="tr-apagar"].on')], ["Tirar da carteira"])
-        self.assertEqual(self.texto('.folha .campo:has([data-a="tr-apagar"]) .ajuda'), "Uma cópia fica em Mais › Dados › Versões anteriores.")
+        self.assertEqual(self.texto('.folha .campo:has([data-a="tr-apagar"]) .ajuda'), "Uma cópia fica em Mais › Configurações › Dados › Versões anteriores.")
         self.clicar('.folha [data-a="tr-para"][data-v="i-lci"]')
         self.ok()
         self.assertEqual(self.aviso(), "Transferido R$ 10.000 de CDB Azul para LCI Verde")
@@ -832,10 +832,10 @@ class TestCampos(_Tela):
                  ("2026-10-28T14:20:00-03:00", "28/10 às 14:20"), ("2025-12-28T09:05:00-03:00", "28/12/2025 às 09:05"))
         for quando, txt in casos:
             with self.subTest(quando=quando):
-                self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisAba": "caixa"}, dicas=dict(DICAS, atualizado=quando))
+                self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisTela": "caixa"}, dicas=dict(DICAS, atualizado=quando))
                 self.assertEqual(self.texto('#dicas .dica-quando'), f"Última verificação: {txt}.")
         self.assertEqual(self.js("T.quandoLongo('não é data')"), "", "data inválida: nada")
-        self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisAba": "caixa"}, dicas=dict(DICAS, atualizado="2026-11-02T08:15:00-03:00", conferindo=True))
+        self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisTela": "caixa"}, dicas=dict(DICAS, atualizado="2026-11-02T08:15:00-03:00", conferindo=True))
         self.assertEqual(self.texto('#dicas .dica-quando'), "Conferindo agora…")
         self.assertTrue(self.pg.is_disabled('#dicas [data-a="dicas-conferir"]'))
 
@@ -844,7 +844,7 @@ class TestCampos(_Tela):
         ass = dict(_ASS, preco_anual=283.8, anual=283.8)
         er = self.js("T.economiaReal(23.9, 283.8)")
         self.assertLess(er["real"], 10)
-        self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisAba": "caixa"}, dicas=dict(DICAS, dicas=[], assinaturas=[ass]))
+        self.dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]), ui={"tab": "mais", "maisTela": "caixa"}, dicas=dict(DICAS, dicas=[], assinaturas=[ass]))
         self.assertIn(f"O anual tem R$ 3 de desconto, mas o dinheiro rendendo {er['rs']['onde']} daria quase o mesmo. Não vale trocar.",
                       self.texto('#dicas .ass-st'))
 

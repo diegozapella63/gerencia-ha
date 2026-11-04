@@ -1,8 +1,8 @@
 """Falar pelo microfone do alto: ouvindo com o tempo, Pronto manda para a fala para texto e a IA, a conferência mostra o
-que foi ouvido no alto, conta como Falar no Uso da IA, e Mais › Integrações diz que o Falar está pronto."""
+que foi ouvido no alto, conta como Falar no Uso da IA, e Mais › Configurações › Integrações diz que o Falar está pronto."""
 import re, sys, json, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim
+from _confere import igual, tem, sim, ir_mais
 SP=sys.argv[1]; erros=[]
 B='http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -28,8 +28,7 @@ with sync_playwright() as p:
     igual(get('api/ia/uso')['today'].get('kinds', {}).get('fala', 0) - fala0, 1, 'conta como Falar no Uso da IA')
     pg.screenshot(path=f'{SP}/shots/v2-revisao.png')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(500)
-    pg.click('.mais-abas [data-v="integracoes"]'); pg.wait_for_timeout(1200)
+    ir_mais(pg, 'config', 'integracoes', 1200)
     igual([t for t in pg.locator('#ia .status').all_inner_texts() if 'Falar' in t],
-          ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.'], 'Mais › Integrações: Falar pronto, com a fala para texto usada')
+          ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.'], 'Mais › Configurações › Integrações: Falar pronto, com a fala para texto usada')
     print('ERROS', erros); b.close()

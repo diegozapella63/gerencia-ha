@@ -3,7 +3,7 @@ categoria, fica fora do patrimônio, muda com a tabela de Mais › Invest e apar
 import sys, json, urllib.request
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, perto, valores
+from _confere import igual, tem, sim, perto, valores, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -37,8 +37,7 @@ with sync_playwright() as p:
     tem(card, 'valor de ' + date.today().strftime('%d/%m'), 'cartão: valor de hoje')
     pg.click('#nav [data-v="inicio"]'); pg.wait_for_timeout(400)
     igual(pg.get_attribute('.placar-num', 'aria-label'), pat0, 'o patrimônio não muda (bens de terceiros ficam fora)')
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300)
-    pg.click('[data-a="mais-aba"][data-v="invest"]'); pg.wait_for_timeout(500)
+    ir_mais(pg, 'invest', espera=500)
     tem(pg.inner_text('#perda-bens'), 'Veículos\nR$ 60.000', 'Mais › Invest: Veículos na tabela de perda, com o valor')
     igual(pg.input_value('[data-bens-taxa="veiculos"]'), '15', 'tabela: veículos 15%')
     pg.fill('[data-bens-taxa="veiculos"]', '12'); pg.press('[data-bens-taxa="veiculos"]', 'Tab'); pg.wait_for_timeout(1000)

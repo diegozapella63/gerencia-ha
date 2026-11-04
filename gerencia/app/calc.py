@@ -143,7 +143,7 @@ def rende_mes(v, r):
     return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
 
 
-# ---------------------------------------------------------------- cor do app (Mais › Aparência)
+# ---------------------------------------------------------------- cor do app (Mais › Configurações › Aparência)
 
 # As cores do app, as mesmas do app.js (CORES_APP); o azul é o padrão do GerencIA.
 CORES_APP = [

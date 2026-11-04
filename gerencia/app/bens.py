@@ -14,7 +14,7 @@ from datetime import date
 ARQ = os.environ.get("GERENCIA_INVENTARIO", "/share/inventario/integracao.json")
 CACHE_S = 10 * 60
 
-# perda de valor por ano, em %, por categoria do InventarIA (dá para mudar em Mais › Integrações)
+# perda de valor por ano, em %, por categoria do InventarIA (dá para mudar em Mais › Invest)
 TAXAS_PADRAO = {
     "imoveis": 0, "veiculos": 15, "eletronicos": 20, "moveis": 10, "decoracao": 5, "colecao": 0, "cozinha": 10, "texteis": 15, "plantas": 0,
     "livros": 5, "pets": 15, "saude": 10, "vestuario": 25, "utilidades": 10, "outros": 10,

@@ -3,7 +3,7 @@ sua categoria (a do bem é a média ponderada); a tabela de Mais › Invest muda
 a Evolução de terceiros mostra a valorização e, ao reabrir, as partes voltam."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, perto, valores
+from _confere import igual, tem, sim, perto, valores, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -42,8 +42,7 @@ with sync_playwright() as p:
     igual(card.split('\n')[:5], ['Bens da mãe', 'R$ 580.000,00', 'Bens · 3 categorias', 'perde 1,9% a.a.', 'De Mãe'], 'cartão: total, 3 categorias, perda média e dono')
     # o "perde ≈ por mês" do cartão soma a perda de cada parte, na taxa dela (como o valor de hoje e a Evolução)
     perto(valores(card)[1], round(60000 * (1 - 0.85 ** (1 / 12)) + 20000 * (1 - 0.9 ** (1 / 12)), 2), 'cartão: perde por mês, somando as partes', tol=0.02)
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300)
-    pg.click('[data-a="mais-aba"][data-v="invest"]'); pg.wait_for_timeout(400)
+    ir_mais(pg, 'invest')
     tab = pg.inner_text('#perda-bens')
     tem(tab, 'Perda de valor dos bens', 'Mais › Invest: a tabela de perda')
     for nome, v in (('Imóveis', 'R$ 500.000'), ('Veículos', 'R$ 60.000'), ('Móveis', 'R$ 20.000')):

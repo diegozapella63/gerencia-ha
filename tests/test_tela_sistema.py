@@ -414,9 +414,9 @@ class TestTelaComServidor(TelaServidor):
     def test_ia_aparece_verificando_e_depois_pronta(self):
         self.segurar("GET api/ia/status")
         self.segurar("GET api/voz/status")
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "bancos"})
         self.js("(T.S.voz = null, true)")  # como na primeira vez, antes de o assistente de voz responder
-        self.clicar('.mais-abas [data-v="integracoes"]')
+        self.ir_mais("config", "integracoes")
         st = self.textos("#ia .status")
         self.assertEqual(st, ["Verificando a IA do Home Assistant…", "Falar: verificando o assistente de voz…"])
         self.assertEqual(self.js("[...document.querySelectorAll('#ia .status')].map(e => e.className)"), ["status manual", "status manual"])
@@ -434,7 +434,7 @@ class TestTelaComServidor(TelaServidor):
     def test_mais_pede_a_situacao_da_ia_uma_vez_so(self):
         """Enquanto o Home Assistant não responde, redesenhar Mais não pede de novo (até a 1.24.3 pedia a cada vez)."""
         self.segurar("GET api/ia/status")
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "bancos"})
         self.js("(T.S.ia = null, T.S.iaPedido = false, true)")
         self.limpar_pedidos()
         for _ in range(3):
@@ -444,7 +444,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertIsNotNone(self.js("T.S.ia"), "a resposta chega e fica guardada")
 
     def test_ia_escolhida_aparece_pelo_nome(self):
-        self.abrir(base(ajustes={"corrigir": True, "ia_entidade": "ai_task.ia_da_casa"}), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(ajustes={"corrigir": True, "ia_entidade": "ai_task.ia_da_casa"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.responder("GET api/ia/status", 200, {"pronta": True, "entidades": [{"id": "ai_task.ia_da_casa", "nome": "IA da Casa", "imagens": False}],
                                                   "selecionada": "ai_task.ia_da_casa"})
         self.clicar('#ia [data-a="ia-verificar"]')
@@ -453,7 +453,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.js("document.querySelector('#ia-ent').selectedOptions[0].textContent"), "IA da Casa (só texto)")
 
     def test_ia_nao_pronta_mostra_o_motivo(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.responder("GET api/ia/status", 200, {"pronta": False, "motivo": "Nenhuma IA configurada no Home Assistant.", "entidades": []})
         self.responder("GET api/voz/status", 200, {"pronta": False, "motivo": "nenhum assistente com fala para texto."})
         self.clicar('#ia [data-a="ia-verificar"]')
@@ -463,14 +463,14 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.conta('#app .cab-topo [data-a="falar"]'), 0, "sem a IA pronta, o microfone do alto some")
 
     def test_verificar_de_novo_com_o_servidor_fora_avisa(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.responder("GET api/ia/status", 502)
         self.clicar('#ia [data-a="ia-verificar"]')
         self.assertEqual(self.esperar_aviso("Erro"), "Erro 502")
 
     def test_exportar_baixa_do_servidor_e_backups_carregam(self):
         self.segurar("GET api/backups")
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         links = self.js("[...document.querySelectorAll('#exportar a.btn')].map(a => [a.getAttribute('href'), a.hasAttribute('download'), a.textContent.trim()])")
         self.assertEqual(links, [["api/export/lancamentos", True, "Baixar CSV"], ["api/export/csv", True, "Baixar CSV"],
                                  ["api/export/json", True, "Baixar JSON"], ["api/export/zip", True, "Baixar ZIP"]])
@@ -482,7 +482,7 @@ class TestTelaComServidor(TelaServidor):
                          ["01/11/2026 às 21:05 178 KB · gerencia-2026-11-01-2105.zip", "25/10/2026 às 21:05 2,5 MB · gerencia-2026-10-25-2105.zip"])
 
     def test_restaurar_backup_troca_os_dados(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.js("(T.S.backups = [{ nome: 'gerencia-2026-11-01-2105.zip', tamanho: 182000, quando: '2026-11-01T21:05:00-03:00' }], T.render(), true)")
         restaurado = dict(base(), rev=40, bancos=[BANCOS[1]], usuario="Ana")
         self.responder("POST api/backups/restaurar", 200, restaurado)
@@ -495,7 +495,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(([b["nome"] for b in self.dados()["bancos"]], self.dados()["rev"]), (["Banco Verde"], 40))
 
     def test_restaurar_backup_com_erro_avisa_e_nao_muda_nada(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.js("(T.S.backups = [{ nome: 'gerencia-2026-11-01-2105.zip', tamanho: 182000, quando: '2026-11-01T21:05:00-03:00' }], T.render(), true)")
         self.responder("POST api/backups/restaurar", 400, {"erro": "Esse backup está corrompido."})
         self.clicar('#backup [data-a="bk-restaurar"]')
@@ -504,7 +504,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(len(self.dados()["bancos"]), 2)
 
     def test_importar_troca_os_dados_e_volta_para_o_inicio(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.responder("POST api/importar", 200, dict(base(), rev=7, bancos=BANCOS, usuario="Ana"))
         self.galeria('#importar [data-a="importar"]').set_files({"name": "gerência 2026.zip", "mimeType": "application/zip", "buffer": b"PK\x03\x04 inventado"})
         self.esperar()
@@ -519,7 +519,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.js("document.getElementById('arquivo').value"), "", "o mesmo arquivo pode ser escolhido de novo")
 
     def test_importar_com_erro_avisa(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.responder("POST api/importar", 400, {"erro": "Esse arquivo não é um backup do GerencIA."})
         self.galeria('#importar [data-a="importar"]').set_files({"name": "fotos.zip", "mimeType": "application/zip", "buffer": b"PK"})
         self.esperar()
@@ -528,7 +528,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual((self.js("T.S.ui.tab"), len(self.dados()["bancos"])), ("mais", 2))
 
     def test_desistir_de_escolher_o_arquivo_nao_abre_nada(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.js("(document.getElementById('arquivo').dispatchEvent(new Event('change')), true)")
         self.esperar()
         self.assertIsNone(self.folha())
@@ -540,7 +540,7 @@ class TestTelaComServidor(TelaServidor):
 
     def test_conta_paga_em_outro_app_aparece_sozinha(self):
         luz = {"id": "l-luz", "tipo": "despesa", "descricao": "Luz", "valor": 180, "data": "2026-11-01", "pago": False, "categoria": "c-contas"}
-        self.abrir(base(lancamentos=[luz]), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(lancamentos=[luz]), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.assertEqual(self.limpo("#outros-apps .status"), "Nenhum app conectou ainda.")
         self.outro_app_pagou_a_luz()
         self.js("(window.__srv.aCada20s(), true)")
@@ -589,7 +589,7 @@ class TestTelaComServidor(TelaServidor):
         d = base()
         del d["indices"]  # sem mexer nos índices do servidor
         self.js("(Object.assign(window.__srv.d.indices, { fonte: 'padrao', atualizado_em: null, erro: null }), true)")
-        self.abrir(d, ui={"tab": "mais", "maisAba": "invest"})
+        self.abrir(d, ui={"tab": "mais", "maisTela": "invest"})
         self.assertEqual(self.limpo("#indices .status"), "Valores de partida (outubro de 2026).")
         self.clicar('#indices [data-a="indice"][data-v="cdi"]')
         self.preencher("#i-v", "14,4")
@@ -600,7 +600,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.limpo('#indices [data-v="cdi"] .vl'), "14,4%")
 
     def test_indices_do_banco_central_fora_do_ar(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "invest"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "invest"})
         fora = dict(base(), rev=self.js("T.S.d.rev"), usuario="Ana")
         fora["indices"] = dict(fora["indices"], fonte="bcb", atualizado_em="2026-11-01T21:00:00-03:00", erro="O Banco Central não respondeu")
         self.responder("POST api/indices/atualizar", 200, fora)
@@ -624,7 +624,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         return self.js("document.documentElement.dataset.theme")
 
     def test_segue_o_modo_escuro_e_o_claro_do_home_assistant(self):
-        self.abrir(base(ajustes={"corrigir": True, "tema": "claro"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"corrigir": True, "tema": "claro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.pg.emulate_media(color_scheme="light")
         self.addCleanup(lambda: self.pg.emulate_media(color_scheme="no-preference"))
         self.dentro_do_ha(True)
@@ -634,7 +634,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         self.assertEqual(self.js("(T.aplicarTema(), document.documentElement.dataset.theme)"), "light")
 
     def test_sem_o_home_assistant_segue_o_aparelho(self):
-        self.abrir(base(ajustes={"corrigir": True, "tema": "escuro"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"corrigir": True, "tema": "escuro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.pg.emulate_media(color_scheme="light")
         self.addCleanup(lambda: self.pg.emulate_media(color_scheme="no-preference"))
         self.assertEqual(self.automatico(), "light", "fora de um iframe: o tema do aparelho")
@@ -642,7 +642,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         self.pg.wait_for_function("document.documentElement.dataset.theme === 'dark'", timeout=3000)  # o aparelho mudou para escuro: o app acompanha
 
     def test_home_assistant_sem_dark_mode_ou_bloqueado_segue_o_aparelho(self):
-        self.abrir(base(ajustes={"corrigir": True, "tema": "escuro"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"corrigir": True, "tema": "escuro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.pg.emulate_media(color_scheme="light")
         self.addCleanup(lambda: self.pg.emulate_media(color_scheme="no-preference"))
         self.dentro_do_ha(None)  # o HA ainda não carregou o tema
@@ -653,7 +653,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         self.assertEqual(self.js("(T.aplicarTema(), document.documentElement.dataset.theme)"), "dark")
 
     def test_claro_e_escuro_escolhidos_nao_seguem_o_home_assistant(self):
-        self.abrir(base(ajustes={"corrigir": True, "tema": "auto"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"corrigir": True, "tema": "auto"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.dentro_do_ha(True)
         self.clicar('#tema [data-a="tema"][data-v="claro"]')
         self.assertEqual(self.js("document.documentElement.dataset.theme"), "light")
@@ -688,7 +688,7 @@ class TestPrevia(TelaSistema):
     """A prévia (apiDemo): o que ela não faz avisa, e o que ela simula responde como o servidor."""
 
     def test_restaurar_backup_na_previa_explica(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.pg.wait_for_selector("#backup .bk-row")
         self.assertEqual(self.conta("#backup .bk-row"), 3)
         self.clicar('#backup [data-a="bk-restaurar"]')
@@ -698,7 +698,7 @@ class TestPrevia(TelaSistema):
         self.assertEqual(len(self.dados()["bancos"]), 2, "nada mudou")
 
     def test_restaurar_versao_na_previa_explica(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.clicar('#versoes [data-a="versoes"]')
         self.pg.wait_for_selector("#folhas .versao-row")
         self.assertEqual(self.conta("#folhas .versao-row"), 3)
@@ -708,7 +708,7 @@ class TestPrevia(TelaSistema):
         self.assertEqual(self.esperar_aviso("versões"), "Na prévia não dá para restaurar versões.")
 
     def test_importar_na_previa_explica(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.galeria('#importar [data-a="importar"]').set_files({"name": "gerencia.json", "mimeType": "application/json", "buffer": b'{"bancos": []}'})
         self.esperar()
         self.assertEqual(self.folha(), "Importar arquivo?")
@@ -719,7 +719,7 @@ class TestPrevia(TelaSistema):
 
     def test_atualizar_indices_busca_e_mostra_a_hora_do_banco_central(self):
         ind = {"cdi": 12.0, "selic": 12.25, "ipca": 4.0, "tr": 0.1}
-        self.abrir(base(indices=ind), ui={"tab": "mais", "maisAba": "invest"})
+        self.abrir(base(indices=ind), ui={"tab": "mais", "maisTela": "invest"})
         self.clicar('#indices [data-a="indices-atualizar"]')
         b = self.pg.locator('#indices [data-a="indices-atualizar"]')
         self.assertEqual((b.inner_text().strip(), b.is_disabled()), ("Buscando…", True), "enquanto busca, o botão espera")
@@ -730,7 +730,7 @@ class TestPrevia(TelaSistema):
         self.assertEqual(self.limpo('#indices [data-a="indices-atualizar"]'), "Atualizar agora")
 
     def test_atualizar_indices_sem_internet_avisa_e_volta_o_botao(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "invest"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "invest"})
         self.trocar_api("atualizarIndices", "async () => { throw new Error('Sem internet.'); }")
         self.clicar('#indices [data-a="indices-atualizar"]')
         self.assertEqual(self.esperar_aviso("atualizar"), "Não consegui atualizar. Sem internet.")
@@ -740,7 +740,7 @@ class TestPrevia(TelaSistema):
     def test_conferir_dicas_agora_na_previa(self):
         spotify = {"id": "r-spot", "tipo": "despesa", "descricao": "Spotify", "valor": 23.9, "dia": 22, "inicio": "2026-01", "conta": "k-ana", "cartao": True,
                    "categoria": "c-assinaturas"}
-        self.abrir(base(bancos=BANCOS, recorrencias=[spotify]), ui={"tab": "mais", "maisAba": "caixa"})
+        self.abrir(base(bancos=BANCOS, recorrencias=[spotify]), ui={"tab": "mais", "maisTela": "caixa"})
         self.js("T.carregarDicas()")
         self.esperar()
         self.clicar('#dicas [data-a="dicas-conferir"]')
@@ -751,14 +751,14 @@ class TestPrevia(TelaSistema):
         self.assertEqual(self.limpo('#dicas [data-a="dicas-conferir"]'), "Conferir agora")
 
     def test_verificar_a_ia_na_previa(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.assertEqual(self.textos("#ia .status"), ["Na prévia, a leitura por IA é simulada.", "Falar: na prévia, a fala é simulada."])
         self.clicar('#ia [data-a="ia-verificar"]')
         self.assertEqual(self.esperar_aviso("IA"), "IA pronta")
         self.assertEqual(self.js("T.S.ia.pronta"), True)
 
     def test_atualizar_os_bens_na_previa_traz_os_bens_simulados(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "integracoes"}, bens={"ok": False, "motivo": "O InventarIA não respondeu."})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"}, bens={"ok": False, "motivo": "O InventarIA não respondeu."})
         self.clicar('#bens [data-a="bens-atualizar"]')
         self.assertTrue(self.js("T.S.bens.ok && T.S.bens.n > 0"))
         self.assertRegex(self.limpo("#bens .linha-sw span"), r"^Ligado: R\$ [\d.]+ em \d+ itens\.$")
@@ -1205,11 +1205,25 @@ class TestArrastar(TelaSistema):
         self.assertEqual(self.aba(), "caixa")
 
     def test_numa_fileira_que_rola_para_o_lado_nao_troca(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais"})
-        self.assertGreater(self.js("(e => e.scrollWidth - e.clientWidth)(document.querySelector('.mais-abas'))"), 2, "as abas de Mais rolam no celular")
-        _, y = self.meio(".mais-abas")
-        self.arrastar(300, 100, y)
-        self.assertEqual(self.aba(), "mais")
+        self.pg.set_viewport_size({"width": 320, "height": 700})
+        self.addCleanup(lambda: self.pg.set_viewport_size({"width": self.LARGURA, "height": self.ALTURA}))
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config"})
+        self.assertGreater(self.js("(e => e.scrollWidth - e.clientWidth)(document.querySelector('.mais-abas'))"), 2, "as abas de Configurações rolam no celular estreito")
+        x, y = self.meio(".mais-abas")
+        self.arrastar(x - 100, x + 100, y)
+        self.assertEqual((self.aba(), self.js("T.S.ui.maisTela")), ("mais", "config"))
+
+    def test_numa_tela_de_mais_para_a_direita_volta_ao_menu(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("config")
+        self.arrastar(300, 100)
+        self.assertEqual((self.aba(), self.js("T.S.ui.maisTela")), ("mais", "config"), "para a esquerda, nada (não há tela depois)")
+        self.arrastar(100, 300)
+        self.assertEqual((self.aba(), self.js("T.S.ui.maisTela"), self.texto("#app .cab h1")), ("mais", "", "Mais"), "para a direita, o menu")
+        self.assertEqual(self.entradas(), [["translateX(-40px)", 280]], "o menu entra pela esquerda")
+        self.pg.wait_for_function("!(history.state && history.state.tela)")
+        self.arrastar(100, 300)
+        self.assertEqual(self.aba(), "investimentos", "do menu, a aba anterior")
 
     def test_com_janela_aberta_nao_troca(self):
         self.abrir(base(bancos=BANCOS))
@@ -1229,7 +1243,7 @@ class TestArrastar(TelaSistema):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestOpcoes(TelaSistema):
-    """Mais › Opções: cada chave, o texto dela e o que ela muda nas outras telas."""
+    """Mais › Configurações › Opções: cada chave, o texto dela e o que ela muda nas outras telas."""
 
     def casa(self, **ajustes):
         """Os dados de entrada: restaurante de julho a outubro e um CDB de maio (100% do CDI)."""
@@ -1242,7 +1256,7 @@ class TestOpcoes(TelaSistema):
         self.clicar(f'#app .mais-painel [data-a="ajuste"][data-k="{k}"]')
 
     def test_as_tres_chaves_comecam_ligadas_com_o_que_fazem(self):
-        self.abrir(self.casa(), ui={"tab": "mais", "maisAba": "opcoes"})
+        self.abrir(self.casa(), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
         self.assertEqual(self.textos("#app .mais-painel .linha-sw b"), ["Dicas de economia", "Prever o dia a dia", "Corrigir valores pelo rendimento"])
         self.assertEqual(self.textos_opcoes(), [
             "Ligado: no Início, planos anuais mais baratos e categorias acima da média.",
@@ -1251,23 +1265,22 @@ class TestOpcoes(TelaSistema):
         self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel .sw')].map(b => b.getAttribute('aria-checked'))"), ["true", "true", "true"])
 
     def test_com_a_ia_desligada_as_dicas_explicam_que_planos_anuais_precisam_dela(self):
-        self.abrir(self.casa(ia=False), ui={"tab": "mais", "maisAba": "opcoes"})
+        self.abrir(self.casa(ia=False), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
         self.assertEqual(self.textos_opcoes()[0], "Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.")
 
     def test_desligar_as_dicas_tira_do_inicio(self):
-        self.abrir(self.casa(), ui={"tab": "mais", "maisAba": "opcoes"})
+        self.abrir(self.casa(), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
         self.ir("inicio")
         self.assertIn("Restaurantes acima da média", self.texto(".card.dicas"))
-        self.ir("mais")
+        self.ir_mais("config", "opcoes")
         self.chave("dicas")
         self.assertIs(self.dados()["ajustes"]["dicas"], False)
         self.assertEqual(self.textos_opcoes()[0], "Desligado: sem dicas.")
         self.ir("inicio")
         self.assertEqual(self.conta(".card.dicas"), 0)
-        self.ir("mais")
-        self.clicar('#app .mais-abas [data-v="caixa"]')
-        self.assertEqual(self.limpo("#dicas .status"), "Desligadas em Mais › Opções.")
-        self.clicar('#app .mais-abas [data-v="opcoes"]')
+        self.ir_mais("caixa")
+        self.assertEqual(self.limpo("#dicas .status"), "Desligadas em Mais › Configurações › Opções.")
+        self.ir_mais("config", "opcoes")
         self.chave("dicas")
         self.ir("inicio")
         self.assertIn("Restaurantes acima da média", self.texto(".card.dicas"), "ligada de novo, a dica volta")
@@ -1277,8 +1290,7 @@ class TestOpcoes(TelaSistema):
         self.assertIn("fixos, parcelas, faturas e dia a dia", self.texto("#app .stat-duo"))
         self.assertIn("Dia a dia (média)", self.texto("#app .leg"))
         self.assertTrue(self.js("T.serieFluxo().some(m => m.prev && m.est > 600)"), "os meses à frente somam a média")
-        self.ir("mais")
-        self.clicar('#app .mais-abas [data-v="opcoes"]')
+        self.ir_mais("config", "opcoes")
         self.chave("prever_dia")
         self.assertIs(self.dados()["ajustes"]["prever_dia"], False)
         self.assertEqual(self.textos_opcoes()[1], "Desligado: só fixos, parcelas e faturas.")
@@ -1291,14 +1303,13 @@ class TestOpcoes(TelaSistema):
         self.abrir(self.casa(), ui={"tab": "investimentos", "invModo": "carteira"})
         corrigido = self.js("T.valorHoje(T.S.d.investimentos[0])")
         self.assertGreater(corrigido, 10500, "100% do CDI desde maio")
-        self.ir("mais")
-        self.clicar('#app .mais-abas [data-v="opcoes"]')
+        self.ir_mais("config", "opcoes")
         self.chave("corrigir")
         self.assertIs(self.dados()["ajustes"]["corrigir"], False)
         self.assertEqual(self.js("document.querySelector('#op-invest .sw').getAttribute('aria-checked')"), "false")
         self.ir("investimentos")
         self.assertEqual(self.js("document.querySelector('.inv-valor').textContent"), "R$ 10.000,00", "o valor informado em maio, sem rendimento")
-        self.ir("mais")
+        self.ir_mais("config")
         self.chave("corrigir")
         self.assertAlmostEqual(self.js("T.valorHoje(T.S.d.investimentos[0])"), corrigido, places=2)
 
@@ -1324,7 +1335,7 @@ class TestBens(TelaSistema):
         return self.js("window.__bens.chamadas")
 
     def test_atualizar_do_inventario_mostra_procurando_e_depois_o_novo_total(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "integracoes"}, bens=BENS)
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"}, bens=BENS)
         self.assertEqual(self.limpo("#bens .linha-sw span"), "Ligado: R$ 30.000 em 12 itens.")
         self.segurar()
         self.clicar('#bens [data-a="bens-atualizar"]')
@@ -1346,7 +1357,7 @@ class TestBens(TelaSistema):
         self.assertEqual((self.folha(), self.limpo("#folhas .stat-duo > div b")), ("Bens da casa", "R$ 31.500"))
 
     def test_inventario_fora_do_ar_tenta_de_novo(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "integracoes"}, bens={"ok": False, "motivo": "O InventarIA não respondeu."})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"}, bens={"ok": False, "motivo": "O InventarIA não respondeu."})
         self.assertEqual(self.limpo("#bens .status"), "O InventarIA não respondeu.")
         self.clicar('#bens [data-a="bens-atualizar"]')
         self.assertEqual(self.limpo('#bens .linha-sw span'), "Ligado: R$ 31.500 em 13 itens.")
@@ -1359,13 +1370,13 @@ class TestBens(TelaSistema):
         self.esperar()
 
     def test_perda_de_valor_lista_as_categorias_pelo_valor(self):
-        self.abrir(base(investimentos=[CARRO, PRAIA]), ui={"tab": "mais", "maisAba": "invest"}, bens=BENS)
+        self.abrir(base(investimentos=[CARRO, PRAIA]), ui={"tab": "mais", "maisTela": "invest"}, bens=BENS)
         linhas = self.js("[...document.querySelectorAll('#perda-bens .bens-tx')].map(l => [l.querySelector('span').innerText.replace(/\\s+/g, ' '), l.querySelector('input').value])")
         self.assertEqual(linhas, [["Veículos R$ 40.000", "15"], ["Móveis R$ 26.000", "10"], ["Eletrônicos R$ 14.000", "20"]],
                          "o carro, os móveis (8 mil daqui e 18 mil do InventarIA) e os eletrônicos (2 mil e 12 mil)")
 
     def test_mudar_a_perda_salva_e_vale_para_os_bens_daqui(self):
-        self.abrir(base(investimentos=[CARRO, PRAIA]), ui={"tab": "mais", "maisAba": "invest"}, bens=BENS)
+        self.abrir(base(investimentos=[CARRO, PRAIA]), ui={"tab": "mais", "maisTela": "invest"}, bens=BENS)
         self.perda("eletronicos", "25")
         d = self.dados()
         self.assertEqual(d["ajustes"]["bens_taxas"], {"eletronicos": 25})
@@ -1380,7 +1391,7 @@ class TestBens(TelaSistema):
         self.assertEqual(self.dados()["investimentos"][0]["taxa"], 12, "um bem de uma categoria só leva a taxa nova")
 
     def test_perda_fica_entre_menos_50_e_100(self):
-        self.abrir(base(investimentos=[PRAIA]), ui={"tab": "mais", "maisAba": "invest"}, bens=BENS)
+        self.abrir(base(investimentos=[PRAIA]), ui={"tab": "mais", "maisTela": "invest"}, bens=BENS)
         for digitado, salvo, mostrado in [("150", 100, "100"), ("-80", -50, "-50"), ("abc", 0, "0"), ("−5", -5, "-5"), ("7,5", 7.5, "7,5")]:
             with self.subTest(digitado):
                 self.perda("moveis", digitado)
@@ -1474,7 +1485,7 @@ class TestFormularios(TelaSistema):
         self.assertEqual(self.limpo('#app [data-a="aporte-ajustar"]'), "Ver os aportes")
         self.clicar('#app [data-a="aporte-ajustar"]')
         self.assertIsNone(self.folha())
-        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisAba]"), ["mais", "caixa"])
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "caixa"], "abre Mais › Caixa, nos fixos")
         fixos = self.texto("#fixos")
         self.assertIn("Aporte mensal", fixos)
         self.assertIn("Aporte do décimo terceiro", fixos)
@@ -1648,7 +1659,7 @@ class TestCasosDeCanto(TelaSistema):
         self.js("(T.fecharCamera(true), true)")
 
     def test_dicas_mostram_a_ultima_verificacao(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "caixa"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "caixa"})
         self.js("(T.S.dicas = { dicas: [], assinaturas: [], conferindo: false, catalogo: ['Spotify'], atualizado: '2026-11-01T21:05:00-03:00' }, T.render(), true)")
         self.assertEqual(self.limpo("#dicas .dica-quando"), "Última verificação: ontem às 21:05.")
 
@@ -1659,7 +1670,7 @@ class TestCasosDeCanto(TelaSistema):
         self.assertEqual(self.limpo(".card.dicas .dica-conf"), "Conferindo os preços das suas assinaturas nas páginas oficiais…")
 
     def test_sugestao_de_banco_abre_o_cadastro_com_o_nome(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "bancos"})
         nome = self.js("document.querySelector('[data-a=\"banco-sug\"]').dataset.v")
         self.clicar('[data-a="banco-sug"]')
         self.assertEqual((self.folha(), self.pg.input_value("#b-nome")), ("Novo banco", nome))
@@ -1670,14 +1681,13 @@ class TestCasosDeCanto(TelaSistema):
         self.clicar('#folhas [data-a="lanc-novo"][data-v="receita"]')
         self.assertEqual((self.folha(), self.js("T.LF.tipo")), ("Novo recebimento", "receita"))
         self.voltar()
-        self.ir("mais")
-        self.clicar('#app .mais-abas [data-v="caixa"]')
+        self.ir_mais("caixa")
         self.assertIn("Ao lançar, escolha Repetir: Todo mês ou Todo ano.", self.texto("#fixos"), "sem fixos, o card explica")
         self.clicar('#fixos [data-a="lanc-novo"]')
         self.assertEqual((self.folha(), self.js("T.LF.tipo")), ("Nova despesa", "despesa"))
 
     def test_tirar_uma_pessoa_do_banco(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "bancos"})
         self.clicar('#bancos [data-a="banco"][data-id="b-azul"]')
         self.assertEqual(self.conta('#folhas [data-a="bc-rm"]'), 2)
         self.clicar('#folhas [data-a="bc-rm"][data-i="1"]')
@@ -1697,9 +1707,11 @@ class TestCasosDeCanto(TelaSistema):
         self.assertEqual(self.dados()["investimentos"][0]["obs"], "Reserva de emergência da casa")
 
     def test_relatorio_e_arquivos_na_previa_explicam(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
-        self.clicar('#relatorio [data-a="relatorio"]')
+        self.abrir(base(), ui={"tab": "mais"})
+        self.clicar('#app .menu-row[data-a="relatorio"]')
         self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre. No app, ele abre pronto para imprimir.")
+        self.ir_mais("config", "dados")
+        self.assertEqual(self.conta('#exportar [data-a="relatorio"]'), 0, "o relatório saiu de Exportar: tem a sua linha no menu")
         self.clicar('#exportar [data-a="demo-arq"]')
         self.assertEqual(self.esperar_aviso("arquivos"), "Na prévia os arquivos não são baixados.")
 

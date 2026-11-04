@@ -933,7 +933,7 @@ class TestReciboDePagamento(TelaIA):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestIADesligada(TelaIA):
-    """Usar IA desligado (Mais › Integrações): tudo o que usa IA some. O que já está em test_tela_mais.py (quadrinhos,
+    """Usar IA desligado (Mais › Configurações › Integrações): tudo o que usa IA some. O que já está em test_tela_mais.py (quadrinhos,
     Ler com IA do Adicionar, microfone, Uso da IA, dicas) e em test_tela_invest.py (Atualizar saldos da Carteira, Ler print)
     não se repete aqui."""
 
@@ -1067,12 +1067,11 @@ class TestFalar(TelaIA):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestCardsDaIAEmMais(TelaIA):
-    """Mais › Integrações: Leitura por IA (a chave, a situação, qual IA) e os tipos do Uso da IA (os números e o gráfico por dia
+    """Mais › Configurações › Integrações: Leitura por IA (a chave, a situação, qual IA) e os tipos do Uso da IA (os números e o gráfico por dia
     estão em test_tela_mais.py)."""
 
     def integracoes(self):
-        self.ir("mais")
-        self.clicar('#app [data-a="mais-aba"][data-v="integracoes"]')
+        self.ir_mais("config", "integracoes")
         self.pg.wait_for_selector("#uso-ia .uso-tiles")
         self.esperar()
 

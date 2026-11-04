@@ -1,7 +1,7 @@
 """Bens da casa (InventarIA): somados no patrimônio, janela, quadro em Mais, perda por categoria e desligar."""
 import sys, json, re, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, valores
+from _confere import igual, tem, sim, valores, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'; INV = 'http://127.0.0.1:8098/'
 def req(base, p, c=None, m='GET'):
@@ -34,15 +34,14 @@ with sync_playwright() as p:
     igual(valores(pg.inner_text('.folha .stat-duo')), [14100.0, 14100.0, 2100.0], 'hoje, registrado e perda por ano')
     pg.screenshot(path=f'{SP}/shots/bens-janela.png')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300)
-    pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(800)
-    tem(pg.inner_text('#bens'), 'Ligado: R$ 14.100 em 5 itens.', 'quadro em Mais › Integrações')
-    pg.click('[data-a="mais-aba"][data-v="invest"]'); pg.wait_for_timeout(500)
+    ir_mais(pg, 'config', 'integracoes', 800)
+    tem(pg.inner_text('#bens'), 'Ligado: R$ 14.100 em 5 itens.', 'quadro em Mais › Configurações › Integrações')
+    ir_mais(pg, 'invest', espera=500)
     tem(pg.inner_text('#perda-bens'), 'Eletrônicos', 'perda por categoria em Mais › Invest')
     pg.fill('[data-bens-taxa="eletronicos"]', '30'); pg.press('[data-bens-taxa="eletronicos"]', 'Tab'); pg.wait_for_timeout(1200)
     igual(req(B, 'api/state')['ajustes'].get('bens_taxas'), {'eletronicos': 30}, 'a perda escolhida fica salva')
     pg.wait_for_timeout(800)
-    pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(500)
+    ir_mais(pg, 'config', 'integracoes', 500)
     pg.click('[data-a="ajuste"][data-k="bens"]'); pg.wait_for_timeout(800)
     pg.click('#nav [data-v="inicio"]'); pg.wait_for_timeout(500)
     sim(abs(valores(pg.get_attribute('.placar-num', 'aria-label'))[0] - investido) <= 1, 'desligado: o patrimônio volta a ser só o investido')

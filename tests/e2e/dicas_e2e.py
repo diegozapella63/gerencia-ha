@@ -4,7 +4,7 @@ Casa em dólar, estimada), Mudar para anual (a economia real na janela; o fixo m
 import sys, json, time, urllib.request
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, perto, valores, mes
+from _confere import igual, tem, sim, perto, valores, mes, ir_mais
 MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 SP=sys.argv[1]; erros=[]
 def api(p):
@@ -63,8 +63,7 @@ with sync_playwright() as p:
         igual(pg.locator('[data-a="dica-anual"]').count(), 0, 'no Início, sem dicas de plano anual')
     pg.screenshot(path=f'{SP}/shots/e3-inicio-depois.png', full_page=True)
     # Mais
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(800)
-    pg.click('.mais-abas [data-v="caixa"]'); pg.wait_for_timeout(800)
+    ir_mais(pg, 'caixa', espera=800)
     el=pg.locator('#dicas'); el.scroll_into_view_if_needed(); pg.wait_for_timeout(300)
     tem(el.inner_text(), 'Mostrar dispensadas (1)', 'Mais › Caixa: mostrar a dispensada')
     tem(el.inner_text(), 'Última verificação: hoje às', 'Mais › Caixa: a data da última verificação')

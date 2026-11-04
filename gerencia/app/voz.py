@@ -1,8 +1,8 @@
 """Falar: o que você diz vai para a fala para texto do Home Assistant e volta como texto, que a IA lê
 como uma mensagem colada (igual ao CronologIA e ao ResolvIA).
 
-O motor é o escolhido em Mais › Leitura por IA (uma lista, como a da IA) ou, sem escolha, o do assistente
-de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud, stt.home_assistant_cloud),
+O motor é o escolhido em Mais › Configurações › Integrações › Leitura por IA (uma lista, como a da IA) ou, sem
+escolha, o do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud, stt.home_assistant_cloud),
 com o idioma dele; sem assistente, a primeira entidade stt.*.
 O áudio chega do app como PCM cru, 16 kHz, 16 bits, mono (o mesmo que o Assist manda).
 Só biblioteca padrão do Python: o WebSocket do Home Assistant é falado à mão, para uma única pergunta.

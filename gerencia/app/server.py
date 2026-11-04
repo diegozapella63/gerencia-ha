@@ -30,7 +30,7 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 
-VERSAO = "1.25.0"
+VERSAO = "1.26.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -69,8 +69,8 @@ INDICES_PADRAO = {
     "erro": None,
 }
 
-# sensores: desligado até ligar em Mais › Integrações; sensores_v marca os dados que já têm essa escolha
-# cor_dia: a Cor do dia (Mais › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
+# sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
+# cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True}
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
@@ -401,7 +401,7 @@ def gerar_zip(d):
                 z.write(p, f"fotos/{nome}")
         z.writestr("LEIA-ME.txt",
                    f"Backup do GerencIA {VERSAO} criado em {agora_iso()}.\n"
-                   "Para restaurar: Mais > Dados > Importar, e escolha este .zip.\n")
+                   "Para restaurar: Mais > Configurações > Dados > Importar, e escolha este .zip.\n")
     return buf.getvalue()
 
 
@@ -1155,7 +1155,7 @@ def pdf_texto(raw):
 def ia_ler(corpo):
     d = ler()
     if not ia_ligada(d):
-        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
     modo = corpo.get("modo") if corpo.get("modo") in ("caixa", "holerite", "invest") else "auto"
     foto = str(corpo.get("foto") or "")
     texto = str(corpo.get("texto") or "").strip()[:12000]
@@ -1291,7 +1291,7 @@ def chat_acoes(cruas, d):
 def chat_enviar(corpo, usuario=None):
     d = ler()
     if not ia_ligada(d):
-        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
     texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
     if not texto:
         raise ValueError("Escreva uma mensagem.")
@@ -1598,7 +1598,7 @@ def bens_estado(d, forcar=False):
 
 def voz_status():
     if not ia_ligada():
-        return {"pronta": False, "motivo": "A IA está desligada em Mais › Integrações."}
+        return {"pronta": False, "motivo": "A IA está desligada em Mais › Configurações › Integrações."}
     if not TOKEN and not IA_MOCK:
         return {"pronta": False, "motivo": "Fora do Home Assistant não dá para falar."}
     return VOZ.status(ler()["ajustes"].get("voz_motor") or "")
@@ -1606,7 +1606,7 @@ def voz_status():
 
 def voz_texto(pcm):
     if not ia_ligada():
-        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Integrações.")
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
     t0 = time.time()
     try:
         r = VOZ.texto(pcm, ler()["ajustes"].get("voz_motor") or "")

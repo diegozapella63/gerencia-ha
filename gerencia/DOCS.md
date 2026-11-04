@@ -11,7 +11,7 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 
 ## Telas
 
-- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Aparência › Cor do app, ou a Cor do dia), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
+- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Configurações › Aparência › Cor do app, ou a Cor do dia), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos, o dinheiro de terceiros por pessoa e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
 - **Caixa**: seu próprio dinheiro, mês a mês.
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber (no mês de hoje, o que ficou sem pagar nos dois meses anteriores aparece primeiro; é para onde leva o aviso de contas atrasadas). Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
@@ -19,15 +19,17 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
 - **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
 - **Invest**: o **Buscar** fica no alto (digitar nele abre a Carteira). *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, ou **Outro**, de 1 a 50 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
 - **Transferir entre investimentos**: abra um investimento e toque em **Transferir**. Escolha quanto (ou **Tudo**) e para qual investimento: o valor sai de um e soma no outro, sem mexer no caixa. Se passar tudo, dá para manter o investimento zerado na carteira ou tirá-lo.
-- No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado).
-- **Mais**, em abas no alto, como no ResolvIA, no CronologIA e no InventarIA:
-  - *Bancos*: bancos, quem tem conta em cada um e quem tem cartão.
-  - *Caixa*: fixos, categorias e dicas de economia.
-  - *Invest*: índices de mercado.
-  - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
-  - *Dados*: exportar, relatório, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
-  - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
-  - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
+- No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado). Numa tela de Mais, arrastar para a direita volta ao menu.
+- **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
+  - **Bancos**: bancos, quem tem conta em cada um e quem tem cartão.
+  - **Caixa**: fixos, categorias e dicas de economia.
+  - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
+  - **Relatório de patrimônio**: por dono e por banco, para imprimir ou salvar em PDF.
+  - **Configurações**, por último, em abas:
+    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
+    - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
+    - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
+    - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
 
 ### No computador
 
@@ -43,7 +45,7 @@ Ao lançar uma despesa ou recebimento, escolha **Repetir: Todo mês**. O fixo ap
 
 Para o que vence uma vez por ano (anuidade, IPVA, seguro, plano anual), escolha **Todo ano**: o fixo aparece só no mês da data escolhida, todo ano.
 
-Quando o valor real de um mês for diferente (um salário maior, uma conta de luz menor), toque no lançamento, troque o valor e salve em **Só este mês**. O valor padrão continua o mesmo para os próximos meses. Para mudar o padrão, salve em **Todos os meses** ou abra **Mais > Fixos**. Ao apagar um fixo, você escolhe entre tirar só aquele mês ou parar dali para frente.
+Quando o valor real de um mês for diferente (um salário maior, uma conta de luz menor), toque no lançamento, troque o valor e salve em **Só este mês**. O valor padrão continua o mesmo para os próximos meses. Para mudar o padrão, salve em **Todos os meses** ou abra **Mais › Caixa › Fixos**. Ao apagar um fixo, você escolhe entre tirar só aquele mês ou parar dali para frente.
 
 ### Salário bruto, impostos e descontos
 
@@ -61,7 +63,7 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 
 ### Cartão de crédito
 
-Em **Mais > Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
+Em **Mais › Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
@@ -100,7 +102,7 @@ No Início, a dica mostra a **economia real** por ano: o desconto do plano anual
 
 O app também avisa quando uma categoria fica bem acima da sua média dos 3 meses anteriores, pelos seus próprios lançamentos.
 
-O app verifica sozinho uma vez por dia (a data da última verificação aparece no quadro). Os preços são conferidos de novo a cada 30 dias, ou na hora em **Mais > Dicas de economia > Conferir agora**, onde também aparece o motivo quando uma assinatura não vira dica (sem plano anual, valor que não bate com nenhum plano, página que não abriu).
+O app verifica sozinho uma vez por dia (a data da última verificação aparece no quadro). Os preços são conferidos de novo a cada 30 dias, ou na hora em **Mais › Caixa › Dicas de economia › Conferir agora**, onde também aparece o motivo quando uma assinatura não vira dica (sem plano anual, valor que não bate com nenhum plano, página que não abriu).
 
 ## Leitura por IA
 
@@ -117,7 +119,7 @@ Não precisa dizer o que é: a IA separa sozinha os **gastos**, os **recebimento
 
 A **Situação** começa em **Automática**: o que a IA viu como conta, boleto ou parcela a pagar, ou valor que ainda vai receber, fica pendente; o resto segue a data. Compras no cartão seguem a fatura. Dá para trocar para **Tudo pago** ou **Tudo pendente**.
 
-Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais > Leitura por IA** dá para escolher qual IA usar e ver se ela está pronta.
+Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais › Configurações › Integrações › Leitura por IA** dá para escolher qual IA usar e ver se ela está pronta.
 
 ### Atualizar saldos
 
@@ -129,7 +131,7 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Banco Lua e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
-- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Integrações › Leitura por IA** aparece se o Falar está pronto.
+- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Configurações › Integrações › Leitura por IA** aparece se o Falar está pronto.
 - **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). No **Padrão do Home Assistant** fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
 - São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a **IA usada pelo app**, a mesma de Ler com IA. Trocar uma não muda a outra.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app do celular, e permita o microfone.
@@ -173,7 +175,7 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 ## Uso da IA
 
-Em **Mais › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.
+Em **Mais › Configurações › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.
 
 Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar, conversa) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 
@@ -197,7 +199,7 @@ Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reinicia
 
 Com o **InventarIA** (1.16.0 ou mais novo) no mesmo Home Assistant, os valores dos itens dele entram no patrimônio como **bens**: o placar do Início mostra o total, com **Investido** e **Bens** separados, e os destaques têm **Bens da casa**, que abre os valores por categoria e por cômodo. Na **Carteira**, em Todos e em Meus, um cartão só de leitura mostra o total dos bens do InventarIA (o valor muda lá); a janela Bens da casa mostra quanto valem em 1, 5 e 10 anos. Para ver só os investimentos, ligue **Ocultar bens e imóveis** na Evolução ou na Divisão (como o Descontar IR, começa desligado toda vez que o app abre). No Invest, em Tudo e em Só o meu, os bens também aparecem na **Divisão** (uma fatia à parte) e na **Evolução** (somados no Hoje e no Em N anos, com a linha Bens perdendo valor e a coluna Bens na tabela por ano).
 
-Bens perdem valor: cada categoria tem uma **perda por ano** (veículos 15%, eletrônicos 20%, móveis 10%, cozinha 10%, decoração 5%, roupas 25%…), contada desde a data em que o valor do item mudou no InventarIA. As taxas ficam em **Mais › Invest › Perda de valor dos bens**; em **Mais › Integrações › Bens no InventarIA** dá para desligar **Somar os bens**.
+Bens perdem valor: cada categoria tem uma **perda por ano** (veículos 15%, eletrônicos 20%, móveis 10%, cozinha 10%, decoração 5%, roupas 25%…), contada desde a data em que o valor do item mudou no InventarIA. As taxas ficam em **Mais › Invest › Perda de valor dos bens**; em **Mais › Configurações › Integrações › Bens no InventarIA** dá para desligar **Somar os bens**.
 
 **Bens de terceiros, ou seus sem o InventarIA**: em **Adicionar › Investimento**, tipo **Bens**. Só nome, valor e categoria (por exemplo, "Carro da mãe", Veículos): um total, sem cômodos. Ele perde a taxa da categoria por ano, a mesma da tabela. Os de terceiros não entram no seu patrimônio; os seus somam na coluna Bens do placar. Se quiser, **Separar o valor por categoria** divide o total pelas categorias (Imóveis, Veículos, Eletrônicos, Móveis…), e cada parte perde a taxa da sua. As categorias são as do InventarIA (as que você renomeou ou criou lá aparecem aqui), mais Imóveis e Veículos; uma categoria nova começa perdendo 10% ao ano.
 
@@ -213,7 +215,7 @@ O [CronologIA](https://github.com/diegozapella63/cronologia-ha) é o app de agen
 
 Recebimentos, ajustes de saldo e despesas descontadas do salário não aparecem como contas. Os aportes aparecem, porque são compromissos (contas a pagar do tipo Aporte).
 
-A ligação não pede configuração. Ao iniciar, o GerencIA grava em `share/gerencia/integracao.json` o endereço dele na rede interna dos apps e uma chave, e o CronologIA (que lê a pasta `share`) usa essa chave para chamar o GerencIA. Quem já consegue ler a pasta `share` também lê os backups do GerencIA que ficam lá, então a chave não abre nada novo. Para cortar a ligação, desligue **Mais › Outros apps › Contas no CronologIA**: o arquivo é apagado e a chave deixa de valer. O mesmo cartão mostra quando o CronologIA usou a ligação pela última vez.
+A ligação não pede configuração. Ao iniciar, o GerencIA grava em `share/gerencia/integracao.json` o endereço dele na rede interna dos apps e uma chave, e o CronologIA (que lê a pasta `share`) usa essa chave para chamar o GerencIA. Quem já consegue ler a pasta `share` também lê os backups do GerencIA que ficam lá, então a chave não abre nada novo. Para cortar a ligação, desligue **Mais › Configurações › Integrações › Contas no CronologIA**: o arquivo é apagado e a chave deixa de valer. O mesmo cartão mostra quando o CronologIA usou a ligação pela última vez.
 
 Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 
@@ -229,7 +231,8 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 - Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As fotos ficam em `/data/fotos`.
 - **Criar backup** salva um `.zip` em `share/gerencia`, com os dados e as fotos.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
-- **Exportar** (Mais › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta; e o **Relatório de patrimônio**, para imprimir ou salvar em PDF. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
+- **Exportar** (Mais › Configurações › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
+- **Relatório de patrimônio** (linha própria em Mais): por dono e por banco, para imprimir ou salvar em PDF.
 
 ## Avisos
 

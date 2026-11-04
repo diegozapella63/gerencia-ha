@@ -764,7 +764,21 @@ details summary { list-style-position: inside; }
 .vinc-st { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 50px; color: var(--text-2); font-size: 15px; }
 .vinc-st .ic-s { color: var(--accent-text); flex: none; }
 
-/* ---------- Mais em abas, como no ResolvIA, no CronologIA e no InventarIA */
+/* ---------- Mais: um menu, como no InventarIA (cada função na sua linha, Configurações por último) */
+.menu-list { list-style: none; margin: 22px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.menu-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.menu-row:active { background: var(--card-2); }
+@media (hover: hover) { .menu-row:hover { background: var(--card-2); } }
+.menu-row .mb { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.menu-row b { font-size: 17px; font-weight: 600; }
+.menu-row .mb span { color: var(--muted); font-size: 14px; line-height: 1.35; }
+/* numa tela de Mais, o caminho de volta para o menu, no alto */
+.uplink { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin: 8px 0 0 -6px; padding: 6px 10px 6px 4px; border-radius: 10px; color: var(--text-2); font-weight: 500; }
+.uplink:active { background: var(--card-2); color: var(--text); }
+@media (hover: hover) { .uplink:hover { background: var(--card-2); color: var(--text); } }
+.uplink + .cab-linha h1 { margin-top: 2px; }
+
+/* ---------- Configurações em abas, como no ResolvIA, no CronologIA e no InventarIA */
 .mais-abas {
   position: sticky; top: 0; z-index: 15; display: flex; gap: 2px; padding: 4px; margin: 4px 0 18px;
   border-radius: 14px; background: var(--card-2); border: 1px solid var(--line); box-shadow: 0 0 0 8px var(--bg);
@@ -781,7 +795,7 @@ details summary { list-style-position: inside; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mais-abas button.on { background: #2c333d; } }
 .mais-abas .ic-s { width: 17px; height: 17px; }
 @media (max-width: 600px) { .mais-abas .ic-s { display: none; } .mais-abas button { padding: 0 8px; font-size: 14.5px; } }
-.mais-painel { min-height: calc(100dvh - 160px); }
+.mais-painel.abas { min-height: calc(100dvh - 160px); }
 .mais-head { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
 .mais-head h2 { flex: 1; min-width: 0; margin: 0; font: 600 25px/1.1 var(--font-d); letter-spacing: .005em; }
 .mais-ic { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 17%, transparent); color: var(--accent-text); }
@@ -930,7 +944,7 @@ details summary { list-style-position: inside; }
 .cam-pronto { justify-self: end; padding: 12px 16px; border-radius: 14px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 15px; }
 .cam-pronto:disabled { background: rgba(255,255,255,.18); color: rgba(255,255,255,.6); }
 
-/* IA desligada em Mais › Integrações: os botões de IA somem */
+/* IA desligada em Mais › Configurações › Integrações: os botões de IA somem */
 [data-ia="off"] [data-a="ia"], [data-ia="off"] .imp-campo, [data-ia="off"] [data-a="lf-ler-recibo"], [data-ia="off"] [data-a="ia-saldos"] { display: none !important; }
 
 /* ---------- Falar: o microfone no alto de cada tela, à direita (como no CronologIA e no ResolvIA) */
@@ -1010,6 +1024,9 @@ details summary { list-style-position: inside; }
   .cab { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: start; }
   .cab-topo { grid-column: 1; grid-row: 1; min-height: 18px; }
   .cab-linha { grid-column: 1; grid-row: 2; }
+  .cab > .uplink { grid-column: 1; grid-row: 2; justify-self: start; }
+  .cab > .uplink + .cab-linha { grid-row: 3; }
+  .cab:has(> .uplink) > .top-acts { grid-row: 1 / span 3; }
   .cab-topo > .mic-top, .cab-linha > .icbtn { display: none; }
   .cab h1 { margin-top: 8px; font-size: 46px; }
   .top-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 8px; }
@@ -1102,7 +1119,7 @@ details summary { list-style-position: inside; }
 @media (min-width: 1900px) {
   html { zoom: var(--z); }
   .folha { max-height: calc(86vh / var(--z)); }
-  .mais-painel { min-height: 0; }
+  .mais-painel.abas { min-height: 0; }
 }
 
 /* Bens no InventarIA: a perda por ano de cada categoria, e as linhas da janela Bens da casa */

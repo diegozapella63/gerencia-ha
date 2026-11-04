@@ -3,7 +3,7 @@ janelas no meio da tela, esconder valores, Exportar em linhas, Uso da IA (zerado
 como Falar) e, a 900 px, as abas de baixo de volta."""
 import re, sys, json, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sem, sim
+from _confere import igual, tem, sem, sim, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -18,8 +18,7 @@ with sync_playwright() as p:
     pg.on('console', lambda m: erros.append(m.text) if m.type == 'error' else None)
     pg.goto(B); pg.wait_for_timeout(800)
     # Uso da IA antes de qualquer chamada: os quadros aparecem zerados
-    pg.click('#lado [data-v="mais"]'); pg.wait_for_timeout(400)
-    pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(1200)
+    ir_mais(pg, 'config', 'integracoes', 1200)
     igual(pg.locator('#uso-ia .uso-tile').count(), 3, 'Uso da IA: os três quadros antes da primeira chamada')
     igual([x.strip() for x in pg.locator('#uso-ia .uso-tile .v').all_inner_texts()], ['0', '0', '0'], 'Uso da IA: zerados')
     pg.click('#lado [data-v="inicio"]'); pg.wait_for_timeout(300)
@@ -90,12 +89,16 @@ with sync_playwright() as p:
     sim(re.search(r'\d', pg.inner_text('#lado .sl-num >> nth=0')), 'mostrar de novo: os números voltam')
     # Exportar em linhas
     pg.click('#lado [data-v="mais"]'); pg.wait_for_timeout(300)
-    pg.click('[data-a="mais-aba"][data-v="dados"]'); pg.wait_for_timeout(800)
+    igual(pg.locator('#app .menu-row b').all_inner_texts(), ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações'], 'Mais: o menu, com Configurações por último')
+    igual(pg.inner_text('#lado [aria-current="page"]').strip(), 'Mais', 'Mais marcado na barra lateral')
+    pg.screenshot(path=f'{SP}/shots/desk-menu.png')
+    ir_mais(pg, 'config', 'dados', 800)
+    igual((pg.inner_text('#app .uplink').strip(), pg.inner_text('#app .cab h1'), pg.inner_text('#lado [aria-current="page"]').strip()), ('Mais', 'Configurações', 'Mais'), 'Configurações: ‹ Mais no alto e Mais marcado')
     linhas = pg.locator('#exportar .opts > li')
-    igual([linhas.nth(i).locator('.ot b').inner_text() for i in range(linhas.count())], ['Lançamentos (CSV)', 'Investimentos (CSV)', 'Dados completos (JSON)', 'Tudo (ZIP)', 'Relatório de patrimônio'], 'Exportar: uma linha por arquivo')
-    igual([linhas.nth(i).locator('.btn').inner_text().strip() for i in range(linhas.count())], ['Baixar CSV', 'Baixar CSV', 'Baixar JSON', 'Baixar ZIP', 'Abrir relatório'], 'Exportar: o botão de cada um')
+    igual([linhas.nth(i).locator('.ot b').inner_text() for i in range(linhas.count())], ['Lançamentos (CSV)', 'Investimentos (CSV)', 'Dados completos (JSON)', 'Tudo (ZIP)'], 'Exportar: uma linha por arquivo (o relatório tem a sua linha no menu)')
+    igual([linhas.nth(i).locator('.btn').inner_text().strip() for i in range(linhas.count())], ['Baixar CSV', 'Baixar CSV', 'Baixar JSON', 'Baixar ZIP'], 'Exportar: o botão de cada um')
     hrefs = [linhas.nth(i).locator('a[href]').get_attribute('href') if linhas.nth(i).locator('a[href]').count() else None for i in range(linhas.count())]
-    igual(hrefs, ['api/export/lancamentos', 'api/export/csv', 'api/export/json', 'api/export/zip', None], 'Exportar: os endereços (o relatório abre na tela)')
+    igual(hrefs, ['api/export/lancamentos', 'api/export/csv', 'api/export/json', 'api/export/zip'], 'Exportar: os endereços')
     igual([urllib.request.urlopen(B + h).status for h in hrefs if h], [200, 200, 200, 200], 'Exportar: os quatro arquivos baixam')
     # Uso da IA: fala conta como Falar
     k0 = get('api/ia/uso')['today'].get('kinds', {})
@@ -104,6 +107,7 @@ with sync_playwright() as p:
     k = get('api/ia/uso')['today'].get('kinds', {})
     igual((k.get('fala', 0) - k0.get('fala', 0), k.get('caixa', 0) - k0.get('caixa', 0)), (1, 1), 'Uso da IA: a fala conta como Falar, o texto como ler lançamentos')
     pg.reload(); pg.wait_for_timeout(1000)
+    igual(pg.inner_text('.cab h1'), 'Configurações', 'recarregar volta em Configurações')
     pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(1000)
     tipos = pg.locator('.uso-tipos li').all_inner_texts()
     sim('Falar 1' in tipos and 'Ler lançamentos 1' in tipos, 'Uso da IA na tela: Falar e Ler lançamentos', tipos)

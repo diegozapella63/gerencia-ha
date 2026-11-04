@@ -1,8 +1,8 @@
-"""Fala para texto à escolha (Mais › Integrações › Leitura por IA): a lista com Padrão do Home Assistant e as falas para
+"""Fala para texto à escolha (Mais › Configurações › Integrações › Leitura por IA): a lista com Padrão do Home Assistant e as falas para
 texto do HA, o status do Falar com o nome da escolhida, a transcrição usando a escolhida e a volta ao padrão."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim
+from _confere import igual, tem, sim, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -16,8 +16,7 @@ with sync_playwright() as p:
     v = get('api/voz/status')
     igual((v['nome'], [o['id'] for o in v['opcoes']], v['selecionada']), ('Fala simulada (teste)', ['stt.simulada', 'stt.outra_simulada'], ''), 'api: as falas para texto do HA, no padrão')
     pg.goto(B); pg.wait_for_timeout(800)
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(400)
-    pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(1500)
+    ir_mais(pg, 'config', 'integracoes', 1500)
     igual(pg.locator('#voz-motor option').all_inner_texts(), ['Padrão do Home Assistant', 'Fala simulada (teste)', 'Outra fala simulada (teste)'], 'lista Fala para texto: o padrão e cada uma pelo nome')
     igual(falar(), [STATUS.format('Fala simulada (teste)')], 'status do Falar com a do padrão')
     pg.select_option('#voz-motor', 'stt.outra_simulada'); pg.wait_for_timeout(1500)

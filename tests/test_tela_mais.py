@@ -1,7 +1,7 @@
 """A tela do GerencIA nas áreas Início, Mais e navegação, testada num Chromium de verdade (sem servidor).
 
 Confere o que a pessoa vê e faz: boas-vindas e exemplo, os cards e avisos do Início com os números batendo com os
-dados, Mais (bancos, categorias, fixos, integrações, aparência, dados), dicas de economia, abas e o que fica guardado,
+dados, Mais (o menu e as telas: bancos, categorias, fixos, Configurações), dicas de economia, abas e o que fica guardado,
 barra lateral no computador, o Voltar do celular com janelas umas sobre as outras, conflito ao salvar, avisos e
 números longos. Os cálculos puros ficam em tests/test_tela.py; a base e os ajudantes, em tests/tela_base.py.
 Para andar rápido, as animações do CSS ficam desligadas nestes testes (o comportamento é o mesmo).
@@ -252,12 +252,14 @@ class TestInicio(TelaMais):
 
     # (era bug até a 1.24.0: o aviso Índices abria a aba de Mais que estivesse aberta)
     def test_tocar_nos_indices_abre_mais_invest_nos_indices(self):
-        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"maisAba": "bancos"})
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"maisTela": "bancos"})
         self.assertIn("CDI 13,65% · Selic 13,75% · IPCA 4,5%", self.linha("#app .op", "Índices"))
         self.pg.locator("#app .op", has_text="Índices").first.click()
         self.esperar()
-        self.assertEqual(self.js("T.S.ui.tab"), "mais")
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "invest"])
         self.assertTrue(self.visivel("#indices"), "a seção Índices de mercado (Mais › Invest) na tela")
+        self.voltar()
+        self.assertEqual((self.js("T.S.ui.tab"), self.texto(".cab h1")), ("inicio", "Início"), "o Voltar volta para o Início, de onde veio")
 
     def test_bens_do_inventaria_somam_no_patrimonio(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS), bens=BENS)
@@ -285,7 +287,7 @@ class TestInicio(TelaMais):
 # ---------------------------------------------------------------------------------------------------------------
 class TestMaisBancos(TelaMais):
     def abrir_bancos(self, d=None):
-        self.abrir(d or base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(d or base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "bancos"})
 
     def banco(self, id_):
         return next(b for b in self.dados()["bancos"] if b["id"] == id_)
@@ -382,7 +384,7 @@ class TestMaisBancos(TelaMais):
 # ---------------------------------------------------------------------------------------------------------------
 class TestMaisCaixa(TelaMais):
     def abrir_caixa(self, d):
-        self.abrir(d, ui={"tab": "mais", "maisAba": "caixa"})
+        self.abrir(d, ui={"tab": "mais", "maisTela": "caixa"})
 
     def test_nova_categoria_de_gasto_com_cor(self):
         self.abrir_caixa(base())
@@ -455,7 +457,7 @@ class TestMaisCaixa(TelaMais):
 # ---------------------------------------------------------------------------------------------------------------
 class TestIntegracoes(TelaMais):
     def abrir_int(self, d=None, bens=None):
-        self.abrir(d or base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisAba": "integracoes"}, bens=bens)
+        self.abrir(d or base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"}, bens=bens)
 
     def test_desligar_usar_ia_some_com_os_botoes_de_ia(self):
         self.abrir_int()
@@ -518,7 +520,7 @@ class TestIntegracoes(TelaMais):
         self.abrir_int(bens=BENS)
         self.assertIn("Ligado: R$ 30.000 em 12 itens.", self.texto("#bens"))
         self.assertTrue(self.visivel('#bens [data-a="bens-atualizar"]'))
-        self.clicar('[data-a="mais-aba"][data-v="invest"]')
+        self.ir_mais("invest")
         self.assertEqual(self.js("[...document.querySelectorAll('#perda-bens .bens-tx input')].map(i => [i.dataset.bensTaxa, i.value])"),
                          [["moveis", "10"], ["eletronicos", "20"]], "a perda por ano de cada categoria, da que vale mais para a que vale menos")
 
@@ -526,7 +528,7 @@ class TestIntegracoes(TelaMais):
         self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes={"bens": False}), bens=BENS)
         self.assertIn("Desligado: o patrimônio fica só com os investimentos.", self.texto("#bens"))
         self.assertEqual(self.conta('#bens [data-a="bens-atualizar"]'), 0)
-        self.clicar('[data-a="mais-aba"][data-v="invest"]')
+        self.ir_mais("invest")
         self.assertEqual(self.conta("#perda-bens"), 0, "sem bens, sem a tabela de perda de valor")
         self.ir("investimentos")
         self.assertEqual(self.conta(".inv-ro"), 0, "sem o cartão Bens da casa na Carteira")
@@ -540,7 +542,7 @@ class TestIntegracoes(TelaMais):
 # ---------------------------------------------------------------------------------------------------------------
 class TestAparenciaEDados(TelaMais):
     def test_tema_claro_e_escuro(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.clicar('[data-a="tema"][data-v="claro"]')
         self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("light", "claro"))
         self.assertEqual(self.js("document.querySelector('[data-a=\"tema\"][data-v=\"claro\"]').getAttribute('aria-checked')"), "true")
@@ -548,7 +550,7 @@ class TestAparenciaEDados(TelaMais):
         self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("dark", "escuro"))
 
     def test_tema_automatico_segue_o_sistema(self):
-        self.abrir(base(ajustes={"tema": "escuro"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"tema": "escuro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.addCleanup(lambda: self.pg.emulate_media(color_scheme="null"))
         fundo = lambda: self.js("getComputedStyle(document.body).backgroundColor")
         self.pg.emulate_media(color_scheme="light")
@@ -574,14 +576,14 @@ class TestAparenciaEDados(TelaMais):
         return self.js("document.querySelector('#cor [data-a=\"ajuste\"][data-k=\"cor_dia\"]').getAttribute('aria-checked')")
 
     def test_cor_do_dia_ligada_por_padrao(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.assertEqual(self.linha("#cor .linha-sw", "Cor do dia"), "Cor do dia Muda a cor do app todo dia.")
         self.assertEqual(self.chave_cor_dia(), "true")
         self.assertEqual(self.acento(), "#FFA23E", "02/11/2026: Laranja, no app todo")
         self.assertEqual(self.marcada(), ["Laranja"], "a cor do dia é a marcada")
 
     def test_quem_ja_tinha_escolhido_uma_cor_tambem_fica_com_a_do_dia(self):
-        self.abrir(base(ajustes={"cor": "#8BD45F"}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"cor": "#8BD45F"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.assertEqual((self.chave_cor_dia(), self.acento(), self.marcada()), ("true", "#FFA23E", ["Laranja"]))
 
     def test_cor_do_dia_muda_todo_dia_pela_paleta(self):
@@ -591,7 +593,7 @@ class TestAparenciaEDados(TelaMais):
         self.assertNotIn("Grafite", [n for n, _ in self.js("T.CORES_DIA")], "sem as neutras")
 
     def test_cor_do_app(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.clicar('[data-a="cor"][data-v="#8BD45F"]')
         self.assertEqual((self.dados()["ajustes"]["cor"], self.dados()["ajustes"]["cor_dia"]), ("#8BD45F", False), "escolher uma cor desliga a Cor do dia")
         self.assertEqual(self.acento(), "#8BD45F", "a cor vale no app todo")
@@ -599,13 +601,13 @@ class TestAparenciaEDados(TelaMais):
         self.assertEqual(self.chave_cor_dia(), "false")
 
     def test_escolher_a_propria_cor_do_dia_tambem_desliga(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.clicar('[data-a="cor"][data-v="#FFA23E"]')
         self.assertEqual((self.dados()["ajustes"]["cor"], self.dados()["ajustes"]["cor_dia"]), ("#FFA23E", False))
         self.assertEqual((self.chave_cor_dia(), self.acento()), ("false", "#FFA23E"), "fica com ela, mesmo amanhã")
 
     def test_ligar_a_cor_do_dia_volta_para_ela_e_desligar_volta_para_a_escolhida(self):
-        self.abrir(base(ajustes={"cor": "#8BD45F", "cor_dia": False}), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(ajustes={"cor": "#8BD45F", "cor_dia": False}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.assertEqual((self.chave_cor_dia(), self.acento(), self.marcada()), ("false", "#8BD45F", ["Verde"]))
         self.clicar('#cor [data-a="ajuste"][data-k="cor_dia"]')
         self.assertIs(self.dados()["ajustes"]["cor_dia"], True)
@@ -619,7 +621,7 @@ class TestAparenciaEDados(TelaMais):
         self.addCleanup(lambda: self.pg.clock.set_fixed_time("2026-11-02T10:00:00-03:00"))
 
     def test_a_meia_noite_a_cor_muda_sem_recarregar(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "aparencia"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.mudar_relogio("2026-11-02T23:59:00-03:00")
         self.js("(window.dispatchEvent(new Event('focus')), true)")
         self.esperar()
@@ -645,12 +647,12 @@ class TestAparenciaEDados(TelaMais):
         self.assertEqual(self.acento(), "#8BD45F")
 
     def test_criar_backup_avisa_onde_ficou(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.clicar('[data-a="backup"]')
         self.assertEqual(self.esperar_aviso("Backup"), "Backup salvo em share/gerencia/gerencia-2026-11-02.zip")
 
     def test_lista_os_backups_da_pasta(self):
-        self.abrir(base(), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.pg.wait_for_selector(".bk-row")
         linhas = self.js("[...document.querySelectorAll('.bk-row')].map(r => [r.querySelector('b').textContent, r.querySelector('span').textContent])")
         self.assertEqual(len(linhas), 3)
@@ -659,7 +661,7 @@ class TestAparenciaEDados(TelaMais):
     def test_restaurar_backup_pede_confirmacao_e_troca_os_dados(self):
         self.trocar_api("restaurarBackup", "async (nome) => { window.__restaurado = nome; return { bancos: [{ id: 'b-lilas', nome: 'Banco Lilás', cor: '#B79BFF', "
                                            "contas: [] }], investimentos: [], lancamentos: [], recorrencias: [] }; }")
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.pg.wait_for_selector(".bk-row")
         self.clicar('[data-a="bk-restaurar"]')
         self.assertEqual(self.folha(), "Restaurar backup?")
@@ -671,7 +673,7 @@ class TestAparenciaEDados(TelaMais):
         self.assertEqual([b["nome"] for b in self.dados()["bancos"]], ["Banco Lilás"])
 
     def test_versoes_anteriores_lista_e_pede_confirmacao_para_restaurar(self):
-        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisAba": "dados"})
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.clicar('[data-a="versoes"]')
         self.assertEqual(self.folha(), "Versões anteriores")
         self.pg.wait_for_selector(".versao-row")
@@ -682,7 +684,7 @@ class TestAparenciaEDados(TelaMais):
 
     def test_apagar_tudo_pede_confirmacao_e_mantem_categorias_e_preferencias(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB], lancamentos=LANC, recorrencias=FIXOS, ajustes={"tema": "escuro"}),
-                   ui={"tab": "mais", "maisAba": "dados"})
+                   ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.js("T.persistir(d => { d.categorias.push(a); })", {"id": "c-viagens", "nome": "Viagens", "tipo": "despesa", "cor": "#E04B8A"})
         self.esperar()
         self.clicar('[data-a="apagar-tudo"]')
@@ -724,7 +726,7 @@ class TestDicas(TelaMais):
         self.assertEqual(self.esperar_aviso("Dica"), "Dica dispensada")
 
     def test_mostrar_dispensadas_traz_a_dica_de_volta(self):
-        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"dicas_fora": [DICA_SPOTIFY]}), ui={"tab": "mais", "maisAba": "caixa"})
+        self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"dicas_fora": [DICA_SPOTIFY]}), ui={"tab": "mais", "maisTela": "caixa"})
         self.assertEqual(self.texto('[data-a="dicas-voltar"]').strip(), "Mostrar dispensadas (1)")
         self.clicar('[data-a="dicas-voltar"]')
         self.assertEqual(self.dados()["ajustes"]["dicas_fora"], [])
@@ -762,7 +764,7 @@ class TestDicas(TelaMais):
         self.assertEqual(self.conta(".card.dicas"), 0)
 
     def test_com_a_ia_desligada_a_dica_de_categoria_continua(self):
-        self.abrir_dicas(base(lancamentos=RESTAURANTES, ajustes={"ia": False}), ui={"tab": "mais", "maisAba": "caixa"}, assinaturas=False)
+        self.abrir_dicas(base(lancamentos=RESTAURANTES, ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "caixa"}, assinaturas=False)
         self.assertIn("Com a IA desligada, os planos anuais não são conferidos.", self.texto("#dicas"))
         self.ir("inicio")
         self.assertIn("Restaurantes acima da média", self.texto(".card.dicas"), "não usa IA")
@@ -775,23 +777,176 @@ class TestDicas(TelaMais):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestAtalhosParaMais(TelaMais):
-    """Os atalhos do Início para um quadro de Mais abrem a aba certa (até a 1.24.0 abriam a aba que estivesse aberta)."""
+    """Os atalhos do Início para um quadro de Mais abrem a tela (e a aba de Configurações) onde ele está."""
 
     def atalho(self, ancora):
-        self.abrir(base(bancos=BANCOS), ui={"maisAba": "aparencia"})
+        self.abrir(base(bancos=BANCOS), ui={"maisTela": "", "maisAba": "aparencia"})
         # o botão entra e é tocado no mesmo passo (a tela pode se redesenhar no meio e levar o botão embora)
         self.js("(document.querySelector('#app').insertAdjacentHTML('beforeend', `<button id=at data-a=tab data-v=mais data-ancora=${a}>x</button>`), document.getElementById('at').click(), true)", ancora)
         self.esperar()
-        return self.js("T.S.ui.maisAba")
+        return self.js("[T.S.ui.maisTela, T.S.ui.maisAba]")
 
     def test_dicas_abre_mais_caixa(self):
-        self.assertEqual(self.atalho("dicas"), "caixa")
+        self.assertEqual(self.atalho("dicas"), ["caixa", "aparencia"])
+        self.assertTrue(self.visivel("#dicas"))
 
     def test_indices_abre_mais_invest(self):
-        self.assertEqual(self.atalho("indices"), "invest")
+        self.assertEqual(self.atalho("indices"), ["invest", "aparencia"])
 
-    def test_ancora_desconhecida_mantem_a_aba(self):
-        self.assertEqual(self.atalho("outra"), "aparencia")
+    def test_ia_abre_configuracoes_nas_integracoes(self):
+        self.assertEqual(self.atalho("ia"), ["config", "integracoes"])
+        self.assertTrue(self.visivel("#ia"))
+
+    def test_ancora_desconhecida_abre_o_menu(self):
+        self.assertEqual(self.atalho("outra"), ["", "aparencia"])
+        self.assertEqual(self.conta("#app .menu-row"), 5)
+
+
+class TestMenuMais(TelaMais):
+    """Mais é um menu (como no InventarIA): uma linha por função, cada uma com a sua tela, e Configurações por último.
+    Numa tela, "‹ Mais" no alto, o Voltar do celular e arrastar para a direita voltam ao menu; Mais fica marcado embaixo."""
+
+    LINHAS = [("Bancos", "Quem tem conta e os cartões."), ("Caixa", "Fixos, categorias e dicas de economia."),
+              ("Invest", "Índices de mercado: CDI, Selic, IPCA e TR."), ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
+              ("Configurações", "Integrações, dados, aparência e opções.")]
+    # tela: (título, os quadros que ela tem)
+    TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
+             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "uso-ia", "sensores"])}
+
+    def no_menu(self):
+        return self.js("[T.S.ui.tab, T.S.ui.maisTela, document.querySelector('#app .cab h1').textContent, !!document.querySelector('#app .menu-list')]") == ["mais", "", "Mais", True]
+
+    def marcada(self):
+        return self.js("[...document.querySelectorAll('#nav [aria-current=\"page\"]')].map(e => e.dataset.v)")
+
+    def test_as_linhas_do_menu_na_ordem_com_configuracoes_por_ultimo(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir("mais")
+        self.assertTrue(self.no_menu())
+        linhas = self.js("[...document.querySelectorAll('#app .menu-row')].map(r => [r.querySelector('b').textContent, r.querySelector('.mb > span').textContent])")
+        self.assertEqual([tuple(x) for x in linhas], self.LINHAS)
+        self.assertEqual(self.js("[...document.querySelectorAll('#app .menu-row')].map(r => r.dataset.v || r.dataset.a)"),
+                         ["bancos", "caixa", "invest", "relatorio", "config"])
+        self.assertEqual(self.conta("#app .menu-row .mais-ic svg"), 5, "cada linha com o ícone no quadradinho")
+        self.assertEqual(self.conta("#app .uplink"), 0, "no menu não há ‹ Mais")
+        self.assertEqual(self.conta("#app .sync"), 0, "nem a linha embaixo do título")
+        self.assertEqual(self.conta("#app .mais-abas"), 0, "as abas ficaram em Configurações")
+        self.assertEqual(self.marcada(), ["mais"])
+        self.assertEqual(self.conta('#nav [data-v="mais"] svg circle'), 3, "o ícone de Mais são três pontos")
+
+    def test_com_bens_a_linha_do_invest_fala_da_perda_de_valor(self):
+        carro = {"id": "carro", "nome": "Carro", "tipo": "bens", "valor": 30000, "data_valor": "2026-11-02", "indexador": "deprecia", "taxa": 15, "categoria_bem": "veiculos"}
+        self.abrir(base(bancos=BANCOS, investimentos=[carro]), ui={"tab": "mais"})
+        self.assertEqual(self.linha("#app .menu-row", "Invest"), "Invest Índices de mercado e perda de valor dos bens.")
+
+    def test_cada_linha_abre_a_sua_tela_com_mais_no_alto(self):
+        self.abrir(base(bancos=BANCOS))
+        for tela, (titulo, quadros) in self.TELAS.items():
+            with self.subTest(tela):
+                self.ir("mais")
+                self.clicar(f'#app .menu-row[data-v="{tela}"]')
+                self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela, history.state && history.state.tela]"), ["mais", tela, tela])
+                self.assertEqual(self.texto("#app .cab h1"), titulo)
+                self.assertEqual(self.texto("#app .cab .uplink").strip(), "Mais")
+                self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel > section.card')].map(s => s.id)"), quadros)
+                self.assertEqual(self.marcada(), ["mais"], "Mais continua marcado embaixo")
+                self.assertEqual(self.conta("#app .menu-list"), 0)
+
+    def test_configuracoes_em_abas_e_a_aba_fica_guardada(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("config")
+        self.assertEqual([t.strip() for t in self.textos("#app .mais-abas button")], ["Integrações", "Dados", "Aparência", "Opções"])
+        for aba, quadros in (("dados", ["exportar", "backup", "importar", "versoes", "onde", "zerar"]), ("aparencia", ["tema", "cor"]),
+                             ("opcoes", ["op-inicio", "op-caixa", "op-invest"])):
+            self.clicar(f'#app .mais-abas [data-v="{aba}"]')
+            self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel > section.card')].map(s => s.id)"), quadros)
+            self.assertEqual(self.js("document.querySelector('#app .mais-abas [aria-selected=\"true\"]').dataset.v"), aba)
+        self.assertEqual(self.texto("#app .cab h1"), "Configurações", "trocar de aba não troca de tela")
+        self.ir("inicio")
+        self.ir_mais("config")
+        self.assertEqual(self.js("T.S.ui.maisAba"), "opcoes", "volta na última aba")
+        self.assertEqual(self.guardado()["maisAba"], "opcoes")
+
+    def test_versoes_anteriores_explicam_quando_guardam(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
+        self.assertEqual(self.texto("#versoes .painel-lead"), "Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.")
+
+    def test_mais_no_alto_volta_ao_menu(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("bancos")
+        self.clicar("#app .uplink")
+        self.assertTrue(self.no_menu())
+        self.pg.wait_for_function("!(history.state && history.state.tela)")
+        self.assertEqual(self.marcada(), ["mais"])
+
+    def test_voltar_do_celular_volta_ao_menu(self):
+        self.abrir(base(bancos=BANCOS))
+        for tela in self.TELAS:
+            with self.subTest(tela):
+                self.ir_mais(tela)
+                self.voltar()
+                self.assertTrue(self.no_menu())
+                self.assertEqual(self.guardado()["maisTela"], "", "o menu fica guardado")
+
+    def test_voltar_com_uma_janela_aberta_fecha_so_a_janela(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("bancos")
+        self.clicar('#bancos [data-a="banco"][data-id="b-azul"]')
+        self.assertEqual(self.folha(), "Editar banco")
+        self.voltar()
+        self.assertEqual((self.folha(), self.texto("#app .cab h1")), (None, "Bancos"), "fechou a janela e ficou em Bancos")
+        self.clicar('#bancos [data-a="banco"][data-id="b-verde"]')
+        self.clicar('.folha-cab [data-a="fechar"]')
+        self.assertEqual(self.texto("#app .cab h1"), "Bancos", "o X também fica em Bancos")
+        self.voltar()
+        self.assertTrue(self.no_menu(), "o Voltar seguinte volta ao menu")
+
+    def test_mais_embaixo_numa_tela_volta_ao_menu(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("caixa")
+        self.ir("mais")
+        self.assertTrue(self.no_menu())
+
+    def test_sair_pela_barra_de_baixo_e_o_voltar_nao_cai_na_tela(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("invest")
+        self.ir("caixa")
+        self.pg.wait_for_function("!(history.state && history.state.tela)")
+        self.assertEqual(self.texto("#app .cab h1"), "Caixa")
+        self.ir("mais")
+        self.assertTrue(self.no_menu(), "Mais abre o menu, não a última tela")
+
+    def test_atalho_do_inicio_volta_para_o_inicio_e_mais_no_alto_vai_ao_menu(self):
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
+        self.pg.locator("#app .op", has_text="Índices").first.click()
+        self.esperar()
+        self.assertEqual(self.texto("#app .cab h1"), "Invest")
+        self.clicar("#app .uplink")
+        self.assertTrue(self.no_menu())
+
+    def test_caixa_diz_quantos_fixos_e_categorias(self):
+        self.abrir(base(bancos=BANCOS, recorrencias=FIXOS), ui={"tab": "mais", "maisTela": "caixa"})
+        self.assertEqual(self.texto(".sync").strip(), f'4 fixos · {self.js("T.S.d.categorias.length")} categorias', "a academia parou: fica fora")
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "caixa"})
+        self.assertTrue(self.texto(".sync").strip().startswith("Nenhum fixo ainda · "))
+
+    def test_relatorio_abre_direto_do_menu(self):
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais"})
+        self.clicar('#app .menu-row[data-a="relatorio"]')
+        self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre. No app, ele abre pronto para imprimir.")
+        self.assertTrue(self.no_menu(), "não é uma tela: o menu continua")
+
+    def test_nada_passa_da_largura_no_celular_estreito(self):
+        self.pg.set_viewport_size({"width": 320, "height": 700})
+        self.addCleanup(lambda: self.pg.set_viewport_size({"width": self.LARGURA, "height": self.ALTURA}))
+        self.abrir(base(bancos=BANCOS, investimentos=INVS, recorrencias=FIXOS))
+        largura = "document.documentElement.scrollWidth"
+        self.ir("mais")
+        self.assertLessEqual(self.js(largura), 320, "o menu")
+        for tela in self.TELAS:
+            with self.subTest(tela):
+                self.ir_mais(tela)
+                self.assertLessEqual(self.js(largura), 320)
 
 
 class TestNavegacao(TelaMais):
@@ -820,10 +975,9 @@ class TestNavegacao(TelaMais):
         self.ir("investimentos")
         self.clicar('[data-a="filtro"][data-v="meus"]')
         self.clicar('[data-a="inv-modo"][data-v="evolucao"]')
-        self.ir("mais")
-        self.clicar('[data-a="mais-aba"][data-v="dados"]')
+        self.ir_mais("config", "dados")
         g = self.guardado()
-        self.assertEqual((g["tab"], g["cxModo"], g["filtro"], g["invModo"], g["maisAba"]), ("mais", "fluxo", "meus", "evolucao", "dados"))
+        self.assertEqual((g["tab"], g["cxModo"], g["filtro"], g["invModo"], g["maisTela"], g["maisAba"]), ("mais", "fluxo", "meus", "evolucao", "config", "dados"))
 
     def test_descontar_ir_e_ocultar_bens_nao_ficam_guardados(self):
         carro = {"id": "carro", "nome": "Carro", "tipo": "bens", "valor": 30000, "data_valor": "2026-11-02", "indexador": "deprecia", "taxa": 15, "categoria_bem": "veiculos"}
@@ -926,6 +1080,12 @@ class TestComputador(TelaMais):
         self.assertEqual(nomes, ["Início", "Buscar", "Caixa", "Investimentos", "Mais"])
         self.clicar('#lado [data-a="tab"][data-v="mais"]')
         self.assertEqual(self.js("[...document.querySelectorAll('#lado [aria-current=\"page\"]')].map(e => e.textContent.trim())"), ["Mais"], "a seção aberta marcada")
+        self.clicar('#app .menu-row[data-v="config"]')
+        self.assertEqual(self.js("[...document.querySelectorAll('#lado [aria-current=\"page\"]')].map(e => e.textContent.trim())"), ["Mais"],
+                         "numa tela de Mais, Mais continua marcado")
+        up, h1 = self.pg.locator("#app .uplink").bounding_box(), self.pg.locator("#app .cab h1").bounding_box()
+        self.assertLess(up["y"] + up["height"], h1["y"] + 8, "‹ Mais em cima do título")
+        self.assertLess(abs(up["x"] - h1["x"]), 12, "alinhado com o título")
 
     def test_caixa_na_barra_lateral_mostra_quantas_contas_atrasaram(self):
         self.abrir(base(bancos=BANCOS, lancamentos=LANC))
@@ -972,6 +1132,7 @@ class TestReabrir(TelaMais):
     def reabrir(self, guardado):
         self.pg.evaluate("u => localStorage.setItem('gerencia.ui', JSON.stringify(u))", guardado)
         self.addCleanup(lambda: self.pg.evaluate("() => localStorage.removeItem('gerencia.ui')"))
+        self.pg.evaluate("() => history.replaceState(null, '')")  # a entrada de antes, sem tela de Mais
         self.pg.reload()
         self.pg.wait_for_function("window.GERENCIA_TESTE && window.GERENCIA_TESTE.S && window.GERENCIA_TESTE.S.d")
         self.pg.evaluate("u => { window.__UI0 = u; }", self.UI0)
@@ -979,11 +1140,29 @@ class TestReabrir(TelaMais):
         self.esperar()
 
     def test_reabrir_volta_na_aba_e_nos_modos_guardados(self):
-        self.reabrir({"tab": "caixa", "cxModo": "fluxo", "invModo": "divisao", "maisAba": "dados", "filtro": "terc"})
+        self.reabrir({"tab": "caixa", "cxModo": "fluxo", "invModo": "divisao", "maisTela": "", "maisAba": "dados", "filtro": "terc"})
         u = self.js("T.S.ui")
         self.assertEqual((u["tab"], u["cxModo"], u["invModo"], u["maisAba"], u["filtro"]), ("caixa", "fluxo", "divisao", "dados", "terc"))
         self.assertEqual(self.js("document.querySelector('.cab h1').textContent"), "Caixa")
         self.assertEqual(self.js("T.iso(T.hoje())"), "2026-11-02", "o relógio continua parado")
+
+    def test_reabrir_numa_tela_de_mais_volta_nela_e_o_voltar_vai_ao_menu(self):
+        self.reabrir({"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
+        self.assertEqual((self.texto(".cab h1"), self.texto(".mais-abas button.on").strip()), ("Configurações", "Aparência"))
+        self.voltar()
+        self.assertEqual((self.texto(".cab h1"), self.js("T.S.ui.maisTela")), ("Mais", ""))
+
+    def test_quem_estava_numa_aba_antiga_de_mais_cai_no_lugar_novo(self):
+        """Até a 1.25, Mais era em abas (maisAba): Dados, Integrações, Aparência e Opções viraram abas de Configurações;
+        Bancos, Caixa e Invest, telas do menu."""
+        for velha, tela, titulo, aba in (("dados", "config", "Configurações", "dados"), ("opcoes", "config", "Configurações", "opcoes"),
+                                         ("invest", "invest", "Invest", "integracoes"), ("bancos", "bancos", "Bancos", "integracoes")):
+            with self.subTest(velha):
+                self.reabrir({"tab": "mais", "maisAba": velha})
+                u = self.js("T.S.ui")
+                self.assertEqual((u["maisTela"], u["maisAba"], self.texto(".cab h1")), (tela, aba, titulo))
+        self.reabrir({"tab": "caixa", "maisAba": "aparencia"})
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela, T.S.ui.maisAba]"), ["caixa", "", "aparencia"], "fora de Mais, Mais abre no menu")
 
     def test_reabrir_descontar_ir_e_ocultar_bens_comecam_desligados(self):
         self.reabrir({"tab": "investimentos", "invModo": "evolucao", "gIR": True, "gSemBens": True})
@@ -1004,7 +1183,7 @@ class TestConflitoAvisosENumeros(TelaMais):
         self.clicar('[data-a="b-salvar"]')
 
     def test_conflito_ao_salvar_avisa_e_recarrega_os_dados(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "bancos"})
         self.outro_aparelho_salva()
         self.cadastrar_banco_roxo()
         self.assertEqual(self.esperar_aviso("aparelho"), "Os dados mudaram em outro aparelho. Confira e tente de novo.")
@@ -1013,7 +1192,7 @@ class TestConflitoAvisosENumeros(TelaMais):
         self.assertEqual((self.folha(), self.pg.input_value("#b-nome")), ("Novo banco", "Banco Roxo"), "a janela continua, com o que foi digitado")
 
     def test_depois_do_conflito_salvar_de_novo_nao_perde_nada(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "bancos"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "bancos"})
         self.outro_aparelho_salva()
         self.cadastrar_banco_roxo()
         self.clicar('[data-a="b-salvar"]')
@@ -1021,7 +1200,7 @@ class TestConflitoAvisosENumeros(TelaMais):
         self.assertEqual([b["nome"] for b in self.dados()["bancos"]], ["Banco Azul", "Banco Verde", "Banco Lilás", "Banco Roxo"])
 
     def test_erro_ao_salvar_avisa_e_nao_muda_nada(self):
-        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisAba": "integracoes"})
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.trocar_api("save", "async () => { throw new Error('Sem conexão.'); }")
         self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
         self.assertEqual(self.esperar_aviso("salvar"), "Não consegui salvar. Sem conexão.")

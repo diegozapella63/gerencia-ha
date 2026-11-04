@@ -1,8 +1,8 @@
-"""Sensores no Home Assistant (Mais › Integrações): desligados por padrão; ligados, listam os sensores; a nota do
+"""Sensores no Home Assistant (Mais › Configurações › Integrações): desligados por padrão; ligados, listam os sensores; a nota do
 sensor.gerencia_ia_hoje fica nesse quadro (não no Uso da IA) e some com a IA desligada."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sem, sim
+from _confere import igual, tem, sem, sim, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -13,8 +13,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: erros.append(str(e)))
     pg.on('console', lambda m: erros.append(m.text) if m.type == 'error' else None)
     pg.goto('http://localhost:8099/'); pg.wait_for_timeout(800)
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(300)
-    pg.click('[data-a="mais-aba"][data-v="integracoes"]'); pg.wait_for_timeout(1200)
+    ir_mais(pg, 'config', 'integracoes', 1200)
     igual(pg.locator('#uso-ia').count(), 1, 'o quadro Uso da IA')
     sem(pg.inner_text('#uso-ia'), 'gerencia_ia_hoje', 'Uso da IA sem a explicação do sensor')
     tem(pg.inner_text('#sensores'), 'Desligado: nenhum sensor no Home Assistant.', 'sensores desligados por padrão')

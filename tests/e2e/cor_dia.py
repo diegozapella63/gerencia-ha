@@ -1,10 +1,10 @@
-"""Cor do dia (Mais › Aparência), com o servidor de verdade: vem ligada, a cor do app é a do dia (as cores do app em
+"""Cor do dia (Mais › Configurações › Aparência), com o servidor de verdade: vem ligada, a cor do app é a do dia (as cores do app em
 ordem, sem o Grafite, pela data de hoje) no app, no ícone e no relatório; tocar numa cor desliga e fica com ela (também
 depois de recarregar); ligar de novo volta para a do dia. Capturas no escuro e no claro."""
 import sys, json, urllib.request
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim
+from _confere import igual, tem, sim, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def st(): return json.loads(urllib.request.urlopen(B + 'api/state').read())
@@ -29,9 +29,8 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{SP}/shots/cor-dia-inicio.png')
     relatorio = urllib.request.urlopen(B + 'relatorio').read().decode()
     tem(relatorio, f':root{{--a:{COR}}}', 'o relatório na cor do dia')
-    # Mais › Aparência
-    pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(400)
-    pg.click('.mais-abas [data-v="aparencia"]'); pg.wait_for_timeout(500)
+    # Mais › Configurações › Aparência
+    ir_mais(pg, 'config', 'aparencia', 500)
     igual(' '.join(pg.inner_text('#cor .linha-sw').split()), 'Cor do dia Muda a cor do app todo dia.', 'a chave com a explicação curta')
     igual(chave(), 'true', 'Cor do dia ligada')
     igual(marcada(), [NOME], 'a cor do dia é a marcada')

@@ -184,7 +184,7 @@ class TestHTTP(unittest.TestCase):
         self.estado(ajustes=dict(d["ajustes"], ia=False))
         try:
             v = self.s.get("/api/voz/status")[2]
-            self.assertEqual((v["pronta"], v["motivo"]), (False, "A IA está desligada em Mais › Integrações."))
+            self.assertEqual((v["pronta"], v["motivo"]), (False, "A IA está desligada em Mais › Configurações › Integrações."))
         finally:
             d = self.estado()
             self.estado(ajustes=dict(d["ajustes"], ia=True))

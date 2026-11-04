@@ -57,3 +57,15 @@ def valores_s(texto):
 
 def perto(a, b, o_que, tol=0.011):
     return _saida(a is not None and b is not None and abs(a - b) <= tol, o_que, f"veio {a!r}, esperado {b!r}")
+
+
+def ir_mais(pg, tela, aba=None, espera=400):
+    """Abre uma tela de Mais pelo menu, como a pessoa faz: Mais (embaixo, ou na barra lateral no computador), a linha
+    (bancos, caixa, invest ou config) e, em Configurações, a aba (integracoes, dados, aparencia ou opcoes)."""
+    pg.click('#lado [data-v="mais"]' if pg.locator('#lado [data-v="mais"]').is_visible() else '#nav [data-v="mais"]')
+    pg.wait_for_timeout(200)
+    pg.click(f'#app .menu-row[data-v="{tela}"]')
+    pg.wait_for_timeout(espera)
+    if aba:
+        pg.click(f'#app .mais-abas [data-a="mais-aba"][data-v="{aba}"]')
+        pg.wait_for_timeout(espera)

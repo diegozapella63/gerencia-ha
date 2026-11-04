@@ -621,8 +621,8 @@ class TestFixos(Caixa):
         self.assertEqual(self.ids(), ["l-merc"])
 
     def test_fixo_parado_sai_da_lista_de_fixos(self):
-        self.caixa(ui={"maisAba": "caixa"}, recorrencias=[LUZ, fixo("r-net", "Internet", 99.9, 20, "2026-01", categoria="c-contas")])
-        self.ir("mais")
+        self.caixa(recorrencias=[LUZ, fixo("r-net", "Internet", 99.9, 20, "2026-01", categoria="c-contas")])
+        self.ir_mais("caixa")
         self.assertEqual(self.conta('#fixos .banco-row'), 2)
         self.clicar('#fixos .banco-row[data-id="r-luz"]')  # abre o do próximo mês (dezembro)
         self.excluir()

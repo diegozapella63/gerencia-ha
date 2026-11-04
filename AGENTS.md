@@ -55,7 +55,7 @@ Abra `http://localhost:8099`. Em **Carregar exemplo** aparecem dados inventados.
 
 Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro app junto.
 
-- **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
+- **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Configurações › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
 - **InventarIA → GerencIA**: o InventarIA grava `share/inventario/integracao.json` e este app lê `/api/integracao/itens` e `/comodos` (`bens.py`, cache de 10 min). Só lê; nada muda lá. Patrimônio = investimentos meus + bens (os de terceiros ficam fora).
 - **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
 
@@ -64,6 +64,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - Tudo em português do Brasil, sem palavras em inglês na tela.
 - **Menos é mais**: textos curtos, sem explicar o óbvio, sem avisos repetidos.
 - Botões lado a lado com o mesmo tamanho e alinhados; números nunca cortados nem por cima uns dos outros (`ajustarTextos` diminui a fonte quando não cabe).
+- **Mais** é um menu, não uma tela de ajustes (como no InventarIA): cada função tem a sua linha e a sua tela (Bancos, Caixa, Invest; o Relatório de patrimônio abre direto) e **Configurações** (abas Integrações, Dados, Aparência, Opções) vem por último. Nada de misturar uma função do app com as configurações. A tela aberta fica em `S.ui.maisTela` (`''` é o menu) e ocupa uma entrada no histórico (`marcarTela`): o Voltar do celular, o **‹ Mais** no alto e arrastar para a direita voltam ao menu.
 - O que depende da IA respeita o interruptor **Usar IA** (desligado: some, inclusive as dicas). O que depende de uma integração só aparece com ela ligada.
 - Uma janela aberta de dentro de outra (Fatura, print ou foto a partir da Nova despesa; uma confirmação como Apagar lançamento; o Editar do chat) volta para ela no Voltar do celular, no X e no Cancelar (`abrirFolha(..., sobre)`).
 - Interruptores de análise (Descontar IR, Ocultar bens) começam desligados toda vez; filtros e abas ficam guardados.
