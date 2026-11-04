@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.27.0
+
+- **Mais › Sobre**, a última linha do menu: quem faz o app (**CorrerIA Code**, desenvolvimento de softwares, e por que esse nome), os apps da família (CronologIA, ResolvIA, GerencIA, InventarIA, EconomIA e MemorIA), cada um com uma linha e o link para o GitHub, e o botão **Meu GitHub**. O Voltar do celular e o **‹ Mais** voltam ao menu.
+- Com a IA fora do ar, o aviso do **Ler com IA** agora diz onde ver: Mais › Configurações › Integrações.
+- A chave **Usar IA** lista tudo o que ela desliga, inclusive Conversar com a IA e Atualizar saldos.
+
 ## 1.26.1
 
 - **Relatório de patrimônio** abre no mesmo tema do app (claro ou escuro, inclusive o automático do Home Assistant). Ao imprimir ou salvar em PDF, sai sempre em fundo branco.

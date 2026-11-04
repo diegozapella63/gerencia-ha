@@ -347,6 +347,16 @@ class TestJanelaLerComIA(TelaIA):
         self.assertEqual(self.folha(), "Ler com IA")
         self.assertEqual(self.texto("#folhas .msg-erro"), "A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.")
 
+    def test_ia_que_nao_esta_pronta_avisa_onde_ver(self):
+        """O aviso leva aonde a Leitura por IA fica hoje (até a 1.26 dizia "Mais > Leitura por IA", que não existe mais)."""
+        self.abrir(base(bancos=BANCOS))
+        self.js("(T.S.ia = { pronta: false, motivo: 'Nenhuma IA configurada no Home Assistant.', entidades: [] }, true)")
+        self.ler_com_ia()
+        self.assertEqual(_limpo(self.texto("#folhas .aviso-fixo")), "Nenhuma IA configurada no Home Assistant. Veja em Mais › Configurações › Integrações.")
+        self.clicar('#folhas .folha-cab [data-a="fechar"]')
+        self.ir_mais("config", "integracoes")
+        self.assertEqual(self.conta("#ia .linha-sw"), 1, "e lá está a Leitura por IA")
+
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestQuadrinhos(TelaIA):
@@ -1078,7 +1088,7 @@ class TestCardsDaIAEmMais(TelaIA):
     def test_leitura_por_ia_mostra_a_chave_ligada_e_a_situacao(self):
         self.abrir(base(bancos=BANCOS))
         self.integracoes()
-        self.assertEqual((self.texto("#ia .linha-sw b"), self.texto("#ia .linha-sw span")), ("Usar IA", "Ligado: Ler com IA, Ler recibo, Falar e os preços das dicas."))
+        self.assertEqual((self.texto("#ia .linha-sw b"), self.texto("#ia .linha-sw span")), ("Usar IA", "Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas."))
         self.assertEqual(self.pg.get_attribute('#ia [data-a="ajuste"][data-k="ia"]', "aria-checked"), "true")
         self.assertEqual(self.textos("#ia .status"), ["Na prévia, a leitura por IA é simulada.", "Falar: na prévia, a fala é simulada."])
         self.assertEqual(_limpo(self.texto("#app .sync")), "IA simulada na prévia")

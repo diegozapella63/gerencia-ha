@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.26.1';
+const VERSAO = '1.27.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -180,6 +180,14 @@ const P = {
   chevL: '<path d="m15 6-6 6 6 6"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.7 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>',
   send: '<path d="M5 12h13M13 6l6 6-6 6"/>',
+  // Mais › Sobre (Lucide, como no CronologIA)
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  hourglass: '<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>',
+  'calendar-days': '<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/><path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/>',
+  'list-checks': '<path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>',
+  package: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="m7.5 4.27 9 5.15"/>',
+  'book-open': '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  'external-link': '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
 };
 const ic = (n, c = 'ic') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -2836,7 +2844,7 @@ function montarIA() {
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${s.arquivo ? (s.arquivo.pdf ? 'o PDF' : 'a imagem') : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
   if (s.etapa === 'item') return revisarItemHTML();
   if (s.etapa === 'revisao') return revisaoIA();
-  const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais &gt; Leitura por IA.</span></div>` : '';
+  const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais › Configurações › Integrações.</span></div>` : '';
   const arq = s.arquivo;
   if (s.saldos) return entradaSaldos(aviso);
   // aberto do Novo investimento (ou do Invest): os textos falam de investimentos; a IA continua separando sozinha
@@ -3696,7 +3704,7 @@ function cardFixos() {
 function cardIA() {
   const on = iaOn();
   const chaveIA = linhaChave('ia', on, 'Usar IA', on
-    ? 'Ligado: Ler com IA, Ler recibo, Falar e os preços das dicas.'
+    ? 'Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas.'
     : 'Desligado: os botões de IA somem em todos os aparelhos.');
   const cab = `<section class="card" id="ia">${maisCab('ia', 'Leitura por IA')}
     ${maisLead('Usa a IA configurada no Home Assistant; o app não guarda chave.')}
@@ -3773,9 +3781,9 @@ function salvarBanco() {
 
 /* ------------------------------------------------------------------ Mais: um menu, como no InventarIA */
 // Mais abre um menu: cada função tem a sua linha e a sua tela (Bancos, Caixa, Invest), o Relatório de patrimônio abre
-// direto e, por último, Configurações, com as abas Integrações, Dados, Aparência e Opções.
+// direto, depois Configurações, com as abas Integrações, Dados, Aparência e Opções, e Sobre por último.
 // A tela aberta fica em S.ui.maisTela ('' é o menu); a aba de Configurações, em S.ui.maisAba.
-const MAIS_TELAS = { bancos: 'Bancos', caixa: 'Caixa', invest: 'Invest', config: 'Configurações' };
+const MAIS_TELAS = { bancos: 'Bancos', caixa: 'Caixa', invest: 'Invest', config: 'Configurações', sobre: 'Sobre' };
 const CONFIG_ABAS = [
   ['integracoes', 'Integrações', 'blocks'], ['dados', 'Dados', 'archive'], ['aparencia', 'Aparência', 'palette'], ['opcoes', 'Opções', 'toggle-right'],
 ];
@@ -3815,6 +3823,8 @@ function telaMais() {
   } else if (tela === 'invest') {
     status = syncInfo();
     corpo = `<div class="mais-painel">${maisInvest()}</div>`;
+  } else if (tela === 'sobre') { // a versão já está em "Este app": sem a linha embaixo do título nem o rodapé
+    return `${cabecalho('Sobre', '', false, true)}<div class="mais-painel sb-pagina">${maisSobre()}</div>`;
   } else {
     const aba = maisAba();
     if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
@@ -3826,7 +3836,7 @@ function telaMais() {
   return `${cabecalho(MAIS_TELAS[tela], '', status, true)}${corpo}${maisPe()}`;
 }
 
-/* --------- o menu: uma linha por função (o ícone no quadradinho dos títulos das seções), Configurações por último */
+/* --------- o menu: uma linha por função (o ícone no quadradinho dos títulos das seções), Configurações e Sobre por último */
 function menuMais() {
   const linhas = [
     ['bancos', 'bank', 'Bancos', 'Quem tem conta e os cartões.'],
@@ -3834,11 +3844,44 @@ function menuMais() {
     ['invest', 'trend', 'Invest', cardPerdaBens() ? 'Índices de mercado e perda de valor dos bens.' : 'Índices de mercado: CDI, Selic, IPCA e TR.'],
     ['', 'file', 'Relatório de patrimônio', 'Para imprimir ou salvar em PDF.'],
     ['config', 'sliders', 'Configurações', 'Integrações, dados, aparência e opções.'],
+    ['sobre', 'info', 'Sobre', 'CorrerIA Code, os apps e o GitHub.'],
   ];
   return `${cabecalho('Mais', '', false)}
     <nav aria-label="Mais"><ul class="menu-list">${linhas.map(([k, i, t, s]) => `<li><button class="menu-row" ${k ? `data-a="mais-tela" data-v="${k}"` : 'data-a="relatorio"'}>
       <span class="mais-ic" aria-hidden="true">${ic(i)}</span><span class="mb"><b>${t}</b><span>${s}</span></span>${ic('chev', 'chev')}</button></li>`).join('')}</ul></nav>
     ${maisPe()}`;
+}
+
+/* --------- Sobre: quem faz os apps (CorrerIA Code), os apps da família, cada um com a sua linha e o link para o
+   GitHub, e Meu GitHub. A mesma página nos apps da família (como no about.js do CronologIA): só muda qual é "Este app". */
+const GITHUB = 'https://github.com/diegozapella63';
+// os apps, na ordem: [nome, repositório, ícone, a linha sobre ele]
+const PRODUTOS = [
+  ['CronologIA', 'cronologia-ha', 'calendar-days', 'Agenda da família, remédios, rotinas e placar.'],
+  ['ResolvIA', 'resolvia-ha', 'list-checks', 'Listas de tarefas com prazos, pontos e repetição.'],
+  ['GerencIA', 'gerencia-ha', 'wallet', 'Finanças da casa: caixa, cartões e investimentos.'],
+  ['InventarIA', 'inventario-ha', 'package', 'Inventário da casa: cômodos, itens e valores.'],
+  ['EconomIA', 'economia-ha', 'receipt', 'Lista de compras com o melhor preço perto de casa.'],
+  ['MemorIA', 'memoria-ha', 'book-open', 'Cadernos de anotação que abrem na hora certa.'],
+];
+// "GerencIA" com o "IA" na cor de destaque, numa peça só (o nome não quebra)
+const marcaNome = n => `<span class="sb-wm">${n.slice(0, -2)}<span>${n.slice(-2)}</span></span>`;
+const linkFora = (href, corpo, cls) => `<a class="${cls}" href="${href}" target="_blank" rel="noopener">${corpo}</a>`;
+function maisSobre() {
+  const app = r => r === 'gerencia-ha';
+  return `<div class="sobre-topo">
+      <span class="sb-raio" aria-hidden="true">${ic('zap')}</span>
+      <h2 class="sb-nome">Correr<span>IA</span> Code</h2>
+      <p class="sb-oque">desenvolvimento de softwares</p>
+      <p class="sb-lema">Feito na correria, rodado pela IA.</p>
+    </div>
+    <section class="card" id="por-que">${maisCab('hourglass', 'Por que CorrerIA?')}
+      <p class="sb-txt">Porque eu sou um programador sem tempo: vivo na correria. Então eu uso a IA para rodar tudo isso aqui. Ela escreve, testa e publica; eu dou as ideias e reclamo dos botões tortos.</p></section>
+    <section class="card" id="os-apps">${maisCab('layers', 'Os apps')}
+      <ul class="sb-apps" aria-label="Os apps">${PRODUTOS.map(([n, repo, i, linha]) => `<li>${linkFora(`${GITHUB}/${repo}`,
+        `<span class="mais-ic" aria-hidden="true">${ic(i)}</span><span class="mb"><b>${marcaNome(n)}${app(repo) ? `<em class="sb-aqui">Este app · v${VERSAO}</em>` : ''}</b><span>${linha}</span></span>${ic('external-link', 'sb-ext')}`,
+        `sb-app${app(repo) ? ' aqui' : ''}`)}</li>`).join('')}</ul></section>
+    ${linkFora(GITHUB, `${ic('external-link', 'ic-s')}Meu GitHub`, 'btn pri larga sb-github')}`;
 }
 
 /* --------- Bancos */

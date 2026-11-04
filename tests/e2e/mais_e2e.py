@@ -9,7 +9,7 @@ SP=sys.argv[1]; erros=[]
 B='http://localhost:8099/'
 def st(): return json.loads(urllib.request.urlopen(B+'api/state').read())
 def get(p): return json.loads(urllib.request.urlopen(B+p).read())
-LINHAS = ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações']
+LINHAS = ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações', 'Sobre']
 TELAS = {  # tela: (título, as seções)
     'bancos': ('Bancos', []),
     'caixa': ('Caixa', ['Fixos', 'Categorias', 'Dicas de economia']),
@@ -41,7 +41,7 @@ with sync_playwright() as p:
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     # o menu
     pg.click('#nav [data-v="mais"]'); pg.wait_for_timeout(800)
-    igual(pg.locator('#app .menu-row b').all_inner_texts(), LINHAS, 'Mais: as linhas do menu, Configurações por último')
+    igual(pg.locator('#app .menu-row b').all_inner_texts(), LINHAS, 'Mais: as linhas do menu, Configurações e Sobre por último')
     igual(pg.locator('#nav [aria-current="page"]').get_attribute('data-v'), 'mais', 'Mais marcado embaixo')
     igual((pg.locator('#app .uplink').count(), pg.locator('#app .mais-abas').count()), (0, 0), 'no menu, sem ‹ Mais e sem abas')
     cheia(pg, 'm0-menu-escuro')
@@ -92,7 +92,7 @@ with sync_playwright() as p:
     # 320 px: nada passa da largura
     pg.set_viewport_size({'width':320,'height':700}); pg.wait_for_timeout(300)
     larg = {'menu': pg.evaluate('document.documentElement.scrollWidth')}
-    for tela in ['bancos', 'caixa', 'invest', 'config']:
+    for tela in ['bancos', 'caixa', 'invest', 'config', 'sobre']:
         pg.click(f'#app .menu-row[data-v="{tela}"]'); pg.wait_for_timeout(500)
         larg[tela] = pg.evaluate('document.documentElement.scrollWidth')
         pg.click('#app .uplink'); pg.wait_for_timeout(400)

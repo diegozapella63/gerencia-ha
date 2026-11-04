@@ -28,7 +28,8 @@ pass=0; fail=0; skip=0; bad=()
 for t in "${names[@]}"; do
   f="$HERE/$t.py"
   [ -f "$f" ] || { echo "?? $t (não existe)"; bad+=("$t"); fail=$((fail+1)); continue; }
-  inv=0; grep -q "integracao/itens\|8098\|inventar" "$f" && inv=1
+  # sobe o InventarIA para quem fala com ele (a porta 8098 ou as rotas dele), não para quem só cita o nome (o Sobre)
+  inv=0; grep -q "integracao/itens\|8098" "$f" && inv=1
   if [ $inv = 1 ] && [ ! -d "$E2E_INVENTARIA" ]; then echo "-- $t (pulado: falta o inventario-ha)"; skip=$((skip+1)); continue; fi
   parar
   D="$E2E_TMP/run-$t"; rm -rf "$D"; mkdir -p "$D/data" "$D/share/gerencia" "$D/share/inventario" "$D/inv" "$D/media"

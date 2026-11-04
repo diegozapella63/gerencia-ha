@@ -51,7 +51,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Imagens** nos investimentos (comprovante, print do banco).
 - **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens e uso da IA.
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
-- **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices e perda de valor dos bens), Relatório de patrimônio e Configurações.
+- **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices e perda de valor dos bens), Relatório de patrimônio, Configurações e Sobre.
 - **Tema claro e escuro** e **Cor do dia**: a cor do app muda todo dia, ou fica a que você escolher.
 - **No computador**, uma barra lateral com as seções, os bancos e as pessoas, as telas em duas colunas e as janelas no meio da tela, como nos outros apps.
 - **Backup** em `share/gerencia`, exportação em CSV, JSON e ZIP, relatório e versões anteriores.

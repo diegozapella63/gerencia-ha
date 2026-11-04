@@ -28,11 +28,12 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: por dono e por banco, para imprimir ou salvar em PDF.
-  - **Configurações**, por último, em abas:
+  - **Configurações**, em abas:
     - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia no Início, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
+  - **Sobre**, por último: quem faz o app (**CorrerIA Code**), os apps da família, cada um com uma linha e o link para o GitHub, e **Meu GitHub**.
 
 ### No computador
 

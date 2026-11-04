@@ -1,7 +1,7 @@
 """A tela do GerencIA nas áreas Início, Mais e navegação, testada num Chromium de verdade (sem servidor).
 
 Confere o que a pessoa vê e faz: boas-vindas e exemplo, os cards e avisos do Início com os números batendo com os
-dados, Mais (o menu e as telas: bancos, categorias, fixos, Configurações), dicas de economia, abas e o que fica guardado,
+dados, Mais (o menu e as telas: bancos, categorias, fixos, Configurações, Sobre), dicas de economia, abas e o que fica guardado,
 barra lateral no computador, o Voltar do celular com janelas umas sobre as outras, conflito ao salvar, avisos e
 números longos. Os cálculos puros ficam em tests/test_tela.py; a base e os ajudantes, em tests/tela_base.py.
 Para andar rápido, as animações do CSS ficam desligadas nestes testes (o comportamento é o mesmo).
@@ -11,8 +11,11 @@ ele passa a "unexpected success" e o marcador sai.
 
 Dados sempre inventados (Ana, Beto, Carla, Banco Azul, Banco Verde): nunca nomes, bancos ou valores reais.
 """
+import os
+import re
 import unittest
 
+from tests.base import RAIZ
 from tests.tela_base import Tela, base, BANCOS
 
 
@@ -875,19 +878,20 @@ class TestAtalhosParaMais(TelaMais):
 
     def test_ancora_desconhecida_abre_o_menu(self):
         self.assertEqual(self.atalho("outra"), ["", "aparencia"])
-        self.assertEqual(self.conta("#app .menu-row"), 5)
+        self.assertEqual(self.conta("#app .menu-row"), 6)
 
 
 class TestMenuMais(TelaMais):
-    """Mais é um menu (como no InventarIA): uma linha por função, cada uma com a sua tela, e Configurações por último.
+    """Mais é um menu (como no InventarIA): uma linha por função, cada uma com a sua tela, e Configurações e Sobre por último.
     Numa tela, "‹ Mais" no alto, o Voltar do celular e arrastar para a direita voltam ao menu; Mais fica marcado embaixo."""
 
     LINHAS = [("Bancos", "Quem tem conta e os cartões."), ("Caixa", "Fixos, categorias e dicas de economia."),
               ("Invest", "Índices de mercado: CDI, Selic, IPCA e TR."), ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
-              ("Configurações", "Integrações, dados, aparência e opções.")]
+              ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "uso-ia", "sensores"])}
+             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "uso-ia", "sensores"]),
+             "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):
         return self.js("[T.S.ui.tab, T.S.ui.maisTela, document.querySelector('#app .cab h1').textContent, !!document.querySelector('#app .menu-list')]") == ["mais", "", "Mais", True]
@@ -895,15 +899,15 @@ class TestMenuMais(TelaMais):
     def marcada(self):
         return self.js("[...document.querySelectorAll('#nav [aria-current=\"page\"]')].map(e => e.dataset.v)")
 
-    def test_as_linhas_do_menu_na_ordem_com_configuracoes_por_ultimo(self):
+    def test_as_linhas_do_menu_na_ordem_com_configuracoes_e_sobre_por_ultimo(self):
         self.abrir(base(bancos=BANCOS))
         self.ir("mais")
         self.assertTrue(self.no_menu())
         linhas = self.js("[...document.querySelectorAll('#app .menu-row')].map(r => [r.querySelector('b').textContent, r.querySelector('.mb > span').textContent])")
         self.assertEqual([tuple(x) for x in linhas], self.LINHAS)
         self.assertEqual(self.js("[...document.querySelectorAll('#app .menu-row')].map(r => r.dataset.v || r.dataset.a)"),
-                         ["bancos", "caixa", "invest", "relatorio", "config"])
-        self.assertEqual(self.conta("#app .menu-row .mais-ic svg"), 5, "cada linha com o ícone no quadradinho")
+                         ["bancos", "caixa", "invest", "relatorio", "config", "sobre"])
+        self.assertEqual(self.conta("#app .menu-row .mais-ic svg"), 6, "cada linha com o ícone no quadradinho")
         self.assertEqual(self.conta("#app .uplink"), 0, "no menu não há ‹ Mais")
         self.assertEqual(self.conta("#app .sync"), 0, "nem a linha embaixo do título")
         self.assertEqual(self.conta("#app .mais-abas"), 0, "as abas ficaram em Configurações")
@@ -1023,6 +1027,125 @@ class TestMenuMais(TelaMais):
             with self.subTest(tela):
                 self.ir_mais(tela)
                 self.assertLessEqual(self.js(largura), 320)
+
+
+class TestMaisSobre(TelaMais):
+    """Mais › Sobre, a última linha do menu: quem faz os apps (CorrerIA Code) e por que o nome, os seis apps da família,
+    cada um com a sua linha e o link para o GitHub (este marcado com a versão), e Meu GitHub. A mesma página do CronologIA."""
+
+    GH = "https://github.com/diegozapella63"
+    APPS = [("CronologIA", "cronologia-ha", "Agenda da família, remédios, rotinas e placar."),
+            ("ResolvIA", "resolvia-ha", "Listas de tarefas com prazos, pontos e repetição."),
+            ("GerencIA", "gerencia-ha", "Finanças da casa: caixa, cartões e investimentos."),
+            ("InventarIA", "inventario-ha", "Inventário da casa: cômodos, itens e valores."),
+            ("EconomIA", "economia-ha", "Lista de compras com o melhor preço perto de casa."),
+            ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa.")]
+
+    def versao(self):
+        """A versão do config.yaml (a mesma do app.js e do server.py)."""
+        with open(os.path.join(RAIZ, "gerencia", "config.yaml"), encoding="utf-8") as f:
+            return re.search(r'^version:\s*"?([\d.]+)', f.read(), re.M).group(1)
+
+    def abrir_sobre(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir_mais("sobre")
+
+    def test_a_ultima_linha_do_menu_com_o_icone_de_informacao(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ir("mais")
+        ultima = self.pg.locator("#app .menu-row").last
+        self.assertEqual((ultima.get_attribute("data-a"), ultima.get_attribute("data-v")), ("mais-tela", "sobre"))
+        self.assertEqual(" ".join(ultima.inner_text().split()), "Sobre CorrerIA Code, os apps e o GitHub.")
+        self.assertEqual(self.js("document.querySelector('#app .menu-row[data-v=\"sobre\"] .mais-ic svg').innerHTML"),
+                         self.js("(d => (d.innerHTML = T.ic('info'), d.firstChild.innerHTML))(document.createElement('div'))"), "o ícone de informação")
+
+    def test_o_alto_com_o_nome_o_que_faz_e_o_lema(self):
+        self.abrir_sobre()
+        self.assertEqual(self.js("[T.S.ui.maisTela, history.state && history.state.tela]"), ["sobre", "sobre"])
+        self.assertEqual((self.texto("#app .cab h1"), self.texto("#app .uplink").strip()), ("Sobre", "Mais"))
+        self.assertEqual((self.conta("#app .sync"), self.conta("#app .foot")), (0, 0), "a versão já está em Este app: sem a linha do alto nem o rodapé")
+        self.assertEqual(self.js("document.querySelector('.sb-nome').innerHTML"), "Correr<span>IA</span> Code", "o IA na cor de destaque")
+        self.assertEqual(self.js("getComputedStyle(document.querySelector('.sb-nome span')).color"),
+                         self.js("getComputedStyle(document.querySelector('.cab .brand span')).color"), "a mesma cor do IA de GerencIA no alto")
+        self.assertEqual(self.js("document.querySelector('.sb-oque').textContent"), "desenvolvimento de softwares")
+        self.assertEqual(self.js("getComputedStyle(document.querySelector('.sb-oque')).textTransform"), "uppercase")
+        self.assertEqual(self.texto(".sb-lema"), "Feito na correria, rodado pela IA.")
+        self.assertEqual(self.js("getComputedStyle(document.querySelector('.sb-lema')).fontStyle"), "italic")
+        self.assertEqual(self.conta(".sobre-topo .sb-raio svg"), 1, "o raio")
+
+    def test_por_que_correria(self):
+        self.abrir_sobre()
+        self.assertEqual(self.texto("#por-que .mais-head h2"), "Por que CorrerIA?")
+        self.assertEqual(self.texto("#por-que .sb-txt"), "Porque eu sou um programador sem tempo: vivo na correria. Então eu uso a IA para rodar tudo isso aqui. "
+                                                         "Ela escreve, testa e publica; eu dou as ideias e reclamo dos botões tortos.")
+
+    def test_os_seis_apps_cada_um_com_a_linha_e_o_github(self):
+        self.abrir_sobre()
+        self.assertEqual(self.texto("#os-apps .mais-head h2"), "Os apps")
+        linhas = self.js("[...document.querySelectorAll('#os-apps .sb-app')].map(a => [a.querySelector('.sb-wm').textContent, a.getAttribute('href'), a.querySelector('.mb > span').textContent])")
+        self.assertEqual([tuple(x) for x in linhas], [(n, f"{self.GH}/{r}", t) for n, r, t in self.APPS])
+        self.assertEqual(self.js("[...document.querySelectorAll('#os-apps .sb-wm')].map(w => w.innerHTML)"),
+                         [f"{n[:-2]}<span>IA</span>" for n, _, _ in self.APPS], "o IA de cada nome na cor de destaque, sem espaço no meio")
+        self.assertEqual(self.conta("#os-apps .sb-app .mais-ic svg"), 6, "cada app com o seu ícone")
+
+    def test_este_app_marcado_com_a_versao(self):
+        self.abrir_sobre()
+        v = self.versao()
+        self.assertEqual(self.js("T.VERSAO"), v, "a mesma versão do config.yaml")
+        aqui = self.pg.locator("#os-apps .sb-app.aqui")
+        self.assertEqual(aqui.count(), 1)
+        self.assertEqual(aqui.get_attribute("href"), f"{self.GH}/gerencia-ha")
+        self.assertEqual(self.textos("#os-apps .sb-aqui"), [f"Este app · v{v}"])
+
+    def test_os_sete_links_abrem_fora_e_meu_github(self):
+        self.abrir_sobre()
+        links = self.js("[...document.querySelectorAll('#app .sb-pagina a')].map(a => [a.getAttribute('href'), a.target, a.rel])")
+        self.assertEqual(links, [[f"{self.GH}/{r}", "_blank", "noopener"] for _, r, _ in self.APPS] + [[self.GH, "_blank", "noopener"]])
+        gh = self.pg.locator("#app a.sb-github")
+        self.assertEqual((gh.inner_text().strip(), gh.get_attribute("class")), ("Meu GitHub", "btn pri larga sb-github"))
+        self.assertEqual(self.js("[...document.querySelectorAll('#app .sb-pagina a')].some(a => a.closest('[data-a]'))"), False, "um toque abre o link, não uma ação do app")
+
+    def test_voltar_e_mais_no_alto_voltam_ao_menu(self):
+        self.abrir_sobre()
+        self.voltar()
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela, !!document.querySelector('#app .menu-list')]"), ["mais", "", True], "o Voltar do celular")
+        self.clicar('#app .menu-row[data-v="sobre"]')
+        self.clicar("#app .uplink")
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela, !!document.querySelector('#app .menu-list')]"), ["mais", "", True], "o ‹ Mais")
+        self.pg.wait_for_function("!(history.state && history.state.tela)")
+
+    def test_fica_guardado_e_reabre_em_sobre(self):
+        self.abrir_sobre()
+        self.assertEqual(self.guardado()["maisTela"], "sobre")
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "sobre"})
+        self.assertEqual(self.texto("#app .cab h1"), "Sobre")
+
+    def test_de_320_px_ao_computador_nada_passa_da_borda(self):
+        self.addCleanup(lambda: self.pg.set_viewport_size({"width": self.LARGURA, "height": self.ALTURA}))
+        for w in (320, 390, 1280):
+            with self.subTest(w):
+                self.pg.set_viewport_size({"width": w, "height": 844})
+                self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "sobre"})
+                self.assertLessEqual(self.js("document.documentElement.scrollWidth"), w)
+                fora = self.js("""(() => { const p = document.querySelector('.sb-pagina').getBoundingClientRect();
+                  return [...document.querySelectorAll('.sb-pagina .sobre-topo, .sb-pagina .card, .sb-pagina .sb-app, .sb-pagina .sb-github, .sb-pagina .sb-app b')]
+                    .filter(x => { const b = x.getBoundingClientRect(); return b.left < p.left - 1 || b.right > p.right + 1; }).length; })()""")
+                self.assertEqual(fora, 0)
+                gh, card = self.js("[document.querySelector('.sb-github').getBoundingClientRect().width, document.querySelector('#os-apps').getBoundingClientRect().width]")
+                self.assertAlmostEqual(gh, card, delta=1, msg="Meu GitHub da largura dos cartões")
+                altura, fonte = self.js("(x => [x.getBoundingClientRect().height, parseFloat(getComputedStyle(x).fontSize)])(document.querySelector('.sb-oque'))")
+                self.assertLess(altura, fonte * 2, "desenvolvimento de softwares numa linha só")
+                self.assertLess(self.js("document.querySelector('.sb-nome').getBoundingClientRect().height"), 60, "CorrerIA Code numa linha só")
+
+    def test_tema_claro_e_escuro(self):
+        cores = {}
+        for tema in ("claro", "escuro"):
+            self.abrir(base(bancos=BANCOS, ajustes={"corrigir": True, "tema": tema}))
+            self.ir_mais("sobre")
+            cores[tema] = self.js("[getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.sobre-topo')).backgroundColor, getComputedStyle(document.querySelector('.sb-nome')).color]")
+        self.assertNotEqual(cores["claro"][0], cores["escuro"][0])
+        self.assertEqual(cores["claro"][1:], ["rgb(255, 255, 255)", "rgb(18, 24, 32)"], "no claro, o cartão branco e o nome escuro")
+        self.assertEqual(cores["escuro"][1:], ["rgb(21, 26, 33)", "rgb(238, 242, 246)"], "no escuro, o cartão escuro e o nome claro")
 
 
 class TestNavegacao(TelaMais):

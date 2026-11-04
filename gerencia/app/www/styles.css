@@ -809,6 +809,35 @@ details summary { list-style-position: inside; }
 .foot { margin: 36px 0 8px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .foot b { font: 600 19px/1.3 var(--font-d); letter-spacing: .01em; color: var(--text-2); }
 
+/* ---------- Mais › Sobre: CorrerIA Code, os apps e o GitHub (a página do CronologIA, nas cores e fontes daqui) */
+.sobre-topo {
+  position: relative; overflow: hidden; text-align: center; padding: 30px 20px 26px; margin: 22px 0 18px;
+  border-radius: var(--r-card); border: 1px solid var(--line);
+  background: radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 70%), var(--card);
+}
+.sb-raio {
+  display: inline-grid; place-items: center; width: 58px; height: 58px; border-radius: 18px; transform: rotate(-8deg);
+  background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 24px -12px var(--accent);
+}
+.sb-raio .ic { width: 30px; height: 30px; fill: currentColor; stroke-width: 1.4; }
+.sb-nome { margin: 16px 0 4px; font: 700 38px/1.05 var(--font-d); color: var(--text); }
+.sb-nome span, .sb-wm span { color: var(--accent-text); }
+.sb-oque { margin: 0; color: var(--muted); font: 600 13px/1.4 var(--font); letter-spacing: .14em; text-transform: uppercase; }
+@media (max-width: 360px) { .sb-oque { font-size: 11px; letter-spacing: .06em; } }
+.sb-lema { margin: 14px 0 0; color: var(--text); font-size: 16px; font-style: italic; }
+.sb-txt { margin: 0; color: var(--text); font-size: 15.5px; line-height: 1.55; }
+.sb-apps { list-style: none; margin: 0; padding: 0; }
+.sb-app { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 10px 0; color: inherit; text-decoration: none; border-top: 1px solid var(--line); }
+.sb-apps > li:first-child > .sb-app { border-top: 0; }
+.sb-app .mb { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.sb-app b { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font: 600 20px/1.2 var(--font-d); }
+.sb-app .mb > span { color: var(--muted); font-size: 14px; line-height: 1.35; }
+.sb-ext { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.sb-aqui { padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); font: 600 12px/1.3 var(--font); }
+.sb-app:active { background: var(--card-2); }
+@media (hover: hover) { .sb-app:hover b { color: var(--accent-text); } }
+.sb-github { margin: 0 0 8px; }
+
 /* tema: três botões iguais com o ícone em cima */
 .seg.temas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; margin: 2px 0 2px; }
 .seg.temas button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 66px; padding: 10px 4px 9px; font-size: 15px; }
@@ -1050,6 +1079,7 @@ details summary { list-style-position: inside; }
   #app .cx-card-pe { padding: 12px 8px; }
   #app .card.dicas .dica:first-of-type { padding-top: 16px; }
   #app details.card { margin-top: 0 !important; }
+  .sobre-topo { margin: 24px 0 40px; } /* o cartão do alto fica; as seções embaixo, direto na página */
   .stat-duo { margin: 0 0 16px; }
   .graf-card .leg, .graf-card .linha-sw, .graf-card .sep { margin-left: 0 !important; margin-right: 0 !important; }
 

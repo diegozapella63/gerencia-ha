@@ -89,7 +89,7 @@ with sync_playwright() as p:
     sim(re.search(r'\d', pg.inner_text('#lado .sl-num >> nth=0')), 'mostrar de novo: os números voltam')
     # Exportar em linhas
     pg.click('#lado [data-v="mais"]'); pg.wait_for_timeout(300)
-    igual(pg.locator('#app .menu-row b').all_inner_texts(), ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações'], 'Mais: o menu, com Configurações por último')
+    igual(pg.locator('#app .menu-row b').all_inner_texts(), ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações', 'Sobre'], 'Mais: o menu, com Configurações e Sobre por último')
     igual(pg.inner_text('#lado [aria-current="page"]').strip(), 'Mais', 'Mais marcado na barra lateral')
     pg.screenshot(path=f'{SP}/shots/desk-menu.png')
     ir_mais(pg, 'config', 'dados', 800)
