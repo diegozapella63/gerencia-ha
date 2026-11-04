@@ -4,10 +4,12 @@ Seu dinheiro dentro do Home Assistant: o caixa do dia a dia (o que entra, o que 
 
 ## Instalar
 
-1. No Home Assistant, abra **Configurações > Apps > Loja de apps**, toque no menu, escolha **Repositórios** e cole `https://github.com/diegozapella63/gerencia-ha`.
+1. No Home Assistant, abra **Configurações › Aplicativos › Loja de aplicativos**, toque no menu **⋮ › Repositórios** e cole `https://github.com/diegozapella63/gerencia-ha`.
 2. Abra **GerencIA**, toque em **Instalar**, depois em **Iniciar**, e ligue **Mostrar na barra lateral**.
 
-O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant usa direto, sem outra senha, e o app cumprimenta pelo nome.
+O app abre pela barra lateral. Quem já está logado no Home Assistant usa direto, sem outra senha, e o app cumprimenta pelo nome.
+
+Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os gastos fixos, um investimento, ler uma fatura ou um print com IA, importar um backup ou **ver com dados de exemplo** (depois, **Apagar exemplo** tira tudo).
 
 ## Telas
 
@@ -16,9 +18,10 @@ O app abre pela barra lateral (Ingress). Quem já está logado no Home Assistant
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber (no mês de hoje, o que ficou sem pagar nos dois meses anteriores aparece primeiro; é para onde leva o aviso de contas atrasadas). Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
   - *Categorias*: para onde foi o dinheiro (gastos) e de onde veio (recebimentos) no mês.
-- **Adicionar**: escolha despesa, recebimento, aporte, investimento ou ler com IA. Na aba Caixa ou Invest, o botão já sugere o que faz sentido ali.
+- **Adicionar**: no Início, escolha despesa, recebimento, aporte, ler com IA, investimento ou atualizar saldos. No Caixa, o botão abre direto a Nova despesa (com o filtro Entradas, o Novo recebimento); no Invest, o Novo investimento. Um lançamento avulso ou um investimento aberto tem **Duplicar**, que abre uma cópia para salvar como novo.
 - **Invest**: o **Buscar** fica no alto (digitar nele abre a Carteira). *Carteira* (lista com filtro Todos, Meus, Terceiros, por pessoa e por banco), *Evolução* (registrado e projeção de 1, 2, 5 ou 10 anos, ou **Outro**, de 1 a 50 anos, com o aporte por mês das contas a pagar do tipo Aporte, IR e valor em dinheiro de hoje) e *Divisão* (por banco, dono, tipo ou liquidez).
 - **Transferir entre investimentos**: abra um investimento e toque em **Transferir**. Escolha quanto (ou **Tudo**) e para qual investimento: o valor sai de um e soma no outro, sem mexer no caixa. Se passar tudo, dá para manter o investimento zerado na carteira ou tirá-lo.
+- O **olho** no alto esconde os valores no Início, no Caixa e no Invest (cada aparelho lembra a escolha).
 - No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado). Numa tela de Mais, arrastar para a direita volta ao menu.
 - **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
   - **Bancos**: bancos, quem tem conta em cada um e quem tem cartão.
@@ -45,7 +48,7 @@ Ao lançar uma despesa ou recebimento, escolha **Repetir: Todo mês**. O fixo ap
 
 Para o que vence uma vez por ano (anuidade, IPVA, seguro, plano anual), escolha **Todo ano**: o fixo aparece só no mês da data escolhida, todo ano.
 
-Quando o valor real de um mês for diferente (um salário maior, uma conta de luz menor), toque no lançamento, troque o valor e salve em **Só este mês**. O valor padrão continua o mesmo para os próximos meses. Para mudar o padrão, salve em **Todos os meses** ou abra **Mais › Caixa › Fixos**. Ao apagar um fixo, você escolhe entre tirar só aquele mês ou parar dali para frente.
+Quando o valor real de um mês for diferente (um salário maior, uma conta de luz menor), toque no lançamento, troque o valor e salve em **Só este mês**. O valor padrão continua o mesmo para os próximos meses. Para mudar o padrão, salve em **Todos os meses** ou abra **Mais › Caixa › Fixos**.
 
 ### Salário bruto, impostos e descontos
 
@@ -98,7 +101,7 @@ A dica só aparece quando dá para confirmar na origem:
 3. O app só aceita um preço se o trecho citado pela IA estiver escrito na página, com aquele número.
 4. O valor que você paga precisa bater com o preço mensal de um único plano. Em planos em dólar, o app compara com o dólar do Banco Central, com folga para o IOF e o câmbio do cartão.
 
-No Início, a dica mostra a **economia real** por ano: o desconto do plano anual menos o que o dinheiro das mensalidades renderia se ficasse investido. Para isso o app usa os seus investimentos e as taxas cadastradas: o que você tem com liquidez diária e rende mais, já com IR (o dinheiro sai mês a mês, então precisa poder ser resgatado). Sem nenhum com liquidez diária, usa a média dos seus investimentos; sem investimentos, 100% do CDI. Se o rendimento empatar com o desconto, a dica não aparece. A dica também mostra a fonte e a data em que o preço foi conferido. Em planos em dólar, a economia em reais é estimada pelo que você paga hoje. Toque em **Mudar para anual** depois de trocar o plano no site do serviço: o fixo mensal para e entra um fixo anual no seu fluxo. **Agora não** esconde a dica.
+No Início, a dica mostra a **economia real** por ano: o desconto do plano anual menos o que o dinheiro das mensalidades renderia se ficasse investido. Para isso o app usa os seus investimentos e as taxas cadastradas: o que você tem com liquidez diária e rende mais, já com IR (o dinheiro sai mês a mês, então precisa poder ser resgatado). Sem nenhum com liquidez diária, usa a média dos seus investimentos; sem investimentos, 100% do CDI. Se o rendimento empatar com o desconto, a dica não aparece. A dica também mostra a fonte e a data em que o preço foi conferido. Em planos em dólar, a economia em reais é estimada pelo que você paga hoje. Toque em **Mudar para anual** depois de trocar o plano no site do serviço: o fixo mensal para e entra um fixo anual no seu fluxo. **Agora não** esconde a dica (**Mostrar dispensadas**, em Mais › Caixa, traz de volta).
 
 O app também avisa quando uma categoria fica bem acima da sua média dos 3 meses anteriores, pelos seus próprios lançamentos.
 
@@ -141,6 +144,8 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 
 O balão ao lado do microfone abre uma conversa com a IA, a qualquer momento e em qualquer tela. Ela vê os seus dados (caixa, contas a pagar, fixos, lançamentos recentes, investimentos e patrimônio) e o que está na tela aberta, então dá para perguntar "quanto gastei com mercado este mês?", "o que vence esta semana?" ou "quanto rende a minha carteira?". Também conversa sobre outros assuntos.
 
+Com a conversa vazia, aparecem sugestões para a tela aberta: é só tocar.
+
 E ela faz, sempre pedindo confirmação: peça para **lançar** um gasto ou recebimento ("gastei 45 no mercado no cartão"), **pagar** uma conta que já está no app ("paguei a luz, 190 reais"; vale também para o fixo do mês e a fatura do cartão) ou **atualizar um saldo** e **aplicar** num investimento ("apliquei 500 na reserva"). A resposta traz um cartão com o que vai ser feito:
 
 - **Confirmar** faz na hora, com as mesmas regras da leitura por IA (conta, categoria, cartão e fatura, parcelas). Se parecer repetido, abre a conferência antes.
@@ -177,11 +182,11 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 Em **Mais › Configurações › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.
 
-Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, conferir preço, falar, conversa) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
+Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, atualizar saldos, conferir preço, falar, conversa) e as últimas chamadas, no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
 
 ## Sensores
 
-Com **Sensores no Home Assistant** ligado, o app cria:
+Com **Sensores no Home Assistant** ligado (em Mais › Configurações › Integrações; vem desligado), o app cria:
 
 - `sensor.gerencia_patrimonio`: o seu patrimônio, sem o dinheiro de terceiros (atributos `seu`, `de_terceiros`, `com_terceiros`, `investimentos` e, com o InventarIA, `com_bens`)
 - `sensor.gerencia_meu`
@@ -228,11 +233,13 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 
 ## Dados e backup
 
-- Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As fotos ficam em `/data/fotos`.
-- **Criar backup** salva um `.zip` em `share/gerencia`, com os dados e as fotos.
+- Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As imagens dos investimentos ficam em `/data/fotos`.
+- **Criar backup** (Mais › Configurações › Dados) salva um `.zip` em `share/gerencia`, com os dados e as imagens. Logo abaixo ficam os últimos backups da pasta, cada um com **Restaurar**.
+- **Importar** traz de volta um `.zip` ou `.json` exportado pelo GerencIA; antes, o app guarda uma cópia do que existe.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
 - **Exportar** (Mais › Configurações › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
 - **Relatório de patrimônio** (linha própria em Mais): por dono e por banco, para imprimir ou salvar em PDF.
+- **Começar do zero** apaga lançamentos, fixos, investimentos e bancos; índices, categorias e preferências continuam, e uma cópia fica em Versões anteriores.
 
 ## Avisos
 

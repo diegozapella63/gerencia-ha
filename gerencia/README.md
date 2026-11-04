@@ -1,12 +1,15 @@
 # GerencIA
 
-Seu dinheiro no Home Assistant: o caixa do dia a dia e os investimentos, com fluxo de caixa, projeções e leitura por IA.
+Seu dinheiro no Home Assistant: o caixa do dia a dia e os investimentos, com fluxo de caixa, projeções e IA.
 
 - Início com placar do patrimônio, caixa do mês e dicas de economia
 - Recebimentos e despesas, fixos todo mês ou todo ano, parcelas e faturas de cartão
+- Salário bruto com impostos e descontos na fonte
 - Bancos com conta e cartão por pessoa, com fechamento e vencimento
 - Fluxo de caixa mês a mês e categorias de gastos e recebimentos
 - Investimentos com rendimento no padrão de mercado, de quem é o dinheiro e evolução projetada
-- Leitura por IA de fatura em PDF, prints, papel e WhatsApp, e Falar pelo microfone
+- Bens da casa do InventarIA no patrimônio, perdendo valor por categoria
+- Leitura por IA de fatura em PDF, prints, papel, câmera e WhatsApp, Falar pelo microfone e Conversar com a IA
+- Contas a pagar na agenda do CronologIA, com o Paguei que dá baixa aqui
 - No computador, barra lateral e telas em duas colunas
-- Sensores, backup, exportação e tema claro e escuro seguindo o Home Assistant
+- Sensores, backup, exportação, tema claro e escuro e Cor do dia

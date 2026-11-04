@@ -2,13 +2,13 @@
 
 ![GerencIA](gerencia/logo.png)
 
-Um App do Home Assistant para cuidar do **seu dinheiro**: o **caixa do dia a dia** (recebimentos, despesas, fixos, parcelas e faturas de cartão), os **investimentos** com rendimento no padrão de mercado e quanto eles vão render, e **leitura por IA** de faturas em PDF, prints e mensagens do WhatsApp.
+Um App do Home Assistant para cuidar do **seu dinheiro**: o **caixa do dia a dia** (recebimentos, despesas, fixos, parcelas e faturas de cartão), os **investimentos** com rendimento no padrão de mercado e quanto eles vão render, os **bens da casa** e a **IA**, que lê faturas em PDF, prints e mensagens do WhatsApp e conversa sobre as suas contas.
 
 <p align="center">
   <img src="docs/inicio.png" width="24%" alt="Início com o placar do patrimônio">
   <img src="docs/caixa.png" width="24%" alt="Fluxo de caixa mensal">
   <img src="docs/invest.png" width="24%" alt="Evolução projetada dos investimentos">
-  <img src="docs/dicas.png" width="24%" alt="Dicas de economia">
+  <img src="docs/chat.png" width="24%" alt="Conversar com a IA">
 </p>
 
 ## Instalação
@@ -29,24 +29,30 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 
 ## O que tem
 
-- **Início** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: patrimônio, seu dinheiro, o de terceiros e quanto rende por mês.
+- **Início** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: o seu patrimônio (investimentos e bens) e quanto rende por mês, com o caixa do mês, as dicas e os avisos logo abaixo.
 - **Caixa do mês**: quanto entrou, quanto saiu, o que falta pagar e o saldo previsto para o fim do mês.
 - **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.
+- **Salário bruto** com impostos na fonte e descontos (como o plano de saúde), preenchido pelo **Ler recibo** com IA.
 - **Cartão de crédito**: compras, parcelas e fixos entram no mês em que a fatura vence, também nos gráficos dos próximos meses.
 - **Bancos com contas por pessoa**: "Banco Lua: Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5)".
 - **Fluxo de caixa** mês a mês, com entradas, saídas, o que sobrou, saldo e previsão do dia a dia.
 - **Categorias** de gastos e de recebimentos.
 - **Investimentos** com rendimento no padrão de mercado (% do CDI, CDI +, prefixado, IPCA +, Selic +, poupança) e índices do Banco Central.
+- **Aplicar mais** e **Transferir** entre investimentos, e **Atualizar saldos** de vários de uma vez, por uma lista ou um print.
 - **Meu ou de terceiros**: de quem é cada dinheiro, com o total por pessoa.
-- **Evolução projetada** de 1 a 10 anos, com desconto de IR e valor em dinheiro de hoje. O aporte por mês vem das contas a pagar do tipo **Aporte**, o compromisso de aplicar todo mês.
-- **Leitura por IA**: fatura em PDF, print, foto de papel ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
+- **Evolução projetada** de 1 a 50 anos, com desconto de IR e valor em dinheiro de hoje. O aporte por mês vem das contas a pagar do tipo **Aporte**, o compromisso de aplicar todo mês.
+- **Bens da casa**: com o [InventarIA](https://github.com/diegozapella63/inventario-ha), os itens entram no patrimônio, perdendo valor por categoria. Um carro ou um imóvel, seu ou de terceiros, entra como investimento do tipo **Bens**.
+- **Leitura por IA**: fatura em PDF, print, foto de papel (também pela câmera, no **Digitalizar com IA**) ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
 - **Falar**: o microfone no alto de cada tela. Fale os gastos e recebimentos; o Home Assistant transcreve e a IA separa os lançamentos para você conferir.
 - **Conversar com a IA**: o balão ao lado do microfone. Pergunte sobre o que está na tela ou sobre o seu dinheiro, ou peça para lançar, pagar uma conta ou atualizar um saldo: a IA mostra e você confirma.
+- **Usar IA**: uma chave liga e desliga tudo o que usa IA; o **Uso da IA** mostra as chamadas de cada dia.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
-- **Fotos** em lançamentos e investimentos.
-- **Sensores** no Home Assistant: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês.
+- **Imagens** nos investimentos (comprovante, print do banco).
+- **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens e uso da IA.
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
+- **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices e perda de valor dos bens), Relatório de patrimônio e Configurações.
+- **Tema claro e escuro** e **Cor do dia**: a cor do app muda todo dia, ou fica a que você escolher.
 - **No computador**, uma barra lateral com as seções, os bancos e as pessoas, as telas em duas colunas e as janelas no meio da tela, como nos outros apps.
 - **Backup** em `share/gerencia`, exportação em CSV, JSON e ZIP, relatório e versões anteriores.
 
@@ -70,6 +76,7 @@ gerencia/app/voz.py           Falar (fala para texto do Home Assistant)
 gerencia/app/chat.py          Conversar com a IA (o que a IA vê, as ações e a conversa guardada)
 gerencia/app/www/             interface (HTML, CSS e JavaScript, sem etapa de build)
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
+tools/capturas_docs.py        refaz as imagens de docs/ a partir da prévia
 tests/                        testes unitários, do servidor e visuais
 docs/                         imagens deste README
 ```
