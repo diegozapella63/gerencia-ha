@@ -1289,7 +1289,7 @@ class TestOpcoes(TelaSistema):
                                                                       "Prever o dia a dia", "Corrigir valores pelo rendimento"])
         self.assertEqual(self.textos_opcoes(), [
             "Ligado: no Início, planos anuais mais baratos e categorias acima da média.",
-            "Ligado: todo dia às 08:00.",
+            "Ligado: uma assinatura nova é conferida logo.",
             "Desligado.",  # o aviso no celular começa desligado
             "Ligado: os próximos meses somam a média do dia a dia, R$ 617 por mês.",  # (450 + 500 + 900) / 3
             "Estima o valor de hoje desde o último informado. Renda variável não muda."])

@@ -46,7 +46,7 @@ with sync_playwright() as p:
     tem(pg.url, 'relatorio?tema=escuro', 'abre no tema do app')
     igual(pg.inner_text('.cab h1'), 'Relatório de patrimônio', 'título no cabeçalho')
     igual(pg.inner_text('.cab .app'), 'GerencIA · finanças', 'o app')
-    igual(pg.inner_text('.rodape'), 'CorrerIA Code · desenvolvimento de softwares', 'no pé, só quem faz o app')
+    igual(pg.inner_text('.pe'), 'CorrerIA Code · desenvolvimento de softwares', 'no pé, o cartão de quem faz o app')
     sim(re.fullmatch(r'\d+ investimentos em \d+ bancos · \d+ bens · \d\d/\d\d/\d{4} às \d\d:\d\d', pg.inner_text('.cab p')), 'a contagem e quando', pg.inner_text('.cab p'))
     igual(pg.locator('.cab .ic').count(), 1, 'o ícone do app')
     igual([c[0] for c in caixas(pg, '.barra a')], ['Voltar', 'Baixar PDF'], 'Voltar e Baixar PDF (sem o Imprimir)')
@@ -111,7 +111,7 @@ with sync_playwright() as p:
     for i in terc:
         tem(' | '.join(t), i['nome'][:20], f'PDF: {i["nome"]}')
     sem(' | '.join(t), meus[0]['nome'], 'PDF: nada seu')
-    tem(t[-1], 'CorrerIA Code · desenvolvimento de softwares', 'PDF: o pé da página')
+    tem(' | '.join(t[-5:]), 'Correr | IA |  Code | · desenvolvimento de softwares', 'PDF: o pé da página')
     if shutil.which('pdftoppm'):
         subprocess.run(['pdftoppm', '-r', '80', '-png', caminho, f'{SP}/shots/relatorio-pdf'], check=False)
     # o PDF de todos, direto do servidor: os bens da casa e os cadastrados aqui

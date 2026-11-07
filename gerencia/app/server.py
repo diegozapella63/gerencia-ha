@@ -32,7 +32,7 @@ import chat  # noqa: E402
 import avisos  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.32.0"
+VERSAO = "1.33.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -74,7 +74,9 @@ INDICES_PADRAO = {
 # sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
-                  "ia": True, "dicas": True, "dicas_auto": True, "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": []}
+                  "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": []}
+# Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
+DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
@@ -129,6 +131,7 @@ def normalizar(d):
     aj["dicas_auto"] = aj.get("dicas_auto") is not False
     aj["dicas_aviso"] = aj.get("dicas_aviso") is True
     aj["dicas_hora"] = aj.get("dicas_hora") if HORA_RE.match(str(aj.get("dicas_hora") or "")) else AJUSTES_PADRAO["dicas_hora"]
+    aj["dicas_freq"] = aj.get("dicas_freq") if aj.get("dicas_freq") in DICAS_FREQ else AJUSTES_PADRAO["dicas_freq"]
     para = aj.get("dicas_para") if isinstance(aj.get("dicas_para"), list) else []
     aj["dicas_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     try:
@@ -560,7 +563,7 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False
     rodape = (f"Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a., "
               f"Selic {calc.fmt_pct(calc.num(ind.get('selic')))}% a.a., IPCA {calc.fmt_pct(calc.num(ind.get('ipca')))}% em 12 meses."
               if corrigir else "Valores de hoje: o último valor informado de cada investimento.") + " Antes do imposto de renda."
-    com_bens = [("Investido", investido), ("Bens", v_bens)] if v_bens else []
+    com_bens = ([("Investido", investido)] if investido else []) + [("Bens", v_bens)] if v_bens else []
     resumo = {"todos": [("Patrimônio", investido + v_bens)] + com_bens + [("De terceiros", terc)],
               "meus": [("Patrimônio", investido + v_bens)] + com_bens, "terceiros": [("De terceiros", terc)]}[quem]
     return {"quem": quem, "gerado": (agora or datetime.now()).strftime("%d/%m/%Y às %H:%M"),
@@ -599,6 +602,9 @@ ICONE_SVG = ('<svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><rect width
              '<text x="43.5" y="41.5" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="var(--a)">$</text>'
              '<rect x="10" y="31.3" width="44" height="1.4" fill="#05070a"/></svg>')
 FILTRO_SUB = {"todos": "", "meus": "Só os seus · ", "terceiros": "De terceiros · "}
+# o raio da CorrerIA Code (o mesmo do Mais › Sobre), num quadradinho na cor do app
+RAIO_SVG = ('<span class="raio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#0b0f14"/></svg></span>')
+RAIO = [(13, 2), (4, 14), (11, 14), (10, 22), (19, 10), (12, 10)]
 RODAPE = "CorrerIA Code · desenvolvimento de softwares"  # quem faz o app (o mesmo do Mais › Sobre)
 
 
@@ -713,7 +719,13 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 .n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
 .notas{{color:var(--mut);font-size:12px;margin-top:22px}}
 .notas p{{margin:0 0 4px}}
-.rodape{{color:var(--mut);font-size:12px;margin-top:14px;text-align:center}}
+main{{min-height:calc(100vh - 68px);display:flex;flex-direction:column}}
+.pe{{display:flex;align-items:center;gap:12px;margin-top:auto;background:var(--card);border:1px solid var(--linha);border-left:6px solid var(--a);border-radius:14px;padding:12px 16px;color:var(--mut);font-size:13px}}
+.notas{{margin-bottom:22px}}
+.pe .raio{{flex:none;width:30px;height:30px;border-radius:9px;background:var(--a);display:grid;place-items:center;transform:rotate(-8deg)}}
+.pe .raio svg{{width:17px;height:17px}}
+.pe b{{font:700 17px/1 "Barlow Condensed",Barlow,sans-serif;color:var(--fg);letter-spacing:.01em}}
+.pe b em{{font-style:normal;color:var(--a)}}
 .bm{{display:none}}
 @media (max-width:600px){{.inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
 @media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
@@ -725,7 +737,7 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
 {''.join(partes)}
 <div class="notas">{notas}</div>
-<p class="rodape">{RODAPE}</p>
+<footer class="pe">{RAIO_SVG}<span><b>Correr<em>IA</em> Code</b> · desenvolvimento de softwares</span></footer>
 </main></body></html>""".encode("utf-8")
 
 
@@ -761,7 +773,7 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
     def tom(a):  # a cor do app clareada (a = quanto da cor fica)
         return tuple(1 - a * (1 - c) for c in COR)
 
-    M, W, FIM = 36, doc.largura_pagina - 72, doc.altura_pagina - 50
+    M, W, FIM = 36, doc.largura_pagina - 72, doc.altura_pagina - 62
     DIR = M + W
     # à esquerda, o texto: investimento (ou bem), banco (ou cômodo), rendimento (ou por ano), vencimento (ou data): (x, largura)
     COLS = [(M + 6, 170), (M + 184, 88), (M + 280, 84), (M + 372, 54)]
@@ -882,11 +894,25 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
     for t in linhas:
         doc.texto(M, y[0], t, 8, False, MUT)
         y[0] += 11
-    # no pé de cada página: quem faz o app e, com mais de uma página, o número dela
+    # no pé de cada página, bem embaixo: o cartão de quem faz o app (como o do cabeçalho) e, com mais de uma página, o número dela
     n = len(doc.paginas)
     for k in range(n):
         doc.ir_para(k)
-        doc.texto(doc.largura_pagina / 2, doc.altura_pagina - 24, RODAPE + (f" · página {k + 1} de {n}" if n > 1 else ""), 8, False, MUT, "centro")
+        t0 = doc.altura_pagina - 44
+        doc.retangulo(M, t0, W, 28, borda=LIN, fundo=CARTAO, raio=7)
+        doc.retangulo(M, t0, 4, 28, fundo=COR)
+        doc.retangulo(M + 14, t0 + 5, 18, 18, fundo=COR, raio=5)
+        doc.poligono([(M + 14 + 3 + x * 0.5, t0 + 5 + 3 + y * 0.5) for x, y in RAIO], (0.04, 0.06, 0.08))
+        tx = M + 40
+        doc.texto(tx, t0 + 18.5, "Correr", 11, True, TXT)
+        w1 = pdf.largura("Correr", 11, True)
+        doc.texto(tx + w1, t0 + 18.5, "IA", 11, True, COR)
+        w2 = pdf.largura("IA", 11, True)
+        doc.texto(tx + w1 + w2, t0 + 18.5, " Code", 11, True, TXT)
+        w3 = pdf.largura(" Code", 11, True)
+        doc.texto(tx + w1 + w2 + w3 + 5, t0 + 18.5, "· desenvolvimento de softwares", 8.5, False, MUT)
+        if n > 1:
+            doc.texto(DIR - 12, t0 + 18.5, f"página {k + 1} de {n}", 8.5, False, MUT, "direita")
     return doc.bytes()
 
 
@@ -1868,7 +1894,9 @@ def assinaturas_do_usuario(d, hoje=None):
     return out
 
 
-def _velha(fonte, forcar=False):
+def _velha(fonte, forcar=False, dias_ok=30):
+    """O preço precisa ser conferido de novo? Um preço bom vale dias_ok dias (a frequência do Conferir sozinho); um
+    erro, 1 dia; no Conferir agora (forcar), só o conferido hoje fica."""
     if not fonte or not fonte.get("conferido"):
         return True
     try:
@@ -1877,7 +1905,12 @@ def _velha(fonte, forcar=False):
         return True
     if forcar:
         return not (fonte.get("status") == "ok" and dias == 0)
-    return dias >= (30 if fonte.get("status") == "ok" else 1)
+    return dias >= (dias_ok if fonte.get("status") == "ok" else 1)
+
+
+def dias_dicas(d):
+    """De quantos em quantos dias o Conferir sozinho confere os preços: toda semana, a cada 15 dias ou todo mês."""
+    return DICAS_FREQ.get(d["ajustes"].get("dicas_freq"), 30)
 
 
 def _conferir(forcar, manual=False):
@@ -1886,7 +1919,7 @@ def _conferir(forcar, manual=False):
         cache = dicas_ler()
         fontes = cache.get("fontes") or {}
         for sid in sorted({s["servico"] for s in assinaturas_do_usuario(d) if not s["freq_anual"]}):
-            if _velha(fontes.get(sid), forcar):
+            if _velha(fontes.get(sid), forcar, dias_dicas(d)):
                 fontes[sid] = conferir_fonte(assinaturas.POR_ID[sid], d)
                 log("Dicas:", sid, fontes[sid]["status"], len(fontes[sid]["planos"]), "planos")
         cache["fontes"] = fontes
@@ -1929,12 +1962,12 @@ def dicas_estado(d, disparar=True):
     fontes = cache.get("fontes") or {}
     dolar = float(DOLAR_FIXO) if DOLAR_FIXO else (cache.get("dolar") or {}).get("valor")
     subs = assinaturas_do_usuario(d)
-    # Conferir sozinho: uma assinatura nova é conferida logo; as de mais de 30 dias e a procura do dia, no horário escolhido.
-    # Desligado, só no Conferir agora.
+    # Conferir sozinho: uma assinatura nova é conferida logo; o preço conferido há mais tempo que a frequência escolhida
+    # (toda semana, a cada 15 dias ou todo mês) e a procura do dia, a partir das 8h. Desligado, só no Conferir agora.
     auto = d["ajustes"].get("dicas_auto", True) is not False
     passou = hora_das_dicas(d)
     disparar = disparar and auto
-    if disparar and any(not fontes.get(s["servico"]) or (passou and _velha(fontes.get(s["servico"]))) for s in subs if not s["freq_anual"]):
+    if disparar and any(not fontes.get(s["servico"]) or (passou and _velha(fontes.get(s["servico"]), dias_ok=dias_dicas(d))) for s in subs if not s["freq_anual"]):
         iniciar_conferencia()
     elif disparar and passou and not _conferindo.is_set() and str(cache.get("atualizado") or "")[:10] != datetime.now().date().isoformat():
         # nada para conferir na origem: a verificação do dia é procurar as assinaturas nos fixos e faturas
@@ -1962,7 +1995,7 @@ def dicas_estado(d, disparar=True):
     dicas.sort(key=lambda x: -x["economia_ano"])
     return {"dicas": dicas, "assinaturas": lista, "conferindo": _conferindo.is_set(),
             "catalogo": [c["curto"] for c in assinaturas.CATALOGO], "dolar": cache.get("dolar") if not DOLAR_FIXO else {"valor": dolar, "data": "teste"},
-            "atualizado": cache.get("atualizado"), "auto": auto, "hora": d["ajustes"].get("dicas_hora", AJUSTES_PADRAO["dicas_hora"])}
+            "atualizado": cache.get("atualizado"), "auto": auto, "freq": d["ajustes"].get("dicas_freq", "mes")}
 
 
 # ---------------------------------------------------------------- aviso das dicas no celular (como o aviso de prazos do ResolvIA)
@@ -2437,7 +2470,7 @@ def rotina():
                 publicar_sensores_async(d)
             limpar_fotos(d)
             CONEXAO.publicar(integracao_ligada(d))
-            dicas_estado(d)  # confere assinaturas novas e, no horário escolhido, as de mais de 30 dias
+            dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
         except Exception as e:  # noqa: BLE001

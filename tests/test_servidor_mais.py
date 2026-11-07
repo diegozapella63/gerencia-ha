@@ -593,7 +593,8 @@ class TestRelatorioFiltro(unittest.TestCase):
         self.assertIn('<header class="cab"><svg class="ic"', h)
         self.assertIn('<span class="wm">Gerenc<b>IA</b></span> · finanças</div><h1>Relatório de patrimônio</h1>', h)
         self.assertRegex(h, r"<p>Só os seus · 3 investimentos em 2 bancos · \d\d/\d\d/\d{4} às \d\d:\d\d</p></div></header>")
-        self.assertIn('<p class="rodape">CorrerIA Code · desenvolvimento de softwares</p>', h)
+        self.assertIn('<footer class="pe"><span class="raio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"', h)
+        self.assertIn('<b>Correr<em>IA</em> Code</b> · desenvolvimento de softwares</span></footer>', h)
         self.assertEqual(h.count(" às "), 1, "a hora uma vez só")
 
     def test_voltar_volta_ao_app(self):
@@ -713,6 +714,10 @@ class TestRelatorioBens(unittest.TestCase):
         self.assertEqual((moto["rendimento"], moto["vencimento"]), ("perde 15% a.a.", ""), "sem a data na coluna Vencimento")
         self.assertNotIn("Sem banco", [b[0] for b in r["bancos"] if b[1] == 9000])
 
+    def test_sem_investimentos_sem_investido_zero(self):
+        r = S.dados_relatorio(dados(), "meus", inventario=CASA)
+        self.assertEqual([n for n, _ in r["resumo"]], ["Patrimônio", "Bens"], "sem o Investido R$ 0,00")
+
     def test_so_bens(self):
         r = S.dados_relatorio(dados(), inventario=CASA)
         self.assertEqual([s["titulo"] for s in r["secoes"]], ["Bens"])
@@ -776,8 +781,10 @@ class TestRelatorioPdf(unittest.TestCase):
                        "INVESTIMENTO", "VALOR HOJE", "POR MÊS", "EM 1 ANO", "EM 5 ANOS", "Total"):
             self.assertIn(trecho, t)
         self.assertIn("Por mês, em 1 ano e em 5 anos: com as taxas de hoje, sem novos aportes e reaplicando o que vence.", t)
-        self.assertIn("Antes do imposto de renda.", t[-2], "o rodapé com os índices antes do pé da página")
-        self.assertRegex(t[-1], r"^CorrerIA Code · desenvolvimento de softwares( · página 2 de 2)?$", "no pé, só quem faz o app")
+        p = ler_pdf(S.gerar_relatorio_pdf(carteira()))
+        ultima = [x for x in p[-1] if not x.startswith("página ")]
+        self.assertIn("Antes do imposto de renda.", ultima[-5], "o rodapé com os índices antes do pé da página")
+        self.assertEqual(ultima[-4:], ["Correr", "IA", " Code", "· desenvolvimento de softwares"], "no pé, o cartão de quem faz o app (como o cabeçalho)")
 
     def test_pagina_deitada(self):
         self.assertIn(b"/MediaBox [0 0 841.89 595.28]", S.gerar_relatorio_pdf(carteira()), "A4 deitada, para caberem as colunas")
@@ -839,7 +846,7 @@ class TestRelatorioPdf(unittest.TestCase):
         self.assertGreaterEqual(len(p), 3)
         n = len(p)
         for k, pagina in enumerate(p, 1):
-            self.assertEqual(pagina[-1], f"CorrerIA Code · desenvolvimento de softwares · página {k} de {n}")
+            self.assertEqual(pagina[-5:], ["Correr", "IA", " Code", "· desenvolvimento de softwares", f"página {k} de {n}"])
         self.assertEqual(p[1][:3], ["Relatório de patrimônio · GerencIA", "Seu dinheiro (continuação)", "INVESTIMENTO"])
         todos = [t for pg in p for t in pg]
         self.assertEqual(sum(1 for t in todos if t.startswith("CDB Azul ")), 60, "nenhum investimento perdido na troca de página")
@@ -849,7 +856,7 @@ class TestRelatorioPdf(unittest.TestCase):
     def test_uma_pagina_sem_numero(self):
         p = ler_pdf(S.gerar_relatorio_pdf(carteira(), "meus"))
         self.assertEqual(len(p), 1)
-        self.assertNotIn("página", p[0][-1])
+        self.assertEqual(p[0][-1], "· desenvolvimento de softwares", "uma página só: sem o número")
 
     def test_na_cor_do_app(self):
         d = carteira()

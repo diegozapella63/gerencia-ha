@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.32.0';
+const VERSAO = '1.33.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4101,14 +4101,17 @@ function maisOpcoes() {
 function opcoesDicas() {
   const a = S.d.ajustes;
   if (a.dicas === false || !iaOn()) return '';
-  const auto = a.dicas_auto !== false, aviso = a.dicas_aviso === true, hora = /^\d\d:\d\d$/.test(a.dicas_hora || '') ? a.dicas_hora : '08:00';
+  const auto = a.dicas_auto !== false, aviso = a.dicas_aviso === true, freq = DICAS_FREQ[a.dicas_freq] ? a.dicas_freq : 'mes';
   let h = `<section class="card" id="op-dicas">${maisCab('percent', 'Dicas de economia')}
-    ${linhaChave('dicas_auto', auto, 'Conferir sozinho', auto ? `Ligado: todo dia às ${hora}.` : 'Desligado: só no Conferir agora.')}`;
-  if (auto) h += `<div class="campo op-hora"><label for="op-dicas-hora">Horário</label><input id="op-dicas-hora" class="inp" type="time" data-ajuste-hora="dicas_hora" value="${hora}"></div>`;
+    ${linhaChave('dicas_auto', auto, 'Conferir sozinho', auto ? 'Ligado: uma assinatura nova é conferida logo.' : 'Desligado: só no Conferir agora.')}`;
+  // de quanto em quanto tempo, como as escolhas do ResolvIA (a assinatura nova é conferida logo)
+  if (auto) h += `<div class="seg mini op-freq" role="radiogroup" aria-label="De quanto em quanto tempo">${Object.entries(DICAS_FREQ).map(([k, [n]]) =>
+    `<button class="${k === freq ? 'on' : ''}" role="radio" aria-checked="${k === freq}" data-a="dicas-freq" data-v="${k}">${n}</button>`).join('')}</div>`;
   h += linhaChave('dicas_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando aparece uma dica nova.' : 'Desligado.');
   if (aviso) h += quemRecebe();
   return h + '</section>';
 }
+const DICAS_FREQ = { semana: ['Toda semana'], quinzena: ['A cada 15 dias'], mes: ['Todo mês'] };
 function quemRecebe() {
   const P = S.avisoPessoas;
   if (P === undefined) carregarPessoasAviso();
@@ -4810,6 +4813,7 @@ document.addEventListener('click', ev => {
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
+    case 'dicas-freq': persistir(d => { d.ajustes.dicas_freq = v; }); break;
     case 'aviso-pessoa': persistir(d => { const p = new Set(d.ajustes.dicas_para || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes.dicas_para = [...p]; }); break;
     case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
     case 'da-ok': confirmarDicaAnual(); break;
@@ -5278,11 +5282,6 @@ document.addEventListener('change', ev => {
     const k = el.dataset.bensTaxa, n = Number(String(el.value).replace(',', '.').replace('−', '-')) || 0;
     const val = el.closest('.bens-tx')?.querySelector('[data-a="bens-dir"][data-v="-1"]')?.classList.contains('on');
     salvarTaxaBem(k, n < 0 ? n : val ? -n : n);
-    return;
-  }
-  if (el.dataset.ajusteHora) {
-    const k = el.dataset.ajusteHora, v = el.value;
-    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) persistir(d => { d.ajustes[k] = v; }, 'Horário salvo');
     return;
   }
   if (el.dataset.ajusteSel) {

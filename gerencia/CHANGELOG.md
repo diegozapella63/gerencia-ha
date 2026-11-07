@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.33.0
+
+- **Conferir sozinho** (Mais › Configurações › Opções › Dicas de economia): no lugar do horário, que no app do Home Assistant aparecia vazio, você escolhe de quanto em quanto tempo os preços são conferidos de novo: **Toda semana**, **A cada 15 dias** ou **Todo mês** (o padrão, como antes). Uma assinatura nova continua sendo conferida logo.
+- **Relatório de patrimônio**: o rodapé virou um cartão como o do cabeçalho, com o raio da **CorrerIA Code**, e fica lá embaixo (na página e em cada folha do PDF, com o número da página quando há mais de uma).
+- Sem investimentos, o resumo do relatório não mostra mais "Investido R$ 0,00".
+
 ## 1.32.0
 
 - **Caixas de seleção** (Como é pago, a categoria e a conta na leitura por IA, o tipo e o rendimento de um investimento, IA usada pelo app, Fala para texto) abrem uma janela no visual do app, de baixo para cima, com as opções em linhas e a atual marcada na cor do app, no tema claro ou escuro, e não mais a janela padrão do celular, como nos outros apps da família. O Voltar do celular, o X ou tocar fora fecham só ela; numa janela do app (como a Nova despesa), o Voltar seguinte fecha a janela.

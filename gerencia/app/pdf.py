@@ -147,6 +147,14 @@ class Documento:
         ops.append("B" if fundo and borda else "f" if fundo else "S")
         self._op(" ".join(ops))
 
+    def poligono(self, pontos, fundo=(0, 0, 0)):
+        """Uma figura cheia pelos pontos [(x, y), ...] (y de cima para baixo), como o raio da CorrerIA Code."""
+        if len(pontos) < 3:
+            return
+        alt = self.tamanho[1]
+        caminho = " ".join(f"{x:.2f} {alt - y:.2f} {'m' if k == 0 else 'l'}" for k, (x, y) in enumerate(pontos))
+        self._op("{:.3f} {:.3f} {:.3f} rg ".format(*fundo) + caminho + " h f")
+
     def bytes(self):
         objs = []  # objetos na ordem: 1 catálogo, 2 páginas, 3 e 4 fontes, depois (página, conteúdo) de cada página
 

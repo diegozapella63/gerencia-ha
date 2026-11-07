@@ -144,6 +144,15 @@ class TestAjustes(unittest.TestCase):
     def test_padrao(self):
         a = S.vazio()["ajustes"]
         self.assertEqual((a["dicas_auto"], a["dicas_hora"], a["dicas_aviso"], a["dicas_para"]), (True, "08:00", False, []))
+        self.assertEqual(a["dicas_freq"], "mes", "todo mês, como antes")
+
+    def test_frequencia(self):
+        d = S.vazio()
+        for f, dias in (("semana", 7), ("quinzena", 15), ("mes", 30)):
+            d["ajustes"]["dicas_freq"] = f
+            self.assertEqual(S.dias_dicas(S.normalizar(d)), dias)
+        d["ajustes"]["dicas_freq"] = "ano"
+        self.assertEqual(S.normalizar(d)["ajustes"]["dicas_freq"], "mes")
 
     def test_limpa_o_que_chega(self):
         d = S.vazio()
@@ -163,7 +172,8 @@ class TestAjustes(unittest.TestCase):
 
 
 class TestConferirSozinho(unittest.TestCase):
-    """Uma assinatura nova é conferida logo; as de mais de 30 dias, no horário; desligado, só no Conferir agora."""
+    """Uma assinatura nova é conferida logo; o preço mais velho que a frequência (toda semana, a cada 15 dias ou todo
+    mês), a partir das 8h; desligado, só no Conferir agora."""
 
     def setUp(self):
         Trocar(self, FONTES_MOCK=FONTES, IA_MOCK=True, DOLAR_FIXO="5.04")
@@ -192,12 +202,33 @@ class TestConferirSozinho(unittest.TestCase):
             S.dicas_estado(self.d)
         self.conf.assert_called_once_with()
 
+    def test_preco_vale_o_tempo_escolhido(self):
+        """Conferido há 10 dias: toda semana confere de novo; a cada 15 dias e todo mês, ainda não."""
+        from datetime import timedelta
+        dez = (date.today() - timedelta(days=10)).isoformat()
+        for freq, confere in (("semana", True), ("quinzena", False), ("mes", False)):
+            with self.subTest(freq=freq):
+                self.conf.reset_mock()
+                S.gravar_arquivo(S.DICAS_ARQ, S.json.dumps({"fontes": {"spotify": {"conferido": dez, "status": "ok", "planos": []}},
+                                                            "atualizado": date.today().isoformat() + "T08:00:00"}))
+                self.d["ajustes"]["dicas_freq"] = freq
+                with mock.patch.object(S, "hora_das_dicas", return_value=True):
+                    S.dicas_estado(self.d)
+                self.assertEqual(self.conf.called, confere)
+
+    def test_velha(self):
+        ok = lambda dias: {"conferido": (date.today() - __import__("datetime").timedelta(days=dias)).isoformat(), "status": "ok"}
+        self.assertTrue(S._velha(ok(7), dias_ok=7))
+        self.assertFalse(S._velha(ok(6), dias_ok=7))
+        self.assertFalse(S._velha(ok(29)), "sem dizer: 30 dias")
+        self.assertTrue(S._velha({"conferido": ok(1)["conferido"], "status": "erro"}, dias_ok=30), "um erro tenta de novo no dia seguinte")
+
     def test_desligado_so_no_conferir_agora(self):
         self.d["ajustes"]["dicas_auto"] = False
         with mock.patch.object(S, "hora_das_dicas", return_value=True):
             r = S.dicas_estado(self.d)
         self.conf.assert_not_called()
-        self.assertEqual((r["auto"], r["hora"]), (False, "08:00"))
+        self.assertEqual((r["auto"], r["freq"]), (False, "mes"))
 
     def test_procura_do_dia_no_horario(self):
         S.gravar_arquivo(S.DICAS_ARQ, S.json.dumps({"fontes": {"spotify": {"conferido": date.today().isoformat(), "status": "ok", "planos": []}},

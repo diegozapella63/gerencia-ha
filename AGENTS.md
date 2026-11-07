@@ -74,7 +74,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - Interruptores de análise (Descontar IR, Ocultar bens) começam desligados toda vez; filtros e abas ficam guardados.
 - Em http (sem https) não há câmera nem microfone: explicar e oferecer escolher a foto.
 - Celular primeiro (390 px); com 1000 px ou mais, barra lateral. Tema claro e escuro.
-- Relatórios (a página e o PDF) com o cabeçalho dos apps, o mesmo do ResolvIA: um cartão com a faixa na cor do app, o ícone, Gerenc**IA** (o IA na cor) · finanças, o título, a contagem e quando (a hora só ali); no pé, só "CorrerIA Code · desenvolvimento de softwares". Nada repetido (sem o nome da casa). No app do Home Assistant no Android a página não imprime: o PDF é feito pelo servidor e baixado.
+- Relatórios (a página e o PDF) com o cabeçalho dos apps, o mesmo do ResolvIA: um cartão com a faixa na cor do app, o ícone, Gerenc**IA** (o IA na cor) · finanças, o título, a contagem e quando (a hora só ali); lá embaixo, um cartão parecido com o raio da CorrerIA Code e "Correr**IA** Code · desenvolvimento de softwares" (no PDF, em cada folha, com a página). Nada repetido (sem o nome da casa). No app do Home Assistant no Android a página não imprime: o PDF é feito pelo servidor e baixado.
 - Dados de exemplo e de testes sempre inventados (Ana, Beto, bancos e valores fictícios): nunca nomes, bancos, investimentos ou valores reais do dono.
 
 ## Conversa com o dono

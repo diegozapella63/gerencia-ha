@@ -1240,9 +1240,9 @@ input[readonly] { opacity: .8; }
 @media (max-width: 560px) { .bens-tx .bens-ctl { flex-basis: 100%; justify-content: flex-end; } }
 
 /* Opções › Dicas de economia: o horário, quem recebe o aviso (as pessoas da casa no Home Assistant) e Testar */
-#op-dicas .op-hora { margin: 12px 0 0; }
-#op-dicas .op-hora .inp { max-width: 160px; }
-#op-dicas .campo:not(.op-hora) { margin: 14px 0 0; }
+#op-dicas .op-freq { margin: 2px 0 12px; }
+#op-dicas .op-freq button { flex: 1; }
+#op-dicas .campo { margin: 14px 0 0; }
 .quem { display: flex; flex-wrap: wrap; gap: 8px; }
 .quem-p { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 8px 14px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--card-2); color: var(--text); font: 500 15px/1.2 var(--font); cursor: pointer; }
 .quem-p b { font-weight: 600; }

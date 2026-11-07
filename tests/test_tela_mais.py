@@ -929,7 +929,8 @@ class TestRelatorioNoTema(TelaMais):
             # o cabeçalho dos relatórios dos apps: o ícone, o app, o título e a linha de baixo, sem nada cortado
             self.assertEqual(pg.inner_text(".cab h1"), "Relatório de patrimônio")
             self.assertEqual(pg.inner_text(".cab .app"), "GerencIA · finanças")
-            self.assertEqual(pg.inner_text(".rodape"), "CorrerIA Code · desenvolvimento de softwares")
+            self.assertEqual(pg.inner_text(".pe"), "CorrerIA Code · desenvolvimento de softwares")
+            self.assertGreaterEqual(pg.evaluate("document.querySelector('.pe').getBoundingClientRect().bottom"), 844 - 60, "o rodapé lá embaixo, mesmo com pouca coisa")
             self.assertTrue(pg.inner_text(".cab p").startswith("De terceiros · 1 investimento"))
             caixa = pg.evaluate("(c => { const r = c.getBoundingClientRect(), i = c.querySelector('.ic').getBoundingClientRect(); return [r.left, r.right, i.width] })(document.querySelector('.cab'))")
             self.assertEqual(caixa[2], 52, "o ícone inteiro")
@@ -960,8 +961,9 @@ class TestOpcoesDicas(TelaMais):
     def test_com_a_ia_e_as_dicas(self):
         self.abrir_opcoes()
         self.assertEqual(self.textos("#op-dicas .linha-sw b"), ["Conferir sozinho", "Avisar no celular"])
-        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Ligado: todo dia às 08:00.")
-        self.assertEqual(self.pg.input_value("#op-dicas-hora"), "08:00")
+        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Ligado: uma assinatura nova é conferida logo.")
+        self.assertEqual(self.textos("#op-dicas .op-freq button"), ["Toda semana", "A cada 15 dias", "Todo mês"])
+        self.assertEqual(self.textos("#op-dicas .op-freq button.on"), ["Todo mês"], "começa em todo mês (como antes)")
         self.assertEqual(self.conta("#op-dicas .quem"), 0, "o aviso começa desligado")
 
     def test_some_sem_a_ia_ou_sem_as_dicas(self):
@@ -975,15 +977,20 @@ class TestOpcoesDicas(TelaMais):
         self.clicar('#op-dicas [data-k="dicas_auto"]')
         self.assertIs(self.dados()["ajustes"]["dicas_auto"], False)
         self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Desligado: só no Conferir agora.")
-        self.assertEqual(self.conta("#op-dicas-hora"), 0)
+        self.assertEqual(self.conta("#op-dicas .op-freq"), 0)
 
-    def test_horario(self):
+    def test_de_quanto_em_quanto_tempo(self):
+        """Como as escolhas do ResolvIA: toda semana, a cada 15 dias ou todo mês (no lugar do horário, que o app do
+        Home Assistant no Android mostrava vazio)."""
         self.abrir_opcoes()
-        self.pg.fill("#op-dicas-hora", "21:30")
-        self.pg.dispatch_event("#op-dicas-hora", "change")
-        self.esperar()
-        self.assertEqual(self.dados()["ajustes"]["dicas_hora"], "21:30")
-        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Ligado: todo dia às 21:30.")
+        self.clicar('#op-dicas [data-a="dicas-freq"][data-v="quinzena"]')
+        self.assertEqual(self.dados()["ajustes"]["dicas_freq"], "quinzena")
+        self.assertEqual(self.textos("#op-dicas .op-freq button.on"), ["A cada 15 dias"])
+        self.assertEqual(self.pg.get_attribute('#op-dicas [data-v="quinzena"]', "aria-checked"), "true")
+        self.assertEqual(self.conta('#op-dicas input[type="time"]'), 0)
+        larguras = self.js("[...document.querySelectorAll('#op-dicas .op-freq button')].map(b => [Math.round(b.getBoundingClientRect().width), b.scrollWidth > b.clientWidth])")
+        self.assertEqual(len({l for l, _ in larguras}), 1, f"os três do mesmo tamanho: {larguras}")
+        self.assertFalse(any(c for _, c in larguras), "nenhum texto cortado")
 
     def test_avisar_comeca_com_quem_esta_usando(self):
         self.abrir_opcoes()
