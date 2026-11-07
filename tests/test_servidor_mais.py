@@ -587,14 +587,14 @@ class TestRelatorioFiltro(unittest.TestCase):
         self.assertNotIn("CDB Azul", h)
 
     def test_cabecalho_como_o_dos_outros_apps(self):
-        """O cabeçalho do ResolvIA: o ícone, Gerenc + IA na cor do app, o que é, a casa, o título, a contagem e quando."""
-        h = S.gerar_relatorio(carteira(), "claro", "meus", casa="Casa da Ana").decode()
+        """O cabeçalho do ResolvIA: o ícone, Gerenc + IA na cor do app, "finanças", o título, a contagem e quando (a data
+        só aqui); no pé, só quem faz o app."""
+        h = S.gerar_relatorio(carteira(), "claro", "meus").decode()
         self.assertIn('<header class="cab"><svg class="ic"', h)
-        self.assertIn('<span class="wm">Gerenc<b>IA</b></span> · finanças da casa · Casa da Ana</div><h1>Relatório de patrimônio</h1>', h)
+        self.assertIn('<span class="wm">Gerenc<b>IA</b></span> · finanças</div><h1>Relatório de patrimônio</h1>', h)
         self.assertRegex(h, r"<p>Só os seus · 3 investimentos em 2 bancos · \d\d/\d\d/\d{4} às \d\d:\d\d</p></div></header>")
-        self.assertRegex(h, r'<p class="rodape">GerencIA · relatório gerado em \d\d/\d\d/\d{4} às \d\d:\d\d</p>')
-        self.assertNotIn(" · Casa", S.gerar_relatorio(carteira()).decode(), "sem o nome da casa, só o app")
-        self.assertIn("&lt;b&gt;", S.gerar_relatorio(carteira(), casa="<b>").decode(), "o nome da casa não vira HTML")
+        self.assertIn('<p class="rodape">CorrerIA Code · desenvolvimento de softwares</p>', h)
+        self.assertEqual(h.count(" às "), 1, "a hora uma vez só")
 
     def test_voltar_volta_ao_app(self):
         h = S.gerar_relatorio(carteira()).decode()
@@ -704,31 +704,16 @@ class TestRelatorioBens(unittest.TestCase):
         Trocar(self, BENS=type("B", (), {"conexao": lambda self: {"chave": "x", "url": "u"}, "ler": quebra})())
         self.assertEqual(S.bens_relatorio(dados()), {"itens": [], "categorias": {}, "aviso": "Não consegui ler o InventarIA: os bens da casa ficaram de fora."})
 
-    def test_nome_da_casa(self):
-        Trocar(self, TOKEN="t", _CASA={"nome": "", "quando": 0.0})
-        with mock.patch.object(S, "ha_request", return_value={"location_name": "Casa da Ana"}) as req:
-            self.assertEqual(S.nome_casa(), "Casa da Ana")
-            self.assertEqual(S.nome_casa(), "Casa da Ana")
-        self.assertEqual(req.call_count, 1, "guardado por 1 hora")
-        req.assert_called_with("GET", "/config", timeout=5)
-
-    def test_nome_da_casa_sem_o_home_assistant(self):
-        Trocar(self, TOKEN=None)
-        self.assertEqual(S.nome_casa(), "")
-        Trocar(self, TOKEN="t", _CASA={"nome": "", "quando": 0.0})
-        with mock.patch.object(S, "ha_request", side_effect=S.ErroHA("fora")):
-            self.assertEqual(S.nome_casa(), "")
 
 
 class TestRelatorioPdf(unittest.TestCase):
     """O PDF do relatório: o cabeçalho do app, o resumo, as colunas de valor, os bens, o Por banco e o pé de cada página."""
 
     def test_cabecalho_como_o_dos_outros_apps(self):
-        t = textos(S.gerar_relatorio_pdf(carteira(), casa="Casa da Ana"))
-        self.assertEqual(t[:5], ["R", "$", "Gerenc", "IA", "· finanças da casa · Casa da Ana"], "o ícone (R$), o app e a casa")
+        t = textos(S.gerar_relatorio_pdf(carteira()))
+        self.assertEqual(t[:5], ["R", "$", "Gerenc", "IA", "· finanças"], "o ícone (R$) e o app")
         self.assertEqual(t[5], "Relatório de patrimônio")
         self.assertRegex(t[6], r"^5 investimentos em 2 bancos · \d{2}/\d{2}/\d{4} às \d{2}:\d{2}$")
-        self.assertEqual(textos(S.gerar_relatorio_pdf(carteira()))[4], "· finanças da casa", "sem o nome da casa")
 
     def test_resumo_secoes_e_por_banco(self):
         t = textos(S.gerar_relatorio_pdf(carteira()))
@@ -738,7 +723,7 @@ class TestRelatorioPdf(unittest.TestCase):
             self.assertIn(trecho, t)
         self.assertIn("Por mês, em 1 ano e em 5 anos: com as taxas de hoje, sem novos aportes e reaplicando o que vence.", t)
         self.assertIn("Antes do imposto de renda.", t[-2], "o rodapé com os índices antes do pé da página")
-        self.assertRegex(t[-1], r"^GerencIA · relatório gerado em \d{2}/\d{2}/\d{4} às \d{2}:\d{2}( · página 2 de 2)?$")
+        self.assertRegex(t[-1], r"^CorrerIA Code · desenvolvimento de softwares( · página 2 de 2)?$", "no pé, só quem faz o app")
 
     def test_pagina_deitada(self):
         self.assertIn(b"/MediaBox [0 0 841.89 595.28]", S.gerar_relatorio_pdf(carteira()), "A4 deitada, para caberem as colunas")
@@ -800,7 +785,7 @@ class TestRelatorioPdf(unittest.TestCase):
         self.assertGreaterEqual(len(p), 3)
         n = len(p)
         for k, pagina in enumerate(p, 1):
-            self.assertRegex(pagina[-1], rf"^GerencIA · relatório gerado em .* · página {k} de {n}$")
+            self.assertEqual(pagina[-1], f"CorrerIA Code · desenvolvimento de softwares · página {k} de {n}")
         self.assertEqual(p[1][:3], ["Relatório de patrimônio · GerencIA", "Seu dinheiro (continuação)", "INVESTIMENTO"])
         todos = [t for pg in p for t in pg]
         self.assertEqual(sum(1 for t in todos if t.startswith("CDB Azul ")), 60, "nenhum investimento perdido na troca de página")

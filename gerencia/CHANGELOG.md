@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.30.1
+
+- **Relatório de patrimônio** mais limpo: no alto, só "GerencIA · finanças" (sem o nome da casa); no pé, só "CorrerIA Code · desenvolvimento de softwares". A hora em que foi gerado aparece uma vez, no cabeçalho.
+
 ## 1.30.0
 
 - **Relatório de patrimônio** com o cabeçalho dos relatórios dos apps, como o do ResolvIA: o ícone, GerencIA, o nome da casa no Home Assistant, o título, quantos investimentos e bens e quando foi gerado. Igual na página e no PDF.

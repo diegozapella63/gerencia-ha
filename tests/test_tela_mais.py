@@ -927,7 +927,8 @@ class TestRelatorioNoTema(TelaMais):
             self.assertEqual(pg.inner_text(".resumo"), "De terceiros\nR$ 1.218.500,00")
             # o cabeçalho dos relatórios dos apps: o ícone, o app, o título e a linha de baixo, sem nada cortado
             self.assertEqual(pg.inner_text(".cab h1"), "Relatório de patrimônio")
-            self.assertTrue(pg.inner_text(".cab .app").startswith("GerencIA · finanças da casa"))
+            self.assertEqual(pg.inner_text(".cab .app"), "GerencIA · finanças")
+            self.assertEqual(pg.inner_text(".rodape"), "CorrerIA Code · desenvolvimento de softwares")
             self.assertTrue(pg.inner_text(".cab p").startswith("De terceiros · 1 investimento"))
             caixa = pg.evaluate("(c => { const r = c.getBoundingClientRect(), i = c.querySelector('.ic').getBoundingClientRect(); return [r.left, r.right, i.width] })(document.querySelector('.cab'))")
             self.assertEqual(caixa[2], 52, "o ícone inteiro")

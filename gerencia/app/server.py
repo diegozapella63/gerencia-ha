@@ -31,7 +31,7 @@ import bens  # noqa: E402
 import chat  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.30.0"
+VERSAO = "1.30.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -556,23 +556,6 @@ def nome_relatorio(quem):
     return f"patrimonio-{date.today().isoformat()}" + (f"-{quem}" if quem in ("meus", "terceiros") else "") + ".pdf"
 
 
-_CASA = {"nome": "", "quando": 0.0}
-
-
-def nome_casa():
-    """O nome da casa no Home Assistant (Configurações › Sistema › Geral), para o cabeçalho do relatório; guardado por 1 h."""
-    if not TOKEN:
-        return ""
-    if time.time() - _CASA["quando"] < 3600:
-        return _CASA["nome"]
-    try:
-        _CASA["nome"] = str((ha_request("GET", "/config", timeout=5) or {}).get("location_name") or "")[:60]
-    except ErroHA as e:
-        log("Nome da casa:", e)
-    _CASA["quando"] = time.time()
-    return _CASA["nome"]
-
-
 # o ícone do app (icon.svg), com o $ na cor do app
 ICONE_SVG = ('<svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0c0f13"/>'
              '<rect x="10" y="17" width="21" height="30" rx="3" fill="#1b2129"/><rect x="10" y="17" width="21" height="15" rx="3" fill="#262d37"/>'
@@ -581,6 +564,7 @@ ICONE_SVG = ('<svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><rect width
              '<text x="43.5" y="41.5" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="var(--a)">$</text>'
              '<rect x="10" y="31.3" width="44" height="1.4" fill="#05070a"/></svg>')
 FILTRO_SUB = {"todos": "", "meus": "Só os seus · ", "terceiros": "De terceiros · "}
+RODAPE = "CorrerIA Code · desenvolvimento de softwares"  # quem faz o app (o mesmo do Mais › Sobre)
 
 
 def notas_relatorio(r):
@@ -593,12 +577,13 @@ def notas_relatorio(r):
     return notas + [r["rodape"]]
 
 
-def gerar_relatorio(d, tema=None, quem="todos", inventario=None, casa=""):
+def gerar_relatorio(d, tema=None, quem="todos", inventario=None):
     """O relatório de patrimônio em HTML, para ver; Baixar PDF leva ao mesmo relatório em PDF (o app do Home Assistant no
     Android não imprime a página). tema: "claro" ou "escuro" (o app manda o que está usando); sem ele, vale o de
     Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou
-    terceiros. inventario: os itens do InventarIA (bens_relatorio). casa: o nome da casa no Home Assistant.
-    O cabeçalho é o mesmo dos relatórios dos outros apps (o do ResolvIA): o ícone, o app, a casa, o que é e quando."""
+    terceiros. inventario: os itens do InventarIA (bens_relatorio).
+    O cabeçalho é o dos relatórios dos outros apps (o do ResolvIA): o ícone, o app, o título, a contagem e quando;
+    no pé, só quem faz o app."""
     tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
     attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
     r = dados_relatorio(d, quem, inventario=inventario)
@@ -628,8 +613,8 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None, casa=""):
                      f'{" class=on aria-current=page" if k == r["quem"] else ""}>{n}</a>' for k, n in QUEM.items())
     resumo = "".join(f"<div><span>{n}</span><b>{calc.fmt_brl(v)}</b></div>" for n, v in r["resumo"])
     notas = "".join(f"<p>{e(n)}</p>" for n in notas_relatorio(r))
-    cabecalho = (f'<header class="cab">{ICONE_SVG}<div><div class="app"><span class="wm">Gerenc<b>IA</b></span> · finanças da casa'
-                 f'{" · " + e(casa) if casa else ""}</div><h1>Relatório de patrimônio</h1>'
+    cabecalho = (f'<header class="cab">{ICONE_SVG}<div><div class="app"><span class="wm">Gerenc<b>IA</b></span> · finanças</div>'
+                 f'<h1>Relatório de patrimônio</h1>'
                  f'<p>{FILTRO_SUB[r["quem"]]}{e(_contagem(r))} · {r["gerado"]}</p></div></header>')
 
     claro = "--bg:#f6f7f9;--card:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--seg:#e9edf1"
@@ -693,7 +678,7 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
 {''.join(partes)}
 <div class="notas">{notas}</div>
-<p class="rodape">GerencIA · relatório gerado em {r['gerado']}</p>
+<p class="rodape">{RODAPE}</p>
 </main></body></html>""".encode("utf-8")
 
 
@@ -717,10 +702,10 @@ def _brl_sinal(v):
     return ("−" if v < 0 else "") + calc.fmt_brl(abs(v))
 
 
-def gerar_relatorio_pdf(d, quem="todos", inventario=None, casa=""):
+def gerar_relatorio_pdf(d, quem="todos", inventario=None):
     """O mesmo relatório em PDF (A4 deitada, sempre claro), para baixar e compartilhar: o cabeçalho dos relatórios dos
-    apps (o ícone, GerencIA, a casa, o que é e quando, como no ResolvIA), o resumo, os investimentos e os bens (com
-    quanto mudam por mês e o valor em 1 e em 5 anos), a divisão por banco e, no pé de cada página, o app, a hora e a página."""
+    apps (o ícone, GerencIA, o título, a contagem e quando, como no ResolvIA), o resumo, os investimentos e os bens (com
+    quanto mudam por mês e o valor em 1 e em 5 anos), a divisão por banco e, no pé de cada página, quem faz o app e a página."""
     r = dados_relatorio(d, quem, inventario=inventario)
     doc = pdf.Documento("Relatório de patrimônio · GerencIA", deitada=True)
     TXT, MUT, LIN, LIN2, CARTAO = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95), pdf.cor_rgb("#f6f7f9")
@@ -750,7 +735,7 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, casa=""):
             w1 = pdf.largura("Gerenc", 15, True)
             doc.texto(tx + w1, t0 + 24, "IA", 15, True, COR)
             w2 = pdf.largura("IA", 15, True)
-            doc.texto(tx + w1 + w2 + 6, t0 + 24, "· finanças da casa" + (f" · {casa}" if casa else ""), 10, False, MUT)
+            doc.texto(tx + w1 + w2 + 6, t0 + 24, "· finanças", 10, False, MUT)
             doc.texto(tx, t0 + 52, "Relatório de patrimônio", 22, True, TXT)
             doc.texto(tx, t0 + 72, f"{FILTRO_SUB[r['quem']]}{_contagem(r)} · {r['gerado']}", 10, False, MUT)
             y[0] = t0 + 88 + 14
@@ -850,12 +835,11 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, casa=""):
     for t in linhas:
         doc.texto(M, y[0], t, 8, False, MUT)
         y[0] += 11
-    # no pé de cada página: o app, quando foi gerado e, com mais de uma página, o número dela (como no ResolvIA)
+    # no pé de cada página: quem faz o app e, com mais de uma página, o número dela
     n = len(doc.paginas)
     for k in range(n):
         doc.ir_para(k)
-        doc.texto(doc.largura_pagina / 2, doc.altura_pagina - 24, f"GerencIA · relatório gerado em {r['gerado']}"
-                  + (f" · página {k + 1} de {n}" if n > 1 else ""), 8, False, MUT, "centro")
+        doc.texto(doc.largura_pagina / 2, doc.altura_pagina - 24, RODAPE + (f" · página {k + 1} de {n}" if n > 1 else ""), 8, False, MUT, "centro")
     return doc.bytes()
 
 
@@ -2091,10 +2075,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_versoes())
             if p == "/relatorio.pdf":
                 quem, d = (q.get("quem") or ["todos"])[0], ler()
-                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d), nome_casa()), "application/pdf", nome_relatorio(quem))
+                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d)), "application/pdf", nome_relatorio(quem))
             if p in ("/relatorio", "/relatorio.html"):
                 d = ler()
-                corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d), nome_casa())
+                corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d))
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")

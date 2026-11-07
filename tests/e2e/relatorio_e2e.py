@@ -1,5 +1,5 @@
 """Relatório de patrimônio com o servidor de verdade e o InventarIA ao lado (dados de exemplo, inventados): abre de Mais no
-tema do app, com o cabeçalho dos relatórios dos apps (o ícone, GerencIA, o que é, a contagem e quando); o filtro Todos /
+tema do app, com o cabeçalho dos relatórios dos apps (o ícone, GerencIA, a contagem e quando) e, no pé, a CorrerIA Code; o filtro Todos /
 Meus / De terceiros troca o resumo e as seções e fica no endereço com o tema, sem empilhar páginas; os bens (os cadastrados
 no GerencIA e os itens do InventarIA) entram em Bens, com Bens no InventarIA ligado; Baixar PDF baixa um arquivo de verdade
 (patrimonio-AAAA-MM-DD-terceiros.pdf), com o mesmo cabeçalho, as colunas Por mês, Em 1 ano e Em 5 anos e só o que foi
@@ -45,7 +45,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(400)
     tem(pg.url, 'relatorio?tema=escuro', 'abre no tema do app')
     igual(pg.inner_text('.cab h1'), 'Relatório de patrimônio', 'título no cabeçalho')
-    igual(pg.inner_text('.cab .app'), 'GerencIA · finanças da casa', 'o app e o que é (fora do Home Assistant, sem o nome da casa)')
+    igual(pg.inner_text('.cab .app'), 'GerencIA · finanças', 'o app')
+    igual(pg.inner_text('.rodape'), 'CorrerIA Code · desenvolvimento de softwares', 'no pé, só quem faz o app')
     sim(re.fullmatch(r'\d+ investimentos em \d+ bancos · \d+ bens · \d\d/\d\d/\d{4} às \d\d:\d\d', pg.inner_text('.cab p')), 'a contagem e quando', pg.inner_text('.cab p'))
     igual(pg.locator('.cab .ic').count(), 1, 'o ícone do app')
     igual([c[0] for c in caixas(pg, '.barra a')], ['Voltar', 'Baixar PDF'], 'Voltar e Baixar PDF (sem o Imprimir)')
@@ -90,14 +91,14 @@ with sync_playwright() as p:
     corpo = open(caminho, 'rb').read()
     sim(corpo.startswith(b'%PDF-1.4') and corpo.rstrip().endswith(b'%%EOF'), 'é um PDF')
     t = textos_pdf(corpo)
-    igual(t[2:6], ['Gerenc', 'IA', '· finanças da casa', 'Relatório de patrimônio'], 'PDF: o cabeçalho dos relatórios dos apps')
+    igual(t[2:6], ['Gerenc', 'IA', '· finanças', 'Relatório de patrimônio'], 'PDF: o cabeçalho dos relatórios dos apps')
     tem(t[6], 'De terceiros · ', 'PDF: o filtro no cabeçalho')
     for col in ('VALOR HOJE', 'POR MÊS', 'EM 1 ANO', 'EM 5 ANOS'):
         tem(' | '.join(t), col, f'PDF: coluna {col}')
     for i in terc:
         tem(' | '.join(t), i['nome'][:20], f'PDF: {i["nome"]}')
     sem(' | '.join(t), meus[0]['nome'], 'PDF: nada seu')
-    tem(t[-1], 'GerencIA · relatório gerado em ', 'PDF: o pé da página')
+    tem(t[-1], 'CorrerIA Code · desenvolvimento de softwares', 'PDF: o pé da página')
     if shutil.which('pdftoppm'):
         subprocess.run(['pdftoppm', '-r', '80', '-png', caminho, f'{SP}/shots/relatorio-pdf'], check=False)
     # o PDF de todos, direto do servidor: os bens da casa e os cadastrados aqui
