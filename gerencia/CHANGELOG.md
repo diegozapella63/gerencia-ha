@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.31.0
+
+- **Dicas de economia** com opções em **Mais › Configurações › Opções**, como o aviso de prazos do ResolvIA:
+  - **Conferir sozinho** (vem ligado): todo dia, no horário que você escolher, o app procura as assinaturas nos fixos e faturas e confere os preços com mais de 30 dias. Uma assinatura nova é conferida logo. Desligado, só no **Conferir agora**.
+  - **Avisar no celular** (vem desligado): quando aparece uma dica nova, quem você marcar em **Quem recebe** ganha um aviso nos celulares ligados a essa pessoa no Home Assistant (**Configurações › Pessoas**). Cada dica é avisada uma vez; tocar no aviso abre o GerencIA. **Testar no meu celular** manda um aviso agora para o seu.
+- **Relatório de patrimônio**: os bens aparecem numa linha só (e os imóveis em outra). **Detalhar bens e imóveis** mostra item por item, na página e no PDF.
+
 ## 1.30.1
 
 - **Relatório de patrimônio** mais limpo: no alto, só "GerencIA · finanças" (sem o nome da casa); no pé, só "CorrerIA Code · desenvolvimento de softwares". A hora em que foi gerado aparece uma vez, no cabeçalho.

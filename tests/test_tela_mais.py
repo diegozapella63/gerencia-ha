@@ -11,6 +11,7 @@ ele passa a "unexpected success" e o marcador sai.
 
 Dados sempre inventados (Ana, Beto, Carla, Banco Azul, Banco Verde): nunca nomes, bancos ou valores reais.
 """
+import json
 import os
 import re
 import unittest
@@ -938,6 +939,112 @@ class TestRelatorioNoTema(TelaMais):
 
     def test_relatorio_escuro_imprime_em_branco(self):
         self.assertEqual(self.fundo("escuro", impressao=True, esquema="dark"), "rgb(255, 255, 255)")
+
+
+class TestOpcoesDicas(TelaMais):
+    """Mais › Configurações › Opções › Dicas de economia: conferir sozinho no horário e avisar no celular de quem for
+    escolhido (as pessoas da casa no Home Assistant), como o aviso de prazos do ResolvIA."""
+
+    PESSOAS = [{"id": "person.ana", "nome": "Ana", "celular": True, "eu": True}, {"id": "person.beto", "nome": "Beto", "celular": False, "eu": False}]
+
+    def trocar_api(self, metodo, js):
+        self.js(f"(window.__od_{metodo} = window.__od_{metodo} || T.api.{metodo}, T.api.{metodo} = {js}, true)")
+        self.addCleanup(lambda: self.js(f"(T.api.{metodo} = window.__od_{metodo}, T.S.avisoPessoas = undefined, T.S.avisoPedido = null, true)"))
+
+    def abrir_opcoes(self, ajustes=None, pessoas=None):
+        self.trocar_api("avisoPessoas", f"async () => ({json.dumps({'pessoas': self.PESSOAS if pessoas is None else pessoas})})")
+        self.js("(T.S.avisoPessoas = undefined, T.S.avisoPedido = null, true)")
+        self.abrir(base(bancos=BANCOS, ajustes=ajustes or {}))
+        self.ir_mais("config", "opcoes")
+
+    def test_com_a_ia_e_as_dicas(self):
+        self.abrir_opcoes()
+        self.assertEqual(self.textos("#op-dicas .linha-sw b"), ["Conferir sozinho", "Avisar no celular"])
+        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Ligado: todo dia às 08:00.")
+        self.assertEqual(self.pg.input_value("#op-dicas-hora"), "08:00")
+        self.assertEqual(self.conta("#op-dicas .quem"), 0, "o aviso começa desligado")
+
+    def test_some_sem_a_ia_ou_sem_as_dicas(self):
+        for ajustes in ({"ia": False}, {"dicas": False}):
+            with self.subTest(ajustes=ajustes):
+                self.abrir_opcoes(ajustes)
+                self.assertEqual(self.conta("#op-dicas"), 0)
+
+    def test_conferir_sozinho_desligado(self):
+        self.abrir_opcoes()
+        self.clicar('#op-dicas [data-k="dicas_auto"]')
+        self.assertIs(self.dados()["ajustes"]["dicas_auto"], False)
+        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Desligado: só no Conferir agora.")
+        self.assertEqual(self.conta("#op-dicas-hora"), 0)
+
+    def test_horario(self):
+        self.abrir_opcoes()
+        self.pg.fill("#op-dicas-hora", "21:30")
+        self.pg.dispatch_event("#op-dicas-hora", "change")
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["dicas_hora"], "21:30")
+        self.assertEqual(self.texto("#op-dicas .linha-sw span"), "Ligado: todo dia às 21:30.")
+
+    def test_avisar_comeca_com_quem_esta_usando(self):
+        self.abrir_opcoes()
+        self.clicar('#op-dicas [data-k="dicas_aviso"]')
+        self.pg.wait_for_selector("#op-dicas .quem-p.on")
+        self.assertIs(self.dados()["ajustes"]["dicas_aviso"], True)
+        self.assertEqual(self.dados()["ajustes"]["dicas_para"], ["person.ana"])
+        self.assertEqual(self.textos("#op-dicas .quem-p"), ["Ana", "Beto\nsem celular"])
+        self.assertEqual(self.textos("#op-dicas .quem-p.on"), ["Ana"])
+        self.assertEqual(self.textos("#op-dicas .linha-sw > div > span")[1], "Ligado: quando aparece uma dica nova.")
+
+    def test_quem_recebe(self):
+        self.abrir_opcoes({"dicas_aviso": True, "dicas_para": ["person.ana"]})
+        self.pg.wait_for_selector("#op-dicas .quem-p")
+        self.clicar('#op-dicas [data-a="aviso-pessoa"][data-v="person.beto"]')
+        self.assertEqual(self.dados()["ajustes"]["dicas_para"], ["person.ana", "person.beto"])
+        self.assertEqual(self.texto("#op-dicas .nota"), "Sem celular para Beto: ligue o celular à pessoa no Home Assistant.")
+        self.clicar('#op-dicas [data-a="aviso-pessoa"][data-v="person.ana"]')
+        self.clicar('#op-dicas [data-a="aviso-pessoa"][data-v="person.beto"]')
+        self.assertEqual(self.dados()["ajustes"]["dicas_para"], [])
+        self.assertEqual(self.texto("#op-dicas .nota"), "Escolha quem recebe.")
+
+    def test_testar_no_meu_celular(self):
+        self.abrir_opcoes({"dicas_aviso": True, "dicas_para": ["person.ana"]})
+        self.trocar_api("avisoTestar", "async () => ({ enviados: 1 })")
+        self.pg.wait_for_selector('#op-dicas [data-a="aviso-testar"]:not([disabled])')
+        self.clicar('#op-dicas [data-a="aviso-testar"]')
+        self.assertEqual(self.esperar_aviso("Aviso"), "Aviso enviado para o seu celular.")
+
+    def test_testar_com_erro_do_servidor(self):
+        self.abrir_opcoes({"dicas_aviso": True, "dicas_para": ["person.ana"]})
+        self.trocar_api("avisoTestar", "async () => { throw new Error('O Home Assistant não entregou o aviso.') }")
+        self.pg.wait_for_selector('#op-dicas [data-a="aviso-testar"]:not([disabled])')
+        self.clicar('#op-dicas [data-a="aviso-testar"]')
+        self.assertEqual(self.esperar_aviso("entregou"), "O Home Assistant não entregou o aviso.")
+
+    def test_testar_inativo_sem_celular(self):
+        sem = [dict(p, celular=False) for p in self.PESSOAS]
+        self.abrir_opcoes({"dicas_aviso": True, "dicas_para": ["person.ana"]}, pessoas=sem)
+        self.pg.wait_for_selector("#op-dicas .quem-p")
+        b = self.pg.locator('#op-dicas [data-a="aviso-testar"]')
+        self.assertTrue(b.is_disabled())
+        self.assertEqual(b.get_attribute("title"), "Sem celular ligado a você no Home Assistant.")
+
+    def test_fora_do_home_assistant(self):
+        self.trocar_api("avisoPessoas", "async () => ({ pessoas: null, erro: 'Fora do Home Assistant não dá para avisar no celular.' })")
+        self.js("(T.S.avisoPessoas = undefined, T.S.avisoPedido = null, true)")
+        self.abrir(base(bancos=BANCOS, ajustes={"dicas_aviso": True}))
+        self.ir_mais("config", "opcoes")
+        self.pg.wait_for_function("() => !document.querySelector('#op-dicas .nota').textContent.includes('Procurando')")
+        self.assertEqual(self.texto("#op-dicas .nota"), "Fora do Home Assistant não dá para avisar no celular.")
+        self.assertTrue(self.pg.locator('#op-dicas [data-a="aviso-testar"]').is_disabled())
+
+    def test_sem_pessoas_e_pedido_que_falha(self):
+        self.abrir_opcoes({"dicas_aviso": True}, pessoas=[])
+        self.pg.wait_for_function("() => !document.querySelector('#op-dicas .nota').textContent.includes('Procurando')")
+        self.assertEqual(self.texto("#op-dicas .nota"), "Nenhuma pessoa da casa no Home Assistant.")
+        self.trocar_api("avisoPessoas", "async () => { throw new Error('rede') }")
+        self.js("(T.S.avisoPessoas = undefined, T.S.avisoPedido = null, T.render(), true)")
+        self.pg.wait_for_function("() => !document.querySelector('#op-dicas .nota').textContent.includes('Procurando')")
+        self.assertEqual(self.texto("#op-dicas .nota"), "Não consegui ver as pessoas da casa.")
 
 
 class TestAtalhosParaMais(TelaMais):

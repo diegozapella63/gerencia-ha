@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.30.1';
+const VERSAO = '1.31.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -429,6 +429,8 @@ const apiServidor = {
   backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
+  avisoPessoas: () => fetch('api/avisos/pessoas', { cache: 'no-store' }).then(jsonOk),
+  avisoTestar: () => fetch('api/avisos/testar', { method: 'POST' }).then(jsonOk),
   chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
   chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   chatAcao: (id, grupo, estado) => fetch('api/chat/acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, grupo, estado }) }).then(jsonOk),
@@ -498,6 +500,9 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
+    // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
+    async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
+    async avisoTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
     // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
     async chat() { return { mensagens: clone(CHAT_DEMO) }; },
     async chatEnviar(c) {
@@ -3800,6 +3805,7 @@ const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="tru
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo) => `<button class="sw${on ? ' on' : ''}" data-a="ajuste" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
+const DESLIGADAS_PADRAO = new Set(['dicas_aviso']);
 const linhaChave = (k, on, titulo, texto) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
@@ -4080,12 +4086,52 @@ function maisOpcoes() {
         ? 'Desligado: sem dicas.'
         : iaOn() ? 'Ligado: no Início, planos anuais mais baratos e categorias acima da média.'
           : 'Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.')}</section>
+    ${opcoesDicas()}
     <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
       ${linhaChave('prever_dia', a.prever_dia !== false, 'Prever o dia a dia', a.prever_dia !== false
         ? `Ligado: os próximos meses somam a média do dia a dia, ${brl(mediaVariaveis(), 0)} por mês.`
         : 'Desligado: só fixos, parcelas e faturas.')}</section>
     <section class="card" id="op-invest">${maisCab('wallet', 'Investimentos')}
       ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje desde o último informado. Renda variável não muda.')}</section>`;
+}
+
+/* Dicas de economia: conferir sozinho (todo dia, no horário) e avisar no celular, como o aviso de prazos do ResolvIA:
+   o aviso vai para as pessoas escolhidas, nos celulares ligados a elas no Home Assistant (Configurações › Pessoas).
+   Os planos anuais são conferidos pela IA: sem ela (ou com as dicas desligadas), a seção some. */
+function opcoesDicas() {
+  const a = S.d.ajustes;
+  if (a.dicas === false || !iaOn()) return '';
+  const auto = a.dicas_auto !== false, aviso = a.dicas_aviso === true, hora = /^\d\d:\d\d$/.test(a.dicas_hora || '') ? a.dicas_hora : '08:00';
+  let h = `<section class="card" id="op-dicas">${maisCab('percent', 'Dicas de economia')}
+    ${linhaChave('dicas_auto', auto, 'Conferir sozinho', auto ? `Ligado: todo dia às ${hora}.` : 'Desligado: só no Conferir agora.')}`;
+  if (auto) h += `<div class="campo op-hora"><label for="op-dicas-hora">Horário</label><input id="op-dicas-hora" class="inp" type="time" data-ajuste-hora="dicas_hora" value="${hora}"></div>`;
+  h += linhaChave('dicas_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando aparece uma dica nova.' : 'Desligado.');
+  if (aviso) h += quemRecebe();
+  return h + '</section>';
+}
+function quemRecebe() {
+  const P = S.avisoPessoas;
+  if (P === undefined) carregarPessoasAviso();
+  const para = new Set(S.d.ajustes.dicas_para || []);
+  const eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
+  const porque = !P || !P.pessoas ? (P && P.erro) || '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
+  let h = `<div class="campo"><label>Quem recebe</label>`;
+  if (P === undefined) h += `<p class="nota">Procurando as pessoas da casa…</p>`;
+  else if (!P || !P.pessoas) h += `<p class="nota">${esc((P && P.erro) || 'Não consegui ver as pessoas da casa.')}</p>`;
+  else if (!P.pessoas.length) h += `<p class="nota">Nenhuma pessoa da casa no Home Assistant.</p>`;
+  else {
+    h += `<div class="quem">${P.pessoas.map(p => `<button class="quem-p${para.has(p.id) ? ' on' : ''}${p.celular ? '' : ' sem'}" data-a="aviso-pessoa" data-v="${esc(p.id)}" aria-pressed="${para.has(p.id)}">${ic('user', 'ic-s')}<b>${esc(p.nome)}</b>${p.celular ? '' : '<span>sem celular</span>'}</button>`).join('')}</div>`;
+    const sem = P.pessoas.filter(p => para.has(p.id) && !p.celular).map(p => p.nome);
+    if (sem.length) h += `<p class="nota">Sem celular para ${esc(juntarE(sem))}: ligue o celular à pessoa no Home Assistant.</p>`;
+    else if (!para.size) h += `<p class="nota">Escolha quem recebe.</p>`;
+  }
+  return h + `</div><button class="btn out op-testar" data-a="aviso-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>`;
+}
+function carregarPessoasAviso() {
+  if (S.avisoPedido) return S.avisoPedido;
+  S.avisoPedido = api.avisoPessoas().then(r => r, () => ({ pessoas: null }))
+    .then(r => { S.avisoPessoas = r; S.avisoPedido = null; if (S.ui.maisTela === 'config') render(); return r; });
+  return S.avisoPedido;
 }
 
 /* ------------------------------------------------------------------ folhas (bottom sheets) */
@@ -4764,6 +4810,8 @@ document.addEventListener('click', ev => {
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
+    case 'aviso-pessoa': persistir(d => { const p = new Set(d.ajustes.dicas_para || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes.dicas_para = [...p]; }); break;
+    case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
     case 'da-ok': confirmarDicaAnual(); break;
     case 'categoria': abrirCategoria(id); break;
     case 'categoria-nova': abrirCategoria(null, v); break;
@@ -4915,11 +4963,17 @@ document.addEventListener('click', ev => {
     // escolher uma cor desliga a Cor do dia e fica com ela
     case 'cor': Object.assign(S.d.ajustes, { cor: v, cor_dia: false }); aplicarTema(); render(); persistir(d => { Object.assign(d.ajustes, { cor: v, cor_dia: false }); }); break;
     case 'ajuste': {
-      const k = el.dataset.k; const nv = S.d.ajustes[k] === false;
+      // as chaves vêm ligadas por padrão; as de DESLIGADAS_PADRAO (o aviso no celular), desligadas
+      const k = el.dataset.k; const nv = DESLIGADAS_PADRAO.has(k) ? S.d.ajustes[k] !== true : S.d.ajustes[k] === false;
       persistir(d => { d.ajustes[k] = nv; }).then(ok => {
         if (!ok) return;
         if (k === 'ia') { S.ia = null; S.uso = null; carregarVoz(); render(); }
         if (k === 'dicas') carregarDicas();
+        // ligou o aviso sem ninguém escolhido: começa com quem está usando o app
+        if (k === 'dicas_aviso' && nv && !(S.d.ajustes.dicas_para || []).length) carregarPessoasAviso().then(r => {
+          const eu = r && r.pessoas && r.pessoas.find(p => p.eu);
+          if (eu && !(S.d.ajustes.dicas_para || []).length) persistir(d => { d.ajustes.dicas_para = [eu.id]; });
+        });
         if (k === 'bens') carregarBens();
       });
       break;
@@ -5224,6 +5278,11 @@ document.addEventListener('change', ev => {
     const k = el.dataset.bensTaxa, n = Number(String(el.value).replace(',', '.').replace('−', '-')) || 0;
     const val = el.closest('.bens-tx')?.querySelector('[data-a="bens-dir"][data-v="-1"]')?.classList.contains('on');
     salvarTaxaBem(k, n < 0 ? n : val ? -n : n);
+    return;
+  }
+  if (el.dataset.ajusteHora) {
+    const k = el.dataset.ajusteHora, v = el.value;
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) persistir(d => { d.ajustes[k] = v; }, 'Horário salvo');
     return;
   }
   if (el.dataset.ajusteSel) {

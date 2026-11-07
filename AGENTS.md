@@ -25,6 +25,7 @@ gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocke
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
 gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada) para o Baixar PDF do Relatório de patrimônio
+gerencia/app/avisos.py        avisos no celular: as pessoas da casa e os celulares delas (mesma regra do phones.js do ResolvIA), o envio
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes (ver tests/README.md)
@@ -58,7 +59,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 - **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Configurações › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
 - **InventarIA → GerencIA**: o InventarIA grava `share/inventario/integracao.json` e este app lê `/api/integracao/itens` e `/comodos` (`bens.py`, cache de 10 min). Só lê; nada muda lá. Patrimônio = investimentos meus + bens (os de terceiros ficam fora).
-- **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
+- **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`), aviso das dicas nos celulares das pessoas escolhidas (`avisos.py`: `notify.mobile_app_*`, achados pelos rastreadores de cada `person.*` e o aparelho no registro, como no ResolvIA), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
 
 ## Como o dono gosta (interface)
 

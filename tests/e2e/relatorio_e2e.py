@@ -1,7 +1,7 @@
 """Relatório de patrimônio com o servidor de verdade e o InventarIA ao lado (dados de exemplo, inventados): abre de Mais no
 tema do app, com o cabeçalho dos relatórios dos apps (o ícone, GerencIA, a contagem e quando) e, no pé, a CorrerIA Code; o filtro Todos /
 Meus / De terceiros troca o resumo e as seções e fica no endereço com o tema, sem empilhar páginas; os bens (os cadastrados
-no GerencIA e os itens do InventarIA) entram em Bens, com Bens no InventarIA ligado; Baixar PDF baixa um arquivo de verdade
+no GerencIA e os itens do InventarIA) entram em Bens, com Bens no InventarIA ligado, numa linha ou detalhados; Baixar PDF baixa um arquivo de verdade
 (patrimonio-AAAA-MM-DD-terceiros.pdf), com o mesmo cabeçalho, as colunas Por mês, Em 1 ano e Em 5 anos e só o que foi
 filtrado; Voltar volta ao app. Capturas no escuro (celular) e no claro, e das páginas do PDF quando há o pdftoppm."""
 import sys, json, re, zlib, shutil, subprocess, urllib.request
@@ -57,13 +57,26 @@ with sync_playwright() as p:
     igual(pg.inner_text('.filtro a.on'), 'Todos', 'começa em Todos')
     igual(pg.locator('.resumo span').all_inner_texts(), ['Patrimônio', 'Investido', 'Bens', 'De terceiros'], 'o resumo, como no Início')
     titulos = [h.split('\n')[0] for h in pg.locator('h2 span').all_inner_texts()]
-    igual(titulos[:2], ['Seu dinheiro', 'Bens'], 'o seu dinheiro e os bens primeiro')
-    secao_bens = pg.locator('section', has=pg.locator('h2 span', has_text='Bens')).inner_text()
-    for nome in ['Televisão 55"', 'Sofá 3 lugares'] + [i['nome'] for i in bens_aqui]:
-        tem(secao_bens, nome, f'Bens: {nome}')
-    tem(secao_bens, 'perde 20% a.a.', 'Bens: a taxa da categoria')
-    sim(not pg.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth"), 'nada sai da tela (390 px)')
+    sim(titulos[0] == 'Seu dinheiro' and titulos[1] in ('Bens', 'Bens e imóveis'), 'o seu dinheiro e os bens primeiro', titulos)
+    secao = lambda: pg.locator('section', has=pg.locator('h2 span', has_text='Bens')).inner_text()
+    n_bens = 2 + len(bens_aqui)
+    # sem detalhar: os bens numa linha (e os imóveis em outra, quando há)
+    tem(secao(), f'{n_bens} itens', 'sem detalhar: os bens numa linha só')
+    sem(secao(), 'Televisão', 'sem detalhar: sem os itens')
+    igual(pg.get_attribute('.det', 'aria-checked'), 'false', 'Detalhar começa desligado')
     pg.screenshot(path=f'{SP}/shots/relatorio-todos.png', full_page=True)
+    with pg.expect_navigation():
+        pg.click('.det')
+    igual(pg.get_attribute('.det', 'aria-checked'), 'true', 'Detalhar ligado')
+    tem(pg.url, 'detalhar=1', 'fica no endereço')
+    for nome in ['Televisão 55"', 'Sofá 3 lugares'] + [i['nome'] for i in bens_aqui]:
+        tem(secao(), nome, f'Bens detalhados: {nome}')
+    tem(secao(), 'perde 20% a.a.', 'Bens: a taxa da categoria')
+    tem(pg.get_attribute('.barra a.pri', 'href'), 'detalhar=1', 'o PDF vem detalhado também')
+    sim(not pg.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth"), 'nada sai da tela (390 px)')
+    pg.screenshot(path=f'{SP}/shots/relatorio-todos-detalhado.png', full_page=True)
+    with pg.expect_navigation():
+        pg.click('.det')
     # Meus: o filtro não empilha páginas
     n0 = pg.evaluate('history.length')
     with pg.expect_navigation():
@@ -102,7 +115,7 @@ with sync_playwright() as p:
     if shutil.which('pdftoppm'):
         subprocess.run(['pdftoppm', '-r', '80', '-png', caminho, f'{SP}/shots/relatorio-pdf'], check=False)
     # o PDF de todos, direto do servidor: os bens da casa e os cadastrados aqui
-    todos = urllib.request.urlopen(B + 'relatorio.pdf').read()
+    todos = urllib.request.urlopen(B + 'relatorio.pdf?detalhar=1').read()
     open(f'{SP}/shots/relatorio-todos.pdf', 'wb').write(todos)
     t = ' | '.join(textos_pdf(todos))
     for nome in [i['nome'][:20] for i in meus[:3] + terc[:1] + bens_aqui] + ['Televisão 55"', 'Sofá 3 lugares']:
@@ -118,7 +131,7 @@ with sync_playwright() as p:
     # Bens no InventarIA desligado: os itens de lá saem do relatório (os cadastrados aqui ficam)
     d = st(); d['ajustes']['bens'] = False
     req(B, 'api/state', d, 'PUT')
-    h = urllib.request.urlopen(B + 'relatorio').read().decode()
+    h = urllib.request.urlopen(B + 'relatorio?detalhar=1').read().decode()
     sem(h, 'Televisão', 'desligado: sem os itens do InventarIA')
     for i in bens_aqui:
         tem(h, i['nome'], f'desligado: {i["nome"]} (cadastrado aqui) continua')

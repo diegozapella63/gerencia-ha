@@ -603,9 +603,9 @@ class TestRelatorioFiltro(unittest.TestCase):
     def test_baixar_pdf_em_vez_de_imprimir(self):
         """O app do Home Assistant no Android não imprime a página: o botão baixa o PDF feito pelo servidor."""
         h = S.gerar_relatorio(carteira(), "claro", "terceiros").decode()
-        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf">Baixar PDF</a>', h)
+        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf">Baixar PDF</a></div>', h)
         self.assertNotIn("print()", h)
-        self.assertIn(".barra,.filtro{display:none}", h, "no papel, sem botões nem filtro")
+        self.assertIn(".barra,.filtro,.det{display:none}", h, "no papel, sem botões nem filtro")
 
     def test_pagina_vazia(self):
         h = S.gerar_relatorio(carteira(), None, "terceiros")
@@ -619,8 +619,8 @@ class TestRelatorioBens(unittest.TestCase):
     """Os bens no relatório: os cadastrados aqui (os seus) e, com Bens no InventarIA ligado, os itens de lá."""
 
     def test_bens_cadastrados_aqui(self):
-        r = S.dados_relatorio(com_bens(carteira()))
-        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro", "Bens", "De Beto", "De Mãe"])
+        r = S.dados_relatorio(com_bens(carteira()), detalhar=True)
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro", "Bens e imóveis", "De Beto", "De Mãe"])
         bens_ = r["secoes"][1]
         self.assertEqual(bens_["colunas"], ["Bem", "Cômodo", "Por ano", "Informado em"])
         terreno, carro = bens_["linhas"]
@@ -635,7 +635,7 @@ class TestRelatorioBens(unittest.TestCase):
         self.assertNotIn("Sem banco", [b[0] for b in S.dados_relatorio(com_bens(carteira()), "meus")["bancos"]])
 
     def test_itens_do_inventaria(self):
-        r = S.dados_relatorio(com_bens(carteira()), "meus", inventario=CASA)
+        r = S.dados_relatorio(com_bens(carteira()), "meus", inventario=CASA, detalhar=True)
         linhas = r["secoes"][1]["linhas"]
         self.assertEqual([l["nome"] for l in linhas], ["Terreno", "Carro da Ana", "TV da sala", "Geladeira"], "do maior para o menor")
         tv = linhas[2]
@@ -645,8 +645,62 @@ class TestRelatorioBens(unittest.TestCase):
         self.assertEqual(r["resumo"][2], ("Bens", 147700))
         self.assertEqual(r["n_bens"], 4)
 
+    def test_sem_detalhar_uma_linha_de_imoveis_e_outra_de_bens(self):
+        r = S.dados_relatorio(com_bens(carteira()), "meus", inventario=CASA)
+        bens_ = r["secoes"][1]
+        self.assertEqual(bens_["titulo"], "Bens e imóveis")
+        self.assertEqual([(l["nome"], l["tipo"]) for l in bens_["linhas"]], [("Imóveis", "1 item"), ("Bens", "3 itens")])
+        imoveis, outros = bens_["linhas"]
+        self.assertAlmostEqual(imoveis["valor"], 100000)
+        self.assertAlmostEqual(imoveis["ano1"], 105000)
+        self.assertEqual(imoveis["rendimento"], "valoriza 5% a.a.")
+        self.assertAlmostEqual(outros["valor"], 40000 + 3700 + 4000)
+        self.assertAlmostEqual(outros["ano1"], 40000 * 0.85 + 3700 * 0.9 + 4000 * 0.8)
+        self.assertAlmostEqual(outros["ano5"], 40000 * 0.85 ** 5 + 3700 * 0.9 ** 5 + 4000 * 0.8 ** 5)
+        self.assertEqual(outros["rendimento"], f"perde {S.calc.fmt_pct(round((1 - outros['ano1'] / outros['valor']) * 100, 1))}% a.a.")
+        self.assertAlmostEqual(bens_["total"], 147700)
+        self.assertEqual(r["n_bens"], 4, "a contagem continua item por item")
+        d = S.dados_relatorio(com_bens(carteira()), "meus", inventario=CASA, detalhar=True)
+        for k in ("total", "mes", "ano1", "ano5"):
+            self.assertAlmostEqual(bens_[k], d["secoes"][1][k], msg=f"o mesmo total detalhado ou não: {k}")
+
+    def test_bem_em_partes_vai_para_as_duas_linhas(self):
+        d = carteira()
+        d["investimentos"].append({"id": "s", "nome": "Sítio", "valor": 300000, "indexador": "deprecia", "taxa": 0, "tipo": "bens",
+                                   "data_valor": date.today().isoformat(),
+                                   "partes": [{"categoria": "imoveis", "valor": 250000, "taxa": -3}, {"categoria": "veiculos", "valor": 50000, "taxa": 15}]})
+        linhas = S.dados_relatorio(d, "meus")["secoes"][1]["linhas"]
+        self.assertEqual([(l["nome"], l["tipo"], round(l["valor"])) for l in linhas], [("Imóveis", "1 item", 250000), ("Bens", "1 item", 50000)])
+
+    def test_sem_imoveis_so_bens(self):
+        r = S.dados_relatorio(dados(), inventario=CASA)
+        self.assertEqual(r["secoes"][0]["titulo"], "Bens")
+        self.assertEqual([l["nome"] for l in r["secoes"][0]["linhas"]], ["Bens"])
+        self.assertFalse(r["tem_imoveis"])
+
+    def test_interruptor_de_detalhar_na_pagina(self):
+        h = S.gerar_relatorio(com_bens(carteira()), "escuro", "meus", CASA).decode()
+        self.assertIn('<a class="det" role="switch" aria-checked="false" href="relatorio?quem=meus&detalhar=1&tema=escuro" '
+                      'onclick="location.replace(this.href);return false"><span>Detalhar bens e imóveis</span><i class="sw"></i></a>', h)
+        self.assertIn('href="relatorio.pdf?quem=meus"', h)
+        h = S.gerar_relatorio(com_bens(carteira()), "escuro", "meus", CASA, detalhar=True).decode()
+        self.assertIn('aria-checked="true" href="relatorio?quem=meus&tema=escuro"', h, "ligado: tocar desliga")
+        self.assertIn('href="relatorio.pdf?quem=meus&detalhar=1"', h, "o PDF vem detalhado também")
+        self.assertIn('href="relatorio?quem=todos&detalhar=1&tema=escuro"', h, "o filtro mantém o detalhe")
+        self.assertIn("<span>Detalhar bens</span>", S.gerar_relatorio(dados(), inventario=CASA).decode(), "sem imóveis")
+        self.assertNotIn('class="det"', S.gerar_relatorio(carteira()).decode(), "sem bens, sem o interruptor")
+        self.assertIn(".barra,.filtro,.det{display:none}", h, "no papel, sem o interruptor")
+
+    def test_pdf_resumido_ou_detalhado(self):
+        t = textos(S.gerar_relatorio_pdf(com_bens(carteira()), "meus", CASA))
+        self.assertIn("3 itens", t)
+        self.assertNotIn("TV da sala", t)
+        t = textos(S.gerar_relatorio_pdf(com_bens(carteira()), "meus", CASA, detalhar=True))
+        self.assertIn("TV da sala", t)
+        self.assertNotIn("3 itens", t)
+
     def test_categoria_com_o_nome_do_inventaria(self):
-        r = S.dados_relatorio(com_bens(carteira()), inventario=CASA)
+        r = S.dados_relatorio(com_bens(carteira()), inventario=CASA, detalhar=True)
         self.assertEqual(r["secoes"][1]["linhas"][1]["tipo"], "Carros e motos", "a categoria renomeada lá vale aqui")
 
     def test_bens_de_terceiros_ficam_com_a_pessoa(self):
@@ -675,8 +729,8 @@ class TestRelatorioBens(unittest.TestCase):
         self.assertNotIn("InventarIA", S.gerar_relatorio(carteira(), quem="terceiros", inventario=aviso).decode(), "em De terceiros, nada da casa")
 
     def test_pagina_com_as_colunas_dos_bens(self):
-        h = S.gerar_relatorio(com_bens(carteira()), inventario=CASA).decode()
-        self.assertIn("<h2><span>Bens</span><b>R$ 147.700,00</b></h2><table class=inv><thead><tr><th>Bem</th><th>Cômodo</th>"
+        h = S.gerar_relatorio(com_bens(carteira()), inventario=CASA, detalhar=True).decode()
+        self.assertIn("<h2><span>Bens e imóveis</span><b>R$ 147.700,00</b></h2><table class=inv><thead><tr><th>Bem</th><th>Cômodo</th>"
                       "<th>Por ano</th><th>Informado em</th><th class=n>Valor hoje</th>", h)
         self.assertIn("<td>TV da sala<small>Eletrônicos<span class=bm> · Sala</span></small></td><td>Sala</td><td>perde 20% a.a.</td>", h)
         self.assertIn("Bens: perdem ou ganham por ano a taxa da categoria", h)
@@ -742,7 +796,7 @@ class TestRelatorioPdf(unittest.TestCase):
         self.assertEqual(t[k + 1:k + 5], ["R$ 1.050,00", "R$ 7,97", "R$ 1.150,00", "R$ 1.660,51"])
 
     def test_bens_perdem_com_sinal(self):
-        t = textos(S.gerar_relatorio_pdf(com_bens(carteira()), inventario=CASA))
+        t = textos(S.gerar_relatorio_pdf(com_bens(carteira()), inventario=CASA, detalhar=True))
         self.assertIn("BEM", t)
         self.assertIn("CÔMODO", t)
         self.assertIn("INFORMADO EM", t)

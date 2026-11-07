@@ -29,9 +29,10 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
+import avisos  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.30.1"
+VERSAO = "1.31.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -73,7 +74,8 @@ INDICES_PADRAO = {
 # sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
-                  "ia": True, "dicas": True}
+                  "ia": True, "dicas": True, "dicas_auto": True, "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": []}
+HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
 
 
@@ -122,6 +124,13 @@ def normalizar(d):
             base["ajustes"]["sensores"] = False
     # só um "desligado" de verdade desliga a Cor do dia
     base["ajustes"]["cor_dia"] = base["ajustes"].get("cor_dia") is not False
+    # Dicas de economia: conferir sozinho (no horário) e avisar no celular de quem foi escolhido
+    aj = base["ajustes"]
+    aj["dicas_auto"] = aj.get("dicas_auto") is not False
+    aj["dicas_aviso"] = aj.get("dicas_aviso") is True
+    aj["dicas_hora"] = aj.get("dicas_hora") if HORA_RE.match(str(aj.get("dicas_hora") or "")) else AJUSTES_PADRAO["dicas_hora"]
+    para = aj.get("dicas_para") if isinstance(aj.get("dicas_para"), list) else []
+    aj["dicas_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     try:
         base["rev"] = int(base["rev"])
     except (TypeError, ValueError):
@@ -454,10 +463,11 @@ COLUNAS_INVEST = ["Investimento", "Banco", "Rendimento", "Vencimento"]
 COLUNAS_BENS = ["Bem", "Cômodo", "Por ano", "Informado em"]
 
 
-def dados_relatorio(d, quem="todos", agora=None, inventario=None):
+def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False):
     """O que vai no Relatório de patrimônio (na página e no PDF). quem: todos, meus ou terceiros. inventario: os itens do
     InventarIA (bens_relatorio), que entram em Bens junto com os bens cadastrados aqui (os seus; não em De terceiros).
-    Patrimônio é o mesmo do Início: os seus investimentos e os bens; o dinheiro de terceiros fica à parte."""
+    Patrimônio é o mesmo do Início: os seus investimentos e os bens; o dinheiro de terceiros fica à parte.
+    detalhar: os bens um por um; sem ele, uma linha para os imóveis e outra para os outros bens (Detalhar bens e imóveis)."""
     quem = quem if quem in QUEM else "todos"
     ind = d["indices"]
     corrigir = d["ajustes"].get("corrigir", True)
@@ -502,10 +512,34 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None):
     seus = [i for i in invs if meu(i) and not e_bem(i)]
     if seus:
         secoes.append(secao("Seu dinheiro", [linha_inv(i) for i in seus], COLUNAS_INVEST))
-    da_casa = [linha_casa(it) for it in (inventario or {}).get("itens") or []] if quem != "terceiros" else []
-    bens_seus = [linha_inv(i) for i in invs if meu(i) and e_bem(i)] + da_casa
+    itens_casa = ((inventario or {}).get("itens") or []) if quem != "terceiros" else []
+    da_casa = [linha_casa(it) for it in itens_casa]
+    meus_bens = [i for i in invs if meu(i) and e_bem(i)]
+    bens_seus = [linha_inv(i) for i in meus_bens] + da_casa
+    # cada pedaço de bem (um item do InventarIA, um bem daqui ou uma parte dele): de quem é (para contar), categoria,
+    # valor de hoje e a taxa da categoria; dá o resumo em duas linhas (imóveis e os outros bens)
+    pedacos = [(("c", k), it["categoria"], it["hoje"], it["taxa"]) for k, it in enumerate(itens_casa)]
+    pedacos += [(("i", k), p["categoria"], p["valor"], p["taxa"]) for k, inv in enumerate(meus_bens) for p in calc.partes_hoje(inv, ind, corrigir)]
+    tem_imoveis = any(c == "imoveis" and v > 0 for _, c, v, _ in pedacos)
     if bens_seus:
-        secoes.append(secao("Bens", bens_seus, COLUNAS_BENS))
+        titulo_bens = "Bens e imóveis" if tem_imoveis else "Bens"
+        if detalhar:
+            secoes.append(secao(titulo_bens, bens_seus, COLUNAS_BENS))
+        else:
+            resumidas = []
+            for nome, dos_imoveis in (("Imóveis", True), ("Bens", False)):
+                ps = [x for x in pedacos if (x[1] == "imoveis") == dos_imoveis]
+                if not ps:
+                    continue
+                v = sum(x[2] for x in ps)
+                proj = {k: sum(x[2] * (1 - x[3] / 100) ** anos for x in ps) for k, anos in (("ano1", 1), ("ano5", 5))}
+                mes = sum(x[2] * ((1 - x[3] / 100) ** (1 / 12) - 1) for x in ps)
+                n = len({x[0] for x in ps})
+                var = (proj["ano1"] / v - 1) * 100 if v else 0  # quanto o grupo muda num ano, em %
+                rot = "mantém o valor" if abs(var) < 0.005 else f"{'valoriza' if var > 0 else 'perde'} {calc.fmt_pct(round(abs(var), 1))}% a.a."
+                resumidas.append({"nome": nome, "tipo": f"{n} {'item' if n == 1 else 'itens'}", "banco": "", "rendimento": rot,
+                                  "vencimento": "", "valor": v, "mes": mes, **proj})
+            secoes.append(secao(titulo_bens, resumidas, ["Bem", "", "Por ano", ""]))
     grupos = {}
     for inv in invs:
         if not meu(inv):
@@ -534,6 +568,7 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None):
             "total": total_bancos, "resumo": resumo, "secoes": secoes, "rodape": rodape, "cor": calc.cor_app(d["ajustes"]),
             "bancos": [(n, v, v / total_bancos * 100 if total_bancos else 0) for n, v in sorted(por_banco.items(), key=lambda x: -x[1])],
             "aviso": ((inventario or {}).get("aviso") or "") if quem != "terceiros" else "",
+            "detalhar": bool(detalhar), "tem_bens": bool(bens_seus), "tem_imoveis": tem_imoveis,
             "vazio": {"todos": "Nenhum investimento cadastrado.", "meus": "Nenhum investimento seu.",
                       "terceiros": "Nenhum investimento de outras pessoas."}[quem]}
 
@@ -572,22 +607,24 @@ def notas_relatorio(r):
     notas = []
     if r["secoes"]:
         notas.append("Por mês, em 1 ano e em 5 anos: com as taxas de hoje, sem novos aportes e reaplicando o que vence.")
-    if any(s["colunas"] == COLUNAS_BENS for s in r["secoes"]):
+    if r["tem_bens"]:
         notas.append("Bens: perdem ou ganham por ano a taxa da categoria (Mais › Invest), contada desde a data informada.")
     return notas + [r["rodape"]]
 
 
-def gerar_relatorio(d, tema=None, quem="todos", inventario=None):
+def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False):
     """O relatório de patrimônio em HTML, para ver; Baixar PDF leva ao mesmo relatório em PDF (o app do Home Assistant no
     Android não imprime a página). tema: "claro" ou "escuro" (o app manda o que está usando); sem ele, vale o de
     Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou
-    terceiros. inventario: os itens do InventarIA (bens_relatorio).
+    terceiros. inventario: os itens do InventarIA (bens_relatorio). detalhar: os bens um por um (senão, imóveis e bens
+    em duas linhas); o interruptor da página começa desligado e vai junto no filtro e no Baixar PDF.
     O cabeçalho é o dos relatórios dos outros apps (o do ResolvIA): o ícone, o app, o título, a contagem e quando;
     no pé, só quem faz o app."""
     tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
     attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
-    r = dados_relatorio(d, quem, inventario=inventario)
+    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar)
     e = html.escape
+    q_det = "&detalhar=1" if r["detalhar"] else ""
     q_tema = f"&tema={tema}" if tema else ""
 
     partes = []
@@ -609,10 +646,14 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None):
     if not r["secoes"]:
         partes.append(f'<p class="vazio">{e(r["vazio"])}</p>')
     # trocar o filtro não empilha páginas: o Voltar (e o do celular) volta direto ao app
-    filtro = "".join(f'<a href="relatorio?quem={k}{q_tema}" onclick="location.replace(this.href);return false"'
+    filtro = "".join(f'<a href="relatorio?quem={k}{q_det}{q_tema}" onclick="location.replace(this.href);return false"'
                      f'{" class=on aria-current=page" if k == r["quem"] else ""}>{n}</a>' for k, n in QUEM.items())
     resumo = "".join(f"<div><span>{n}</span><b>{calc.fmt_brl(v)}</b></div>" for n, v in r["resumo"])
     notas = "".join(f"<p>{e(n)}</p>" for n in notas_relatorio(r))
+    rotulo_det = "Detalhar bens e imóveis" if r["tem_imoveis"] else "Detalhar bens"
+    detalhe = (f'<a class="det" role="switch" aria-checked="{"true" if r["detalhar"] else "false"}" href="relatorio?quem={r["quem"]}'
+               f'{"" if r["detalhar"] else "&detalhar=1"}{q_tema}" onclick="location.replace(this.href);return false">'
+               f'<span>{rotulo_det}</span><i class="sw{" on" if r["detalhar"] else ""}"></i></a>') if r["tem_bens"] else ""
     cabecalho = (f'<header class="cab">{ICONE_SVG}<div><div class="app"><span class="wm">Gerenc<b>IA</b></span> · finanças</div>'
                  f'<h1>Relatório de patrimônio</h1>'
                  f'<p>{FILTRO_SUB[r["quem"]]}{e(_contagem(r))} · {r["gerado"]}</p></div></header>')
@@ -642,6 +683,11 @@ main{{max-width:860px;margin:0 auto}}
 .barra{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}}
 .barra a{{display:flex;align-items:center;justify-content:center;min-height:44px;font:inherit;font-size:14px;font-weight:600;padding:8px 10px;border-radius:12px;border:1px solid var(--borda);background:var(--card);color:var(--fg);text-decoration:none}}
 .barra a.pri{{background:var(--a);border-color:transparent;color:#0b0f14}}
+.det{{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-8px 0 18px;padding:10px 14px;border-radius:12px;border:1px solid var(--linha);background:var(--card);color:var(--fg);text-decoration:none;font-weight:600;font-size:14px}}
+.det .sw{{flex:none;width:44px;height:26px;border-radius:13px;background:var(--borda);position:relative}}
+.det .sw::after{{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}}
+.det .sw.on{{background:var(--a)}}
+.det .sw.on::after{{left:21px}}
 .cab{{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--linha);border-left:6px solid var(--a);border-radius:16px;padding:16px 18px;margin-bottom:14px}}
 .cab .ic{{width:52px;height:52px;flex:none}}
 .cab .app{{font:600 13.5px/1.2 Barlow,sans-serif;color:var(--mut)}}
@@ -670,10 +716,11 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 .rodape{{color:var(--mut);font-size:12px;margin-top:14px;text-align:center}}
 .bm{{display:none}}
 @media (max-width:600px){{.inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
-@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
+@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
 </style></head><body><main>
 <nav class="filtro" aria-label="De quem">{filtro}</nav>
-<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
+<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
+{detalhe}
 {cabecalho}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
 {''.join(partes)}
@@ -702,11 +749,11 @@ def _brl_sinal(v):
     return ("−" if v < 0 else "") + calc.fmt_brl(abs(v))
 
 
-def gerar_relatorio_pdf(d, quem="todos", inventario=None):
+def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
     """O mesmo relatório em PDF (A4 deitada, sempre claro), para baixar e compartilhar: o cabeçalho dos relatórios dos
     apps (o ícone, GerencIA, o título, a contagem e quando, como no ResolvIA), o resumo, os investimentos e os bens (com
     quanto mudam por mês e o valor em 1 e em 5 anos), a divisão por banco e, no pé de cada página, quem faz o app e a página."""
-    r = dados_relatorio(d, quem, inventario=inventario)
+    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar)
     doc = pdf.Documento("Relatório de patrimônio · GerencIA", deitada=True)
     TXT, MUT, LIN, LIN2, CARTAO = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95), pdf.cor_rgb("#f6f7f9")
     COR = pdf.cor_rgb(r["cor"])
@@ -1833,7 +1880,7 @@ def _velha(fonte, forcar=False):
     return dias >= (30 if fonte.get("status") == "ok" else 1)
 
 
-def _conferir(forcar):
+def _conferir(forcar, manual=False):
     try:
         d = ler()
         cache = dicas_ler()
@@ -1852,15 +1899,26 @@ def _conferir(forcar):
         log("Dicas:", e)
     finally:
         _conferindo.clear()
+    try:  # o que apareceu: avisa no celular (no Conferir agora, quem tocou já está vendo: só anota)
+        avisar_dicas(ler(), silencioso=manual)
+    except Exception as e:  # noqa: BLE001
+        log("Aviso de dicas:", e)
 
 
-def iniciar_conferencia(forcar=False):
+def iniciar_conferencia(forcar=False, manual=False):
     with _trava_conf:
         if _conferindo.is_set():
             return False
         _conferindo.set()
-    threading.Thread(target=_conferir, args=(forcar,), daemon=True).start()
+    threading.Thread(target=_conferir, args=(forcar, manual), daemon=True).start()
     return True
+
+
+def hora_das_dicas(d, agora=None):
+    """Já passou do horário de conferir sozinho hoje (Mais › Configurações › Opções › Dicas de economia)?"""
+    agora = agora or datetime.now()
+    h, m = (int(x) for x in d["ajustes"].get("dicas_hora", AJUSTES_PADRAO["dicas_hora"]).split(":"))
+    return (agora.hour, agora.minute) >= (h, m)
 
 
 def dicas_estado(d, disparar=True):
@@ -1871,9 +1929,14 @@ def dicas_estado(d, disparar=True):
     fontes = cache.get("fontes") or {}
     dolar = float(DOLAR_FIXO) if DOLAR_FIXO else (cache.get("dolar") or {}).get("valor")
     subs = assinaturas_do_usuario(d)
-    if disparar and any(_velha(fontes.get(s["servico"])) for s in subs if not s["freq_anual"]):
+    # Conferir sozinho: uma assinatura nova é conferida logo; as de mais de 30 dias e a procura do dia, no horário escolhido.
+    # Desligado, só no Conferir agora.
+    auto = d["ajustes"].get("dicas_auto", True) is not False
+    passou = hora_das_dicas(d)
+    disparar = disparar and auto
+    if disparar and any(not fontes.get(s["servico"]) or (passou and _velha(fontes.get(s["servico"]))) for s in subs if not s["freq_anual"]):
         iniciar_conferencia()
-    elif disparar and not _conferindo.is_set() and str(cache.get("atualizado") or "")[:10] != datetime.now().date().isoformat():
+    elif disparar and passou and not _conferindo.is_set() and str(cache.get("atualizado") or "")[:10] != datetime.now().date().isoformat():
         # nada para conferir na origem: a verificação do dia é procurar as assinaturas nos fixos e faturas
         cache["atualizado"] = agora_iso()
         try:
@@ -1899,7 +1962,86 @@ def dicas_estado(d, disparar=True):
     dicas.sort(key=lambda x: -x["economia_ano"])
     return {"dicas": dicas, "assinaturas": lista, "conferindo": _conferindo.is_set(),
             "catalogo": [c["curto"] for c in assinaturas.CATALOGO], "dolar": cache.get("dolar") if not DOLAR_FIXO else {"valor": dolar, "data": "teste"},
-            "atualizado": cache.get("atualizado")}
+            "atualizado": cache.get("atualizado"), "auto": auto, "hora": d["ajustes"].get("dicas_hora", AJUSTES_PADRAO["dicas_hora"])}
+
+
+# ---------------------------------------------------------------- aviso das dicas no celular (como o aviso de prazos do ResolvIA)
+
+AVISOS = avisos.Avisos(lambda m, caminho, corpo=None: ha_request(m, caminho, corpo, timeout=15),
+                       lambda comando: voz._ws_comando(HA_WS, TOKEN, comando), log)
+
+
+def dicas_que_valem(d, est=None):
+    """As dicas de plano anual que o app mostra: as que economizam de verdade R$ 10 ou mais por ano (já descontando o
+    que o dinheiro renderia, como no app) e não foram dispensadas, da maior para a menor."""
+    est = est or dicas_estado(d, disparar=False)
+    fora = set(d["ajustes"].get("dicas_fora") or [])
+    reserva = calc.renda_reserva(d)
+    out = []
+    for x in est["dicas"]:
+        if x["id"] in fora:
+            continue
+        real = calc.economia_real(x["valor"], x["preco_anual"], reserva)["real"]
+        if real >= 10:
+            out.append({**x, "real": real})
+    return sorted(out, key=lambda x: -x["real"])
+
+
+def avisar_dicas(d, silencioso=False):
+    """Uma dica nova (que ainda não foi avisada) vai para os celulares de quem foi escolhido; cada dica, uma vez. Uma
+    dica que some é esquecida (volta a ser avisada se aparecer de novo). silencioso: só anota (o Conferir agora)."""
+    aj = d["ajustes"]
+    if aj.get("dicas") is False or not ia_ligada(d) or _conferindo.is_set():
+        return 0
+    atuais = {x["id"]: x for x in dicas_que_valem(d)}
+    cache = dicas_ler()
+    antes = cache.get("avisadas") or {}
+    novas = [x for k, x in atuais.items() if k not in antes]
+    avisadas = {k: v for k, v in antes.items() if k in atuais}
+    enviados = 0
+    if novas and aj.get("dicas_aviso") is True and not silencioso:
+        alvos = []
+        try:
+            for pessoa in AVISOS.pessoas():
+                if pessoa["id"] in (aj.get("dicas_para") or []):
+                    alvos += [c for c in pessoa["celulares"] if c not in alvos]
+        except Exception as e:  # noqa: BLE001
+            log("Aviso de dicas: não consegui ver as pessoas da casa:", e)
+            return 0  # tenta de novo na próxima volta
+        enviados = AVISOS.enviar(alvos, avisos.texto_dicas(novas), "gerencia-dicas") if alvos else 0
+    avisadas.update({x["id"]: date.today().isoformat() for x in novas})
+    if avisadas != antes:
+        cache["avisadas"] = avisadas
+        try:
+            gravar_arquivo(DICAS_ARQ, json.dumps(cache, ensure_ascii=False, indent=1))
+        except OSError as e:
+            log("Aviso de dicas:", e)
+    return enviados
+
+
+def pessoas_aviso(user_id=None):
+    """Quem pode receber o aviso: [{"id", "nome", "celular": tem celular, "eu": é quem está usando o app}]."""
+    if not TOKEN:
+        raise ErroHA("Fora do Home Assistant não dá para avisar no celular.")
+    return [{"id": p["id"], "nome": p["nome"], "celular": bool(p["celulares"]), "eu": bool(user_id) and p["user_id"] == user_id}
+            for p in AVISOS.pessoas(forcar=True)]
+
+
+def testar_aviso(user_id):
+    """Testar: o aviso agora, nos celulares de quem está usando o app (as dicas de agora ou um exemplo)."""
+    if not TOKEN:
+        raise ValueError("Fora do Home Assistant não dá para avisar no celular.")
+    eu = next((p for p in AVISOS.pessoas(forcar=True) if user_id and p["user_id"] == user_id), None)
+    if not eu:
+        raise ValueError("Você não é uma pessoa da casa no Home Assistant.")
+    if not eu["celulares"]:
+        raise ValueError("Sem celular ligado a você no Home Assistant.")
+    d = ler()
+    dicas = dicas_que_valem(d)
+    texto = avisos.texto_dicas(dicas) if dicas else {"title": "💡 Dicas de economia", "message": "Nenhuma dica agora. Quando aparecer, o aviso vem assim."}
+    if not AVISOS.enviar(eu["celulares"], texto, "gerencia-dicas-teste"):
+        raise ValueError("O Home Assistant não entregou o aviso.")
+    return {"enviados": len(eu["celulares"])}
 
 
 # ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
@@ -2067,6 +2209,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
                 return self.enviar(200, dicas_estado(ler()))
+            if p == "/api/avisos/pessoas":
+                try:
+                    return self.enviar(200, {"pessoas": pessoas_aviso(self.headers.get("X-Remote-User-Id"))})
+                except Exception as e:  # noqa: BLE001
+                    return self.enviar(200, {"pessoas": None, "erro": str(e) if isinstance(e, ErroHA) else "Não consegui ver as pessoas da casa."})
             if p == "/api/bens":
                 return self.enviar(200, bens_estado(ler()))
             if p == "/api/export/zip":
@@ -2075,10 +2222,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_versoes())
             if p == "/relatorio.pdf":
                 quem, d = (q.get("quem") or ["todos"])[0], ler()
-                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d)), "application/pdf", nome_relatorio(quem))
+                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d), (q.get("detalhar") or [""])[0] == "1"),
+                                   "application/pdf", nome_relatorio(quem))
             if p in ("/relatorio", "/relatorio.html"):
                 d = ler()
-                corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d))
+                corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d),
+                                        (q.get("detalhar") or [""])[0] == "1")
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")
@@ -2131,8 +2280,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, ia_ler(self.corpo_json()))
             if p == "/api/bens/atualizar":
                 return self.enviar(200, bens_estado(ler(), forcar=True))
+            if p == "/api/avisos/testar":
+                return self.enviar(200, testar_aviso(self.headers.get("X-Remote-User-Id")))
             if p == "/api/dicas/conferir":
-                iniciar_conferencia(forcar=True)
+                iniciar_conferencia(forcar=True, manual=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
             if p == "/api/voz":
                 return self.enviar(200, voz_texto(self.corpo()))
@@ -2286,7 +2437,8 @@ def rotina():
                 publicar_sensores_async(d)
             limpar_fotos(d)
             CONEXAO.publicar(integracao_ligada(d))
-            dicas_estado(d)  # confere assinaturas novas ou com mais de 30 dias
+            dicas_estado(d)  # confere assinaturas novas e, no horário escolhido, as de mais de 30 dias
+            avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)

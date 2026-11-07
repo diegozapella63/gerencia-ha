@@ -1238,3 +1238,16 @@ input[readonly] { opacity: .8; }
 .seg.aj-sinal { margin: 10px 0 0; }
 /* no celular, Perde/Valoriza e a % ficam numa linha própria em todas as categorias (nada desalinhado) */
 @media (max-width: 560px) { .bens-tx .bens-ctl { flex-basis: 100%; justify-content: flex-end; } }
+
+/* Opções › Dicas de economia: o horário, quem recebe o aviso (as pessoas da casa no Home Assistant) e Testar */
+#op-dicas .op-hora { margin: 12px 0 0; }
+#op-dicas .op-hora .inp { max-width: 160px; }
+#op-dicas .campo:not(.op-hora) { margin: 14px 0 0; }
+.quem { display: flex; flex-wrap: wrap; gap: 8px; }
+.quem-p { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 8px 14px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--card-2); color: var(--text); font: 500 15px/1.2 var(--font); cursor: pointer; }
+.quem-p b { font-weight: 600; }
+.quem-p span { color: var(--muted); font-size: 13px; }
+.quem-p.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--card-2)); }
+.quem-p.on .ic { color: var(--accent); }
+#op-dicas .nota { margin: 8px 0 0; }
+.op-testar { width: 100%; margin-top: 14px; }

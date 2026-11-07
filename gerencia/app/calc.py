@@ -33,6 +33,10 @@ TIPOS = {
     "outro": "Outro",
 }
 
+# o imposto de renda de cada tipo (como no app.js): reg = tabela regressiva, 15 = 15%, isento, nao = não se aplica
+IR_TIPOS = {"cdb": "reg", "lci": "isento", "tesouro": "reg", "poupanca": "isento", "caixinha": "reg", "fundo": "reg", "acoes": "15",
+            "ouro": "15", "dinheiro": "isento", "bens": "isento", "previdencia": "nao", "outro": "reg"}
+
 # Indexadores de renda variável/sem rendimento não são corrigidos automaticamente.
 SEM_CORRECAO = {"estimado", "parado"}
 
@@ -138,6 +142,18 @@ def valor_hoje(inv, ind, corrigir=True, hoje=None):
     return v * (1 + taxa_anual(inv, ind)) ** (du / 252)
 
 
+def partes_hoje(inv, ind, corrigir=True, hoje=None):
+    """As partes de um bem, com o valor de hoje de cada uma: [{"categoria", "valor", "taxa"}] (partesHoje no app.js).
+    Um bem sem partes é uma só: a categoria dele (ou "outros"), com o valor de hoje."""
+    hoje = hoje or date.today()
+    partes = inv.get("partes") if inv.get("indexador") == "deprecia" and isinstance(inv.get("partes"), list) else None
+    if partes:
+        a = dias_uteis(parse_data(inv.get("data_valor")) or hoje, hoje) / 252 if corrigir else 0
+        return [{"categoria": p.get("categoria") or "outros", "valor": num(p.get("valor")) * (1 - num(p.get("taxa")) / 100) ** a,
+                 "taxa": num(p.get("taxa"))} for p in partes if isinstance(p, dict)]
+    return [{"categoria": inv.get("categoria_bem") or "outros", "valor": valor_hoje(inv, ind, corrigir, hoje), "taxa": -taxa_anual(inv, ind) * 100}]
+
+
 def valor_em(inv, ind, anos, corrigir=True, hoje=None):
     """O valor daqui a `anos` anos, com a taxa de hoje, sem aportes e antes do IR, como na projeção do app (projetar no
     app.js): o que vence é reaplicado na mesma taxa. Um bem separado por categoria muda parte por parte."""
@@ -147,6 +163,43 @@ def valor_em(inv, ind, anos, corrigir=True, hoje=None):
         a = dias_uteis(parse_data(inv.get("data_valor")) or hoje, hoje) / 252 if corrigir else 0
         return sum(num(p.get("valor")) * (1 - num(p.get("taxa")) / 100) ** (a + anos) for p in partes if isinstance(p, dict))
     return valor_hoje(inv, ind, corrigir, hoje) * (1 + taxa_anual(inv, ind)) ** anos
+
+
+def aliquota(ir, dias):
+    """A alíquota do IR (aliquota no app.js): na regressiva, 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% depois."""
+    if ir == "reg":
+        return 0.225 if dias <= 180 else 0.2 if dias <= 360 else 0.175 if dias <= 720 else 0.15
+    return 0.15 if ir == "15" else 0.0
+
+
+def renda_reserva(data, hoje=None):
+    """Onde o dinheiro de um plano anual renderia (rendaReserva no app.js): o seu investimento de liquidez diária que
+    mais rende depois do IR; sem ele, a média dos seus investimentos; sem nada, 100% do CDI. {"r", "ir"}."""
+    ind = data.get("indices") or {}
+    corrigir = (data.get("ajustes") or {}).get("corrigir", True) is not False
+    meus = [i for i in data.get("investimentos") or [] if i.get("titular") != "terceiros"
+            and i.get("indexador") not in SEM_CORRECAO and taxa_anual(i, ind) > 0]
+    ir_de = lambda i: IR_TIPOS.get(i.get("tipo"), "reg")  # noqa: E731
+    liq = [i for i in meus if i.get("liquidez") == "diaria"]
+    if liq:
+        melhor = liq[0]
+        for i in liq[1:]:
+            if taxa_anual(i, ind) * (1 - aliquota(ir_de(i), 200)) > taxa_anual(melhor, ind) * (1 - aliquota(ir_de(melhor), 200)):
+                melhor = i
+        return {"r": taxa_anual(melhor, ind), "ir": ir_de(melhor)}
+    if meus:
+        vs = [(valor_hoje(i, ind, corrigir, hoje), taxa_anual(i, ind)) for i in meus]
+        tot = sum(v for v, _ in vs)
+        return {"r": sum(v * r for v, r in vs) / tot if tot > 0 else 0.0, "ir": "reg"}
+    return {"r": num(ind.get("cdi")) / 100, "ir": "reg"}
+
+
+def economia_real(mensal, anual, reserva):
+    """Quanto o plano anual economiza de verdade (economiaReal no app.js): o que precisaria estar investido hoje para
+    pagar as 12 mensalidades (rendendo na reserva, com o IR) menos o preço do anual."""
+    rm = (1 + reserva["r"]) ** (1 / 12) - 1
+    pv = sum(mensal / (1 + ((1 + rm) ** k - 1) * (1 - aliquota(reserva["ir"], k * 30.44))) for k in range(12))
+    return {"real": pv - anual, "rende": 12 * mensal - pv, "desconto": 12 * mensal - anual}
 
 
 def rende_mes(v, r):

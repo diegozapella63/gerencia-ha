@@ -108,6 +108,12 @@ class TestHTTP(unittest.TestCase):
         self.assertTrue(any(t.startswith("Só os seus · ") for p in ler_pdf(corpo) for t in p))
         self.assertRegex(self.s.get("/relatorio.pdf")[1]["Content-Disposition"], r'filename="patrimonio-\d{4}-\d{2}-\d{2}\.pdf"$')
 
+    def test_relatorio_detalhado(self):
+        self.assertEqual(self.s.get("/relatorio?detalhar=1")[0], 200)
+        st, _, corpo = self.s.get("/relatorio.pdf?detalhar=1&quem=meus")
+        self.assertEqual(st, 200)
+        self.assertTrue(corpo.startswith(b"%PDF"))
+
     def test_relatorio_em_pdf_nao_poe_o_pedido_no_cabecalho(self):
         st, cab, _ = self.s.get("/relatorio.pdf?quem=x%22%0D%0AX-Falso:%201")
         self.assertEqual(st, 200)

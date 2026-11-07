@@ -68,6 +68,26 @@ class TestIgualAoServidor(Tela):
                         js = self.js(f"T.projetar([a], {anos}, 0, false).pts[{anos * 12}].valor", inv)
                         self.assertAlmostEqual(js, calc.valor_em(inv, INDICES, anos, corrigir, HOJE), places=4)
 
+    def test_economia_real_do_plano_anual(self):
+        """O aviso das dicas (calc.renda_reserva e economia_real) e a tela (rendaReserva e economiaReal) concordam."""
+        diaria = [dict(self.INVS[0], liquidez="diaria"), dict(self.INVS[1], liquidez="diaria", titular=None),
+                  {"id": "x", "valor": 50, "indexador": "cdi_pct", "taxa": 120, "tipo": "lci", "liquidez": "diaria"}]
+        for nome, invs in (("média dos seus", self.INVS), ("o de liquidez diária que mais rende", diaria), ("sem investimentos: o CDI", [])):
+            with self.subTest(nome):
+                d = base(investimentos=invs)
+                self.usar(d)
+                js = self.js("T.rendaReserva()")
+                py = calc.renda_reserva(d, HOJE)
+                self.assertAlmostEqual(js["r"], py["r"], places=9)
+                self.assertEqual(js["ir"], py["ir"])
+                for mensal, anual in ((23.9, 239), (60, 599), (35.1, 330)):
+                    self.assertAlmostEqual(self.js(f"T.economiaReal({mensal}, {anual}).real"), calc.economia_real(mensal, anual, py)["real"], places=6)
+
+    def test_aliquota(self):
+        for ir in ("reg", "15", "isento", "nao"):
+            for dias in (0, 180, 181, 360, 361, 720, 721, 2000):
+                self.assertEqual(self.js(f"T.aliquota('{ir}', {dias})"), calc.aliquota(ir, dias), (ir, dias))
+
     def test_totais(self):
         self.usar(base(investimentos=self.INVS))
         js = self.js("T.totais()")
