@@ -17,6 +17,11 @@ with sync_playwright() as p:
     pg.on('console', lambda m: erros.append(m.text) if m.type=='error' else None)
     pg.goto(B); pg.wait_for_timeout(800)
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1500)
+    # o exemplo dá como feito o que já passou do mês: do dia 5 em diante o salário (e o plano) do mês já viriam recebidos.
+    # Tira, para o teste não depender da data (fica como do dia 1 ao 4: o salário do mês a receber)
+    d=st(); d['lancamentos']=[l for l in d['lancamentos'] if not (l.get('recorrencia') in ('r-sal', 'r-plano') and l.get('competencia')==mes())]
+    urllib.request.urlopen(urllib.request.Request(B+'api/state', data=json.dumps(d).encode(), method='PUT', headers={'Content-Type': 'application/json'}))
+    pg.reload(); pg.wait_for_timeout(1000)
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(500)
     lin=pg.locator('.lanc:has-text("Salário")').first
     bruto = valores(lin.locator('.lanc-d b').inner_text())[0]

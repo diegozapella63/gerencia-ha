@@ -15,6 +15,12 @@ with sync_playwright() as p:
     pg.on('console', lambda m: erros.append(m.text) if m.type == 'error' else None)
     pg.goto(B); pg.wait_for_timeout(800)
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1500)
+    # o exemplo dá como feito o que já passou do mês: do dia 6 em diante o aporte do mês já viria aplicado. Tira, para o
+    # teste não depender da data (fica como do dia 1 ao 5: o aporte do mês a aplicar)
+    d = get('api/state')
+    d['lancamentos'] = [l for l in d['lancamentos'] if not (l.get('recorrencia') == 'r-aporte' and l.get('competencia') == mes())]
+    urllib.request.urlopen(urllib.request.Request(B + 'api/state', data=json.dumps(d).encode(), method='PUT', headers={'Content-Type': 'application/json'}))
+    pg.reload(); pg.wait_for_timeout(1000)
     d = get('api/state')
     cdb = next(i for i in d['investimentos'] if i['tipo'] == 'cdb' and i.get('titular') != 'terceiros')
     n0 = len(d['lancamentos'])
