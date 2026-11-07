@@ -1,5 +1,14 @@
 # Mudanças
 
+## 1.30.0
+
+- **Relatório de patrimônio** com o cabeçalho dos relatórios dos apps, como o do ResolvIA: o ícone, GerencIA, o nome da casa no Home Assistant, o título, quantos investimentos e bens e quando foi gerado. Igual na página e no PDF.
+- **Bens** no relatório: os bens cadastrados no GerencIA e, com **Bens no InventarIA** ligado, todos os itens de lá, com o cômodo, quanto perdem ou valorizam por ano e a data do valor.
+- O **Patrimônio** do relatório agora é o mesmo do Início (seus investimentos e bens), ao lado de Investido, Bens e De terceiros. O Por banco fica só com os investimentos.
+- **PDF** deitado, com as colunas **Por mês**, **Em 1 ano** e **Em 5 anos** (com as taxas de hoje e sem novos aportes) e o total de cada grupo.
+- Trocar entre Todos, Meus e De terceiros não empilha páginas: o Voltar (e o do celular) volta direto ao app.
+- Num bem, o relatório dizia "Sem rendimento"; agora diz quanto perde ou valoriza por ano.
+
 ## 1.29.0
 
 - **Relatório de patrimônio**: **Baixar PDF** no lugar do Imprimir. O PDF é feito pelo app e baixa como arquivo, também no app do Home Assistant no celular (lá o Imprimir não funcionava). Vem com cabeçalho (o ícone, GerencIA, Finanças da casa e a hora em que foi gerado), o resumo, os investimentos de cada um, barras por banco e o número da página no pé.

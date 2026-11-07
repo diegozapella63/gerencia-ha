@@ -91,6 +91,19 @@ class TestTexto(unittest.TestCase):
         self.assertIn(r"\) \\ fim) Tj", conteudo(d))
         self.assertEqual(ler_pdf(d.bytes())[0], [r"LCI (ação) \ fim"])
 
+    def test_menos_e_aproximadamente_viram_parecidos(self):
+        """O "−" e o "≈" dos rótulos do app não existem na WinAnsi: viram "–" e "~" (e medem como eles)."""
+        d = pdf.Documento()
+        d.texto(0, 0, "−R$ 5 · ≈ 9% a.a.")
+        self.assertEqual(ler_pdf(d.bytes())[0], ["–R$ 5 · ~ 9% a.a."])
+        self.assertEqual(pdf.largura("−", 10), pdf.largura("–", 10))
+
+    def test_texto_vazio_nao_escreve_nada(self):
+        d = pdf.Documento()
+        d.texto(0, 0, "")
+        d.texto(0, 0, None)
+        self.assertEqual(ler_pdf(d.bytes()), [[]])
+
     def test_o_que_nao_cabe_em_winansi_vira_interrogacao(self):
         d = pdf.Documento()
         d.texto(0, 0, "Casa 🏠")
@@ -211,6 +224,19 @@ class TestPaginas(unittest.TestCase):
     def test_medidas_da_pagina(self):
         d = pdf.Documento()
         self.assertEqual((d.largura_pagina, d.altura_pagina), pdf.A4)
+
+    def test_pagina_deitada(self):
+        d = pdf.Documento(deitada=True)
+        self.assertEqual((d.largura_pagina, d.altura_pagina), (pdf.A4[1], pdf.A4[0]))
+        d.texto(40, 100, "Ana")
+        d.linha(0, 10, 50, 10)
+        d.retangulo(0, 0, 10, 10, fundo=(0, 0, 0))
+        b = d.bytes()
+        self.assertIn(b"/MediaBox [0 0 841.89 595.28]", b)
+        c = conteudo(d)
+        self.assertIn("40.00 495.28 Td (Ana)", c, "y conta de cima na página deitada (595.28 - 100)")
+        self.assertIn("0.00 585.28 m 50.00 585.28 l", c)
+        self.assertIn("0.00 585.28 10.00 10.00 re f", c)
 
 
 if __name__ == "__main__":

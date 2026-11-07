@@ -138,6 +138,17 @@ def valor_hoje(inv, ind, corrigir=True, hoje=None):
     return v * (1 + taxa_anual(inv, ind)) ** (du / 252)
 
 
+def valor_em(inv, ind, anos, corrigir=True, hoje=None):
+    """O valor daqui a `anos` anos, com a taxa de hoje, sem aportes e antes do IR, como na projeção do app (projetar no
+    app.js): o que vence é reaplicado na mesma taxa. Um bem separado por categoria muda parte por parte."""
+    partes = inv.get("partes") if inv.get("indexador") == "deprecia" else None
+    if partes and isinstance(partes, list):
+        hoje = hoje or date.today()
+        a = dias_uteis(parse_data(inv.get("data_valor")) or hoje, hoje) / 252 if corrigir else 0
+        return sum(num(p.get("valor")) * (1 - num(p.get("taxa")) / 100) ** (a + anos) for p in partes if isinstance(p, dict))
+    return valor_hoje(inv, ind, corrigir, hoje) * (1 + taxa_anual(inv, ind)) ** anos
+
+
 def rende_mes(v, r):
     """Quanto rende por mês; bens que perdem valor não entram (0)."""
     return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
@@ -213,6 +224,8 @@ def rotulo_taxa(inv):
         return "Poupança"
     if k == "estimado":
         return f"≈ {fmt_pct(t)}% a.a. estimado"
+    if k == "deprecia":  # bens: a taxa da categoria (negativa: valoriza)
+        return f"perde {fmt_pct(t)}% a.a." if t > 0 else f"valoriza {fmt_pct(-t)}% a.a." if t < 0 else "mantém o valor"
     return "Sem rendimento"
 
 

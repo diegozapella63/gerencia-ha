@@ -105,7 +105,7 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(cab["Content-Type"], "application/pdf")
         self.assertRegex(cab["Content-Disposition"], r'^attachment; filename="patrimonio-\d{4}-\d{2}-\d{2}-meus\.pdf"$')
         self.assertTrue(corpo.startswith(b"%PDF-1.4") and corpo.endswith(b"%%EOF\n"))
-        self.assertIn("Só os meus", [t for p in ler_pdf(corpo) for t in p])
+        self.assertTrue(any(t.startswith("Só os seus · ") for p in ler_pdf(corpo) for t in p))
         self.assertRegex(self.s.get("/relatorio.pdf")[1]["Content-Disposition"], r'filename="patrimonio-\d{4}-\d{2}-\d{2}\.pdf"$')
 
     def test_relatorio_em_pdf_nao_poe_o_pedido_no_cabecalho(self):

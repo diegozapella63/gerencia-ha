@@ -98,6 +98,26 @@ def valor_hoje(valor, valor_em, taxa, hoje=None):
     return valor * (1 - taxa / 100) ** anos
 
 
+def itens_hoje(dados, ajustes, hoje=None):
+    """Todos os itens com valor, já com o valor de hoje, a taxa da categoria (negativa: valoriza) e os nomes da
+    categoria e do cômodo, do maior para o menor (para o Relatório de patrimônio)."""
+    tx = taxas(ajustes)
+    lista = []
+    for it in dados.get("itens") or []:
+        try:
+            v = float(it.get("valor") or 0)
+        except (TypeError, ValueError):
+            continue
+        if v <= 0:
+            continue
+        cat = it.get("categoria") or "outros"
+        cm = it.get("comodo") or ""
+        lista.append({"nome": it.get("nome") or "", "categoria": cat, "categoria_nome": (dados.get("categorias") or {}).get(cat, cat),
+                      "comodo": cm, "comodo_nome": (dados.get("comodos") or {}).get(cm) or "", "valor": v,
+                      "valor_em": it.get("valor_em") or "", "taxa": tx.get(cat, 10), "hoje": valor_hoje(v, it.get("valor_em"), tx.get(cat, 10), hoje)})
+    return sorted(lista, key=lambda x: -x["hoje"])
+
+
 def resumo(dados, ajustes, hoje=None):
     """Totais para a tela e os sensores: hoje (depreciado), registrado, perde por ano, por categoria e por cômodo."""
     tx = taxas(ajustes)

@@ -1126,10 +1126,12 @@ class TestArrastar(TelaSistema):
         cls.pg.evaluate("""() => { const o = Element.prototype.animate; window.__anim = [];
             Element.prototype.animate = function (k, op) { window.__anim.push({ id: this.id, de: k[0].transform, ms: op && op.duration }); return o.call(this, k, op); }; }""")
         # no primeiro arraste de uma página nova, o Chromium de teste cancela o toque logo no começo (pointercancel) e não entrega o fim:
-        # um arraste para a direita no Início (que não troca nada) antes dos testes
-        for tipo, x in [("touchStart", 100), ("touchMove", 160), ("touchMove", 220), ("touchMove", 300), ("touchEnd", None)]:
-            cls.toque(cls, tipo, [] if x is None else [(x, 80)])
-        cls.pg.wait_for_timeout(50)
+        # arrastes para a direita no Início (que não trocam nada) antes dos testes. Um só às vezes não bastava no GitHub (o primeiro
+        # teste da classe, test_a_tela_nova_entra_pelo_lado_do_dedo, falhou assim uma vez na 1.29.0): três, com uma pausa entre eles
+        for _ in range(3):
+            for tipo, x in [("touchStart", 100), ("touchMove", 160), ("touchMove", 220), ("touchMove", 300), ("touchEnd", None)]:
+                cls.toque(cls, tipo, [] if x is None else [(x, 80)])
+            cls.pg.wait_for_timeout(80)
 
     def setUp(self):
         self.js("(window.__anim = [], true)")

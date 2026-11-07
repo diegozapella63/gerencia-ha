@@ -108,6 +108,10 @@ class TestTaxas(unittest.TestCase):
         self.assertEqual(r("poupanca"), "Poupança")
         self.assertEqual(r("estimado", 9), "≈ 9% a.a. estimado")
         self.assertEqual(r("parado"), "Sem rendimento")
+        # bens (era bug até a 1.29.0: o relatório dizia "Sem rendimento" num bem, que perde ou ganha a taxa da categoria)
+        self.assertEqual(r("deprecia", 15), "perde 15% a.a.")
+        self.assertEqual(r("deprecia", -2.5), "valoriza 2,5% a.a.")
+        self.assertEqual(r("deprecia", 0), "mantém o valor")
 
 
 class TestValorHoje(unittest.TestCase):
@@ -141,6 +145,35 @@ class TestValorHoje(unittest.TestCase):
 
     def test_rende_mes(self):
         self.assertAlmostEqual(calc.rende_mes(1200, 0.12), 1200 * (1.12 ** (1 / 12) - 1))
+
+
+class TestValorEm(unittest.TestCase):
+    """O valor daqui a uns anos (Relatório de patrimônio: em 1 e em 5 anos), como a projeção do app."""
+    D0, HOJE = "2025-01-06", date(2025, 12, 24)  # 252 dias úteis
+
+    def test_cresce_a_taxa_a_partir_de_hoje(self):
+        inv = {"valor": 1000, "indexador": "pre", "taxa": 10, "data_valor": self.D0}
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 0, hoje=self.HOJE), 1100, msg="0 anos: o valor de hoje")
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 1, hoje=self.HOJE), 1210)
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 5, hoje=self.HOJE), 1100 * 1.1 ** 5)
+
+    def test_sem_corrigir_parte_do_ultimo_valor(self):
+        inv = {"valor": 1000, "indexador": "pre", "taxa": 10, "data_valor": self.D0}
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 1, corrigir=False, hoje=self.HOJE), 1100)
+
+    def test_parado_fica_igual_e_estimado_cresce(self):
+        self.assertEqual(calc.valor_em({"valor": 300, "indexador": "parado"}, INDICES, 5), 300)
+        self.assertAlmostEqual(calc.valor_em({"valor": 300, "indexador": "estimado", "taxa": 9}, INDICES, 1), 327)
+
+    def test_bem_perde_e_bem_que_valoriza_ganha(self):
+        self.assertAlmostEqual(calc.valor_em({"valor": 1000, "indexador": "deprecia", "taxa": 20}, INDICES, 1), 800)
+        self.assertAlmostEqual(calc.valor_em({"valor": 1000, "indexador": "deprecia", "taxa": -5}, INDICES, 2), 1102.5)
+
+    def test_bem_em_partes_muda_parte_por_parte(self):
+        inv = {"valor": 1500, "indexador": "deprecia", "taxa": 10, "data_valor": self.D0,
+               "partes": [{"valor": 1000, "taxa": 20}, {"valor": 500, "taxa": -10}, "lixo"]}
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 1, hoje=self.HOJE), 1000 * 0.8 ** 2 + 500 * 1.1 ** 2)
+        self.assertAlmostEqual(calc.valor_em(inv, INDICES, 1, corrigir=False, hoje=self.HOJE), 1000 * 0.8 + 500 * 1.1)
         self.assertEqual(calc.rende_mes(1000, -0.2), 0.0, "bem que perde valor não rende")
 
 

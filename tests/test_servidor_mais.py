@@ -418,7 +418,7 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         self.assertIn("Valores de hoje estimados a partir do último valor informado e dos índices: CDI ", S.gerar_relatorio(d).decode())
         d["ajustes"]["corrigir"] = False
         h = S.gerar_relatorio(d).decode()
-        self.assertIn('<p class="rodape">Valores de hoje: o último valor informado de cada investimento. Antes do imposto de renda.</p>', h)
+        self.assertIn('<p>Valores de hoje: o último valor informado de cada investimento. Antes do imposto de renda.</p>', h)
         self.assertNotIn("dos índices", h)
 
     def test_relatorio_na_cor_do_dia(self):
@@ -456,7 +456,8 @@ class TestImagensBackupsVersoes(unittest.TestCase):
     def test_relatorio_no_papel_e_sempre_claro(self):
         h = self.relatorio("escuro")
         impressao = h[h.index("@media print"):]
-        self.assertIn(':root,:root[data-theme],:root:not([data-theme="light"]){--bg:#fff;--fg:#141a22', impressao)
+        self.assertIn(':root,:root[data-theme],:root:not([data-theme="light"]){--bg:#f6f7f9;--card:#fff;--fg:#141a22', impressao)
+        self.assertIn(";--bg:#fff;color-scheme:light}", impressao, "no papel, fundo branco")
 
     def test_bens_quando_o_inventaria_quebra(self):
         Trocar(self, BENS=type("B", (), {"ler": lambda self, forcar=False: (_ for _ in ()).throw(KeyError("x"))})())
@@ -482,6 +483,24 @@ def carteira(n_meus=2):
         {"id": "b", "nome": "LCI do Beto", "valor": 300, "indexador": "parado", "tipo": "lci", "titular": "terceiros", "terceiro": "Beto"}])
 
 
+def com_bens(d):
+    """A carteira com um carro da Ana (perde 15% ao ano) e um terreno que valoriza 5%, cadastrados no GerencIA."""
+    d["investimentos"] += [
+        {"id": "c", "nome": "Carro da Ana", "valor": 40000, "indexador": "deprecia", "taxa": 15, "tipo": "bens", "categoria_bem": "veiculos",
+         "data_valor": date.today().isoformat()},
+        {"id": "r", "nome": "Terreno", "valor": 100000, "indexador": "deprecia", "taxa": -5, "tipo": "bens", "data_valor": date.today().isoformat(),
+         "partes": [{"categoria": "imoveis", "valor": 100000, "taxa": -5}]}]
+    return d
+
+
+# os itens do InventarIA, como o bens_relatorio entrega (a TV perde 20% ao ano; a geladeira, 10%)
+CASA = {"itens": [
+    {"nome": "Geladeira", "categoria": "cozinha", "categoria_nome": "Cozinha e bar", "comodo": "c1", "comodo_nome": "Cozinha",
+     "valor": 4000, "valor_em": "2026-01-02", "taxa": 10, "hoje": 3700},
+    {"nome": "TV da sala", "categoria": "eletronicos", "categoria_nome": "Eletrônicos", "comodo": "c2", "comodo_nome": "Sala",
+     "valor": 5000, "valor_em": "2025-11-02", "taxa": 20, "hoje": 4000}], "categorias": {"veiculos": "Carros e motos"}, "aviso": ""}
+
+
 def textos(pdf_bytes):
     return [t for pagina in ler_pdf(pdf_bytes) for t in pagina]
 
@@ -492,15 +511,16 @@ class TestRelatorioFiltro(unittest.TestCase):
     def test_todos(self):
         r = S.dados_relatorio(carteira())
         self.assertEqual(r["quem"], "todos")
-        self.assertEqual(r["quantidade"], 5)
-        self.assertEqual(r["resumo"], [("Patrimônio total", 4900), ("Seu dinheiro", 2600), ("De terceiros", 2300)])
+        self.assertEqual((r["quantidade"], r["n_bens"]), (5, 0))
+        self.assertEqual(r["resumo"], [("Patrimônio", 2600), ("De terceiros", 2300)], "o patrimônio é o seu, como no Início")
         self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro", "De Beto", "De Mãe"], "o seu primeiro, depois cada pessoa")
         self.assertEqual([l["nome"] for l in r["secoes"][0]["linhas"]], ["CDB Azul 2", "CDB Azul 1", "Tesouro Selic"], "do maior para o menor")
+        self.assertEqual(r["total"], 4900, "Por banco com todos os investimentos")
 
     def test_so_os_meus(self):
         r = S.dados_relatorio(carteira(), "meus")
         self.assertEqual((r["quantidade"], r["total"]), (3, 2600))
-        self.assertEqual(r["resumo"], [("Seu dinheiro", 2600)])
+        self.assertEqual(r["resumo"], [("Patrimônio", 2600)])
         self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro"])
         self.assertEqual(r["bancos"], [("Banco Azul", 2100, 2100 / 2600 * 100), ("Corretora Verde", 500, 500 / 2600 * 100)])
 
@@ -525,6 +545,22 @@ class TestRelatorioFiltro(unittest.TestCase):
         from datetime import datetime
         self.assertEqual(S.dados_relatorio(carteira(), agora=datetime(2026, 11, 2, 9, 5))["gerado"], "02/11/2026 às 09:05")
 
+    def test_contagem(self):
+        self.assertEqual(S._contagem(S.dados_relatorio(carteira())), "5 investimentos em 2 bancos")
+        self.assertEqual(S._contagem(S.dados_relatorio(carteira(), "terceiros")), "2 investimentos em 1 banco", "Sem banco não conta")
+        self.assertEqual(S._contagem(S.dados_relatorio(com_bens(carteira()), inventario=CASA)), "5 investimentos em 2 bancos · 4 bens")
+        self.assertEqual(S._contagem(S.dados_relatorio(dados(), inventario=CASA)), "2 bens", "só bens: sem os investimentos")
+        self.assertEqual(S._contagem(S.dados_relatorio(dados())), "0 investimentos")
+
+    def test_por_mes_em_1_e_5_anos(self):
+        d = dados(investimentos=[{"id": "1", "nome": "Pré", "valor": 1000, "indexador": "pre", "taxa": 10, "tipo": "cdb",
+                                  "data_valor": date.today().isoformat()}])
+        l = S.dados_relatorio(d)["secoes"][0]
+        self.assertAlmostEqual(l["linhas"][0]["ano1"], 1100)
+        self.assertAlmostEqual(l["linhas"][0]["ano5"], 1000 * 1.1 ** 5)
+        self.assertAlmostEqual(l["linhas"][0]["mes"], 1000 * (1.1 ** (1 / 12) - 1))
+        self.assertEqual((l["mes"], l["ano1"], l["ano5"]), (l["linhas"][0]["mes"], l["linhas"][0]["ano1"], l["linhas"][0]["ano5"]), "o total da seção")
+
     def test_nome_do_arquivo(self):
         hoje = date.today().isoformat()
         self.assertEqual(S.nome_relatorio("todos"), f"patrimonio-{hoje}.pdf")
@@ -535,19 +571,34 @@ class TestRelatorioFiltro(unittest.TestCase):
     def test_pagina_tem_o_filtro_e_guarda_o_tema(self):
         h = S.gerar_relatorio(carteira(), "escuro", "meus").decode()
         self.assertIn('<nav class="filtro" aria-label="De quem">', h)
-        self.assertIn('<a href="relatorio?quem=todos&tema=escuro">Todos</a>', h)
-        self.assertIn('<a href="relatorio?quem=meus&tema=escuro" class=on aria-current=page>Meus</a>', h)
-        self.assertIn('<a href="relatorio?quem=terceiros&tema=escuro">De terceiros</a>', h)
+        self.assertIn('<a href="relatorio?quem=todos&tema=escuro" onclick="location.replace(this.href);return false">Todos</a>', h,
+                      "trocar o filtro não empilha páginas (o Voltar volta ao app)")
+        self.assertIn('<a href="relatorio?quem=meus&tema=escuro" onclick="location.replace(this.href);return false" class=on aria-current=page>Meus</a>', h)
+        self.assertIn('href="relatorio?quem=terceiros&tema=escuro"', h)
         self.assertIn("CDB Azul 1", h)
         self.assertNotIn("Poupança da Mãe", h)
         self.assertNotIn("De Mãe", h)
 
     def test_pagina_sem_tema_nos_links(self):
         h = S.gerar_relatorio(carteira(), None, "terceiros").decode()
-        self.assertIn('<a href="relatorio?quem=todos">Todos</a>', h)
+        self.assertIn('href="relatorio?quem=todos" ', h)
         self.assertIn("class=on aria-current=page>De terceiros</a>", h)
-        self.assertIn("<h2>De Mãe<span>R$ 2.000,00</span></h2>", h)
+        self.assertIn("<h2><span>De Mãe</span><b>R$ 2.000,00</b></h2>", h)
         self.assertNotIn("CDB Azul", h)
+
+    def test_cabecalho_como_o_dos_outros_apps(self):
+        """O cabeçalho do ResolvIA: o ícone, Gerenc + IA na cor do app, o que é, a casa, o título, a contagem e quando."""
+        h = S.gerar_relatorio(carteira(), "claro", "meus", casa="Casa da Ana").decode()
+        self.assertIn('<header class="cab"><svg class="ic"', h)
+        self.assertIn('<span class="wm">Gerenc<b>IA</b></span> · finanças da casa · Casa da Ana</div><h1>Relatório de patrimônio</h1>', h)
+        self.assertRegex(h, r"<p>Só os seus · 3 investimentos em 2 bancos · \d\d/\d\d/\d{4} às \d\d:\d\d</p></div></header>")
+        self.assertRegex(h, r'<p class="rodape">GerencIA · relatório gerado em \d\d/\d\d/\d{4} às \d\d:\d\d</p>')
+        self.assertNotIn(" · Casa", S.gerar_relatorio(carteira()).decode(), "sem o nome da casa, só o app")
+        self.assertIn("&lt;b&gt;", S.gerar_relatorio(carteira(), casa="<b>").decode(), "o nome da casa não vira HTML")
+
+    def test_voltar_volta_ao_app(self):
+        h = S.gerar_relatorio(carteira()).decode()
+        self.assertIn('<a href="./" onclick="if(history.length>1){history.back();return false}">Voltar</a>', h)
 
     def test_baixar_pdf_em_vez_de_imprimir(self):
         """O app do Home Assistant no Android não imprime a página: o botão baixa o PDF feito pelo servidor."""
@@ -564,43 +615,177 @@ class TestRelatorioFiltro(unittest.TestCase):
         self.assertNotIn("Por banco", h)
 
 
-class TestRelatorioPdf(unittest.TestCase):
-    """O PDF do relatório: cabeçalho com o app, o filtro, os investimentos, o Por banco e o pé de cada página."""
+class TestRelatorioBens(unittest.TestCase):
+    """Os bens no relatório: os cadastrados aqui (os seus) e, com Bens no InventarIA ligado, os itens de lá."""
 
-    def test_cabecalho_com_o_app(self):
-        t = textos(S.gerar_relatorio_pdf(carteira()))
-        self.assertEqual(t[:6], ["R", "$", "GerencIA", "Finanças da casa", "Gerado em", t[5]], "o ícone (R$), o nome e o que é")
-        self.assertRegex(t[5], r"^\d{2}/\d{2}/\d{4} às \d{2}:\d{2}$")
-        self.assertEqual(t[6:9], ["Relatório de patrimônio", "Todos", "5 investimentos em 2 bancos"])
+    def test_bens_cadastrados_aqui(self):
+        r = S.dados_relatorio(com_bens(carteira()))
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro", "Bens", "De Beto", "De Mãe"])
+        bens_ = r["secoes"][1]
+        self.assertEqual(bens_["colunas"], ["Bem", "Cômodo", "Por ano", "Informado em"])
+        terreno, carro = bens_["linhas"]
+        self.assertEqual((terreno["nome"], terreno["tipo"], terreno["rendimento"]), ("Terreno", "Imóveis", "valoriza 5% a.a."))
+        self.assertEqual((carro["nome"], carro["tipo"], carro["rendimento"]), ("Carro da Ana", "Veículos", "perde 15% a.a."))
+        self.assertEqual(carro["vencimento"], date.today().strftime("%d/%m/%Y"), "a data do valor")
+        self.assertAlmostEqual(carro["ano1"], 40000 * 0.85)
+        self.assertAlmostEqual(terreno["ano5"], 100000 * 1.05 ** 5)
+        self.assertLess(carro["mes"], 0, "o carro perde por mês")
+        self.assertEqual(r["resumo"], [("Patrimônio", 142600), ("Investido", 2600), ("Bens", 140000), ("De terceiros", 2300)])
+        self.assertEqual(r["total"], 4900, "Por banco sem os bens")
+        self.assertNotIn("Sem banco", [b[0] for b in S.dados_relatorio(com_bens(carteira()), "meus")["bancos"]])
+
+    def test_itens_do_inventaria(self):
+        r = S.dados_relatorio(com_bens(carteira()), "meus", inventario=CASA)
+        linhas = r["secoes"][1]["linhas"]
+        self.assertEqual([l["nome"] for l in linhas], ["Terreno", "Carro da Ana", "TV da sala", "Geladeira"], "do maior para o menor")
+        tv = linhas[2]
+        self.assertEqual((tv["tipo"], tv["banco"], tv["rendimento"], tv["vencimento"]), ("Eletrônicos", "Sala", "perde 20% a.a.", "02/11/2025"))
+        self.assertAlmostEqual(tv["ano1"], 3200)
+        self.assertAlmostEqual(tv["ano5"], 4000 * 0.8 ** 5)
+        self.assertEqual(r["resumo"][2], ("Bens", 147700))
+        self.assertEqual(r["n_bens"], 4)
+
+    def test_categoria_com_o_nome_do_inventaria(self):
+        r = S.dados_relatorio(com_bens(carteira()), inventario=CASA)
+        self.assertEqual(r["secoes"][1]["linhas"][1]["tipo"], "Carros e motos", "a categoria renomeada lá vale aqui")
+
+    def test_bens_de_terceiros_ficam_com_a_pessoa(self):
+        d = com_bens(carteira())
+        d["investimentos"].append({"id": "x", "nome": "Moto do Beto", "valor": 9000, "indexador": "deprecia", "taxa": 15, "tipo": "bens",
+                                   "titular": "terceiros", "terceiro": "Beto", "data_valor": "2026-01-01"})
+        r = S.dados_relatorio(d, "terceiros", inventario=CASA)
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["De Beto", "De Mãe"], "sem Bens (os da casa são seus)")
+        moto = next(l for l in r["secoes"][0]["linhas"] if l["nome"] == "Moto do Beto")
+        self.assertEqual((moto["rendimento"], moto["vencimento"]), ("perde 15% a.a.", ""), "sem a data na coluna Vencimento")
+        self.assertNotIn("Sem banco", [b[0] for b in r["bancos"] if b[1] == 9000])
+
+    def test_so_bens(self):
+        r = S.dados_relatorio(dados(), inventario=CASA)
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Bens"])
+        self.assertEqual(r["bancos"], [])
+        h = S.gerar_relatorio(dados(), inventario=CASA).decode()
+        self.assertNotIn("Por banco", h)
+        self.assertNotIn('class="vazio"', h)
+
+    def test_inventaria_fora_do_ar(self):
+        aviso = {"itens": [], "categorias": {}, "aviso": "Não consegui ler o InventarIA: os bens da casa ficaram de fora."}
+        self.assertIn('<p class="aviso">Não consegui ler o InventarIA: os bens da casa ficaram de fora.</p>',
+                      S.gerar_relatorio(carteira(), inventario=aviso).decode())
+        self.assertIn("Não consegui ler o InventarIA: os bens da casa ficaram de fora.", textos(S.gerar_relatorio_pdf(carteira(), inventario=aviso)))
+        self.assertNotIn("InventarIA", S.gerar_relatorio(carteira(), quem="terceiros", inventario=aviso).decode(), "em De terceiros, nada da casa")
+
+    def test_pagina_com_as_colunas_dos_bens(self):
+        h = S.gerar_relatorio(com_bens(carteira()), inventario=CASA).decode()
+        self.assertIn("<h2><span>Bens</span><b>R$ 147.700,00</b></h2><table class=inv><thead><tr><th>Bem</th><th>Cômodo</th>"
+                      "<th>Por ano</th><th>Informado em</th><th class=n>Valor hoje</th>", h)
+        self.assertIn("<td>TV da sala<small>Eletrônicos<span class=bm> · Sala</span></small></td><td>Sala</td><td>perde 20% a.a.</td>", h)
+        self.assertIn("Bens: perdem ou ganham por ano a taxa da categoria", h)
+
+    def test_bens_relatorio_com_o_inventaria(self):
+        dados_inv = {"itens": [{"nome": "Sofá", "categoria": "moveis", "comodo": "c1", "valor": 3000, "valor_em": date.today().isoformat()},
+                               {"nome": "Sem valor", "categoria": "moveis", "valor": 0}],
+                     "comodos": {"c1": "Sala"}, "categorias": {"moveis": "Móveis"}}
+        falso = type("B", (), {"conexao": lambda self: {"chave": "x", "url": "u"}, "ler": lambda self, forcar=False: dados_inv})()
+        Trocar(self, BENS=falso)
+        c = S.bens_relatorio(dados())
+        self.assertEqual([(i["nome"], i["comodo_nome"], i["taxa"], round(i["hoje"], 2)) for i in c["itens"]], [("Sofá", "Sala", 10, 3000)])
+        self.assertEqual(c["aviso"], "")
+        d = dados()
+        d["ajustes"]["bens"] = False
+        self.assertIsNone(S.bens_relatorio(d), "Bens no InventarIA desligado: nada")
+
+    def test_bens_relatorio_sem_o_inventaria_instalado(self):
+        Trocar(self, BENS=type("B", (), {"conexao": lambda self: None})())
+        self.assertIsNone(S.bens_relatorio(dados()), "como no Início: sem aviso")
+
+    def test_bens_relatorio_com_o_inventaria_fora_do_ar(self):
+        def quebra(self, forcar=False):
+            raise S.bens.ErroBens("O InventarIA não respondeu.")
+        Trocar(self, BENS=type("B", (), {"conexao": lambda self: {"chave": "x", "url": "u"}, "ler": quebra})())
+        self.assertEqual(S.bens_relatorio(dados()), {"itens": [], "categorias": {}, "aviso": "Não consegui ler o InventarIA: os bens da casa ficaram de fora."})
+
+    def test_nome_da_casa(self):
+        Trocar(self, TOKEN="t", _CASA={"nome": "", "quando": 0.0})
+        with mock.patch.object(S, "ha_request", return_value={"location_name": "Casa da Ana"}) as req:
+            self.assertEqual(S.nome_casa(), "Casa da Ana")
+            self.assertEqual(S.nome_casa(), "Casa da Ana")
+        self.assertEqual(req.call_count, 1, "guardado por 1 hora")
+        req.assert_called_with("GET", "/config", timeout=5)
+
+    def test_nome_da_casa_sem_o_home_assistant(self):
+        Trocar(self, TOKEN=None)
+        self.assertEqual(S.nome_casa(), "")
+        Trocar(self, TOKEN="t", _CASA={"nome": "", "quando": 0.0})
+        with mock.patch.object(S, "ha_request", side_effect=S.ErroHA("fora")):
+            self.assertEqual(S.nome_casa(), "")
+
+
+class TestRelatorioPdf(unittest.TestCase):
+    """O PDF do relatório: o cabeçalho do app, o resumo, as colunas de valor, os bens, o Por banco e o pé de cada página."""
+
+    def test_cabecalho_como_o_dos_outros_apps(self):
+        t = textos(S.gerar_relatorio_pdf(carteira(), casa="Casa da Ana"))
+        self.assertEqual(t[:5], ["R", "$", "Gerenc", "IA", "· finanças da casa · Casa da Ana"], "o ícone (R$), o app e a casa")
+        self.assertEqual(t[5], "Relatório de patrimônio")
+        self.assertRegex(t[6], r"^5 investimentos em 2 bancos · \d{2}/\d{2}/\d{4} às \d{2}:\d{2}$")
+        self.assertEqual(textos(S.gerar_relatorio_pdf(carteira()))[4], "· finanças da casa", "sem o nome da casa")
 
     def test_resumo_secoes_e_por_banco(self):
         t = textos(S.gerar_relatorio_pdf(carteira()))
-        for trecho in ("Patrimônio total", "R$ 4.900,00", "Seu dinheiro", "R$ 2.600,00", "De terceiros", "R$ 2.300,00",
-                       "De Mãe", "Poupança da Mãe", "De Beto", "LCI do Beto", "Tesouro Selic", "Diária", "10/03/2028", "Por banco",
-                       "Corretora Verde", "Sem banco", "VALOR HOJE", "INVESTIMENTO"):
+        for trecho in ("Patrimônio", "R$ 2.600,00", "De terceiros", "R$ 2.300,00", "Seu dinheiro", "De Mãe", "Poupança da Mãe", "De Beto",
+                       "LCI do Beto", "Tesouro Selic", "Diária", "10/03/2028", "Por banco", "R$ 4.900,00", "Corretora Verde", "Sem banco",
+                       "INVESTIMENTO", "VALOR HOJE", "POR MÊS", "EM 1 ANO", "EM 5 ANOS", "Total"):
             self.assertIn(trecho, t)
+        self.assertIn("Por mês, em 1 ano e em 5 anos: com as taxas de hoje, sem novos aportes e reaplicando o que vence.", t)
         self.assertIn("Antes do imposto de renda.", t[-2], "o rodapé com os índices antes do pé da página")
-        self.assertEqual(t[-1], "GerencIA · Relatório de patrimônio")
+        self.assertRegex(t[-1], r"^GerencIA · relatório gerado em \d{2}/\d{2}/\d{4} às \d{2}:\d{2}( · página 2 de 2)?$")
+
+    def test_pagina_deitada(self):
+        self.assertIn(b"/MediaBox [0 0 841.89 595.28]", S.gerar_relatorio_pdf(carteira()), "A4 deitada, para caberem as colunas")
+
+    def test_valores_de_cada_linha(self):
+        d = dados(investimentos=[{"id": "1", "nome": "Pré", "valor": 1000, "indexador": "pre", "taxa": 10, "tipo": "cdb",
+                                  "data_valor": date.today().isoformat()},
+                                 {"id": "2", "nome": "Parado", "valor": 50, "indexador": "parado", "tipo": "dinheiro"}])
+        t = textos(S.gerar_relatorio_pdf(d))
+        i = t.index("Pré")
+        self.assertEqual(t[i + 1:i + 7], ["CDB", "10% a.a. pré", "R$ 1.000,00", "R$ 7,97", "R$ 1.100,00", "R$ 1.610,51"],
+                         "hoje, por mês, em 1 e em 5 anos (sem banco nem vencimento: nada escrito)")
+        j = t.index("Parado")
+        self.assertEqual(t[j + 3:j + 7], ["R$ 50,00", "—", "R$ 50,00", "R$ 50,00"], "parado: sem rendimento por mês")
+        k = t.index("Total")
+        self.assertEqual(t[k + 1:k + 5], ["R$ 1.050,00", "R$ 7,97", "R$ 1.150,00", "R$ 1.660,51"])
+
+    def test_bens_perdem_com_sinal(self):
+        t = textos(S.gerar_relatorio_pdf(com_bens(carteira()), inventario=CASA))
+        self.assertIn("BEM", t)
+        self.assertIn("CÔMODO", t)
+        self.assertIn("INFORMADO EM", t)
+        i = t.index("TV da sala")
+        self.assertEqual(t[i + 1:i + 5], ["Eletrônicos", "Sala", "perde 20% a.a.", "02/11/2025"])
+        self.assertTrue(t[i + 6].startswith("–R$ "), f"perde por mês: {t[i + 6]}")
+        self.assertIn("Bens: perdem ou ganham por ano a taxa da categoria (Mais › Invest), contada desde a data informada.", t)
+        self.assertEqual(t[t.index("Patrimônio") + 1:t.index("Patrimônio") + 2], ["R$ 150.300,00"])
 
     def test_so_os_meus(self):
         t = textos(S.gerar_relatorio_pdf(carteira(), "meus"))
-        self.assertIn("Só os meus", t)
-        self.assertIn("3 investimentos em 2 bancos", t)
+        self.assertRegex(t[6], r"^Só os seus · 3 investimentos em 2 bancos · ")
         self.assertNotIn("Poupança da Mãe", t)
-        self.assertNotIn("Patrimônio total", t)
+        self.assertNotIn("De terceiros", t)
 
     def test_de_terceiros(self):
-        t = textos(S.gerar_relatorio_pdf(carteira(), "terceiros"))
-        self.assertIn("De terceiros", t)
-        self.assertIn("2 investimentos em 1 banco", t, "Sem banco não conta como banco")
+        t = textos(S.gerar_relatorio_pdf(carteira(), "terceiros", CASA))
+        self.assertRegex(t[6], r"^De terceiros · 2 investimentos em 1 banco · ")
         self.assertNotIn("CDB Azul 1", t)
         self.assertNotIn("Seu dinheiro", t)
+        self.assertNotIn("TV da sala", t, "os bens da casa são seus")
 
     def test_vazio(self):
         t = textos(S.gerar_relatorio_pdf(dados(), "meus"))
         self.assertIn("Nenhum investimento seu.", t)
-        self.assertIn("0 investimentos", t)
+        self.assertRegex(t[6], r"^Só os seus · 0 investimentos · ")
         self.assertNotIn("Por banco", t)
+        self.assertFalse(any(x.startswith("Por mês, em 1 ano") for x in t), "sem a nota das colunas")
 
     def test_nome_comprido_cortado(self):
         d = carteira()
@@ -615,22 +800,22 @@ class TestRelatorioPdf(unittest.TestCase):
         self.assertGreaterEqual(len(p), 3)
         n = len(p)
         for k, pagina in enumerate(p, 1):
-            self.assertEqual(pagina[-2:], ["GerencIA · Relatório de patrimônio", f"Página {k} de {n}"])
-        self.assertEqual(p[1][:4], ["R", "$", "GerencIA", "Relatório de patrimônio"], "faixa fina nas outras páginas")
-        self.assertEqual(p[1][4], "Seu dinheiro (continuação)")
-        self.assertEqual(p[1][5], "INVESTIMENTO")
+            self.assertRegex(pagina[-1], rf"^GerencIA · relatório gerado em .* · página {k} de {n}$")
+        self.assertEqual(p[1][:3], ["Relatório de patrimônio · GerencIA", "Seu dinheiro (continuação)", "INVESTIMENTO"])
         todos = [t for pg in p for t in pg]
         self.assertEqual(sum(1 for t in todos if t.startswith("CDB Azul ")), 60, "nenhum investimento perdido na troca de página")
+        total = todos.index("Total")
+        self.assertEqual(todos[total - 9], "Tesouro Selic", "o total nunca fica sozinho numa página: vai com a última linha")
 
     def test_uma_pagina_sem_numero(self):
-        p = ler_pdf(S.gerar_relatorio_pdf(carteira()))
+        p = ler_pdf(S.gerar_relatorio_pdf(carteira(), "meus"))
         self.assertEqual(len(p), 1)
-        self.assertFalse(any(t.startswith("Página ") for t in p[0]))
+        self.assertNotIn("página", p[0][-1])
 
     def test_na_cor_do_app(self):
         d = carteira()
         d["ajustes"].update(cor="#ff0000", cor_dia=False)
-        self.assertIn(b"1.000 0.000 0.000 rg", zlib_paginas(S.gerar_relatorio_pdf(d)), "a faixa e o $ do ícone na cor escolhida")
+        self.assertIn(b"1.000 0.000 0.000 rg", zlib_paginas(S.gerar_relatorio_pdf(d)), "a faixa, o IA e o $ do ícone na cor escolhida")
 
     def test_sem_corrigir_valores(self):
         d = carteira()

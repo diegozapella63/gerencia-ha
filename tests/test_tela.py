@@ -58,6 +58,16 @@ class TestIgualAoServidor(Tela):
                 with self.subTest(inv=inv["id"], corrigir=corrigir):
                     self.assertAlmostEqual(self.js("T.valorHoje(a)", inv), calc.valor_hoje(inv, INDICES, corrigir, HOJE), places=6)
 
+    def test_valor_em_1_e_5_anos_igual_a_projecao(self):
+        """O relatório (calc.valor_em) e a projeção do app (projetar, sem aportes e sem IR) dão o mesmo valor."""
+        for corrigir in (True, False):
+            self.usar(base(ajustes={"corrigir": corrigir}))
+            for inv in self.INVS:
+                for anos in (1, 5):
+                    with self.subTest(inv=inv["id"], corrigir=corrigir, anos=anos):
+                        js = self.js(f"T.projetar([a], {anos}, 0, false).pts[{anos * 12}].valor", inv)
+                        self.assertAlmostEqual(js, calc.valor_em(inv, INDICES, anos, corrigir, HOJE), places=4)
+
     def test_totais(self):
         self.usar(base(investimentos=self.INVS))
         js = self.js("T.totais()")

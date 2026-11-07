@@ -24,7 +24,7 @@ gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
-gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4) para o Baixar PDF do Relatório de patrimônio
+gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada) para o Baixar PDF do Relatório de patrimônio
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes (ver tests/README.md)
@@ -71,6 +71,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - Interruptores de análise (Descontar IR, Ocultar bens) começam desligados toda vez; filtros e abas ficam guardados.
 - Em http (sem https) não há câmera nem microfone: explicar e oferecer escolher a foto.
 - Celular primeiro (390 px); com 1000 px ou mais, barra lateral. Tema claro e escuro.
+- Relatórios (a página e o PDF) com o cabeçalho dos apps, o mesmo do ResolvIA: um cartão com a faixa na cor do app, o ícone, Gerenc**IA** (o IA na cor), "finanças da casa" e o nome da casa no Home Assistant, o título, a contagem e quando; no pé, "GerencIA · relatório gerado em …". No app do Home Assistant no Android a página não imprime: o PDF é feito pelo servidor e baixado.
 - Dados de exemplo e de testes sempre inventados (Ana, Beto, bancos e valores fictícios): nunca nomes, bancos, investimentos ou valores reais do dono.
 
 ## Conversa com o dono

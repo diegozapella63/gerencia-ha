@@ -20,12 +20,14 @@ _W = {
            611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584],
 }
 _EXTRA = {"·": 278, "…": 1000, "—": 1000, "–": 556, "º": 365, "ª": 370, "°": 400, "€": 556, "“": 333, "”": 333, "‘": 222, "’": 222}
+# o que a WinAnsi não tem, trocado por um parecido (o sinal de menos e o "aproximadamente" dos rótulos do app)
+_TROCAS = str.maketrans({"−": "–", "≈": "~"})
 
 
 def largura(texto, tam, negrito=False):
     """Largura do texto em pontos."""
     t = 0
-    for c in str(texto):
+    for c in str(texto).translate(_TROCAS):
         o = ord(c)
         if 32 <= o <= 126:
             t += _W[negrito][o - 32]
@@ -74,26 +76,27 @@ def cor_rgb(hexa):
 
 
 def _texto_pdf(s):
-    b = str(s).encode("cp1252", "replace")
+    b = str(s).translate(_TROCAS).encode("cp1252", "replace")
     return b.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
 
 
 class Documento:
-    """Páginas A4. As posições são em pontos, com y contado de cima para baixo (como numa tela)."""
+    """Páginas A4 (em pé ou deitadas). As posições são em pontos, com y contado de cima para baixo (como numa tela)."""
 
-    def __init__(self, titulo="", autor="GerencIA"):
+    def __init__(self, titulo="", autor="GerencIA", deitada=False):
         self.titulo, self.autor = titulo, autor
+        self.tamanho = (A4[1], A4[0]) if deitada else A4
         self.paginas = []
         self.atual = 0  # a página em que se desenha
         self.nova_pagina()
 
     @property
     def largura_pagina(self):
-        return A4[0]
+        return self.tamanho[0]
 
     @property
     def altura_pagina(self):
-        return A4[1]
+        return self.tamanho[1]
 
     def nova_pagina(self):
         self.paginas.append([])
@@ -108,17 +111,19 @@ class Documento:
 
     def texto(self, x, y, s, tam=10, negrito=False, cor=(0, 0, 0), alinhar="esquerda"):
         """y é a linha de base do texto. alinhar: esquerda, direita (x é a ponta direita) ou centro."""
+        if s is None or str(s) == "":
+            return
         if alinhar == "direita":
             x -= largura(s, tam, negrito)
         elif alinhar == "centro":
             x -= largura(s, tam, negrito) / 2
         r, g, b = cor
-        self._op(f"BT /{'F2' if negrito else 'F1'} {tam:.2f} Tf {r:.3f} {g:.3f} {b:.3f} rg {x:.2f} {A4[1] - y:.2f} Td (".encode("ascii")
+        self._op(f"BT /{'F2' if negrito else 'F1'} {tam:.2f} Tf {r:.3f} {g:.3f} {b:.3f} rg {x:.2f} {self.tamanho[1] - y:.2f} Td (".encode("ascii")
                  + _texto_pdf(s) + b") Tj ET")
 
     def linha(self, x1, y1, x2, y2, cor=(0, 0, 0), esp=0.5):
         r, g, b = cor
-        self._op(f"{r:.3f} {g:.3f} {b:.3f} RG {esp:.2f} w {x1:.2f} {A4[1] - y1:.2f} m {x2:.2f} {A4[1] - y2:.2f} l S")
+        self._op(f"{r:.3f} {g:.3f} {b:.3f} RG {esp:.2f} w {x1:.2f} {self.tamanho[1] - y1:.2f} m {x2:.2f} {self.tamanho[1] - y2:.2f} l S")
 
     def retangulo(self, x, y, w, h, borda=None, fundo=None, esp=0.6, raio=0):
         """Retângulo com o canto de cima à esquerda em (x, y); raio arredonda os cantos."""
@@ -127,7 +132,7 @@ class Documento:
             ops.append("{:.3f} {:.3f} {:.3f} rg".format(*fundo))
         if borda:
             ops.append("{:.3f} {:.3f} {:.3f} RG {:.2f} w".format(*borda, esp))
-        b = A4[1] - y - h  # a base, contada de baixo (como o PDF conta)
+        b = self.tamanho[1] - y - h  # a base, contada de baixo (como o PDF conta)
         r = max(0, min(raio, w / 2, h / 2))
         if r:
             k = r * 0.5523  # o arco de um quarto de círculo em curva de Bézier
@@ -158,7 +163,7 @@ class Documento:
             dados = zlib.compress(b"\n".join(ops))
             c = obj(b"<< /Length %d /Filter /FlateDecode >>\nstream\n" % len(dados) + dados + b"\nendstream")
             p = obj(("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] /Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> /Contents %d 0 R >>"
-                     % (A4[0], A4[1], f1, f2, c)).encode("ascii"))
+                     % (self.tamanho[0], self.tamanho[1], f1, f2, c)).encode("ascii"))
             kids.append(p)
         objs[1] = ("<< /Type /Pages /Kids [%s] /Count %d >>" % (" ".join(f"{k} 0 R" for k in kids), len(kids))).encode("ascii")
         info = obj(b"<< /Title (" + _texto_pdf(self.titulo) + b") /Producer (" + _texto_pdf(self.autor) + b") >>")

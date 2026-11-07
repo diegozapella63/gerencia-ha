@@ -31,7 +31,7 @@ import bens  # noqa: E402
 import chat  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.29.0"
+VERSAO = "1.30.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -437,8 +437,27 @@ def restaurar_backup(nome):
 QUEM = {"todos": "Todos", "meus": "Meus", "terceiros": "De terceiros"}
 
 
-def dados_relatorio(d, quem="todos", agora=None):
-    """O que vai no Relatório de patrimônio (na página e no PDF). quem: todos, meus ou terceiros."""
+def bens_relatorio(d):
+    """Os itens do InventarIA para o relatório, quando Bens no InventarIA está ligado: {"itens", "categorias", "aviso"}.
+    Instalado mas sem responder: sem itens, com o aviso; não instalado: nada (como no Início)."""
+    if d["ajustes"].get("bens") is False or not BENS.conexao():
+        return None
+    try:
+        dados = BENS.ler()
+    except Exception as e:  # noqa: BLE001
+        log("Bens no relatório:", e)
+        return {"itens": [], "categorias": {}, "aviso": "Não consegui ler o InventarIA: os bens da casa ficaram de fora."}
+    return {"itens": bens.itens_hoje(dados, d["ajustes"]), "categorias": dados.get("categorias") or {}, "aviso": ""}
+
+
+COLUNAS_INVEST = ["Investimento", "Banco", "Rendimento", "Vencimento"]
+COLUNAS_BENS = ["Bem", "Cômodo", "Por ano", "Informado em"]
+
+
+def dados_relatorio(d, quem="todos", agora=None, inventario=None):
+    """O que vai no Relatório de patrimônio (na página e no PDF). quem: todos, meus ou terceiros. inventario: os itens do
+    InventarIA (bens_relatorio), que entram em Bens junto com os bens cadastrados aqui (os seus; não em De terceiros).
+    Patrimônio é o mesmo do Início: os seus investimentos e os bens; o dinheiro de terceiros fica à parte."""
     quem = quem if quem in QUEM else "todos"
     ind = d["indices"]
     corrigir = d["ajustes"].get("corrigir", True)
@@ -446,39 +465,86 @@ def dados_relatorio(d, quem="todos", agora=None):
     invs = [i for i in d["investimentos"]
             if quem == "todos" or (quem == "terceiros") == (i.get("titular") == "terceiros")]
     vh = {id(i): calc.valor_hoje(i, ind, corrigir) for i in invs}
-    meu = sum(v for i, v in ((i, vh[id(i)]) for i in invs) if i.get("titular") != "terceiros")
-    total = sum(vh.values())
+    # quanto muda por mês e o valor em 1 e em 5 anos (com as taxas de hoje, sem aportes, antes do IR)
+    fut = {id(i): {"mes": calc.valor_em(i, ind, 1 / 12, corrigir) - calc.valor_em(i, ind, 0, corrigir),
+                   "ano1": calc.valor_em(i, ind, 1, corrigir), "ano5": calc.valor_em(i, ind, 5, corrigir)} for i in invs}
+    e_bem = lambda i: i.get("tipo") == "bens"  # noqa: E731
+    meu = lambda i: i.get("titular") != "terceiros"  # noqa: E731
+    nomes_cat = dict(bens.NOMES_PADRAO, **((inventario or {}).get("categorias") or {}))
 
+    def linha_inv(inv, data_bem=True):
+        venc = calc.parse_data(inv.get("vencimento"))
+        if e_bem(inv):  # um bem cadastrado aqui (um carro, um terreno…): a categoria no lugar do tipo; a data só em Bens
+            ps = inv.get("partes") if isinstance(inv.get("partes"), list) else []
+            cat = f"{len(ps)} categorias" if len(ps) > 1 else nomes_cat.get((ps[0].get("categoria") if ps else inv.get("categoria_bem")) or "outros", "Outros")
+            dv = calc.parse_data(inv.get("data_valor"))
+            return {"nome": inv.get("nome", ""), "tipo": cat, "banco": "", "rendimento": calc.rotulo_taxa(inv),
+                    "vencimento": dv.strftime("%d/%m/%Y") if dv and data_bem else "", "valor": vh[id(inv)], **fut[id(inv)]}
+        return {"nome": inv.get("nome", ""), "tipo": calc.TIPOS.get(inv.get("tipo"), ""),
+                "banco": bancos.get(inv.get("banco"), {}).get("nome", ""), "rendimento": calc.rotulo_taxa(inv),
+                "vencimento": venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
+                "valor": vh[id(inv)], **fut[id(inv)]}
+
+    def linha_casa(it):
+        h, t = it["hoje"], it["taxa"] / 100
+        dv = calc.parse_data(it.get("valor_em"))
+        return {"nome": it["nome"], "tipo": it["categoria_nome"], "banco": it["comodo_nome"],
+                "rendimento": calc.rotulo_taxa({"indexador": "deprecia", "taxa": it["taxa"]}),
+                "vencimento": dv.strftime("%d/%m/%Y") if dv else "", "valor": h,
+                "mes": h * ((1 - t) ** (1 / 12) - 1), "ano1": h * (1 - t), "ano5": h * (1 - t) ** 5}
+
+    def secao(titulo, linhas, colunas):
+        linhas = sorted(linhas, key=lambda l: -l["valor"])
+        return {"titulo": titulo, "colunas": colunas, "linhas": linhas, "total": sum(l["valor"] for l in linhas),
+                **{k: sum(l[k] for l in linhas) for k in ("mes", "ano1", "ano5")}}
+
+    secoes = []
+    seus = [i for i in invs if meu(i) and not e_bem(i)]
+    if seus:
+        secoes.append(secao("Seu dinheiro", [linha_inv(i) for i in seus], COLUNAS_INVEST))
+    da_casa = [linha_casa(it) for it in (inventario or {}).get("itens") or []] if quem != "terceiros" else []
+    bens_seus = [linha_inv(i) for i in invs if meu(i) and e_bem(i)] + da_casa
+    if bens_seus:
+        secoes.append(secao("Bens", bens_seus, COLUNAS_BENS))
     grupos = {}
     for inv in invs:
-        grupos.setdefault(calc.dono(inv), []).append(inv)
-    secoes = []
-    for p in sorted(grupos, key=lambda p: (p != "Meu", p.lower())):
-        itens = sorted(grupos[p], key=lambda i: -vh[id(i)])
-        linhas = []
-        for inv in itens:
-            venc = calc.parse_data(inv.get("vencimento"))
-            linhas.append({"nome": inv.get("nome", ""), "tipo": calc.TIPOS.get(inv.get("tipo"), ""),
-                           "banco": bancos.get(inv.get("banco"), {}).get("nome", ""), "rendimento": calc.rotulo_taxa(inv),
-                           "vencimento": venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
-                           "valor": vh[id(inv)]})
-        secoes.append({"titulo": "Seu dinheiro" if p == "Meu" else f"De {p}", "total": sum(vh[id(i)] for i in itens), "linhas": linhas})
+        if not meu(inv):
+            grupos.setdefault(calc.dono(inv), []).append(inv)
+    for p in sorted(grupos, key=str.lower):
+        secoes.append(secao(f"De {p}", [linha_inv(i, False) for i in grupos[p]], COLUNAS_INVEST))
 
     por_banco = {}
     for inv in invs:
-        nome = bancos.get(inv.get("banco"), {}).get("nome", "Sem banco")
-        por_banco[nome] = por_banco.get(nome, 0) + vh[id(inv)]
+        if not e_bem(inv):
+            nome = bancos.get(inv.get("banco"), {}).get("nome", "Sem banco")
+            por_banco[nome] = por_banco.get(nome, 0) + vh[id(inv)]
+    total_bancos = sum(por_banco.values())
+    investido = sum(vh[id(i)] for i in seus)
+    v_bens = sum(l["valor"] for l in bens_seus)
+    terc = sum(vh[id(i)] for i in invs if not meu(i))
     # com Corrigir valores pelo rendimento desligado, o valor de hoje é o último informado (sem estimar pelos índices)
     rodape = (f"Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a., "
               f"Selic {calc.fmt_pct(calc.num(ind.get('selic')))}% a.a., IPCA {calc.fmt_pct(calc.num(ind.get('ipca')))}% em 12 meses."
               if corrigir else "Valores de hoje: o último valor informado de cada investimento.") + " Antes do imposto de renda."
-    resumo = {"todos": [("Patrimônio total", total), ("Seu dinheiro", meu), ("De terceiros", total - meu)],
-              "meus": [("Seu dinheiro", meu)], "terceiros": [("De terceiros", total)]}[quem]
-    return {"quem": quem, "gerado": (agora or datetime.now()).strftime("%d/%m/%Y às %H:%M"), "quantidade": len(invs), "total": total,
-            "resumo": resumo, "secoes": secoes, "rodape": rodape, "cor": calc.cor_app(d["ajustes"]),
-            "bancos": [(n, v, v / total * 100 if total else 0) for n, v in sorted(por_banco.items(), key=lambda x: -x[1])],
+    com_bens = [("Investido", investido), ("Bens", v_bens)] if v_bens else []
+    resumo = {"todos": [("Patrimônio", investido + v_bens)] + com_bens + [("De terceiros", terc)],
+              "meus": [("Patrimônio", investido + v_bens)] + com_bens, "terceiros": [("De terceiros", terc)]}[quem]
+    return {"quem": quem, "gerado": (agora or datetime.now()).strftime("%d/%m/%Y às %H:%M"),
+            "quantidade": sum(1 for i in invs if not e_bem(i)), "n_bens": sum(1 for i in invs if e_bem(i)) + len(da_casa),
+            "total": total_bancos, "resumo": resumo, "secoes": secoes, "rodape": rodape, "cor": calc.cor_app(d["ajustes"]),
+            "bancos": [(n, v, v / total_bancos * 100 if total_bancos else 0) for n, v in sorted(por_banco.items(), key=lambda x: -x[1])],
+            "aviso": ((inventario or {}).get("aviso") or "") if quem != "terceiros" else "",
             "vazio": {"todos": "Nenhum investimento cadastrado.", "meus": "Nenhum investimento seu.",
                       "terceiros": "Nenhum investimento de outras pessoas."}[quem]}
+
+
+def _contagem(r):
+    """30 investimentos em 3 bancos · 12 bens"""
+    nb = sum(1 for n, _, _ in r["bancos"] if n != "Sem banco")
+    partes = [_n_invest(r["quantidade"]) + (f" em {nb} banco{'' if nb == 1 else 's'}" if nb else "")] if r["quantidade"] or not r["n_bens"] else []
+    if r["n_bens"]:
+        partes.append(f"{r['n_bens']} {'bem' if r['n_bens'] == 1 else 'bens'}")
+    return " · ".join(partes)
 
 
 def _n_invest(n):
@@ -490,84 +556,144 @@ def nome_relatorio(quem):
     return f"patrimonio-{date.today().isoformat()}" + (f"-{quem}" if quem in ("meus", "terceiros") else "") + ".pdf"
 
 
-def gerar_relatorio(d, tema=None, quem="todos"):
+_CASA = {"nome": "", "quando": 0.0}
+
+
+def nome_casa():
+    """O nome da casa no Home Assistant (Configurações › Sistema › Geral), para o cabeçalho do relatório; guardado por 1 h."""
+    if not TOKEN:
+        return ""
+    if time.time() - _CASA["quando"] < 3600:
+        return _CASA["nome"]
+    try:
+        _CASA["nome"] = str((ha_request("GET", "/config", timeout=5) or {}).get("location_name") or "")[:60]
+    except ErroHA as e:
+        log("Nome da casa:", e)
+    _CASA["quando"] = time.time()
+    return _CASA["nome"]
+
+
+# o ícone do app (icon.svg), com o $ na cor do app
+ICONE_SVG = ('<svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0c0f13"/>'
+             '<rect x="10" y="17" width="21" height="30" rx="3" fill="#1b2129"/><rect x="10" y="17" width="21" height="15" rx="3" fill="#262d37"/>'
+             '<rect x="33" y="17" width="21" height="30" rx="3" fill="#1b2129"/><rect x="33" y="17" width="21" height="15" rx="3" fill="#262d37"/>'
+             '<text x="20.5" y="41.5" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="#f3f5f8">R</text>'
+             '<text x="43.5" y="41.5" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="var(--a)">$</text>'
+             '<rect x="10" y="31.3" width="44" height="1.4" fill="#05070a"/></svg>')
+FILTRO_SUB = {"todos": "", "meus": "Só os seus · ", "terceiros": "De terceiros · "}
+
+
+def notas_relatorio(r):
+    """As notas do pé: como as colunas são calculadas e de onde vêm os valores."""
+    notas = []
+    if r["secoes"]:
+        notas.append("Por mês, em 1 ano e em 5 anos: com as taxas de hoje, sem novos aportes e reaplicando o que vence.")
+    if any(s["colunas"] == COLUNAS_BENS for s in r["secoes"]):
+        notas.append("Bens: perdem ou ganham por ano a taxa da categoria (Mais › Invest), contada desde a data informada.")
+    return notas + [r["rodape"]]
+
+
+def gerar_relatorio(d, tema=None, quem="todos", inventario=None, casa=""):
     """O relatório de patrimônio em HTML, para ver; Baixar PDF leva ao mesmo relatório em PDF (o app do Home Assistant no
     Android não imprime a página). tema: "claro" ou "escuro" (o app manda o que está usando); sem ele, vale o de
-    Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou terceiros."""
+    Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou
+    terceiros. inventario: os itens do InventarIA (bens_relatorio). casa: o nome da casa no Home Assistant.
+    O cabeçalho é o mesmo dos relatórios dos outros apps (o do ResolvIA): o ícone, o app, a casa, o que é e quando."""
     tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
     attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
-    r = dados_relatorio(d, quem)
+    r = dados_relatorio(d, quem, inventario=inventario)
     e = html.escape
     q_tema = f"&tema={tema}" if tema else ""
 
     partes = []
     for s in r["secoes"]:
         linhas = "".join(
-            # no celular a coluna Banco some e o banco vai embaixo do nome (senão o valor fica cortado)
+            # no celular a 2ª coluna (banco ou cômodo) some e vai embaixo do nome (senão o valor fica cortado)
             "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
                 e(l["nome"]), e(l["tipo"]), ((" · " if l["tipo"] else "") + e(l["banco"])) if l["banco"] else "",
                 e(l["banco"]), e(l["rendimento"]), e(l["vencimento"]), calc.fmt_brl(l["valor"]))
             for l in s["linhas"])
-        partes.append(f"<section><h2>{e(s['titulo'])}<span>{calc.fmt_brl(s['total'])}</span></h2>"
-                      "<table class=inv><thead><tr><th>Investimento</th><th>Banco</th><th>Rendimento</th>"
-                      "<th>Vencimento</th><th class=n>Valor hoje</th></tr></thead><tbody>" + linhas + "</tbody></table></section>")
-    if r["secoes"]:
+        cab = "".join(f"<th>{e(c)}</th>" for c in s["colunas"])
+        partes.append(f"<section><h2><span>{e(s['titulo'])}</span><b>{calc.fmt_brl(s['total'])}</b></h2>"
+                      f"<table class=inv><thead><tr>{cab}<th class=n>Valor hoje</th></tr></thead><tbody>" + linhas + "</tbody></table></section>")
+    if r["bancos"]:
         bancos_html = "".join(f"<tr><td>{e(n)}</td><td class=n>{calc.fmt_brl(v)}</td><td class=n>{calc.fmt_pct(p)}%</td></tr>"
                               for n, v, p in r["bancos"])
-        partes.append(f"""<section><h2>Por banco<span>{calc.fmt_brl(r['total'])}</span></h2>
+        partes.append(f"""<section><h2><span>Por banco</span><b>{calc.fmt_brl(r['total'])}</b></h2>
 <table><thead><tr><th>Banco</th><th class=n>Valor</th><th class=n>Parte</th></tr></thead><tbody>{bancos_html}</tbody></table></section>""")
-    else:
+    if not r["secoes"]:
         partes.append(f'<p class="vazio">{e(r["vazio"])}</p>')
-    filtro = "".join(f'<a href="relatorio?quem={k}{q_tema}"{" class=on aria-current=page" if k == r["quem"] else ""}>{n}</a>' for k, n in QUEM.items())
+    # trocar o filtro não empilha páginas: o Voltar (e o do celular) volta direto ao app
+    filtro = "".join(f'<a href="relatorio?quem={k}{q_tema}" onclick="location.replace(this.href);return false"'
+                     f'{" class=on aria-current=page" if k == r["quem"] else ""}>{n}</a>' for k, n in QUEM.items())
     resumo = "".join(f"<div><span>{n}</span><b>{calc.fmt_brl(v)}</b></div>" for n, v in r["resumo"])
+    notas = "".join(f"<p>{e(n)}</p>" for n in notas_relatorio(r))
+    cabecalho = (f'<header class="cab">{ICONE_SVG}<div><div class="app"><span class="wm">Gerenc<b>IA</b></span> · finanças da casa'
+                 f'{" · " + e(casa) if casa else ""}</div><h1>Relatório de patrimônio</h1>'
+                 f'<p>{FILTRO_SUB[r["quem"]]}{e(_contagem(r))} · {r["gerado"]}</p></div></header>')
 
-    claro = "--bg:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--btn:#fff;--seg:#eef1f4"
-    escuro = "--bg:#0f1318;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--btn:#18202a;--seg:#18202a"
+    claro = "--bg:#f6f7f9;--card:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--seg:#e9edf1"
+    escuro = "--bg:#0f1318;--card:#161c23;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--seg:#0b0f14"
     # no automático, sem o tema do app: o do Home Assistant (a página abre dentro dele) ou o do aparelho
     script_tema = "" if tema else """<script>try{var h=parent!==window?parent.document.querySelector('home-assistant'):null,m=h&&h.hass&&h.hass.themes?h.hass.themes.darkMode:null;
 if(typeof m==='boolean')document.documentElement.setAttribute('data-theme',m?'dark':'light')}catch(e){}</script>"""
     return f"""<!doctype html><html lang="pt-BR"{attr_tema}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Relatório GerencIA</title>{script_tema}
+<title>Relatório de patrimônio · GerencIA</title>{script_tema}
 <style>
 :root{{--a:{r['cor']};{claro};color-scheme:light}}
 :root[data-theme="dark"]{{{escuro};color-scheme:dark}}
 @media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{{escuro};color-scheme:dark}}}}
+@font-face{{font-family:Barlow;font-weight:400;src:url(fonts/barlow-400.woff2) format("woff2")}}
+@font-face{{font-family:Barlow;font-weight:600;src:url(fonts/barlow-600.woff2) format("woff2")}}
+@font-face{{font-family:"Barlow Condensed";font-weight:700;src:url(fonts/barlow-condensed-700.woff2) format("woff2")}}
 *{{box-sizing:border-box}}
-body{{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg);margin:0;padding:24px 16px 48px}}
+body{{font:15px/1.45 Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg);margin:0;padding:20px 16px 48px}}
 main{{max-width:860px;margin:0 auto}}
-.barra{{display:flex;gap:8px;margin-bottom:20px}}
-.barra a{{flex:1;max-width:220px;text-align:center;font:inherit;font-weight:600;padding:10px 16px;border-radius:12px;border:1px solid var(--borda);background:var(--btn);color:var(--fg);text-decoration:none}}
-.barra a.pri{{background:var(--a);border-color:transparent;color:#0b0f14}}
-.filtro{{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--seg);margin:0 0 18px}}
+.filtro{{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--seg);border:1px solid var(--linha);margin:0 0 8px}}
 .filtro a{{flex:1;text-align:center;padding:8px 6px;border-radius:9px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}}
-.filtro a.on{{background:var(--bg);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}}
-h1{{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}}
-.sub{{color:var(--mut);margin:0 0 16px}}
-.resumo{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:24px}}
-.resumo div{{border:1px solid var(--linha);border-radius:12px;padding:12px}}
-.resumo b{{display:block;font-size:20px}}
+.filtro a.on{{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}}
+.barra{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}}
+.barra a{{display:flex;align-items:center;justify-content:center;min-height:44px;font:inherit;font-size:14px;font-weight:600;padding:8px 10px;border-radius:12px;border:1px solid var(--borda);background:var(--card);color:var(--fg);text-decoration:none}}
+.barra a.pri{{background:var(--a);border-color:transparent;color:#0b0f14}}
+.cab{{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--linha);border-left:6px solid var(--a);border-radius:16px;padding:16px 18px;margin-bottom:14px}}
+.cab .ic{{width:52px;height:52px;flex:none}}
+.cab .app{{font:600 13.5px/1.2 Barlow,sans-serif;color:var(--mut)}}
+.cab .app .wm{{font:700 19px/1 "Barlow Condensed",Barlow,sans-serif;color:var(--fg);letter-spacing:.01em}}
+.cab .app .wm b{{color:var(--a)}}
+.cab h1{{font:700 30px/1.05 "Barlow Condensed",Barlow,sans-serif;margin:4px 0;letter-spacing:-.01em}}
+.cab p{{margin:0;color:var(--mut);font-size:13.5px}}
+.resumo{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:6px}}
+.resumo div{{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:10px 12px}}
+.resumo b{{display:block;font:700 26px/1.1 "Barlow Condensed",Barlow,sans-serif;font-variant-numeric:tabular-nums}}
 .resumo span{{color:var(--mut);font-size:13px}}
-.vazio{{color:var(--mut);margin:24px 0}}
-h2{{font-size:17px;display:flex;justify-content:space-between;border-bottom:2px solid var(--a);padding-bottom:6px;margin:28px 0 6px}}
-table{{width:100%;border-collapse:collapse;font-size:13.5px}}
+.vazio,.aviso{{color:var(--mut)}}
+.vazio{{margin:20px 0}}
+.aviso{{margin:10px 0 0;font-size:13px}}
+section{{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:6px 16px 10px;margin-top:14px}}
+h2{{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;border-bottom:2px solid var(--a);padding:8px 0 6px;margin:0 0 4px}}
+h2 span,h2 b{{font:700 20px/1.2 "Barlow Condensed",Barlow,sans-serif}}
+table{{width:100%;border-collapse:collapse;font-size:14px}}
 th{{text-align:left;color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--linha)}}
-td{{padding:8px 6px;border-bottom:1px solid var(--linha2);vertical-align:top}}
-td small{{display:block;color:var(--mut)}}
+td{{padding:9px 6px;border-bottom:1px solid var(--linha2);vertical-align:top}}
+tr:last-child td{{border-bottom:0}}
+td small{{display:block;color:var(--mut);font-size:12.5px}}
 .n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
-.rodape{{color:var(--mut);font-size:12px;margin-top:28px}}
+.notas{{color:var(--mut);font-size:12px;margin-top:22px}}
+.notas p{{margin:0 0 4px}}
+.rodape{{color:var(--mut);font-size:12px;margin-top:14px;text-align:center}}
 .bm{{display:none}}
 @media (max-width:600px){{.inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
-@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};color-scheme:light}} .barra,.filtro{{display:none}} body{{padding:0}} section{{break-inside:avoid}}}}
+@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
 </style></head><body><main>
-<div class="barra"><a href="./">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
-<h1>Relatório de patrimônio</h1>
-<p class="sub">Gerado em {r['gerado']} · {_n_invest(r['quantidade'])}</p>
 <nav class="filtro" aria-label="De quem">{filtro}</nav>
-<div class="resumo">{resumo}</div>
+<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
+{cabecalho}
+<div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
 {''.join(partes)}
-<p class="rodape">{e(r['rodape'])}</p>
+<div class="notas">{notas}</div>
+<p class="rodape">GerencIA · relatório gerado em {r['gerado']}</p>
 </main></body></html>""".encode("utf-8")
 
 
@@ -584,112 +710,128 @@ def _icone_pdf(doc, x, y, tam, cor):
     doc.retangulo(x + 10 * s, y + 31.3 * s, 44 * s, 1.4 * s, fundo=hx("#05070a"))
 
 
-def gerar_relatorio_pdf(d, quem="todos"):
-    """O mesmo relatório em PDF (A4, sempre claro), para baixar e compartilhar: cabeçalho com o app, resumo, os
-    investimentos de cada um, a divisão por banco e, no pé de cada página, o nome do app e o número da página."""
-    r = dados_relatorio(d, quem)
-    doc = pdf.Documento("Relatório de patrimônio · GerencIA")
-    TXT, MUT, LIN, LIN2 = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95)
-    ESCURO, CLARO, CLARO2 = pdf.cor_rgb("#13181f"), (0.96, 0.97, 0.98), (0.62, 0.66, 0.72)
+def _brl_sinal(v):
+    """R$ com o sinal de menos quando perde; perto de zero, um traço."""
+    if abs(v) < 0.005:
+        return "—"
+    return ("−" if v < 0 else "") + calc.fmt_brl(abs(v))
+
+
+def gerar_relatorio_pdf(d, quem="todos", inventario=None, casa=""):
+    """O mesmo relatório em PDF (A4 deitada, sempre claro), para baixar e compartilhar: o cabeçalho dos relatórios dos
+    apps (o ícone, GerencIA, a casa, o que é e quando, como no ResolvIA), o resumo, os investimentos e os bens (com
+    quanto mudam por mês e o valor em 1 e em 5 anos), a divisão por banco e, no pé de cada página, o app, a hora e a página."""
+    r = dados_relatorio(d, quem, inventario=inventario)
+    doc = pdf.Documento("Relatório de patrimônio · GerencIA", deitada=True)
+    TXT, MUT, LIN, LIN2, CARTAO = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95), pdf.cor_rgb("#f6f7f9")
     COR = pdf.cor_rgb(r["cor"])
 
     def tom(a):  # a cor do app clareada (a = quanto da cor fica)
         return tuple(1 - a * (1 - c) for c in COR)
 
-    M, W, FIM = 40, doc.largura_pagina - 80, doc.altura_pagina - 62
+    M, W, FIM = 36, doc.largura_pagina - 72, doc.altura_pagina - 50
     DIR = M + W
-    # investimento, banco, rendimento, vencimento; o valor fica à direita, com espaço para R$ 9.999.999,99
-    COLS = [(M + 6, 164), (M + 178, 88), (M + 274, 84), (M + 364, 52)]
+    # à esquerda, o texto: investimento (ou bem), banco (ou cômodo), rendimento (ou por ano), vencimento (ou data): (x, largura)
+    COLS = [(M + 6, 170), (M + 184, 88), (M + 280, 84), (M + 372, 54)]
+    # à direita, os valores (a ponta direita de cada um): valor hoje, por mês, em 1 ano, em 5 anos
+    NUM = [DIR - 262, DIR - 182, DIR - 94, DIR - 6]
+    VALORES = ["Valor hoje", "Por mês", "Em 1 ano", "Em 5 anos"]
     y = [0]
 
-    def topo(continua=None):
-        """A faixa do alto: grande na primeira página, fina nas outras."""
-        if not continua:
-            doc.retangulo(0, 0, doc.largura_pagina, 86, fundo=ESCURO)
-            doc.retangulo(0, 86, doc.largura_pagina, 3, fundo=COR)
-            _icone_pdf(doc, M, 21, 44, COR)
-            doc.texto(M + 56, 41, "GerencIA", 20, True, CLARO)
-            doc.texto(M + 56, 57, "Finanças da casa", 9.5, False, CLARO2)
-            doc.texto(DIR, 39, "Gerado em", 8, False, CLARO2, "direita")
-            doc.texto(DIR, 55, r["gerado"], 11, True, CLARO, "direita")
-            y[0] = 129
+    def topo(primeira=False, continua=None):
+        """O alto da página: na primeira, o cartão com o app (como no ResolvIA); nas outras, uma linha com o nome."""
+        if primeira:
+            t0 = 32
+            doc.retangulo(M, t0, W, 88, borda=LIN, fundo=CARTAO, raio=10)
+            doc.retangulo(M, t0, 5, 88, fundo=COR)
+            _icone_pdf(doc, M + 18, t0 + 18, 52, COR)
+            tx = M + 84
+            doc.texto(tx, t0 + 24, "Gerenc", 15, True, TXT)
+            w1 = pdf.largura("Gerenc", 15, True)
+            doc.texto(tx + w1, t0 + 24, "IA", 15, True, COR)
+            w2 = pdf.largura("IA", 15, True)
+            doc.texto(tx + w1 + w2 + 6, t0 + 24, "· finanças da casa" + (f" · {casa}" if casa else ""), 10, False, MUT)
+            doc.texto(tx, t0 + 52, "Relatório de patrimônio", 22, True, TXT)
+            doc.texto(tx, t0 + 72, f"{FILTRO_SUB[r['quem']]}{_contagem(r)} · {r['gerado']}", 10, False, MUT)
+            y[0] = t0 + 88 + 14
             return
-        doc.retangulo(0, 0, doc.largura_pagina, 32, fundo=ESCURO)
-        doc.retangulo(0, 32, doc.largura_pagina, 2, fundo=COR)
-        _icone_pdf(doc, M, 7, 18, COR)
-        doc.texto(M + 26, 20.5, "GerencIA", 10, True, CLARO)
-        doc.texto(DIR, 20.5, "Relatório de patrimônio", 8.5, False, CLARO2, "direita")
-        y[0] = 64
-        doc.texto(M, y[0], continua + " (continuação)", 11, True, MUT)
-        y[0] += 18
+        doc.texto(M, 42, "Relatório de patrimônio · GerencIA", 9, False, MUT)
+        y[0] = 68
+        if continua:
+            doc.texto(M, y[0], continua + " (continuação)", 11, True, MUT)
+            y[0] += 18
 
     def cabeca_tabela(colunas):
         doc.retangulo(M, y[0] - 12, W, 19, fundo=(0.955, 0.962, 0.972), raio=3)
-        for (x, _), t in zip(COLS, colunas[:-1]):
+        for (x, _), t in zip(COLS, colunas):
             doc.texto(x, y[0], t.upper(), 7.5, True, MUT)
-        doc.texto(DIR - 6, y[0], colunas[-1].upper(), 7.5, True, MUT, "direita")
-        y[0] += 22
+        for x, t in zip(NUM, VALORES):
+            doc.texto(x, y[0], t.upper(), 7.5, True, MUT, "direita")
+        y[0] += 21
 
     def cabe(altura, titulo=None, colunas=None):
         if y[0] + altura > FIM:
             doc.nova_pagina()
-            topo(titulo)
+            topo(False, titulo)
             if colunas:
                 cabeca_tabela(colunas)
 
-    def titulo_secao(t, valor):
+    def titulo_secao(t, valor=None):
         doc.texto(M, y[0], t, 12.5, True, TXT)
-        doc.texto(DIR, y[0], calc.fmt_brl(valor), 12.5, True, TXT, "direita")
+        if valor is not None:
+            doc.texto(DIR, y[0], calc.fmt_brl(valor), 12.5, True, TXT, "direita")
         y[0] += 6
         doc.linha(M, y[0], DIR, y[0], COR, 1.6)
         y[0] += 18
 
-    topo()
-    doc.texto(M, y[0], "Relatório de patrimônio", 22, True, TXT)
-    filtro = {"todos": "Todos", "meus": "Só os meus", "terceiros": "De terceiros"}[r["quem"]]
-    lp = pdf.largura(filtro, 8.5, True) + 20
-    doc.retangulo(DIR - lp, y[0] - 17, lp, 20, fundo=tom(0.22), raio=10)
-    doc.texto(DIR - lp / 2, y[0] - 3.7, filtro, 8.5, True, TXT, "centro")
-    y[0] += 19
-    nb = sum(1 for n, _, _ in r["bancos"] if n != "Sem banco")
-    doc.texto(M, y[0], _n_invest(r["quantidade"]) + (f" em {nb} banco{'' if nb == 1 else 's'}" if nb else ""), 9.5, False, MUT)
-    y[0] += 20
+    def valores(lin, negrito=False):
+        for x, v in zip(NUM, (calc.fmt_brl(lin["valor"]), _brl_sinal(lin["mes"]), calc.fmt_brl(lin["ano1"]), calc.fmt_brl(lin["ano5"]))):
+            doc.texto(x, y[0], v, 9, negrito, TXT if negrito or v != "—" else MUT, "direita")
+
+    topo(True)
     larg = (W - 10 * (len(r["resumo"]) - 1)) / len(r["resumo"])
     for k, (n, v) in enumerate(r["resumo"]):
         x = M + k * (larg + 10)
-        if k == 0:  # o primeiro (o total) em destaque, na cor do app
-            doc.retangulo(x, y[0], larg, 54, borda=tom(0.45), fundo=tom(0.12), raio=6)
+        if k == 0:  # o primeiro (o patrimônio) em destaque, na cor do app
+            doc.retangulo(x, y[0], larg, 50, borda=tom(0.45), fundo=tom(0.12), raio=8)
         else:
-            doc.retangulo(x, y[0], larg, 54, borda=LIN, raio=6)
-        doc.texto(x + 12, y[0] + 19, n, 8.5, False, MUT)
-        doc.texto(x + 12, y[0] + 40, pdf.cortar(calc.fmt_brl(v), larg - 24, 15, True), 15, True, TXT)
-    y[0] += 82
-
-    colunas = ["Investimento", "Banco", "Rendimento", "Vencimento", "Valor hoje"]
-    for s in r["secoes"]:
-        cabe(70)
-        titulo_secao(s["titulo"], s["total"])
-        cabeca_tabela(colunas)
-        for l in s["linhas"]:
-            cabe(28, s["titulo"], colunas)
-            doc.texto(COLS[0][0], y[0], pdf.cortar(l["nome"], COLS[0][1], 9.5), 9.5, False, TXT)
-            if l["tipo"]:
-                doc.texto(COLS[0][0], y[0] + 11, pdf.cortar(l["tipo"], COLS[0][1], 7.5), 7.5, False, MUT)
-            for (x, w), t, tam in zip(COLS[1:], (l["banco"], l["rendimento"], l["vencimento"]), (9, 9, 8.5)):
-                doc.texto(x, y[0], pdf.cortar(t, w, tam), tam, False, TXT)
-            doc.texto(DIR - 6, y[0], calc.fmt_brl(l["valor"]), 9.5, False, TXT, "direita")
-            y[0] += 17
-            doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
-            y[0] += 12
+            doc.retangulo(x, y[0], larg, 50, borda=LIN, raio=8)
+        doc.texto(x + 12, y[0] + 18, n, 8.5, False, MUT)
+        doc.texto(x + 12, y[0] + 38, pdf.cortar(calc.fmt_brl(v), larg - 24, 15, True), 15, True, TXT)
+    y[0] += 76
+    if r["aviso"]:
+        doc.texto(M, y[0] - 8, r["aviso"], 9, False, MUT)
         y[0] += 14
 
-    if r["secoes"]:
+    for s in r["secoes"]:
+        cabe(80)
+        titulo_secao(s["titulo"])
+        cabeca_tabela(s["colunas"])
+        for k, l in enumerate(s["linhas"]):
+            cabe(26 + (24 if k == len(s["linhas"]) - 1 else 0), s["titulo"], s["colunas"])  # o último vai junto com o total
+            doc.texto(COLS[0][0], y[0], pdf.cortar(l["nome"], COLS[0][1], 9.5), 9.5, False, TXT)
+            if l["tipo"]:
+                doc.texto(COLS[0][0], y[0] + 10, pdf.cortar(l["tipo"], COLS[0][1], 7), 7, False, MUT)
+            for (x, w), t, tam in zip(COLS[1:], (l["banco"], l["rendimento"], l["vencimento"]), (9, 9, 8.5)):
+                doc.texto(x, y[0], pdf.cortar(t, w, tam), tam, False, TXT)
+            valores(l)
+            y[0] += 15
+            doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
+            y[0] += 11
+        # o total da seção, em todas as colunas de valor
+        cabe(24, s["titulo"], s["colunas"])
+        doc.retangulo(M, y[0] - 12, W, 19, fundo=tom(0.10), raio=3)
+        doc.texto(COLS[0][0], y[0], "Total", 9, True, TXT)
+        valores({"valor": s["total"], "mes": s["mes"], "ano1": s["ano1"], "ano5": s["ano5"]}, True)
+        y[0] += 28
+
+    if r["bancos"]:
         cabe(80)
         titulo_secao("Por banco", r["total"])
-        BX, BW = M + 160, W - 160 - 150  # a barra da parte de cada banco
+        BX, BW = M + 180, W - 180 - 170  # a barra da parte de cada banco
         for n, v, p in r["bancos"]:
             cabe(24, "Por banco")
-            doc.texto(M, y[0], pdf.cortar(n, 150, 9.5), 9.5, False, TXT)
+            doc.texto(M, y[0], pdf.cortar(n, 170, 9.5), 9.5, False, TXT)
             doc.retangulo(BX, y[0] - 6.5, BW, 7, fundo=LIN2, raio=3.5)
             if p > 0:
                 doc.retangulo(BX, y[0] - 6.5, max(7, BW * min(p, 100) / 100), 7, fundo=COR, raio=3.5)
@@ -698,25 +840,22 @@ def gerar_relatorio_pdf(d, quem="todos"):
             y[0] += 9
             doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
             y[0] += 15
-    else:
+    if not r["secoes"]:
         doc.texto(M, y[0], r["vazio"], 10.5, False, MUT)
         y[0] += 20
 
-    linhas = pdf.quebrar(r["rodape"], W, 8)
-    cabe(16 + 11 * len(linhas))
+    linhas = [t for n in notas_relatorio(r) for t in pdf.quebrar(n, W, 8)]
+    cabe(12 + 11 * (len(linhas) - 1))
     y[0] += 10
     for t in linhas:
         doc.texto(M, y[0], t, 8, False, MUT)
         y[0] += 11
-    # no pé de cada página: o app e, com mais de uma página, o número dela
+    # no pé de cada página: o app, quando foi gerado e, com mais de uma página, o número dela (como no ResolvIA)
     n = len(doc.paginas)
     for k in range(n):
         doc.ir_para(k)
-        base = doc.altura_pagina - 30
-        doc.linha(M, base - 14, DIR, base - 14, LIN, 0.5)
-        doc.texto(M, base, "GerencIA · Relatório de patrimônio", 7.5, False, MUT)
-        if n > 1:
-            doc.texto(DIR, base, f"Página {k + 1} de {n}", 7.5, False, MUT, "direita")
+        doc.texto(doc.largura_pagina / 2, doc.altura_pagina - 24, f"GerencIA · relatório gerado em {r['gerado']}"
+                  + (f" · página {k + 1} de {n}" if n > 1 else ""), 8, False, MUT, "centro")
     return doc.bytes()
 
 
@@ -1951,10 +2090,11 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/versoes":
                 return self.enviar(200, listar_versoes())
             if p == "/relatorio.pdf":
-                quem = (q.get("quem") or ["todos"])[0]
-                return self.baixar(gerar_relatorio_pdf(ler(), quem), "application/pdf", nome_relatorio(quem))
+                quem, d = (q.get("quem") or ["todos"])[0], ler()
+                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d), nome_casa()), "application/pdf", nome_relatorio(quem))
             if p in ("/relatorio", "/relatorio.html"):
-                corpo = gerar_relatorio(ler(), (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0])
+                d = ler()
+                corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d), nome_casa())
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")

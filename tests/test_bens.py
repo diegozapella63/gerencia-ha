@@ -69,6 +69,33 @@ class TestResumo(unittest.TestCase):
         self.assertEqual(len(bens.resumo(dados, {}, hoje=date(2026, 11, 2))["maiores"]), 10)
 
 
+class TestItensHoje(unittest.TestCase):
+    """Todos os itens, um por um, para o Relatório de patrimônio."""
+
+    def setUp(self):
+        dados = {"itens": ITENS + [{"nome": "Valor ruim", "categoria": "moveis", "valor": "abc"}],
+                 "comodos": {"sala": "Sala", "quarto": "Quarto"}, "categorias": dict(bens.NOMES_PADRAO)}
+        self.l = bens.itens_hoje(dados, {"bens_taxas": {"veiculos": 10}}, hoje=date(2026, 11, 2))
+
+    def test_so_com_valor_do_maior_para_o_menor(self):
+        self.assertEqual([i["nome"] for i in self.l], ["Carro", "Televisão", "Sofá", "Quadro"])
+
+    def test_cada_item(self):
+        carro, tv, sofa, quadro = self.l
+        self.assertEqual((carro["taxa"], carro["categoria_nome"], carro["comodo_nome"]), (10, "Veículos", ""), "a taxa ajustada; sem cômodo")
+        self.assertAlmostEqual(carro["hoje"], 50000 * 0.9 ** (730 / 365.25))
+        self.assertEqual((tv["comodo_nome"], tv["valor"], tv["valor_em"]), ("Sala", 3000, "2025-11-02"))
+        self.assertEqual((quadro["categoria_nome"], quadro["taxa"], quadro["hoje"]), ("nova", 10, 100), "categoria que não está na lista: o id")
+
+    def test_soma_igual_ao_resumo(self):
+        dados = {"itens": ITENS, "comodos": {}, "categorias": dict(bens.NOMES_PADRAO)}
+        r = bens.resumo(dados, {}, hoje=date(2026, 11, 2))
+        self.assertAlmostEqual(sum(i["hoje"] for i in bens.itens_hoje(dados, {}, hoje=date(2026, 11, 2))), r["hoje"], places=1)
+
+    def test_sem_itens(self):
+        self.assertEqual(bens.itens_hoje({}, {}), [])
+
+
 class TestLeitura(unittest.TestCase):
     def setUp(self):
         self.pasta = pasta_temp()

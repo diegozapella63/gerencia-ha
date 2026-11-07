@@ -821,8 +821,12 @@ class TestDicas(TelaMais):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+CLARO = "rgb(246, 247, 249)"
+
+
 class TestRelatorioNoTema(TelaMais):
     """O relatório de patrimônio (uma página do servidor) abre no tema que o app está usando; no papel, branco."""
+    # o fundo claro da página (cinza bem claro, com os cartões brancos, como no relatório do ResolvIA)
 
     def url(self, tema):
         self.abrir(base(bancos=BANCOS, ajustes={"tema": tema}))
@@ -858,15 +862,15 @@ class TestRelatorioNoTema(TelaMais):
 
     def test_relatorio_escuro_e_claro_na_tela(self):
         self.assertEqual(self.fundo("escuro"), "rgb(15, 19, 24)")
-        self.assertEqual(self.fundo("claro", esquema="dark"), "rgb(255, 255, 255)", "o tema do app vale mais que o do aparelho")
+        self.assertEqual(self.fundo("claro", esquema="dark"), CLARO, "o tema do app vale mais que o do aparelho")
 
     def test_relatorio_automatico_segue_o_aparelho(self):
         self.assertEqual(self.fundo(None, esquema="dark"), "rgb(15, 19, 24)")
-        self.assertEqual(self.fundo(None, esquema="light"), "rgb(255, 255, 255)")
+        self.assertEqual(self.fundo(None, esquema="light"), CLARO)
 
     def test_relatorio_automatico_dentro_do_home_assistant_segue_o_tema_dele(self):
         self.assertEqual(self.fundo(None, esquema="light", ha=True), "rgb(15, 19, 24)", "HA escuro com o aparelho claro")
-        self.assertEqual(self.fundo(None, esquema="dark", ha=False), "rgb(255, 255, 255)", "HA claro com o aparelho escuro")
+        self.assertEqual(self.fundo(None, esquema="dark", ha=False), CLARO, "HA claro com o aparelho escuro")
 
     def test_relatorio_no_celular_nao_corta_o_valor(self):
         """390 px com um valor de milhão: o banco vai embaixo do nome e a página não rola para o lado."""
@@ -921,6 +925,13 @@ class TestRelatorioNoTema(TelaMais):
             self.assertEqual(pg.locator("h2").all_inner_texts()[0].split("\n")[0], "De Beto")
             self.assertEqual(pg.locator("text=CDB Azul").count(), 0)
             self.assertEqual(pg.inner_text(".resumo"), "De terceiros\nR$ 1.218.500,00")
+            # o cabeçalho dos relatórios dos apps: o ícone, o app, o título e a linha de baixo, sem nada cortado
+            self.assertEqual(pg.inner_text(".cab h1"), "Relatório de patrimônio")
+            self.assertTrue(pg.inner_text(".cab .app").startswith("GerencIA · finanças da casa"))
+            self.assertTrue(pg.inner_text(".cab p").startswith("De terceiros · 1 investimento"))
+            caixa = pg.evaluate("(c => { const r = c.getBoundingClientRect(), i = c.querySelector('.ic').getBoundingClientRect(); return [r.left, r.right, i.width] })(document.querySelector('.cab'))")
+            self.assertEqual(caixa[2], 52, "o ícone inteiro")
+            self.assertLessEqual(caixa[1], 390 - 16 + 0.5, "o cabeçalho cabe na tela")
         finally:
             pg.close()
 
