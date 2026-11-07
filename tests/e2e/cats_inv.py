@@ -17,7 +17,8 @@ todas = [(c['id'], c['nome']) for c in req(B, 'api/bens').get('todas', [])]
 sim(('ferramentas', 'Ferramentas') in todas, 'a categoria criada no InventarIA chega', todas)
 sim(('plantas', 'Jardim') in todas, 'a renomeada chega com o nome novo', todas)
 igual([c for c in todas if c[0] == 'pets'], [], 'a excluída no InventarIA some')
-nomes = ['Imóveis', 'Veículos'] + [n for _, n in todas]
+# Imóveis e Veículos: os do InventarIA (1.31.0 ou mais novo, na ordem de lá) ou, se ele não tiver, no começo
+nomes = [n for k, n in (('imoveis', 'Imóveis'), ('veiculos', 'Veículos')) if k not in dict(todas)] + [n for _, n in todas]
 with sync_playwright() as p:
     b = p.chromium.launch()
     pg = b.new_page(viewport={'width': 412, 'height': 900}, color_scheme='dark')
