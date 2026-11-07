@@ -196,8 +196,8 @@ Com **Sensores no Home Assistant** ligado (em Mais › Configurações › Integ
 - `sensor.gerencia_saldo_caixa`
 - `sensor.gerencia_entradas_mes` (atributo `a_receber`)
 - `sensor.gerencia_saidas_mes` (atributos `a_pagar` e `atrasado`)
-- `sensor.gerencia_ia_hoje`: chamadas de IA de hoje, com erros, cota excedida, tokens estimados, por tipo, últimos 7 dias e mês
-- `sensor.gerencia_bens`: os bens da casa, do InventarIA, já com a perda de valor (atributos `registrado`, `perde_por_ano` e `itens`)
+- `sensor.gerencia_ia_hoje` (com a IA ligada): chamadas de IA de hoje, com erros, cota excedida, tokens estimados, por tipo, últimos 7 dias e mês
+- `sensor.gerencia_bens` (com o InventarIA): os bens da casa, já com a perda de valor (atributos `registrado`, `perde_por_ano` e `itens`)
 
 Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reiniciar o Home Assistant, voltam em até 15 minutos.
 

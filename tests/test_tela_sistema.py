@@ -462,6 +462,17 @@ class TestTelaComServidor(TelaServidor):
                          [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status manual", "Falar: nenhum assistente com fala para texto."]])
         self.assertEqual(self.conta('#app .cab-topo [data-a="falar"]'), 0, "sem a IA pronta, o microfone do alto some")
 
+    # (era bug até a 1.28.0: a fala para texto pronta e a IA não, a linha dizia "Falar: pronto… O microfone fica no alto de cada tela", sem microfone)
+    def test_falar_nao_diz_pronto_sem_a_ia_pronta(self):
+        self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.responder("GET api/ia/status", 200, {"pronta": False, "motivo": "Nenhuma IA configurada no Home Assistant.", "entidades": []})
+        self.clicar('#ia [data-a="ia-verificar"]')
+        self.esperar_aviso("Nenhuma")
+        self.assertEqual(self.js("T.S.voz.pronta"), True, "a fala para texto está pronta")
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status')].map(e => [e.className, e.textContent])"),
+                         [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status manual", "Falar: só com a IA pronta."]])
+        self.assertEqual(self.conta('#app [data-a="falar"]'), 0, "e o microfone não aparece")
+
     def test_verificar_de_novo_com_o_servidor_fora_avisa(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
         self.responder("GET api/ia/status", 502)
@@ -598,6 +609,21 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.js("window.__srv.pedidos.filter(p => p.rota === 'api/indices').map(p => p.corpo)"), [{"cdi": 14.4}])
         self.assertEqual(self.limpo("#indices .status"), "Valores digitados à mão.")
         self.assertEqual(self.limpo('#indices [data-v="cdi"] .vl'), "14,4%")
+
+    # (era bug até a 1.28.0: com Atualizar sozinho desligado, o alto dizia "Esperando os índices do Banco Central", que não vinham)
+    def test_sem_atualizar_sozinho_o_alto_nao_espera_o_banco_central(self):
+        d = base()
+        del d["indices"]  # sem mexer nos índices do servidor
+        self.js("(Object.assign(window.__srv.d.indices, { auto: true, fonte: 'padrao', atualizado_em: null, erro: null }), true)")
+        self.addCleanup(lambda: self.js("(window.__srv.d.indices.auto = true)"))
+        self.abrir(d, ui={"tab": "mais", "maisTela": "invest"})
+        self.assertEqual(self.limpo("#app .sync"), "Esperando os índices do Banco Central")
+        self.clicar('#indices [data-a="indices-auto"]')
+        self.assertEqual(self.js("T.S.d.indices.auto"), False)
+        self.assertEqual(self.limpo("#app .sync"), "Índices de partida (outubro de 2026)")
+        self.assertEqual(self.limpo("#indices .status"), "Valores de partida (outubro de 2026).")
+        self.ir("inicio")
+        self.assertEqual(self.limpo("#app .sync"), "Índices de partida (outubro de 2026)", "no alto das outras telas também")
 
     def test_indices_do_banco_central_fora_do_ar(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "invest"})

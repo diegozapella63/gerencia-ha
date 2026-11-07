@@ -30,7 +30,7 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 
-VERSAO = "1.28.0"
+VERSAO = "1.28.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -483,6 +483,11 @@ def gerar_relatorio(d, tema=None):
         f"<td class=n>{calc.fmt_pct(v / t['total'] * 100 if t['total'] else 0)}%</td></tr>"
         for n, v in sorted(por_banco.items(), key=lambda x: -x[1]))
 
+    # com Corrigir valores pelo rendimento desligado, o valor de hoje é o último informado (sem estimar pelos índices)
+    rodape = (f"Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a.,\n"
+              f"Selic {calc.fmt_pct(calc.num(ind.get('selic')))}% a.a., IPCA {calc.fmt_pct(calc.num(ind.get('ipca')))}% em 12 meses."
+              if corrigir else "Valores de hoje: o último valor informado de cada investimento.")
+
     claro = "--bg:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--btn:#fff"
     escuro = "--bg:#0f1318;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--btn:#18202a"
     # no automático, sem o tema do app: o do Home Assistant (a página abre dentro dele) ou o do aparelho
@@ -530,8 +535,7 @@ td small{{display:block;color:var(--mut)}}
 {''.join(partes)}
 <section><h2>Por banco<span>{calc.fmt_brl(t['total'])}</span></h2>
 <table><thead><tr><th>Banco</th><th class=n>Valor</th><th class=n>Parte</th></tr></thead><tbody>{bancos_html}</tbody></table></section>
-<p class="rodape">Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a.,
-Selic {calc.fmt_pct(calc.num(ind.get('selic')))}% a.a., IPCA {calc.fmt_pct(calc.num(ind.get('ipca')))}% em 12 meses. Antes do imposto de renda.</p>
+<p class="rodape">{rodape} Antes do imposto de renda.</p>
 </main></body></html>""".encode("utf-8")
 
 
@@ -1578,6 +1582,8 @@ def dicas_estado(d, disparar=True):
         serv = assinaturas.POR_ID[s["servico"]]
         fonte = fontes.get(s["servico"])
         av = {"status": "ja_anual"} if s["freq_anual"] else assinaturas.avaliar(s["valor"], fonte, dolar)
+        if av["status"] == "ia_desligada" and ia_ligada(d):  # visto com a IA desligada; ligada de novo, ainda não foi conferido
+            av = {"status": "pendente"}
         if av["status"] == "pendente" and _conferindo.is_set():
             av["status"] = "conferindo"
         item = {**s, **av, "nome": serv["curto"], "fonte": serv["url"],

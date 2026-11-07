@@ -265,6 +265,18 @@ class TestDicasEstado(unittest.TestCase):
         self.assertEqual({a["status"] for a in r["assinaturas"] if a["servico"] != "microsoft365"}, {"conferindo"})
         self.assertTrue(r["conferindo"])
 
+    # (era bug até a 1.28.0: com a IA ligada de novo, cada assinatura dizia "A IA está desligada…" até o dia seguinte)
+    def test_visto_com_a_ia_desligada_e_ligada_de_novo(self):
+        self.d["ajustes"]["ia"] = False
+        S.salvar(self.d, versao=False)
+        S._conferindo.set()
+        S._conferir(False)
+        sp = lambda r: next(a for a in r["assinaturas"] if a["servico"] == "spotify")
+        self.assertEqual(sp(S.dicas_estado(self.d, disparar=False))["status"], "ia_desligada")
+        self.d["ajustes"]["ia"] = True
+        self.assertEqual({k: sp(S.dicas_estado(self.d, disparar=False))[k] for k in ("status", "texto")},
+                         {"status": "pendente", "texto": "Ainda não conferido."})
+
     def test_disparar_confere_em_segundo_plano(self):
         S.dicas_estado(self.d)
         for _ in range(100):
@@ -399,6 +411,15 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         self.assertIn("Mãe", h)
         self.assertNotIn("url(x)", h, "a cor não injeta CSS")
         self.assertIn(":root{--a:#ff0000;", h, "com a Cor do dia desligada, a cor escolhida")
+
+    # (era bug até a 1.28.0: com Corrigir valores pelo rendimento desligado, o rodapé dizia que os valores eram estimados pelos índices)
+    def test_relatorio_sem_corrigir_valores(self):
+        d = dados(investimentos=[{"id": "1", "nome": "CDB Azul", "valor": 1000, "indexador": "cdi_pct", "taxa": 100, "tipo": "cdb"}])
+        self.assertIn("Valores de hoje estimados a partir do último valor informado e dos índices: CDI ", S.gerar_relatorio(d).decode())
+        d["ajustes"]["corrigir"] = False
+        h = S.gerar_relatorio(d).decode()
+        self.assertIn('<p class="rodape">Valores de hoje: o último valor informado de cada investimento. Antes do imposto de renda.</p>', h)
+        self.assertNotIn("dos índices", h)
 
     def test_relatorio_na_cor_do_dia(self):
         class Dia(date):

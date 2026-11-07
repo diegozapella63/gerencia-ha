@@ -504,6 +504,38 @@ class TestIntegracoes(TelaMais):
         self.assertTrue(self.dados()["ajustes"]["sensores"])
         self.assertIn("Ligado: sensor.gerencia_patrimonio", self.texto("#sensores"))
 
+    # (era bug até a 1.28.0: desligados, a nota do sensor de IA aparecia; ligados, listavam _ia_hoje e _bens mesmo sem a IA e sem o InventarIA)
+    def test_sensores_so_falam_dos_que_o_app_cria(self):
+        sens = {"corrigir": True, "sensores": True}
+        self.abrir_int()
+        self.assertEqual(self.conta("#sensores .nota"), 0, "desligados: sem a nota do sensor de IA")
+        self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
+        t = self.texto("#sensores")
+        self.assertIn("_saidas_mes e _ia_hoje. Atualizam", t, "sem o InventarIA, sem o sensor dos bens")
+        self.assertNotIn("_bens", t)
+        self.assertEqual(self.texto("#sensores .nota"), "sensor.gerencia_ia_hoje: chamadas de IA de hoje, com erros, cota e tokens.")
+        self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=sens), bens=BENS)
+        self.assertIn("_saidas_mes, _ia_hoje e _bens. Atualizam", self.texto("#sensores"), "com o InventarIA, o dos bens")
+        self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=dict(sens, ia=False)), bens=BENS)
+        t = self.texto("#sensores")
+        self.assertIn("_saidas_mes e _bens. Atualizam", t, "com a IA desligada, sem o sensor da IA")
+        self.assertNotIn("_ia_hoje", t)
+        self.assertEqual(self.conta("#sensores .nota"), 0)
+
+    # (era bug até a 1.28.0: o quadro mandava para Mais › Invest, que não tinha as categorias do InventarIA)
+    def test_bens_sem_item_com_valor_nao_manda_para_mais_invest(self):
+        vazio = {"ok": True, "hoje": 0, "registrado": 0, "perde_ano": 0, "n": 0, "categorias": [], "comodos": []}
+        self.abrir_int(bens=vazio)
+        t = self.texto("#bens")
+        self.assertIn("Ligado: R$ 0 em 0 itens.", t)
+        self.assertNotIn("Mais › Invest", t)
+        self.ir_mais("invest")
+        self.assertEqual(self.conta("#perda-bens"), 0, "não há o quadro Valor dos bens por ano")
+        self.abrir_int(bens=BENS)
+        self.assertIn("Quanto cada categoria perde ou valoriza por ano fica em Mais › Invest.", self.texto("#bens"))
+        self.ir_mais("invest")
+        self.assertEqual(self.conta("#perda-bens"), 1)
+
     def test_contas_no_cronologia_mostra_quando_foi_usada(self):
         self.abrir_int()
         self.addCleanup(lambda: self.js("(T.S.integracaoUltimo = null, true)"))
@@ -776,6 +808,16 @@ class TestDicas(TelaMais):
     def test_com_a_ia_desligada_a_dica_de_plano_anual_some_do_inicio(self):
         self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"ia": False}))
         self.assertNotIn("plano anual", self.tela())
+
+    # (era bug até a 1.28.0: com a IA desligada, o Início dizia que estava conferindo os preços, que só a IA confere)
+    def test_com_a_ia_desligada_o_inicio_nao_diz_que_confere_precos(self):
+        conferindo = dict(DICAS, dicas=[], assinaturas=[dict(_ASS, status="conferindo", texto="Conferindo na página oficial…")], conferindo=True)
+        for ia, quadro in ((True, 1), (False, 0)):
+            with self.subTest(ia=ia):
+                self.abrir(base(bancos=BANCOS, recorrencias=[SPOTIFY], ajustes={"corrigir": True, "ia": ia}))
+                self.js("(T.S.dicas = a, T.render(), true)", conferindo)
+                self.assertEqual(self.conta(".card.dicas .dica-conf"), quadro)
+        self.assertNotIn("Conferindo", self.tela())
 
 
 # ---------------------------------------------------------------------------------------------------------------

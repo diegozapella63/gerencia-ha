@@ -1,5 +1,14 @@
 # Mudanças
 
+## 1.28.1
+
+- **Sensores no Home Assistant**: desligados, sem a nota do sensor da IA; ligados, a lista traz o da IA só com a IA ligada e o dos bens só com o InventarIA.
+- **Falar**: com a IA fora do ar, não diz mais "pronto" nem que o microfone fica no alto (ele não aparece).
+- Com **Atualizar sozinho** desligado, o alto da tela mostra "Índices de partida" em vez de esperar os do Banco Central.
+- **Bens no InventarIA** só manda para Mais › Invest quando há itens com valor.
+- Com a IA desligada, o Início não diz mais que está conferindo os preços das assinaturas; ligada de novo, as **Dicas de economia** dizem "Ainda não conferido." em vez de "A IA está desligada".
+- Com **Corrigir valores pelo rendimento** desligado, a ajuda do valor no **Novo investimento** fica só "O saldo de hoje." e o rodapé do **Relatório de patrimônio** diz que os valores são os últimos informados. Num bem, a ajuda não fala mais em "perde" (a categoria pode valorizar).
+
 ## 1.28.0
 
 - **Bens que valorizam**: em **Mais › Invest › Valor dos bens por ano**, cada categoria tem **Perde** ou **Valoriza** e a % por ano ao lado. Um imóvel que valoriza 5% ao ano fica com Valoriza e 5. Antes era preciso digitar um número negativo, e o teclado do celular não tem o "−".

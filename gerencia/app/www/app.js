@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.28.0';
+const VERSAO = '1.28.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -670,7 +670,8 @@ function syncInfo() {
   if (I.erro) return ['erro', 'Sem conexão com o Banco Central'];
   if (I.fonte === 'manual') return ['manual', 'Índices digitados à mão'];
   if (I.fonte === 'bcb' && q) return ['', iso(q) === iso(hoje()) ? `Índices do Banco Central de hoje, ${hora}` : `Índices do Banco Central de ${fDataC(q)}`];
-  return ['manual', DEMO ? 'Exemplo com os índices de outubro de 2026' : 'Esperando os índices do Banco Central'];
+  // com Atualizar sozinho desligado, os do Banco Central não vêm: ficam os de partida
+  return ['manual', DEMO ? 'Exemplo com os índices de outubro de 2026' : I.auto === false ? 'Índices de partida (outubro de 2026)' : 'Esperando os índices do Banco Central'];
 }
 // O ícone do app ao lado do nome (no alto e na barra lateral), na cor escolhida em Aparência, como no ResolvIA e no CronologIA:
 // as duas plaquinhas "R$" do placar.
@@ -3410,7 +3411,8 @@ function linhaDicaCategoria(c) {
 function cardDicas() {
   if (!temCaixa() || S.d.ajustes.dicas === false) return '';
   const { subs, cat } = dicasVisiveis();
-  const conferindo = S.dicas && S.dicas.conferindo && (S.dicas.assinaturas || []).some(a => a.status === 'conferindo');
+  // os preços só são conferidos com a IA: desligada, o servidor só abre as páginas e não confere nada
+  const conferindo = iaOn() && S.dicas && S.dicas.conferindo && (S.dicas.assinaturas || []).some(a => a.status === 'conferindo');
   if (!subs.length && !cat) {
     return conferindo ? `<div class="card dicas"><div class="rot">${rotIc('percent', 'bom')}<span class="rot-t">Dicas de economia</span></div>
       <div class="dica-conf"><span class="giro"></span>Conferindo os preços das suas assinaturas nas páginas oficiais…</div></div>` : '';
@@ -3718,7 +3720,9 @@ function cardIA() {
   else st = ['erro', esc(s.motivo || 'A IA não está pronta.')];
   const ents = (s && s.entidades) || [];
   const v = S.voz;
+  // o microfone só aparece com a IA pronta (vozPronta): com ela fora do ar, não diz que está pronto
   const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
+    : v.pronta && s && s.pronta === false ? ['manual', 'Falar: só com a IA pronta.']
     : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
   return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
@@ -3947,14 +3951,17 @@ const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><di
 
 /* --------- Integrações: outros apps, IA, uso da IA e sensores */
 function maisIntegracoes() {
-  const a = S.d.ajustes;
+  const a = S.d.ajustes, sens = a.sensores === true;
+  // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
+  const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
+    ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
   return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
-      ${linhaChave('sensores', a.sensores === true, 'Criar os sensores', a.sensores === true
-        ? 'Ligado: <code>sensor.gerencia_patrimonio</code>, <code>_meu</code>, <code>_terceiros</code>, <code>_rendimento_mensal</code>, <code>_saldo_caixa</code>, <code>_entradas_mes</code>, <code>_saidas_mes</code>, <code>_ia_hoje</code> e <code>_bens</code>. Atualizam a cada mudança e a cada 15 minutos.'
+      ${linhaChave('sensores', sens, 'Criar os sensores', sens
+        ? `Ligado: <code>sensor.gerencia_patrimonio</code>, ${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}. Atualizam a cada mudança e a cada 15 minutos.`
         : 'Desligado: nenhum sensor no Home Assistant.')}
-      ${iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
+      ${sens && iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
     </section>`;
 }
 
@@ -4455,8 +4462,9 @@ function ajudasForm() {
       const est = valorHoje({ valor: F.valor, data_valor: F.data_valor, indexador: F.indexador, taxa: F.taxa });
       if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">Usar este valor</button>`;
     } else if (F.tipo === 'bens' && F.dividir) t = 'A soma das categorias abaixo.';
-    else if (!o && F.tipo === 'bens') t = 'O valor de hoje; ele perde a taxa da categoria por ano.';
-    else if (!o && corrige(F)) t = 'O saldo de hoje; o rendimento conta daqui para a frente.';
+    // com Corrigir valores pelo rendimento desligado, o valor de hoje não muda sozinho
+    else if (!o && F.tipo === 'bens') t = S.d.ajustes.corrigir !== false ? 'O valor de hoje; a taxa da categoria conta daqui para a frente.' : 'O valor de hoje.';
+    else if (!o && corrige(F)) t = S.d.ajustes.corrigir !== false ? 'O saldo de hoje; o rendimento conta daqui para a frente.' : 'O saldo de hoje.';
     av.innerHTML = t;
   }
 }
@@ -5279,7 +5287,8 @@ function cardBens(a) {
   if (!b) return h + `<div class="status manual">Procurando o InventarIA…</div></section>`;
   if (!b.ok) return h + `<div class="status manual">${esc(b.motivo || 'O InventarIA não respondeu.')}</div>
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Tentar de novo</button></section>`;
-  h += `<p class="nota" style="margin:0 0 12px">Quanto cada categoria perde ou valoriza por ano fica em Mais › Invest.</p>
+  // sem itens com valor no InventarIA, Mais › Invest não tem as categorias dele
+  h += `${bensOn() ? '<p class="nota" style="margin:0 0 12px">Quanto cada categoria perde ou valoriza por ano fica em Mais › Invest.</p>' : ''}
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Atualizar do InventarIA</button></section>`;
   return h;
 }

@@ -684,6 +684,17 @@ class TestFormulario(_TelaInvest):
         self.assertEqual(self.textos(c + " .tag.taxa"), ["perde 15% a.a."])
         self.assertEqual(self.textos(c + " .inv-pe span")[0], f"perde ≈ {brl(60000 * (1 - 0.85 ** (1 / 12)))} por mês")
 
+    # (era bug até a 1.28.0: com Corrigir valores pelo rendimento desligado, a ajuda dizia que o valor ia mudar daqui para a frente)
+    def test_ajuda_do_valor_segue_corrigir_valores(self):
+        self.novo()
+        self.assertEqual(self.texto("#aj-valor"), "O saldo de hoje; o rendimento conta daqui para a frente.")
+        self.clicar('.folha [data-a="f-tipo"][data-v="bens"]')
+        self.assertEqual(self.texto("#aj-valor"), "O valor de hoje; a taxa da categoria conta daqui para a frente.")
+        self.novo(base(bancos=BANCOS, ajustes={"corrigir": False}))
+        self.assertEqual(self.texto("#aj-valor"), "O saldo de hoje.")
+        self.clicar('.folha [data-a="f-tipo"][data-v="bens"]')
+        self.assertEqual(self.texto("#aj-valor"), "O valor de hoje.")
+
     def test_bens_separado_por_categoria(self):
         self.novo()
         self.clicar('.folha [data-a="f-tipo"][data-v="bens"]')
