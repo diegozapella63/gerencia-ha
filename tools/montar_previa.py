@@ -11,7 +11,9 @@ SAIDA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "preview", "ger
 
 css = open(os.path.join(W, "styles.css"), encoding="utf-8").read()
 js = open(os.path.join(W, "app.js"), encoding="utf-8").read()
-assert "</script" not in js
+# as caixas de seleção no visual do app (o mesmo arquivo dos outros apps), antes do app: o Voltar dela vem primeiro
+caixas = open(os.path.join(W, "selectsheet.js"), encoding="utf-8").read()
+assert "</script" not in js and "</script" not in caixas
 
 
 def embute(m):
@@ -35,6 +37,9 @@ html = f'''<!doctype html>
 <div id="toast" role="status"></div>
 <input type="file" id="arquivo" accept=".zip,.json" hidden>
 <script>window.GERENCIA_DEMO = true;</script>
+<script>
+{caixas}
+</script>
 <script>
 {js}
 </script>

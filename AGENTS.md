@@ -27,6 +27,8 @@ gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, a�
 gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada) para o Baixar PDF do Relatório de patrimônio
 gerencia/app/avisos.py        avisos no celular: as pessoas da casa e os celulares delas (mesma regra do phones.js do ResolvIA), o envio
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
+gerencia/app/www/selectsheet.js  as caixas de seleção no visual do app: arquivo igual em todos os apps (no ResolvIA e no
+                              CronologIA, frontend/src/selectsheet.js); ao mudar, copie para os outros
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes (ver tests/README.md)
 docs/                         capturas de tela do README

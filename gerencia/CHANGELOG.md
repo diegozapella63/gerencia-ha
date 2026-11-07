@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.32.0
+
+- **Caixas de seleção** (Como é pago, a categoria e a conta na leitura por IA, o tipo e o rendimento de um investimento, IA usada pelo app, Fala para texto) abrem uma janela no visual do app, de baixo para cima, com as opções em linhas e a atual marcada na cor do app, no tema claro ou escuro, e não mais a janela padrão do celular, como nos outros apps da família. O Voltar do celular, o X ou tocar fora fecham só ela; numa janela do app (como a Nova despesa), o Voltar seguinte fecha a janela.
+
 ## 1.31.0
 
 - **Dicas de economia** com opções em **Mais › Configurações › Opções**, como o aviso de prazos do ResolvIA:
