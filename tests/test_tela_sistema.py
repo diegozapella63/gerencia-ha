@@ -1765,7 +1765,7 @@ class TestCasosDeCanto(TelaSistema):
     def test_relatorio_e_arquivos_na_previa_explicam(self):
         self.abrir(base(), ui={"tab": "mais"})
         self.clicar('#app .menu-row[data-a="relatorio"]')
-        self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre. No app, ele abre pronto para imprimir.")
+        self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre.")
         self.ir_mais("config", "dados")
         self.assertEqual(self.conta('#exportar [data-a="relatorio"]'), 0, "o relatório saiu de Exportar: tem a sua linha no menu")
         self.clicar('#exportar [data-a="demo-arq"]')

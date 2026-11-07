@@ -24,6 +24,7 @@ gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
+gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4) para o Baixar PDF do Relatório de patrimônio
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tests/                        testes (ver tests/README.md)

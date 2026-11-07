@@ -893,6 +893,37 @@ class TestRelatorioNoTema(TelaMais):
         finally:
             pg.close()
 
+    def test_relatorio_filtro_e_botoes_no_celular(self):
+        """390 px: Voltar e Baixar PDF do mesmo tamanho, lado a lado; Todos, Meus e De terceiros do mesmo tamanho, o
+        escolhido marcado; nada sai da tela. Com o filtro, só os investimentos de quem foi escolhido."""
+        import os
+        import tempfile
+        from tests.base import importar_servidor
+        S = importar_servidor()
+        d = S.vazio()
+        d["investimentos"] = [{"id": "1", "nome": "CDB Azul", "valor": 1000, "indexador": "parado"},
+                              {"id": "2", "nome": "Poupança do Beto", "valor": 1218500, "indexador": "parado", "titular": "terceiros", "terceiro": "Beto"}]
+        arq = os.path.join(tempfile.mkdtemp(), "relatorio.html")
+        with open(arq, "wb") as f:
+            f.write(S.gerar_relatorio(d, "escuro", "terceiros"))
+        pg = self.ctx.new_page()
+        try:
+            pg.set_viewport_size({"width": 390, "height": 844})
+            pg.goto("file://" + arq)
+            self.assertFalse(pg.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth"))
+            caixas = pg.evaluate("[...document.querySelectorAll('.barra a')].map(a => { const r = a.getBoundingClientRect(); return [a.textContent, Math.round(r.width), Math.round(r.top), Math.round(r.height)] })")
+            self.assertEqual([c[0] for c in caixas], ["Voltar", "Baixar PDF"])
+            self.assertEqual(caixas[0][1:], caixas[1][1:], "mesmo tamanho e alinhados")
+            filtro = pg.evaluate("[...document.querySelectorAll('.filtro a')].map(a => [a.textContent, Math.round(a.getBoundingClientRect().width), a.className])")
+            self.assertEqual([f[0] for f in filtro], ["Todos", "Meus", "De terceiros"])
+            self.assertEqual(len({f[1] for f in filtro}), 1, f"os três do mesmo tamanho: {filtro}")
+            self.assertEqual([f[2] for f in filtro], ["", "", "on"])
+            self.assertEqual(pg.locator("h2").all_inner_texts()[0].split("\n")[0], "De Beto")
+            self.assertEqual(pg.locator("text=CDB Azul").count(), 0)
+            self.assertEqual(pg.inner_text(".resumo"), "De terceiros\nR$ 1.218.500,00")
+        finally:
+            pg.close()
+
     def test_relatorio_escuro_imprime_em_branco(self):
         self.assertEqual(self.fundo("escuro", impressao=True, esquema="dark"), "rgb(255, 255, 255)")
 
@@ -1055,7 +1086,7 @@ class TestMenuMais(TelaMais):
     def test_relatorio_abre_direto_do_menu(self):
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais"})
         self.clicar('#app .menu-row[data-a="relatorio"]')
-        self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre. No app, ele abre pronto para imprimir.")
+        self.assertEqual(self.esperar_aviso("relatório"), "Na prévia o relatório não abre.")
         self.assertTrue(self.no_menu(), "não é uma tela: o menu continua")
 
     def test_nada_passa_da_largura_no_celular_estreito(self):

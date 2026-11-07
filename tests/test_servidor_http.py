@@ -8,7 +8,7 @@ import re
 import unittest
 import zipfile
 
-from tests.base import Servidor
+from tests.base import Servidor, ler_pdf
 
 JPG = b"\xff\xd8\xff\xe0" + b"\0" * 400 + b"\xff\xd9"
 B64 = "data:image/jpeg;base64," + base64.b64encode(JPG).decode()
@@ -96,6 +96,23 @@ class TestHTTP(unittest.TestCase):
         self.assertIn(b"CDB Exemplo", html)
         self.assertIn("attachment", self.s.get("/relatorio?baixar=1")[1]["Content-Disposition"])
         self.assertIn(b'data-theme="dark"', self.s.get("/relatorio?tema=escuro")[2], "o relatório no tema do app")
+        self.assertIn(b"class=on aria-current=page>De terceiros</a>", self.s.get("/relatorio?quem=terceiros")[2])
+
+    def test_relatorio_em_pdf_para_baixar(self):
+        """Baixar PDF: um arquivo de verdade (o app do Home Assistant no Android não imprime a página)."""
+        st, cab, corpo = self.s.get("/relatorio.pdf?quem=meus")
+        self.assertEqual(st, 200)
+        self.assertEqual(cab["Content-Type"], "application/pdf")
+        self.assertRegex(cab["Content-Disposition"], r'^attachment; filename="patrimonio-\d{4}-\d{2}-\d{2}-meus\.pdf"$')
+        self.assertTrue(corpo.startswith(b"%PDF-1.4") and corpo.endswith(b"%%EOF\n"))
+        self.assertIn("Só os meus", [t for p in ler_pdf(corpo) for t in p])
+        self.assertRegex(self.s.get("/relatorio.pdf")[1]["Content-Disposition"], r'filename="patrimonio-\d{4}-\d{2}-\d{2}\.pdf"$')
+
+    def test_relatorio_em_pdf_nao_poe_o_pedido_no_cabecalho(self):
+        st, cab, _ = self.s.get("/relatorio.pdf?quem=x%22%0D%0AX-Falso:%201")
+        self.assertEqual(st, 200)
+        self.assertNotIn("X-Falso", cab)
+        self.assertRegex(cab["Content-Disposition"], r'filename="patrimonio-\d{4}-\d{2}-\d{2}\.pdf"$')
 
     def test_backup_na_pasta_share_e_restaurar(self):
         self.estado(investimentos=[{"id": "i1", "nome": "Antes do backup", "valor": 1, "indexador": "parado"}])

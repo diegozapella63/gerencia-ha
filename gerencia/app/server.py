@@ -29,8 +29,9 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
+import pdf  # noqa: E402
 
-VERSAO = "1.28.1"
+VERSAO = "1.29.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -433,63 +434,95 @@ def restaurar_backup(nome):
 
 # ---------------------------------------------------------------- relatório
 
-def gerar_relatorio(d, tema=None):
-    """O relatório de patrimônio (HTML para ver, imprimir ou salvar em PDF). tema: "claro" ou "escuro" (o app manda o que está
-    usando); sem ele, vale o de Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro."""
+QUEM = {"todos": "Todos", "meus": "Meus", "terceiros": "De terceiros"}
+
+
+def dados_relatorio(d, quem="todos", agora=None):
+    """O que vai no Relatório de patrimônio (na página e no PDF). quem: todos, meus ou terceiros."""
+    quem = quem if quem in QUEM else "todos"
     ind = d["indices"]
-    tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
-    attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
     corrigir = d["ajustes"].get("corrigir", True)
-    cor = calc.cor_app(d["ajustes"])
     bancos = {b.get("id"): b for b in d["bancos"]}
-    t = calc.totais(d)
-    e = html.escape
+    invs = [i for i in d["investimentos"]
+            if quem == "todos" or (quem == "terceiros") == (i.get("titular") == "terceiros")]
+    vh = {id(i): calc.valor_hoje(i, ind, corrigir) for i in invs}
+    meu = sum(v for i, v in ((i, vh[id(i)]) for i in invs) if i.get("titular") != "terceiros")
+    total = sum(vh.values())
 
     grupos = {}
-    for inv in d["investimentos"]:
+    for inv in invs:
         grupos.setdefault(calc.dono(inv), []).append(inv)
-    ordem = sorted(grupos, key=lambda p: (p != "Meu", p.lower()))
-
-    por_banco = {}
-    for inv in d["investimentos"]:
-        nome = bancos.get(inv.get("banco"), {}).get("nome", "Sem banco")
-        por_banco[nome] = por_banco.get(nome, 0) + calc.valor_hoje(inv, ind, corrigir)
-
-    partes = []
-    for p in ordem:
-        itens = sorted(grupos[p], key=lambda i: -calc.valor_hoje(i, ind, corrigir))
-        soma = sum(calc.valor_hoje(i, ind, corrigir) for i in itens)
-        titulo = "Seu dinheiro" if p == "Meu" else f"De {e(p)}"
+    secoes = []
+    for p in sorted(grupos, key=lambda p: (p != "Meu", p.lower())):
+        itens = sorted(grupos[p], key=lambda i: -vh[id(i)])
         linhas = []
         for inv in itens:
-            v = calc.valor_hoje(inv, ind, corrigir)
             venc = calc.parse_data(inv.get("vencimento"))
-            linhas.append(
-                # no celular a coluna Banco some e o banco vai embaixo do nome (senão o valor fica cortado)
-                "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
-                    e(inv.get("nome", "")), e(calc.TIPOS.get(inv.get("tipo"), "")),
-                    (" · " if calc.TIPOS.get(inv.get("tipo")) else "") + e(bancos.get(inv.get("banco"), {}).get("nome", "")) if bancos.get(inv.get("banco")) else "",
-                    e(bancos.get(inv.get("banco"), {}).get("nome", "")), e(calc.rotulo_taxa(inv)),
-                    venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
-                    calc.fmt_brl(v)))
-        partes.append(
-            f"<section><h2>{titulo}<span>{calc.fmt_brl(soma)}</span></h2>"
-            "<table class=inv><thead><tr><th>Investimento</th><th>Banco</th><th>Rendimento</th>"
-            "<th>Vencimento</th><th class=n>Valor hoje</th></tr></thead><tbody>"
-            + "".join(linhas) + "</tbody></table></section>")
+            linhas.append({"nome": inv.get("nome", ""), "tipo": calc.TIPOS.get(inv.get("tipo"), ""),
+                           "banco": bancos.get(inv.get("banco"), {}).get("nome", ""), "rendimento": calc.rotulo_taxa(inv),
+                           "vencimento": venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
+                           "valor": vh[id(inv)]})
+        secoes.append({"titulo": "Seu dinheiro" if p == "Meu" else f"De {p}", "total": sum(vh[id(i)] for i in itens), "linhas": linhas})
 
-    bancos_html = "".join(
-        f"<tr><td>{e(n)}</td><td class=n>{calc.fmt_brl(v)}</td>"
-        f"<td class=n>{calc.fmt_pct(v / t['total'] * 100 if t['total'] else 0)}%</td></tr>"
-        for n, v in sorted(por_banco.items(), key=lambda x: -x[1]))
-
+    por_banco = {}
+    for inv in invs:
+        nome = bancos.get(inv.get("banco"), {}).get("nome", "Sem banco")
+        por_banco[nome] = por_banco.get(nome, 0) + vh[id(inv)]
     # com Corrigir valores pelo rendimento desligado, o valor de hoje é o último informado (sem estimar pelos índices)
-    rodape = (f"Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a.,\n"
+    rodape = (f"Valores de hoje estimados a partir do último valor informado e dos índices: CDI {calc.fmt_pct(calc.num(ind.get('cdi')))}% a.a., "
               f"Selic {calc.fmt_pct(calc.num(ind.get('selic')))}% a.a., IPCA {calc.fmt_pct(calc.num(ind.get('ipca')))}% em 12 meses."
-              if corrigir else "Valores de hoje: o último valor informado de cada investimento.")
+              if corrigir else "Valores de hoje: o último valor informado de cada investimento.") + " Antes do imposto de renda."
+    resumo = {"todos": [("Patrimônio total", total), ("Seu dinheiro", meu), ("De terceiros", total - meu)],
+              "meus": [("Seu dinheiro", meu)], "terceiros": [("De terceiros", total)]}[quem]
+    return {"quem": quem, "gerado": (agora or datetime.now()).strftime("%d/%m/%Y às %H:%M"), "quantidade": len(invs), "total": total,
+            "resumo": resumo, "secoes": secoes, "rodape": rodape, "cor": calc.cor_app(d["ajustes"]),
+            "bancos": [(n, v, v / total * 100 if total else 0) for n, v in sorted(por_banco.items(), key=lambda x: -x[1])],
+            "vazio": {"todos": "Nenhum investimento cadastrado.", "meus": "Nenhum investimento seu.",
+                      "terceiros": "Nenhum investimento de outras pessoas."}[quem]}
 
-    claro = "--bg:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--btn:#fff"
-    escuro = "--bg:#0f1318;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--btn:#18202a"
+
+def _n_invest(n):
+    return f"{n} investimento{'' if n == 1 else 's'}"
+
+
+def nome_relatorio(quem):
+    """patrimonio-AAAA-MM-DD.pdf (todos) ou com -meus / -terceiros; outra coisa no pedido vale como todos."""
+    return f"patrimonio-{date.today().isoformat()}" + (f"-{quem}" if quem in ("meus", "terceiros") else "") + ".pdf"
+
+
+def gerar_relatorio(d, tema=None, quem="todos"):
+    """O relatório de patrimônio em HTML, para ver; Baixar PDF leva ao mesmo relatório em PDF (o app do Home Assistant no
+    Android não imprime a página). tema: "claro" ou "escuro" (o app manda o que está usando); sem ele, vale o de
+    Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou terceiros."""
+    tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
+    attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
+    r = dados_relatorio(d, quem)
+    e = html.escape
+    q_tema = f"&tema={tema}" if tema else ""
+
+    partes = []
+    for s in r["secoes"]:
+        linhas = "".join(
+            # no celular a coluna Banco some e o banco vai embaixo do nome (senão o valor fica cortado)
+            "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
+                e(l["nome"]), e(l["tipo"]), ((" · " if l["tipo"] else "") + e(l["banco"])) if l["banco"] else "",
+                e(l["banco"]), e(l["rendimento"]), e(l["vencimento"]), calc.fmt_brl(l["valor"]))
+            for l in s["linhas"])
+        partes.append(f"<section><h2>{e(s['titulo'])}<span>{calc.fmt_brl(s['total'])}</span></h2>"
+                      "<table class=inv><thead><tr><th>Investimento</th><th>Banco</th><th>Rendimento</th>"
+                      "<th>Vencimento</th><th class=n>Valor hoje</th></tr></thead><tbody>" + linhas + "</tbody></table></section>")
+    if r["secoes"]:
+        bancos_html = "".join(f"<tr><td>{e(n)}</td><td class=n>{calc.fmt_brl(v)}</td><td class=n>{calc.fmt_pct(p)}%</td></tr>"
+                              for n, v, p in r["bancos"])
+        partes.append(f"""<section><h2>Por banco<span>{calc.fmt_brl(r['total'])}</span></h2>
+<table><thead><tr><th>Banco</th><th class=n>Valor</th><th class=n>Parte</th></tr></thead><tbody>{bancos_html}</tbody></table></section>""")
+    else:
+        partes.append(f'<p class="vazio">{e(r["vazio"])}</p>')
+    filtro = "".join(f'<a href="relatorio?quem={k}{q_tema}"{" class=on aria-current=page" if k == r["quem"] else ""}>{n}</a>' for k, n in QUEM.items())
+    resumo = "".join(f"<div><span>{n}</span><b>{calc.fmt_brl(v)}</b></div>" for n, v in r["resumo"])
+
+    claro = "--bg:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--btn:#fff;--seg:#eef1f4"
+    escuro = "--bg:#0f1318;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--btn:#18202a;--seg:#18202a"
     # no automático, sem o tema do app: o do Home Assistant (a página abre dentro dele) ou o do aparelho
     script_tema = "" if tema else """<script>try{var h=parent!==window?parent.document.querySelector('home-assistant'):null,m=h&&h.hass&&h.hass.themes?h.hass.themes.darkMode:null;
 if(typeof m==='boolean')document.documentElement.setAttribute('data-theme',m?'dark':'light')}catch(e){}</script>"""
@@ -498,21 +531,25 @@ if(typeof m==='boolean')document.documentElement.setAttribute('data-theme',m?'da
 <meta name="color-scheme" content="light dark">
 <title>Relatório GerencIA</title>{script_tema}
 <style>
-:root{{--a:{cor};{claro};color-scheme:light}}
+:root{{--a:{r['cor']};{claro};color-scheme:light}}
 :root[data-theme="dark"]{{{escuro};color-scheme:dark}}
 @media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{{escuro};color-scheme:dark}}}}
 *{{box-sizing:border-box}}
 body{{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg);margin:0;padding:24px 16px 48px}}
 main{{max-width:860px;margin:0 auto}}
 .barra{{display:flex;gap:8px;margin-bottom:20px}}
-.barra a,.barra button{{font:inherit;font-weight:600;padding:10px 16px;border-radius:12px;border:1px solid var(--borda);background:var(--btn);color:var(--fg);text-decoration:none;cursor:pointer}}
-.barra button{{background:var(--a);border-color:transparent;color:#0b0f14}}
+.barra a{{flex:1;max-width:220px;text-align:center;font:inherit;font-weight:600;padding:10px 16px;border-radius:12px;border:1px solid var(--borda);background:var(--btn);color:var(--fg);text-decoration:none}}
+.barra a.pri{{background:var(--a);border-color:transparent;color:#0b0f14}}
+.filtro{{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--seg);margin:0 0 18px}}
+.filtro a{{flex:1;text-align:center;padding:8px 6px;border-radius:9px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}}
+.filtro a.on{{background:var(--bg);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}}
 h1{{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}}
-.sub{{color:var(--mut);margin:0 0 20px}}
-.resumo{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}}
+.sub{{color:var(--mut);margin:0 0 16px}}
+.resumo{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:24px}}
 .resumo div{{border:1px solid var(--linha);border-radius:12px;padding:12px}}
 .resumo b{{display:block;font-size:20px}}
 .resumo span{{color:var(--mut);font-size:13px}}
+.vazio{{color:var(--mut);margin:24px 0}}
 h2{{font-size:17px;display:flex;justify-content:space-between;border-bottom:2px solid var(--a);padding-bottom:6px;margin:28px 0 6px}}
 table{{width:100%;border-collapse:collapse;font-size:13.5px}}
 th{{text-align:left;color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--linha)}}
@@ -521,22 +558,166 @@ td small{{display:block;color:var(--mut)}}
 .n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
 .rodape{{color:var(--mut);font-size:12px;margin-top:28px}}
 .bm{{display:none}}
-@media (max-width:600px){{.resumo{{grid-template-columns:1fr}} .inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
-@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};color-scheme:light}} .barra{{display:none}} body{{padding:0}} section{{break-inside:avoid}}}}
+@media (max-width:600px){{.inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
+@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};color-scheme:light}} .barra,.filtro{{display:none}} body{{padding:0}} section{{break-inside:avoid}}}}
 </style></head><body><main>
-<div class="barra"><a href="./">Voltar</a><button onclick="window.print()">Imprimir ou salvar PDF</button></div>
+<div class="barra"><a href="./">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
 <h1>Relatório de patrimônio</h1>
-<p class="sub">Gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')} · {t['quantidade']} investimentos</p>
-<div class="resumo">
-<div><span>Patrimônio total</span><b>{calc.fmt_brl(t['total'])}</b></div>
-<div><span>Seu dinheiro</span><b>{calc.fmt_brl(t['meu'])}</b></div>
-<div><span>De terceiros</span><b>{calc.fmt_brl(t['terceiros'])}</b></div>
-</div>
+<p class="sub">Gerado em {r['gerado']} · {_n_invest(r['quantidade'])}</p>
+<nav class="filtro" aria-label="De quem">{filtro}</nav>
+<div class="resumo">{resumo}</div>
 {''.join(partes)}
-<section><h2>Por banco<span>{calc.fmt_brl(t['total'])}</span></h2>
-<table><thead><tr><th>Banco</th><th class=n>Valor</th><th class=n>Parte</th></tr></thead><tbody>{bancos_html}</tbody></table></section>
-<p class="rodape">{rodape} Antes do imposto de renda.</p>
+<p class="rodape">{e(r['rodape'])}</p>
 </main></body></html>""".encode("utf-8")
+
+
+def _icone_pdf(doc, x, y, tam, cor):
+    """O ícone do app (o mesmo do icon.svg: R$ em duas plaquinhas), com o $ na cor do app."""
+    s = tam / 64
+    hx = pdf.cor_rgb
+    doc.retangulo(x, y, tam, tam, borda=hx("#2b333e"), fundo=hx("#0c0f13"), esp=0.6, raio=14 * s)
+    for tx in (10, 33):
+        doc.retangulo(x + tx * s, y + 17 * s, 21 * s, 30 * s, fundo=hx("#1b2129"), raio=3 * s)
+        doc.retangulo(x + tx * s, y + 17 * s, 21 * s, 15 * s, fundo=hx("#262d37"), raio=3 * s)
+    doc.texto(x + 20.5 * s, y + 41 * s, "R", 23 * s, True, hx("#f3f5f8"), "centro")
+    doc.texto(x + 43.5 * s, y + 41 * s, "$", 23 * s, True, cor, "centro")
+    doc.retangulo(x + 10 * s, y + 31.3 * s, 44 * s, 1.4 * s, fundo=hx("#05070a"))
+
+
+def gerar_relatorio_pdf(d, quem="todos"):
+    """O mesmo relatório em PDF (A4, sempre claro), para baixar e compartilhar: cabeçalho com o app, resumo, os
+    investimentos de cada um, a divisão por banco e, no pé de cada página, o nome do app e o número da página."""
+    r = dados_relatorio(d, quem)
+    doc = pdf.Documento("Relatório de patrimônio · GerencIA")
+    TXT, MUT, LIN, LIN2 = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95)
+    ESCURO, CLARO, CLARO2 = pdf.cor_rgb("#13181f"), (0.96, 0.97, 0.98), (0.62, 0.66, 0.72)
+    COR = pdf.cor_rgb(r["cor"])
+
+    def tom(a):  # a cor do app clareada (a = quanto da cor fica)
+        return tuple(1 - a * (1 - c) for c in COR)
+
+    M, W, FIM = 40, doc.largura_pagina - 80, doc.altura_pagina - 62
+    DIR = M + W
+    # investimento, banco, rendimento, vencimento; o valor fica à direita, com espaço para R$ 9.999.999,99
+    COLS = [(M + 6, 164), (M + 178, 88), (M + 274, 84), (M + 364, 52)]
+    y = [0]
+
+    def topo(continua=None):
+        """A faixa do alto: grande na primeira página, fina nas outras."""
+        if not continua:
+            doc.retangulo(0, 0, doc.largura_pagina, 86, fundo=ESCURO)
+            doc.retangulo(0, 86, doc.largura_pagina, 3, fundo=COR)
+            _icone_pdf(doc, M, 21, 44, COR)
+            doc.texto(M + 56, 41, "GerencIA", 20, True, CLARO)
+            doc.texto(M + 56, 57, "Finanças da casa", 9.5, False, CLARO2)
+            doc.texto(DIR, 39, "Gerado em", 8, False, CLARO2, "direita")
+            doc.texto(DIR, 55, r["gerado"], 11, True, CLARO, "direita")
+            y[0] = 129
+            return
+        doc.retangulo(0, 0, doc.largura_pagina, 32, fundo=ESCURO)
+        doc.retangulo(0, 32, doc.largura_pagina, 2, fundo=COR)
+        _icone_pdf(doc, M, 7, 18, COR)
+        doc.texto(M + 26, 20.5, "GerencIA", 10, True, CLARO)
+        doc.texto(DIR, 20.5, "Relatório de patrimônio", 8.5, False, CLARO2, "direita")
+        y[0] = 64
+        doc.texto(M, y[0], continua + " (continuação)", 11, True, MUT)
+        y[0] += 18
+
+    def cabeca_tabela(colunas):
+        doc.retangulo(M, y[0] - 12, W, 19, fundo=(0.955, 0.962, 0.972), raio=3)
+        for (x, _), t in zip(COLS, colunas[:-1]):
+            doc.texto(x, y[0], t.upper(), 7.5, True, MUT)
+        doc.texto(DIR - 6, y[0], colunas[-1].upper(), 7.5, True, MUT, "direita")
+        y[0] += 22
+
+    def cabe(altura, titulo=None, colunas=None):
+        if y[0] + altura > FIM:
+            doc.nova_pagina()
+            topo(titulo)
+            if colunas:
+                cabeca_tabela(colunas)
+
+    def titulo_secao(t, valor):
+        doc.texto(M, y[0], t, 12.5, True, TXT)
+        doc.texto(DIR, y[0], calc.fmt_brl(valor), 12.5, True, TXT, "direita")
+        y[0] += 6
+        doc.linha(M, y[0], DIR, y[0], COR, 1.6)
+        y[0] += 18
+
+    topo()
+    doc.texto(M, y[0], "Relatório de patrimônio", 22, True, TXT)
+    filtro = {"todos": "Todos", "meus": "Só os meus", "terceiros": "De terceiros"}[r["quem"]]
+    lp = pdf.largura(filtro, 8.5, True) + 20
+    doc.retangulo(DIR - lp, y[0] - 17, lp, 20, fundo=tom(0.22), raio=10)
+    doc.texto(DIR - lp / 2, y[0] - 3.7, filtro, 8.5, True, TXT, "centro")
+    y[0] += 19
+    nb = sum(1 for n, _, _ in r["bancos"] if n != "Sem banco")
+    doc.texto(M, y[0], _n_invest(r["quantidade"]) + (f" em {nb} banco{'' if nb == 1 else 's'}" if nb else ""), 9.5, False, MUT)
+    y[0] += 20
+    larg = (W - 10 * (len(r["resumo"]) - 1)) / len(r["resumo"])
+    for k, (n, v) in enumerate(r["resumo"]):
+        x = M + k * (larg + 10)
+        if k == 0:  # o primeiro (o total) em destaque, na cor do app
+            doc.retangulo(x, y[0], larg, 54, borda=tom(0.45), fundo=tom(0.12), raio=6)
+        else:
+            doc.retangulo(x, y[0], larg, 54, borda=LIN, raio=6)
+        doc.texto(x + 12, y[0] + 19, n, 8.5, False, MUT)
+        doc.texto(x + 12, y[0] + 40, pdf.cortar(calc.fmt_brl(v), larg - 24, 15, True), 15, True, TXT)
+    y[0] += 82
+
+    colunas = ["Investimento", "Banco", "Rendimento", "Vencimento", "Valor hoje"]
+    for s in r["secoes"]:
+        cabe(70)
+        titulo_secao(s["titulo"], s["total"])
+        cabeca_tabela(colunas)
+        for l in s["linhas"]:
+            cabe(28, s["titulo"], colunas)
+            doc.texto(COLS[0][0], y[0], pdf.cortar(l["nome"], COLS[0][1], 9.5), 9.5, False, TXT)
+            if l["tipo"]:
+                doc.texto(COLS[0][0], y[0] + 11, pdf.cortar(l["tipo"], COLS[0][1], 7.5), 7.5, False, MUT)
+            for (x, w), t, tam in zip(COLS[1:], (l["banco"], l["rendimento"], l["vencimento"]), (9, 9, 8.5)):
+                doc.texto(x, y[0], pdf.cortar(t, w, tam), tam, False, TXT)
+            doc.texto(DIR - 6, y[0], calc.fmt_brl(l["valor"]), 9.5, False, TXT, "direita")
+            y[0] += 17
+            doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
+            y[0] += 12
+        y[0] += 14
+
+    if r["secoes"]:
+        cabe(80)
+        titulo_secao("Por banco", r["total"])
+        BX, BW = M + 160, W - 160 - 150  # a barra da parte de cada banco
+        for n, v, p in r["bancos"]:
+            cabe(24, "Por banco")
+            doc.texto(M, y[0], pdf.cortar(n, 150, 9.5), 9.5, False, TXT)
+            doc.retangulo(BX, y[0] - 6.5, BW, 7, fundo=LIN2, raio=3.5)
+            if p > 0:
+                doc.retangulo(BX, y[0] - 6.5, max(7, BW * min(p, 100) / 100), 7, fundo=COR, raio=3.5)
+            doc.texto(DIR - 58, y[0], calc.fmt_brl(v), 9.5, False, TXT, "direita")
+            doc.texto(DIR, y[0], f"{calc.fmt_pct(p)}%", 9.5, False, MUT, "direita")
+            y[0] += 9
+            doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
+            y[0] += 15
+    else:
+        doc.texto(M, y[0], r["vazio"], 10.5, False, MUT)
+        y[0] += 20
+
+    linhas = pdf.quebrar(r["rodape"], W, 8)
+    cabe(16 + 11 * len(linhas))
+    y[0] += 10
+    for t in linhas:
+        doc.texto(M, y[0], t, 8, False, MUT)
+        y[0] += 11
+    # no pé de cada página: o app e, com mais de uma página, o número dela
+    n = len(doc.paginas)
+    for k in range(n):
+        doc.ir_para(k)
+        base = doc.altura_pagina - 30
+        doc.linha(M, base - 14, DIR, base - 14, LIN, 0.5)
+        doc.texto(M, base, "GerencIA · Relatório de patrimônio", 7.5, False, MUT)
+        if n > 1:
+            doc.texto(DIR, base, f"Página {k + 1} de {n}", 7.5, False, MUT, "direita")
+    return doc.bytes()
 
 
 # ---------------------------------------------------------------- importar
@@ -1769,8 +1950,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.baixar(gerar_zip(ler()), "application/zip", nome_arquivo("zip"))
             if p == "/api/versoes":
                 return self.enviar(200, listar_versoes())
+            if p == "/relatorio.pdf":
+                quem = (q.get("quem") or ["todos"])[0]
+                return self.baixar(gerar_relatorio_pdf(ler(), quem), "application/pdf", nome_relatorio(quem))
             if p in ("/relatorio", "/relatorio.html"):
-                corpo = gerar_relatorio(ler(), (q.get("tema") or [None])[0])
+                corpo = gerar_relatorio(ler(), (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0])
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")

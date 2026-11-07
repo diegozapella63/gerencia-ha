@@ -17,6 +17,8 @@ jobs:
           python-version: "3.12"
       # os testes da tela (tests/test_tela*.py) abrem o app.js num Chromium; sem ele seriam pulados
       - run: pip install playwright && python -m playwright install --with-deps chromium
+      # o qpdf e o pdftotext conferem o PDF do relatório com leitores de verdade
+      - run: sudo apt-get install -y qpdf poppler-utils
       - name: Testes (falha também se algum for pulado)
         env:
           TZ: America/Sao_Paulo

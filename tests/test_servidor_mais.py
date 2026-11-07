@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 from datetime import date, timedelta
 
-from tests.base import ServidorFalso, importar_servidor, porta_fechada, RAIZ
+from tests.base import ServidorFalso, importar_servidor, porta_fechada, RAIZ, ler_pdf
 S = importar_servidor()
 
 FONTES = os.path.join(RAIZ, "tests", "e2e", "fixtures", "fontes")
@@ -468,6 +468,182 @@ class TestImagensBackupsVersoes(unittest.TestCase):
         self.assertIn("mercado", S.voz_texto(b"\0\1" * 8000)["texto"])
         with self.assertRaises(ValueError):
             S.voz_texto(b"\0" * 10)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+def carteira(n_meus=2):
+    """Ana com investimentos no Banco Azul e na Corretora Verde; a Mãe e o Beto com um cada (tudo inventado)."""
+    meus = [{"id": f"a{k}", "nome": f"CDB Azul {k + 1}", "banco": "az", "valor": 1000 + 100 * k, "indexador": "parado", "tipo": "cdb",
+             "vencimento": "2028-03-10"} for k in range(n_meus)]
+    return dados(bancos=[{"id": "az", "nome": "Banco Azul"}, {"id": "vd", "nome": "Corretora Verde"}], investimentos=meus + [
+        {"id": "t", "nome": "Tesouro Selic", "banco": "vd", "valor": 500, "indexador": "parado", "tipo": "tesouro", "liquidez": "diaria"},
+        {"id": "m", "nome": "Poupança da Mãe", "banco": "az", "valor": 2000, "indexador": "parado", "tipo": "poupanca",
+         "titular": "terceiros", "terceiro": "Mãe"},
+        {"id": "b", "nome": "LCI do Beto", "valor": 300, "indexador": "parado", "tipo": "lci", "titular": "terceiros", "terceiro": "Beto"}])
+
+
+def textos(pdf_bytes):
+    return [t for pagina in ler_pdf(pdf_bytes) for t in pagina]
+
+
+class TestRelatorioFiltro(unittest.TestCase):
+    """Relatório de patrimônio: Todos, Meus ou De terceiros (no resumo, nas seções, no Por banco e no PDF)."""
+
+    def test_todos(self):
+        r = S.dados_relatorio(carteira())
+        self.assertEqual(r["quem"], "todos")
+        self.assertEqual(r["quantidade"], 5)
+        self.assertEqual(r["resumo"], [("Patrimônio total", 4900), ("Seu dinheiro", 2600), ("De terceiros", 2300)])
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro", "De Beto", "De Mãe"], "o seu primeiro, depois cada pessoa")
+        self.assertEqual([l["nome"] for l in r["secoes"][0]["linhas"]], ["CDB Azul 2", "CDB Azul 1", "Tesouro Selic"], "do maior para o menor")
+
+    def test_so_os_meus(self):
+        r = S.dados_relatorio(carteira(), "meus")
+        self.assertEqual((r["quantidade"], r["total"]), (3, 2600))
+        self.assertEqual(r["resumo"], [("Seu dinheiro", 2600)])
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["Seu dinheiro"])
+        self.assertEqual(r["bancos"], [("Banco Azul", 2100, 2100 / 2600 * 100), ("Corretora Verde", 500, 500 / 2600 * 100)])
+
+    def test_de_terceiros(self):
+        r = S.dados_relatorio(carteira(), "terceiros")
+        self.assertEqual(r["resumo"], [("De terceiros", 2300)])
+        self.assertEqual([s["titulo"] for s in r["secoes"]], ["De Beto", "De Mãe"])
+        self.assertEqual([b[0] for b in r["bancos"]], ["Banco Azul", "Sem banco"])
+        self.assertAlmostEqual(sum(b[2] for b in r["bancos"]), 100)
+
+    def test_pedido_desconhecido_vale_todos(self):
+        self.assertEqual(S.dados_relatorio(carteira(), "<script>")["quem"], "todos")
+
+    def test_sem_nada_para_mostrar(self):
+        d = dados(investimentos=[{"id": "1", "nome": "CDB Azul", "valor": 10, "indexador": "parado"}])
+        self.assertEqual(S.dados_relatorio(d, "terceiros")["vazio"], "Nenhum investimento de outras pessoas.")
+        self.assertEqual(S.dados_relatorio(dados(), "meus")["vazio"], "Nenhum investimento seu.")
+        self.assertEqual(S.dados_relatorio(dados())["vazio"], "Nenhum investimento cadastrado.")
+        self.assertEqual(S.dados_relatorio(dados())["bancos"], [])
+
+    def test_hora_de_quando_foi_gerado(self):
+        from datetime import datetime
+        self.assertEqual(S.dados_relatorio(carteira(), agora=datetime(2026, 11, 2, 9, 5))["gerado"], "02/11/2026 às 09:05")
+
+    def test_nome_do_arquivo(self):
+        hoje = date.today().isoformat()
+        self.assertEqual(S.nome_relatorio("todos"), f"patrimonio-{hoje}.pdf")
+        self.assertEqual(S.nome_relatorio("meus"), f"patrimonio-{hoje}-meus.pdf")
+        self.assertEqual(S.nome_relatorio("terceiros"), f"patrimonio-{hoje}-terceiros.pdf")
+        self.assertEqual(S.nome_relatorio('x"\r\nSet-Cookie: a=1'), f"patrimonio-{hoje}.pdf", "nada do pedido entra no nome")
+
+    def test_pagina_tem_o_filtro_e_guarda_o_tema(self):
+        h = S.gerar_relatorio(carteira(), "escuro", "meus").decode()
+        self.assertIn('<nav class="filtro" aria-label="De quem">', h)
+        self.assertIn('<a href="relatorio?quem=todos&tema=escuro">Todos</a>', h)
+        self.assertIn('<a href="relatorio?quem=meus&tema=escuro" class=on aria-current=page>Meus</a>', h)
+        self.assertIn('<a href="relatorio?quem=terceiros&tema=escuro">De terceiros</a>', h)
+        self.assertIn("CDB Azul 1", h)
+        self.assertNotIn("Poupança da Mãe", h)
+        self.assertNotIn("De Mãe", h)
+
+    def test_pagina_sem_tema_nos_links(self):
+        h = S.gerar_relatorio(carteira(), None, "terceiros").decode()
+        self.assertIn('<a href="relatorio?quem=todos">Todos</a>', h)
+        self.assertIn("class=on aria-current=page>De terceiros</a>", h)
+        self.assertIn("<h2>De Mãe<span>R$ 2.000,00</span></h2>", h)
+        self.assertNotIn("CDB Azul", h)
+
+    def test_baixar_pdf_em_vez_de_imprimir(self):
+        """O app do Home Assistant no Android não imprime a página: o botão baixa o PDF feito pelo servidor."""
+        h = S.gerar_relatorio(carteira(), "claro", "terceiros").decode()
+        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf">Baixar PDF</a>', h)
+        self.assertNotIn("print()", h)
+        self.assertIn(".barra,.filtro{display:none}", h, "no papel, sem botões nem filtro")
+
+    def test_pagina_vazia(self):
+        h = S.gerar_relatorio(carteira(), None, "terceiros")
+        self.assertNotIn(b'class="vazio"', h)
+        h = S.gerar_relatorio(dados(), None, "meus").decode()
+        self.assertIn('<p class="vazio">Nenhum investimento seu.</p>', h)
+        self.assertNotIn("Por banco", h)
+
+
+class TestRelatorioPdf(unittest.TestCase):
+    """O PDF do relatório: cabeçalho com o app, o filtro, os investimentos, o Por banco e o pé de cada página."""
+
+    def test_cabecalho_com_o_app(self):
+        t = textos(S.gerar_relatorio_pdf(carteira()))
+        self.assertEqual(t[:6], ["R", "$", "GerencIA", "Finanças da casa", "Gerado em", t[5]], "o ícone (R$), o nome e o que é")
+        self.assertRegex(t[5], r"^\d{2}/\d{2}/\d{4} às \d{2}:\d{2}$")
+        self.assertEqual(t[6:9], ["Relatório de patrimônio", "Todos", "5 investimentos em 2 bancos"])
+
+    def test_resumo_secoes_e_por_banco(self):
+        t = textos(S.gerar_relatorio_pdf(carteira()))
+        for trecho in ("Patrimônio total", "R$ 4.900,00", "Seu dinheiro", "R$ 2.600,00", "De terceiros", "R$ 2.300,00",
+                       "De Mãe", "Poupança da Mãe", "De Beto", "LCI do Beto", "Tesouro Selic", "Diária", "10/03/2028", "Por banco",
+                       "Corretora Verde", "Sem banco", "VALOR HOJE", "INVESTIMENTO"):
+            self.assertIn(trecho, t)
+        self.assertIn("Antes do imposto de renda.", t[-2], "o rodapé com os índices antes do pé da página")
+        self.assertEqual(t[-1], "GerencIA · Relatório de patrimônio")
+
+    def test_so_os_meus(self):
+        t = textos(S.gerar_relatorio_pdf(carteira(), "meus"))
+        self.assertIn("Só os meus", t)
+        self.assertIn("3 investimentos em 2 bancos", t)
+        self.assertNotIn("Poupança da Mãe", t)
+        self.assertNotIn("Patrimônio total", t)
+
+    def test_de_terceiros(self):
+        t = textos(S.gerar_relatorio_pdf(carteira(), "terceiros"))
+        self.assertIn("De terceiros", t)
+        self.assertIn("2 investimentos em 1 banco", t, "Sem banco não conta como banco")
+        self.assertNotIn("CDB Azul 1", t)
+        self.assertNotIn("Seu dinheiro", t)
+
+    def test_vazio(self):
+        t = textos(S.gerar_relatorio_pdf(dados(), "meus"))
+        self.assertIn("Nenhum investimento seu.", t)
+        self.assertIn("0 investimentos", t)
+        self.assertNotIn("Por banco", t)
+
+    def test_nome_comprido_cortado(self):
+        d = carteira()
+        d["investimentos"][0]["nome"] = "CDB do Banco Azul com um nome tão comprido que não cabe na coluna"
+        t = textos(S.gerar_relatorio_pdf(d))
+        cortado = next(x for x in t if x.startswith("CDB do Banco Azul"))
+        self.assertTrue(cortado.endswith("…"))
+
+    def test_varias_paginas(self):
+        """Muitos investimentos: a tabela continua na página seguinte (com o título e o cabeçalho) e cada página tem o número."""
+        p = ler_pdf(S.gerar_relatorio_pdf(carteira(60)))
+        self.assertGreaterEqual(len(p), 3)
+        n = len(p)
+        for k, pagina in enumerate(p, 1):
+            self.assertEqual(pagina[-2:], ["GerencIA · Relatório de patrimônio", f"Página {k} de {n}"])
+        self.assertEqual(p[1][:4], ["R", "$", "GerencIA", "Relatório de patrimônio"], "faixa fina nas outras páginas")
+        self.assertEqual(p[1][4], "Seu dinheiro (continuação)")
+        self.assertEqual(p[1][5], "INVESTIMENTO")
+        todos = [t for pg in p for t in pg]
+        self.assertEqual(sum(1 for t in todos if t.startswith("CDB Azul ")), 60, "nenhum investimento perdido na troca de página")
+
+    def test_uma_pagina_sem_numero(self):
+        p = ler_pdf(S.gerar_relatorio_pdf(carteira()))
+        self.assertEqual(len(p), 1)
+        self.assertFalse(any(t.startswith("Página ") for t in p[0]))
+
+    def test_na_cor_do_app(self):
+        d = carteira()
+        d["ajustes"].update(cor="#ff0000", cor_dia=False)
+        self.assertIn(b"1.000 0.000 0.000 rg", zlib_paginas(S.gerar_relatorio_pdf(d)), "a faixa e o $ do ícone na cor escolhida")
+
+    def test_sem_corrigir_valores(self):
+        d = carteira()
+        d["ajustes"]["corrigir"] = False
+        self.assertIn("Valores de hoje: o último valor informado de cada investimento. Antes do imposto de renda.",
+                      textos(S.gerar_relatorio_pdf(d)))
+
+
+def zlib_paginas(b):
+    import re
+    import zlib
+    return b"".join(zlib.decompress(b[m.end():m.end() + int(m.group(1))])
+                    for m in re.finditer(rb"/Length (\d+) /Filter /FlateDecode >>\nstream\n", b))
 
 
 # ---------------------------------------------------------------------------------------------------------------

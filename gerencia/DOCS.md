@@ -27,7 +27,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Bancos**: bancos, quem tem conta em cada um e quem tem cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
-  - **Relatório de patrimônio**: por dono e por banco, para imprimir ou salvar em PDF.
+  - **Relatório de patrimônio**: por dono e por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
     - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
@@ -239,7 +239,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 - **Importar** traz de volta um `.zip` ou `.json` exportado pelo GerencIA; antes, o app guarda uma cópia do que existe.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.
 - **Exportar** (Mais › Configurações › Dados), uma linha por arquivo, cada uma com o que ele tem: **Lançamentos (CSV)**, um lançamento por linha, com os fixos e os descontos do salário; **Investimentos (CSV)**, um investimento por linha; **Dados completos (JSON)**; **Tudo (ZIP)**, com os dados, as duas planilhas e as imagens, que o Importar traz de volta. Os CSV abrem no Excel e no Google Planilhas (separados por ponto e vírgula).
-- **Relatório de patrimônio** (linha própria em Mais): por dono e por banco, para imprimir ou salvar em PDF. Abre no mesmo tema do app (claro ou escuro); no papel sai sempre branco.
+- **Relatório de patrimônio** (linha própria em Mais): por dono e por banco. No alto, **Todos**, **Meus** ou **De terceiros** escolhe o que entra (no resumo, nas seções, no Por banco e no PDF). **Baixar PDF** baixa o relatório num arquivo (`patrimonio-AAAA-MM-DD.pdf`, com `-meus` ou `-terceiros` quando filtrado), com o cabeçalho do app, barras por banco e o número das páginas, para guardar ou mandar para alguém; funciona também no app do Home Assistant no celular. A página abre no mesmo tema do app (claro ou escuro); o PDF e o papel são sempre brancos.
 - **Começar do zero** apaga lançamentos, fixos, investimentos e bancos; índices, categorias e preferências continuam, e uma cópia fica em Versões anteriores.
 
 ## Avisos

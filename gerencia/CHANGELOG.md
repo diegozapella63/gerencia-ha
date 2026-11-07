@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.29.0
+
+- **Relatório de patrimônio**: **Baixar PDF** no lugar do Imprimir. O PDF é feito pelo app e baixa como arquivo, também no app do Home Assistant no celular (lá o Imprimir não funcionava). Vem com cabeçalho (o ícone, GerencIA, Finanças da casa e a hora em que foi gerado), o resumo, os investimentos de cada um, barras por banco e o número da página no pé.
+- No alto do relatório, **Todos**, **Meus** ou **De terceiros** escolhe o que entra no resumo, nas seções, no Por banco e no PDF.
+
 ## 1.28.1
 
 - **Sensores no Home Assistant**: desligados, sem a nota do sensor da IA; ligados, a lista traz o da IA só com a IA ligada e o dos bens só com o InventarIA.

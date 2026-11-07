@@ -176,6 +176,20 @@ class WSFalso:
             s.close()
 
 
+def ler_pdf(dados):
+    """Os textos de um PDF feito pelo pdf.py, página por página (descompacta cada página e junta os "(...) Tj")."""
+    import re
+    import zlib
+    paginas = []
+    for m in re.finditer(rb"/Length (\d+) /Filter /FlateDecode >>\nstream\n", dados):
+        ops = zlib.decompress(dados[m.end():m.end() + int(m.group(1))])
+        textos = []
+        for t in re.findall(rb"\(((?:\\.|[^\\)])*)\) Tj", ops):
+            textos.append(re.sub(rb"\\(.)", rb"\1", t).decode("cp1252"))
+        paginas.append(textos)
+    return paginas
+
+
 def importar_servidor():
     """Importa o server.py com as pastas num lugar temporário, a IA e a fala simuladas (nada do Home Assistant)."""
     raiz = pasta_temp()

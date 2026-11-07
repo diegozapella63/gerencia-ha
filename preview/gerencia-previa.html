@@ -1258,7 +1258,7 @@ input[readonly] { opacity: .8; }
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.28.1';
+const VERSAO = '1.29.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -6192,7 +6192,7 @@ document.addEventListener('click', ev => {
       api.atualizarIndices().then(d => { S.d = normalizar(d); render(); toast(S.d.indices.erro ? 'Banco Central não respondeu. Mantive os valores.' : 'Índices atualizados'); })
         .catch(e => { toast('Não consegui atualizar. ' + e.message); render(); });
       break;
-    case 'relatorio': if (DEMO) toast('Na prévia o relatório não abre. No app, ele abre pronto para imprimir.'); else location.href = urlRelatorio(); break;
+    case 'relatorio': if (DEMO) toast('Na prévia o relatório não abre.'); else location.href = urlRelatorio(); break;
     case 'demo-arq': toast('Na prévia os arquivos não são baixados.'); break;
     case 'backup': api.backup().then(r => { toast(`Backup salvo em ${r.pasta}/${r.arquivo}`); S.backups = null; render(); }).catch(e => toast('Não consegui criar o backup. ' + e.message)); break;
     case 'importar': $('#arquivo').click(); break;
