@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.27.0';
+const VERSAO = '1.28.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -787,7 +787,7 @@ function telaInicio() {
       <div class="hl-v">${esc(i.nome)}</div></div><div class="hl-n${dias <= 30 ? ' alerta' : ''}">${dias <= 90 ? quandoVence(dias) : fData(dt)}<small>${brl(valorHoje(i), 0)}</small></div></button>`);
   }
   if (B) rows.push(`<button class="hl-row" data-a="bens"><div><div class="hl-k">Bens da casa</div>
-      <div class="hl-v">${plural(B.n, 'item', 'itens')} no InventarIA</div></div><div class="hl-n">${brl(B.hoje, 0)}<small>perdem ≈ ${brl(B.perde_ano, 0)}/ano</small></div></button>`);
+      <div class="hl-v">${plural(B.n, 'item', 'itens')} no InventarIA</div></div><div class="hl-n">${brl(B.hoje, 0)}<small>${varAno(B.perde_ano)}</small></div></button>`);
   const pb = {};
   for (const i of d.investimentos) pb[i.banco || ''] = (pb[i.banco || ''] || 0) + valorHoje(i);
   const [bId, bVal] = Object.entries(pb).sort((a, b) => b[1] - a[1])[0] || [];
@@ -958,7 +958,7 @@ function cardBensInventaria() {
     <div class="inv-top"><div class="inv-nome">Bens da casa</div><div class="inv-valor">${brl(b.hoje)}</div></div>
     <div class="inv-meta"><i></i>InventarIA · ${plural(b.n, 'item', 'itens')}</div>
     <div class="tags"><span class="tag">${ic('lock')}Só leitura</span><span class="tag meu">${ic('user')}Meu</span></div>
-    <div class="inv-pe"><span>perde ≈ ${brl(b.perde_ano / 12)} por mês</span><span>o valor muda no InventarIA</span></div>
+    <div class="inv-pe"><span>${b.perde_ano > 0 ? `perde ≈ ${brl(b.perde_ano / 12)} por mês` : b.perde_ano < 0 ? `valoriza ≈ ${brl(-b.perde_ano / 12)} por mês` : 'mantém o valor'}</span><span>o valor muda no InventarIA</span></div>
   </button>`;
 }
 
@@ -1234,7 +1234,7 @@ function grafComposicao(lista) {
     <div class="pilha" role="img" aria-label="Divisão do dinheiro por ${opts.find(o => o[0] === u.gAgrup)[1].toLowerCase()}">
       ${gs.map(g => `<i data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor};flex:${g.v / total} 1 0"></i>`).join('')}</div>
     <div style="margin-top:8px">${gs.map(g => `<div class="comp${u.gSel === g.k ? ' on' : ''}" data-a="g" data-k="gSel" data-v="${esc(g.k)}" style="--c:${g.cor}">
-      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${g.bens ? `${plural(g.n, 'item', 'itens')} · perdem ≈ ${brl(S.bens.perde_ano, 0)}/ano` : `${plural(g.n, 'investimento', 'investimentos')} · ${g.perde > g.mes ? `perde ≈ ${brl(g.perde - g.mes, 0)}/mês` : `≈ ${brl(g.mes, 0)}/mês`}`}</span></div>
+      <span class="sq"></span><div class="nm"><b>${esc(g.nome)}</b><span class="sub">${g.bens ? `${plural(g.n, 'item', 'itens')} · ${varAno(S.bens.perde_ano)}` : `${plural(g.n, 'investimento', 'investimentos')} · ${g.perde > g.mes ? `perde ≈ ${brl(g.perde - g.mes, 0)}/mês` : `≈ ${brl(g.mes, 0)}/mês`}`}</span></div>
       <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
       <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;
@@ -3934,9 +3934,13 @@ function cardPerdaBens() {
       ? partesHoje(i).filter(p => p.categoria === k).reduce((x, p) => x + p.v, 0) : (i.categoria_bem || 'outros') === k ? valorHoje(i) : 0), 0)
     + (bensOn() ? (S.bens.categorias.find(c => c.id === k)?.hoje || 0) : 0);
   const cats = [...usadas].sort((a, b) => valor(b) - valor(a));
-  return `<section class="card" id="perda-bens">${maisCab('sofa', 'Perda de valor dos bens')}
-    ${maisLead('Quanto cada categoria perde por ano. Negativo: valoriza.')}
-    <div class="bens-taxas">${cats.map(k => `<label class="bens-tx"><span>${esc(nomeCatBem(k))}<small>${brl(valor(k), 0)}</small></span><span class="pref mini"><input data-bens-taxa="${esc(k)}" inputmode="decimal" value="${String(taxaBem(k)).replace('.', ',')}" aria-label="Perda por ano de ${esc(nomeCatBem(k))}"><span>%</span></span></label>`).join('')}</div></section>`;
+  // cada categoria perde ou valoriza (um imóvel, por exemplo) uma % por ano; gravado com sinal: negativa é valorizar
+  const dir = (k, v, t) => { const on = v < 0 ? t < 0 : t >= 0; return `<button type="button" class="${on ? 'on' : ''}" data-a="bens-dir" data-k="${esc(k)}" data-v="${v}" aria-pressed="${on}">${v < 0 ? 'Valoriza' : 'Perde'}</button>`; };
+  return `<section class="card" id="perda-bens">${maisCab('sofa', 'Valor dos bens por ano')}
+    ${maisLead('Quanto cada categoria perde ou valoriza por ano.')}
+    <div class="bens-taxas">${cats.map(k => { const t = taxaBem(k), n = esc(nomeCatBem(k)); return `<div class="bens-tx"><span>${n}<small>${brl(valor(k), 0)}</small></span>
+      <span class="bens-ctl"><span class="seg tx-dir" role="group" aria-label="${n}: perde ou valoriza">${dir(k, 1, t)}${dir(k, -1, t)}</span>
+      <span class="pref mini"><input data-bens-taxa="${esc(k)}" inputmode="decimal" value="${String(Math.abs(t)).replace('.', ',')}" aria-label="${t < 0 ? 'Valorização' : 'Perda'} por ano de ${n}, em %"><span>%</span></span></span></div>`; }).join('')}</div></section>`;
 }
 const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
   <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" role="switch" aria-checked="${!!I.auto}" aria-label="Atualizar sozinho"></button></div>`;
@@ -4347,6 +4351,7 @@ function confirmarTransferir() {
 }
 
 // Bens: uma categoria para o total, ou (se quiser) o valor separado pelas categorias do InventarIA, cada uma com a sua perda por ano
+const varAno = v => v > 0.5 ? `perdem ≈ ${brl(v, 0)}/ano` : v < -0.5 ? `valorizam ≈ ${brl(-v, 0)}/ano` : 'mantêm o valor';
 const rotPerda = t => t > 0 ? `Perde ${pct(t)}% por ano` : t < 0 ? `Valoriza ${pct(-t)}% por ano` : 'Mantém o valor';
 function camposBens(f) {
   if (f.dividir) {
@@ -4915,6 +4920,7 @@ document.addEventListener('click', ev => {
     case 'bens': abrirFolha(montarBens); break;
     case 'bens-evolucao': fecharFolha(); Object.assign(S.ui, { tab: 'investimentos', invModo: 'evolucao', gEscopo: S.ui.gEscopo === 'terc' ? 'meu' : S.ui.gEscopo }); salvarUI(); render(); window.scrollTo(0, 0); break;
     case 'bens-atualizar': S.bens = null; render(); if (FOLHA) pintarFolha(); carregarBens(true); break;
+    case 'bens-dir': { const t = taxaBem(el.dataset.k), v = Math.abs(t) * +el.dataset.v; if (v !== t && Math.abs(t)) salvarTaxaBem(el.dataset.k, v); else if (!Math.abs(t)) { el.parentNode.querySelectorAll('button').forEach(x => { x.classList.toggle('on', x === el); x.setAttribute('aria-pressed', x === el); }); } break; }
     case 'banco-sug': abrirBanco(null, v); break;
     case 'indice': abrirIndice(v); break;
     case 'indices-auto': api.indices({ auto: !S.d.indices.auto }).then(d => { S.d = normalizar(d); render(); }).catch(e => toast(e.message)); break;
@@ -5206,17 +5212,10 @@ document.addEventListener('keydown', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.dataset.bensTaxa) {
-    // negativa: valoriza (um imóvel, por exemplo)
-    const k = el.dataset.bensTaxa, v = Math.max(-50, Math.min(100, Number(String(el.value).replace(',', '.').replace('−', '-')) || 0));
-    persistir(d => {
-      d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v });
-      // os bens cadastrados aqui (tipo Bens) dessa categoria passam a perder a taxa nova
-      for (const i of d.investimentos) {
-        if (i.tipo !== 'bens') continue;
-        if (i.partes && i.partes.length) { let mud = false; for (const p of i.partes) if (p.categoria === k) { p.taxa = v; mud = true; } if (mud) i.taxa = taxaPartes(i.partes); }
-        else if ((i.categoria_bem || 'outros') === k) i.taxa = v;
-      }
-    }, 'Perda por ano salva').then(ok => { if (ok) carregarBens(); });
+    // a % vai com o Perde ou Valoriza escolhido ao lado; digitar um número negativo também vira Valoriza
+    const k = el.dataset.bensTaxa, n = Number(String(el.value).replace(',', '.').replace('−', '-')) || 0;
+    const val = el.closest('.bens-tx')?.querySelector('[data-a="bens-dir"][data-v="-1"]')?.classList.contains('on');
+    salvarTaxaBem(k, n < 0 ? n : val ? -n : n);
     return;
   }
   if (el.dataset.ajusteSel) {
@@ -5224,6 +5223,18 @@ document.addEventListener('change', ev => {
     persistir(d => { d.ajustes[k] = v; }, fala ? 'Fala para texto escolhida' : 'IA escolhida').then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
   }
 });
+// a % por ano de uma categoria de bens (negativa: valoriza, como um imóvel); vale também para os bens cadastrados aqui
+function salvarTaxaBem(k, v) {
+  v = Math.max(-50, Math.min(100, Math.round((+v || 0) * 100) / 100));
+  persistir(d => {
+    d.ajustes.bens_taxas = Object.assign({}, d.ajustes.bens_taxas, { [k]: v });
+    for (const i of d.investimentos) {
+      if (i.tipo !== 'bens') continue;
+      if (i.partes && i.partes.length) { let mud = false; for (const p of i.partes) if (p.categoria === k) { p.taxa = v; mud = true; } if (mud) i.taxa = taxaPartes(i.partes); }
+      else if ((i.categoria_bem || 'outros') === k) i.taxa = v;
+    }
+  }, v < 0 ? `Valoriza ${pct(-v)}% por ano` : v > 0 ? `Perde ${pct(v)}% por ano` : 'Mantém o valor').then(ok => { if (ok) { carregarBens(); render(); } });
+}
 let pfT;
 function pintarFolhaDepois() {
   clearTimeout(pfT);
@@ -5268,7 +5279,7 @@ function cardBens(a) {
   if (!b) return h + `<div class="status manual">Procurando o InventarIA…</div></section>`;
   if (!b.ok) return h + `<div class="status manual">${esc(b.motivo || 'O InventarIA não respondeu.')}</div>
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Tentar de novo</button></section>`;
-  h += `<p class="nota" style="margin:0 0 12px">A perda por ano de cada categoria fica em Mais › Invest.</p>
+  h += `<p class="nota" style="margin:0 0 12px">Quanto cada categoria perde ou valoriza por ano fica em Mais › Invest.</p>
     <button class="btn out" data-a="bens-atualizar">${ic('refresh')}Atualizar do InventarIA</button></section>`;
   return h;
 }
@@ -5279,12 +5290,12 @@ function montarBens() {
   return {
     titulo: 'Bens da casa',
     corpo: `<div class="stat-duo" style="margin:0 0 14px"><div><span>Hoje</span><b>${brl(b.hoje, 0)}</b><small>registrado ${brl(b.registrado, 0)}</small></div>
-        <div><span>Perdem por ano</span><b>${brl(b.perde_ano, 0)}</b></div></div>
+        <div><span>${b.perde_ano < 0 ? 'Valorizam por ano' : 'Perdem por ano'}</span><b>${brl(Math.abs(b.perde_ano), 0)}</b></div></div>
       <div class="bens-evo">${[1, 5, 10].map(a => `<div><span>Em ${a === 1 ? '1 ano' : a + ' anos'}</span><b>${brl(bensEm(a * 12), 0)}</b></div>`).join('')}</div>
       <button class="link" data-a="bens-evolucao" style="margin:0 0 6px">${ic('chart', 'ic-s')}Ver na Evolução</button>
-      <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · −${pct(c.taxa)}% ao ano`, c.hoje)).join('')}
+      <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · ${c.taxa > 0 ? `−${pct(c.taxa)}% ao ano` : c.taxa < 0 ? `+${pct(-c.taxa)}% ao ano` : 'mantém o valor'}`, c.hoje)).join('')}
       <h3 class="ia-sec">Por cômodo</h3>${b.comodos.map(c => linha(c.nome, plural(c.n, 'item', 'itens'), c.hoje)).join('')}
-      <p class="nota">Pelo valor de cada item no InventarIA, menos a perda por ano desde a data desse valor. As taxas ficam em Mais › Invest.</p>`,
+      <p class="nota">Pelo valor de cada item no InventarIA, com o que a categoria perde ou valoriza por ano desde a data desse valor. As taxas ficam em Mais › Invest.</p>`,
     pe: `<button class="btn" data-a="fechar">Fechar</button><button class="btn pri" data-a="bens-atualizar">${ic('refresh', 'ic-s')}Atualizar</button>`,
   };
 }

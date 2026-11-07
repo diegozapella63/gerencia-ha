@@ -1384,15 +1384,45 @@ class TestBens(TelaSistema):
         self.assertEqual([p["taxa"] for p in praia["partes"]], [10, 25], "só a parte de eletrônicos muda")
         self.assertEqual(praia["taxa"], 13, "a taxa do bem é a média das partes, pelo valor: (8000×10 + 2000×25) / 10000")
         self.assertEqual(carro["taxa"], 15, "o carro não é eletrônico")
-        self.assertEqual(self.esperar_aviso("Perda"), "Perda por ano salva")
+        self.assertEqual(self.esperar_aviso("Perde"), "Perde 25% por ano")
         self.assertIn("bens", self.chamadas(), "os bens do InventarIA são recalculados")
         self.assertEqual(self.pg.input_value('#perda-bens [data-bens-taxa="eletronicos"]'), "25")
         self.perda("veiculos", "12")
         self.assertEqual(self.dados()["investimentos"][0]["taxa"], 12, "um bem de uma categoria só leva a taxa nova")
 
+    def dir_on(self, k):
+        return self.texto(f'#perda-bens [data-a="bens-dir"][data-k="{k}"].on')
+
+    def test_valoriza_ao_lado_da_perda(self):
+        self.abrir(base(investimentos=[CARRO, PRAIA]), ui={"tab": "mais", "maisTela": "invest"}, bens=BENS)
+        self.assertEqual(self.texto("#perda-bens h2"), "Valor dos bens por ano")
+        self.assertEqual(self.js("[...document.querySelectorAll('#perda-bens .tx-dir')].map(g => [...g.querySelectorAll('button')].map(b => b.textContent))"),
+                         [["Perde", "Valoriza"]] * 3, "cada categoria: Perde ou Valoriza")
+        self.assertEqual(self.dir_on("moveis"), "Perde", "de costume, perde")
+        larg = self.js("[...document.querySelectorAll('#perda-bens .tx-dir button')].map(b => Math.round(b.getBoundingClientRect().width))")
+        self.assertEqual(len(set(larg)), 1, f"os dois botões do mesmo tamanho ({larg})")
+        self.clicar('#perda-bens [data-a="bens-dir"][data-k="moveis"][data-v="-1"]')
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["bens_taxas"]["moveis"], -10, "Valoriza: a mesma %, agora valorizando")
+        self.assertEqual(self.dados()["investimentos"][1]["partes"][0]["taxa"], -10, "e vale para os bens daqui")
+        self.assertEqual(self.esperar_aviso("Valoriza"), "Valoriza 10% por ano")
+        self.assertEqual((self.dir_on("moveis"), self.pg.input_value('#perda-bens [data-bens-taxa="moveis"]')), ("Valoriza", "10"))
+        self.perda("moveis", "3")
+        self.assertEqual(self.dados()["ajustes"]["bens_taxas"]["moveis"], -3, "com Valoriza marcado, a % digitada valoriza")
+        self.clicar('#perda-bens [data-a="bens-dir"][data-k="moveis"][data-v="1"]')
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["bens_taxas"]["moveis"], 3, "Perde de novo")
+
+    def test_bens_que_valorizam_dizem_quanto_ganham(self):
+        self.abrir(base(investimentos=[CARRO]), bens={**BENS, "perde_ano": -900})
+        self.assertEqual(self.texto('#app .hl-row[data-a="bens"]').split("\n")[-1], "valorizam ≈ R$ 900/ano", "no Início")
+        self.abrir(base(investimentos=[CARRO]), bens={**BENS, "perde_ano": 0})
+        self.assertEqual(self.texto('#app .hl-row[data-a="bens"]').split("\n")[-1], "mantêm o valor")
+
     def test_perda_fica_entre_menos_50_e_100(self):
         self.abrir(base(investimentos=[PRAIA]), ui={"tab": "mais", "maisTela": "invest"}, bens=BENS)
-        for digitado, salvo, mostrado in [("150", 100, "100"), ("-80", -50, "-50"), ("abc", 0, "0"), ("−5", -5, "-5"), ("7,5", 7.5, "7,5")]:
+        # um número negativo digitado também vale: vira Valoriza, e o campo mostra a % sem sinal
+        for digitado, salvo, mostrado in [("150", 100, "100"), ("-80", -50, "50"), ("abc", 0, "0"), ("−5", -5, "5"), ("7,5", -7.5, "7,5")]:  # com Valoriza marcado, a % digitada valoriza
             with self.subTest(digitado):
                 self.perda("moveis", digitado)
                 self.assertEqual(self.dados()["ajustes"]["bens_taxas"]["moveis"], salvo)

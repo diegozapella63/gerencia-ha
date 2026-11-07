@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.28.0
+
+- **Bens que valorizam**: em **Mais › Invest › Valor dos bens por ano**, cada categoria tem **Perde** ou **Valoriza** e a % por ano ao lado. Um imóvel que valoriza 5% ao ano fica com Valoriza e 5. Antes era preciso digitar um número negativo, e o teclado do celular não tem o "−".
+- O Início, a Carteira, a Divisão e a janela Bens da casa dizem quanto os bens **perdem** ou **valorizam** por ano, conforme o caso.
+
 ## 1.27.0
 
 - **Mais › Sobre**, a última linha do menu: quem faz o app (**CorrerIA Code**, desenvolvimento de softwares, e por que esse nome), os apps da família (CronologIA, ResolvIA, GerencIA, InventarIA, EconomIA e MemorIA), cada um com uma linha e o link para o GitHub, e o botão **Meu GitHub**. O Voltar do celular e o **‹ Mais** voltam ao menu.
