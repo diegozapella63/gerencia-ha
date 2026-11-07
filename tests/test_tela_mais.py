@@ -1129,7 +1129,7 @@ class TestMenuMais(TelaMais):
         self.ir_mais("config")
         self.assertEqual([t.strip() for t in self.textos("#app .mais-abas button")], ["Integrações", "Dados", "Aparência", "Opções"])
         for aba, quadros in (("dados", ["exportar", "backup", "importar", "versoes", "onde", "zerar"]), ("aparencia", ["tema", "cor"]),
-                             ("opcoes", ["op-inicio", "op-caixa", "op-invest"])):
+                             ("opcoes", ["op-inicio", "op-dicas", "op-caixa", "op-invest"])):
             self.clicar(f'#app .mais-abas [data-v="{aba}"]')
             self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel > section.card')].map(s => s.id)"), quadros)
             self.assertEqual(self.js("document.querySelector('#app .mais-abas [aria-selected=\"true\"]').dataset.v"), aba)

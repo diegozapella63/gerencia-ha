@@ -1285,12 +1285,16 @@ class TestOpcoes(TelaSistema):
 
     def test_as_tres_chaves_comecam_ligadas_com_o_que_fazem(self):
         self.abrir(self.casa(), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
-        self.assertEqual(self.textos("#app .mais-painel .linha-sw b"), ["Dicas de economia", "Prever o dia a dia", "Corrigir valores pelo rendimento"])
+        self.assertEqual(self.textos("#app .mais-painel .linha-sw b"), ["Dicas de economia", "Conferir sozinho", "Avisar no celular",
+                                                                      "Prever o dia a dia", "Corrigir valores pelo rendimento"])
         self.assertEqual(self.textos_opcoes(), [
             "Ligado: no Início, planos anuais mais baratos e categorias acima da média.",
+            "Ligado: todo dia às 08:00.",
+            "Desligado.",  # o aviso no celular começa desligado
             "Ligado: os próximos meses somam a média do dia a dia, R$ 617 por mês.",  # (450 + 500 + 900) / 3
             "Estima o valor de hoje desde o último informado. Renda variável não muda."])
-        self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel .sw')].map(b => b.getAttribute('aria-checked'))"), ["true", "true", "true"])
+        self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel .sw')].map(b => b.getAttribute('aria-checked'))"),
+                         ["true", "true", "false", "true", "true"])
 
     def test_com_a_ia_desligada_as_dicas_explicam_que_planos_anuais_precisam_dela(self):
         self.abrir(self.casa(ia=False), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
@@ -1321,7 +1325,7 @@ class TestOpcoes(TelaSistema):
         self.ir_mais("config", "opcoes")
         self.chave("prever_dia")
         self.assertIs(self.dados()["ajustes"]["prever_dia"], False)
-        self.assertEqual(self.textos_opcoes()[1], "Desligado: só fixos, parcelas e faturas.")
+        self.assertEqual(self.texto("#op-caixa .linha-sw span"), "Desligado: só fixos, parcelas e faturas.")
         self.ir("caixa")
         self.assertIn("fixos, parcelas e faturas já lançados", self.texto("#app .stat-duo"))
         self.assertNotIn("Dia a dia (média)", self.texto("#app .leg"))
