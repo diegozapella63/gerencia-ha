@@ -604,7 +604,9 @@ class TestRelatorioFiltro(unittest.TestCase):
     def test_baixar_pdf_em_vez_de_imprimir(self):
         """O app do Home Assistant no Android não imprime a página: o botão baixa o PDF feito pelo servidor."""
         h = S.gerar_relatorio(carteira(), "claro", "terceiros").decode()
-        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf">Baixar PDF</a></div>', h)
+        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf" onclick="{S.BAIXAR}">Baixar PDF</a></div>', h)
+        # 1.33.1: no app do Home Assistant no Android, o download vai pela página de cima (o do quadro não acontece)
+        self.assertTrue(S.BAIXAR.startswith("try{var d=window.top.document") and '"' not in S.BAIXAR)
         self.assertNotIn("print()", h)
         self.assertIn(".barra,.filtro,.det{display:none}", h, "no papel, sem botões nem filtro")
 

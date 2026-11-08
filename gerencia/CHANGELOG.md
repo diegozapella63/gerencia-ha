@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.33.1
+
+- **Relatório de patrimônio › Baixar PDF** funciona no app do Home Assistant no celular: o PDF vai para a pasta Downloads (aparece nas notificações), e o botão diz **Baixando…**.
+
 ## 1.33.0
 
 - **Conferir sozinho** (Mais › Configurações › Opções › Dicas de economia): no lugar do horário, que no app do Home Assistant aparecia vazio, você escolhe de quanto em quanto tempo os preços são conferidos de novo: **Toda semana**, **A cada 15 dias** ou **Todo mês** (o padrão, como antes). Uma assinatura nova continua sendo conferida logo.

@@ -1,7 +1,7 @@
 """Relatório de patrimônio com o servidor de verdade e o InventarIA ao lado (dados de exemplo, inventados): abre de Mais no
 tema do app, com o cabeçalho dos relatórios dos apps (o ícone, GerencIA, a contagem e quando) e, no pé, a CorrerIA Code; o filtro Todos /
 Meus / De terceiros troca o resumo e as seções e fica no endereço com o tema, sem empilhar páginas; os bens (os cadastrados
-no GerencIA e os itens do InventarIA) entram em Bens, com Bens no InventarIA ligado, numa linha ou detalhados; Baixar PDF baixa um arquivo de verdade
+no GerencIA e os itens do InventarIA) entram em Bens, com Bens no InventarIA ligado, numa linha ou detalhados; Baixar PDF baixa um arquivo de verdade (num quadro, como no Home Assistant, pela página de cima)
 (patrimonio-AAAA-MM-DD-terceiros.pdf), com o mesmo cabeçalho, as colunas Por mês, Em 1 ano e Em 5 anos e só o que foi
 filtrado; Voltar volta ao app. Capturas no escuro (celular) e no claro, e das páginas do PDF quando há o pdftoppm."""
 import sys, json, re, zlib, shutil, subprocess, urllib.request
@@ -128,6 +128,18 @@ with sync_playwright() as p:
         pg.click('.barra a:has-text("Voltar")')
     pg.wait_for_timeout(800)
     sim(pg.locator('#nav').count() == 1, 'Voltar: de volta ao app')
+    # num quadro, como no Home Assistant: o app do Home Assistant no Android só baixa o que a página de cima pede, então o
+    # Baixar PDF põe o link lá e clica (como o Home Assistant faz com os backups)
+    pg.evaluate("""() => { document.documentElement.innerHTML = '<body style="margin:0"><iframe id="ha" src="relatorio?quem=meus" style="width:390px;height:800px;border:0"></iframe></body>';
+      document.addEventListener('click', (e) => { if (e.target.download) window.__top = [e.target.href, e.target.download, e.target.target]; }, true); }""")
+    fr = pg.frame_locator('#ha')
+    fr.locator('.barra a.pri').wait_for()
+    with pg.expect_download() as dl2:
+        fr.locator('.barra a.pri').click()
+    topo = pg.evaluate('window.__top')
+    sim(topo and '/relatorio.pdf?quem=meus' in topo[0] and topo[1].endswith('-meus.pdf') and topo[2] == '_blank', 'num quadro: o link vai para a página de cima', topo)
+    sim(open(dl2.value.path(), 'rb').read(5) == b'%PDF-', 'num quadro: o PDF baixa', dl2.value.suggested_filename)
+    igual(fr.locator('.barra a.pri').inner_text().strip(), 'Baixando…', 'num quadro: diz que está baixando')
     # Bens no InventarIA desligado: os itens de lá saem do relatório (os cadastrados aqui ficam)
     d = st(); d['ajustes']['bens'] = False
     req(B, 'api/state', d, 'PUT')

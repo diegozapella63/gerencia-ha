@@ -32,7 +32,7 @@ import chat  # noqa: E402
 import avisos  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.33.0"
+VERSAO = "1.33.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -605,6 +605,13 @@ FILTRO_SUB = {"todos": "", "meus": "Só os seus · ", "terceiros": "De terceiros
 # o raio da CorrerIA Code (o mesmo do Mais › Sobre), num quadradinho na cor do app
 RAIO_SVG = ('<span class="raio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#0b0f14"/></svg></span>')
 RAIO = [(13, 2), (4, 14), (11, 14), (10, 22), (19, 10), (12, 10)]
+# Baixar PDF: a página fica num quadro da página do Home Assistant, e o app do Home Assistant no Android só baixa o que
+# a página de cima pede (o link do quadro não faz nada lá). O link vai para lá e é clicado, como o Home Assistant faz
+# com os backups (mesma origem, pelo ingress); sem isso (outra origem, sem quadro), o link baixa como sempre. O mesmo
+# do ResolvIA (lib/report.js) e do InventarIA.
+BAIXAR = ("try{var d=window.top.document,a=d.createElement('a');a.href=this.href;a.download=this.getAttribute('download')||'';a.target='_blank';"
+          "a.style.display='none';d.body.appendChild(a);a.dispatchEvent(new MouseEvent('click'));d.body.removeChild(a);var b=this;"
+          "b.textContent='Baixando…';setTimeout(function(){b.textContent='Baixar PDF'},4000);return false}catch(e){return true}")
 RODAPE = "CorrerIA Code · desenvolvimento de softwares"  # quem faz o app (o mesmo do Mais › Sobre)
 
 
@@ -731,7 +738,7 @@ main{{min-height:calc(100vh - 68px);display:flex;flex-direction:column}}
 @media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
 </style></head><body><main>
 <nav class="filtro" aria-label="De quem">{filtro}</nav>
-<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}">Baixar PDF</a></div>
+<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}" onclick="{BAIXAR}">Baixar PDF</a></div>
 {detalhe}
 {cabecalho}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
