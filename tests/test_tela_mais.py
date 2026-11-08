@@ -1188,11 +1188,11 @@ class TestMenuMais(TelaMais):
     Numa tela, "‹ Mais" no alto, o Voltar do celular e arrastar para a direita voltam ao menu; Mais fica marcado embaixo."""
 
     LINHAS = [("Bancos", "Quem tem conta e os cartões."), ("Caixa", "Fixos, categorias e dicas de economia."),
-              ("Invest", "Índices de mercado: CDI, Selic, IPCA e TR."), ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
+              ("Invest", "Índices de mercado e oportunidades."), ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):
@@ -1219,7 +1219,7 @@ class TestMenuMais(TelaMais):
     def test_com_bens_a_linha_do_invest_fala_da_perda_de_valor(self):
         carro = {"id": "carro", "nome": "Carro", "tipo": "bens", "valor": 30000, "data_valor": "2026-11-02", "indexador": "deprecia", "taxa": 15, "categoria_bem": "veiculos"}
         self.abrir(base(bancos=BANCOS, investimentos=[carro]), ui={"tab": "mais"})
-        self.assertEqual(self.linha("#app .menu-row", "Invest"), "Invest Índices de mercado e perda de valor dos bens.")
+        self.assertEqual(self.linha("#app .menu-row", "Invest"), "Invest Índices, oportunidades e valor dos bens.")
 
     def test_cada_linha_abre_a_sua_tela_com_mais_no_alto(self):
         self.abrir(base(bancos=BANCOS))
@@ -1239,7 +1239,7 @@ class TestMenuMais(TelaMais):
         self.ir_mais("config")
         self.assertEqual([t.strip() for t in self.textos("#app .mais-abas button")], ["Integrações", "Dados", "Aparência", "Opções"])
         for aba, quadros in (("dados", ["exportar", "backup", "importar", "versoes", "onde", "zerar"]), ("aparencia", ["tema", "cor"]),
-                             ("opcoes", ["op-inicio", "op-dicas", "op-caixa", "op-invest"])):
+                             ("opcoes", ["op-inicio", "op-dicas", "op-caixa", "op-invest", "op-oport"])):
             self.clicar(f'#app .mais-abas [data-v="{aba}"]')
             self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel > section.card')].map(s => s.id)"), quadros)
             self.assertEqual(self.js("document.querySelector('#app .mais-abas [aria-selected=\"true\"]').dataset.v"), aba)

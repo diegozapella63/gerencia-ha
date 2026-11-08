@@ -77,10 +77,10 @@ def html_texto(raw):
 _PRECO = re.compile(r"(?:R\$|US\$|\$|€|£)\s?\d|\d[\d.,]*\s?(?:USD|BRL|EUR|reais|d[oó]lares)\b", re.I)
 
 
-def trechos_preco(texto, limite=14000, margem=220):
-    """Só as partes da página que têm preço, para mandar pouco texto à IA."""
+def trechos_preco(texto, limite=14000, margem=220, padrao=None):
+    """Só as partes da página que têm preço (ou o que padrao procura), para mandar pouco texto à IA."""
     faixas = []
-    for m in _PRECO.finditer(texto):
+    for m in (padrao or _PRECO).finditer(texto):
         a, b = max(0, m.start() - margem), min(len(texto), m.end() + margem)
         if faixas and a <= faixas[-1][1]:
             faixas[-1][1] = b

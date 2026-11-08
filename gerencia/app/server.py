@@ -35,8 +35,9 @@ import avisos  # noqa: E402
 import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
+import oportunidades  # noqa: E402
 
-VERSAO = "1.40.1"
+VERSAO = "1.41.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -79,7 +80,12 @@ INDICES_PADRAO = {
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
-                  "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False}
+                  "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False,
+                  # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
+                  # % ao ano, IPCA + %; None = não escolheu), as páginas de ofertas e o aviso no celular no horário
+                  "op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [], "op_aviso": False, "op_para": [], "op_hora": "10:00"}
+# o que faz sentido em cada Avisar quando passar de (fora disso, não escolheu)
+OP_FAIXA = {"op_cdi": (50.0, 300.0), "op_pre": (1.0, 60.0), "op_ipca": (0.0, 30.0)}
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
 DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -147,6 +153,16 @@ def normalizar(d):
     aj["email_de"] = list(dict.fromkeys(x for x in (emails.limpar_remetente(r) for r in de if isinstance(r, str)) if x))[:20]
     para = aj.get("email_para") if isinstance(aj.get("email_para"), list) else []
     aj["email_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
+    # Oportunidades de investimento: os alvos, as páginas (http/https, até 10) e o aviso no celular (como o das dicas)
+    for k, (lo, hi) in OP_FAIXA.items():
+        v = aj.get(k)
+        aj[k] = round(float(v), 2) if isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi else None
+    pags = aj.get("op_paginas") if isinstance(aj.get("op_paginas"), list) else []
+    aj["op_paginas"] = list(dict.fromkeys(u for u in (oportunidades.limpar_url(x) for x in pags) if u))[:oportunidades.MAX_PAGINAS]
+    aj["op_aviso"] = aj.get("op_aviso") is True
+    aj["op_hora"] = aj.get("op_hora") if HORA_RE.match(str(aj.get("op_hora") or "")) else AJUSTES_PADRAO["op_hora"]
+    para = aj.get("op_para") if isinstance(aj.get("op_para"), list) else []
+    aj["op_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     try:
         base["rev"] = int(base["rev"])
     except (TypeError, ValueError):
@@ -2205,6 +2221,265 @@ def testar_aviso(user_id):
     return {"enviados": len(eu["celulares"])}
 
 
+# ---------------------------------------------------------------- oportunidades de investimento (Mais › Invest)
+# As taxas do Tesouro Direto (de hora em hora, quando alguém olha, e no horário do aviso) e as ofertas das páginas que a
+# pessoa escolheu (lidas pela IA uma vez por dia). No horário escolhido (Mais › Configurações › Opções), o que passou do
+# que a pessoa quer vai para o celular de quem foi escolhido, como o aviso de prazos do ResolvIA.
+
+OPORT_ARQ = os.path.join(DATA_DIR, "oportunidades.json")
+TESOURO_URL = os.environ.get("GERENCIA_TESOURO", oportunidades.TESOURO_URL)            # só para testes
+TESOURO_DADOS_URL = os.environ.get("GERENCIA_TESOURO_DADOS", oportunidades.TRANSPARENTE_URL)  # só para testes
+TESOURO_VALE_S = 3600          # as taxas do Tesouro mudam durante o dia: valem uma hora
+TESOURO_DADOS_ESPERA_S = 12 * 3600  # os dados abertos (o arquivo grande) no máximo duas vezes por dia
+_oport_conferindo = threading.Event()
+_trava_oport = threading.Lock()
+_trava_oport_arq = threading.Lock()
+
+
+def oport_ler():
+    try:
+        with open(OPORT_ARQ, encoding="utf-8") as f:
+            c = json.load(f)
+        return c if isinstance(c, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def oport_gravar(c):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    gravar_arquivo(OPORT_ARQ, json.dumps(c, ensure_ascii=False, indent=1))
+
+
+def _abrir_url(url, accept="text/html,application/xhtml+xml,text/csv,*/*", timeout=25):
+    return urllib.request.urlopen(urllib.request.Request(url, headers={
+        "User-Agent": f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 GerencIA/{VERSAO}",
+        "Accept": accept, "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.6"}), timeout=timeout)
+
+
+def _idade_s(iso):
+    try:
+        return (datetime.now() - datetime.fromisoformat(str(iso))).total_seconds()
+    except (TypeError, ValueError):
+        return 1e12
+
+
+def atualizar_tesouro(c):
+    """As taxas de hoje do Tesouro Direto: a tabela Investir do site; sem ela, os dados abertos (do dia útil anterior,
+    no máximo duas vezes por dia). Falhando tudo, ficam as últimas, com o erro."""
+    t = dict(c.get("tesouro") or {})
+    try:
+        with _abrir_url(TESOURO_URL, "text/csv,*/*") as r:
+            titulos = oportunidades.ler_investir(r.read(2 * 1024 * 1024))
+        if not oportunidades.do_tesouro(titulos):
+            raise ValueError("a tabela veio sem títulos")
+        t.update(titulos=titulos, dia=date.today().isoformat(), em=agora_iso(), erro=None, fonte="investir")
+    except Exception as e:  # noqa: BLE001
+        log("Tesouro Direto:", e)
+        erro = "Não consegui ler as taxas do Tesouro Direto."
+        if _idade_s(t.get("dados_tentado")) >= TESOURO_DADOS_ESPERA_S:
+            t["dados_tentado"] = agora_iso()
+            try:
+                with _abrir_url(TESOURO_DADOS_URL, "text/csv,*/*", timeout=60) as r:
+                    titulos, dia = oportunidades.ler_transparente(r)
+                if oportunidades.do_tesouro(titulos):
+                    t.update(titulos=titulos, dia=dia, em=agora_iso(), erro=None, fonte="dados")
+                    erro = None
+            except Exception as e2:  # noqa: BLE001
+                log("Tesouro Transparente:", e2)
+        if erro:
+            t.update(erro=erro, em_erro=agora_iso())
+    c["tesouro"] = t
+    return c
+
+
+def ler_pagina_ofertas(url, d):
+    """Abre a página, manda à IA só as partes com taxa e fica com as ofertas que a página confirma."""
+    base = {"em": agora_iso(), "ofertas": [], "status": "erro"}
+    try:
+        with _abrir_url(url) as r:
+            bruto = r.read(4 * 1024 * 1024)
+            pagina = bruto.decode(r.headers.get_content_charset() or "utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        log("Ofertas: não abriu", url, e)
+        return {**base, "status": "sem_acesso"}
+    texto = assinaturas.html_texto(pagina)
+    trechos = oportunidades.trechos_taxa(texto)
+    if not trechos:
+        return {**base, "status": "sem_ofertas"}
+    if not ia_ligada(d):
+        return {**base, "status": "ia_desligada"}
+    if not ia_disponivel(d):
+        return {**base, "status": "sem_ia"}
+    try:
+        if IA_MOCK:
+            dados = oportunidades.simuladas(texto)
+            registrar_uso("ofertas", "ai_task.simulada", len(trechos), 400, 0, 0.5, "ok")
+        else:
+            payload = {"task_name": f"GerencIA: ofertas de {oportunidades.dominio(url)}", "instructions": oportunidades.prompt_ofertas(url, trechos)}
+            if d["ajustes"].get("ia_entidade"):
+                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            dados = ((ia_chamar("ofertas", payload, 0) or {}).get("service_response") or {}).get("data")
+            if dados is None:
+                raise ValueError("A IA não devolveu resposta.")
+        ofertas, recusadas = oportunidades.limpar_ofertas(extrair_json(dados), texto, url)
+    except (ErroHA, ValueError) as e:
+        log("Ofertas: IA em", url, e)
+        return {**base, "status": "erro_ia"}
+    if not ofertas:
+        return {**base, "status": "nao_confere" if recusadas else "sem_ofertas"}
+    return {**base, "status": "ok", "ofertas": ofertas}
+
+
+def _pagina_velha(p, forcar):
+    """A página precisa ser lida de novo? Uma vez por dia; um erro, depois de uma hora; no Conferir agora, sempre."""
+    if forcar or not p or not p.get("em"):
+        return True
+    if p.get("status") in ("ok", "sem_ofertas", "nao_confere"):
+        return str(p["em"])[:10] != date.today().isoformat()
+    return _idade_s(p["em"]) >= 3600
+
+
+def _conferir_oport(forcar=False, manual=False, avisar=False):
+    try:
+        d = ler()
+        c = oport_ler()
+        if forcar or _idade_s((c.get("tesouro") or {}).get("em")) >= TESOURO_VALE_S and _idade_s((c.get("tesouro") or {}).get("em_erro")) >= 600:
+            c = atualizar_tesouro(c)
+        paginas = dict(c.get("paginas") or {})
+        for url in d["ajustes"]["op_paginas"]:
+            if ia_ligada(d) and _pagina_velha(paginas.get(url), forcar):
+                paginas[url] = ler_pagina_ofertas(url, d)
+                log("Ofertas:", oportunidades.dominio(url), paginas[url]["status"], len(paginas[url]["ofertas"]))
+        c["paginas"] = {u: p for u, p in paginas.items() if u in d["ajustes"]["op_paginas"]}
+        c["atualizado"] = agora_iso()
+        if avisar:
+            c["dia"] = date.today().isoformat()
+        with _trava_oport_arq:
+            antigo = oport_ler()
+            c["avisadas"] = antigo.get("avisadas") or {}
+            oport_gravar(c)
+    except Exception as e:  # noqa: BLE001
+        log("Oportunidades:", e)
+    finally:
+        _oport_conferindo.clear()
+    if avisar or manual:  # no Conferir agora, quem tocou já está vendo: só anota
+        try:
+            avisar_oport(ler(), silencioso=manual)
+        except Exception as e:  # noqa: BLE001
+            log("Aviso de oportunidades:", e)
+
+
+def iniciar_oport(forcar=False, manual=False, avisar=False, esperar=False):
+    with _trava_oport:
+        if _oport_conferindo.is_set():
+            return False
+        _oport_conferindo.set()
+    if esperar:
+        _conferir_oport(forcar, manual, avisar)
+    else:
+        threading.Thread(target=_conferir_oport, args=(forcar, manual, avisar), daemon=True).start()
+    return True
+
+
+def hora_do_aviso_oport(d, agora=None):
+    """Já passou do horário do aviso de hoje (Mais › Configurações › Opções › Oportunidades)?"""
+    agora = agora or datetime.now()
+    h, m = (int(x) for x in d["ajustes"]["op_hora"].split(":"))
+    return (agora.hour, agora.minute) >= (h, m)
+
+
+def oport_estado(d, disparar=True):
+    """Para a tela: os títulos do Tesouro, as ofertas e a situação de cada página (a conta fica na tela, igual ao
+    calc.py). Olhando, as taxas do Tesouro com mais de uma hora são buscadas de novo (em segundo plano)."""
+    c = oport_ler()
+    t = c.get("tesouro") or {}
+    paginas = c.get("paginas") or {}
+    ia = ia_ligada(d)
+    velho = (_idade_s(t.get("em")) >= TESOURO_VALE_S and _idade_s(t.get("em_erro")) >= 600
+             or ia and any(_pagina_velha(paginas.get(u), False) for u in d["ajustes"]["op_paginas"]))
+    if disparar and velho and not _oport_conferindo.is_set():
+        iniciar_oport()
+    return {"titulos": oportunidades.do_tesouro(t.get("titulos")),
+            "ofertas": [o for u in d["ajustes"]["op_paginas"] if ia for o in (paginas.get(u) or {}).get("ofertas") or []],
+            "paginas": [{"url": u, "dominio": oportunidades.dominio(u), "status": (paginas.get(u) or {}).get("status") or "pendente",
+                         "ofertas": len((paginas.get(u) or {}).get("ofertas") or []), "em": (paginas.get(u) or {}).get("em")}
+                        for u in d["ajustes"]["op_paginas"]] if ia else [],
+            "tesouro": {"dia": t.get("dia"), "em": t.get("em"), "erro": t.get("erro"), "fonte": t.get("fonte")},
+            "conferindo": _oport_conferindo.is_set(), "atualizado": c.get("atualizado")}
+
+
+def oport_passam(d, c=None):
+    """As oportunidades de agora que passam do que a pessoa quer (as das páginas só com a IA ligada)."""
+    c = c if c is not None else oport_ler()
+    ops = oportunidades.todas(c, d["ajustes"]["op_paginas"] if ia_ligada(d) else [])
+    return [x for x in oportunidades.avaliar(ops, d) if x["passa"]]
+
+
+def _celulares_de(para):
+    alvos = []
+    for pessoa in AVISOS.pessoas():
+        if pessoa["id"] in (para or []):
+            alvos += [x for x in pessoa["celulares"] if x not in alvos]
+    return alvos
+
+
+def avisar_oport(d, silencioso=False):
+    """O que passou do que a pessoa quer e ainda não foi avisado (ou subiu desde o aviso) vai para os celulares de quem
+    foi escolhido. A que deixa de passar é esquecida (volta a ser avisada se passar de novo). silencioso: só anota."""
+    aj = d["ajustes"]
+    if aj.get("op_aviso") is not True and not silencioso:
+        return 0  # desligado: nada fica anotado (ligando depois, o que já passa é avisado)
+    with _trava_oport_arq:
+        c = oport_ler()
+        antes = c.get("avisadas") or {}
+        novas, avisadas = oportunidades.para_avisar(oportunidades.avaliar(
+            oportunidades.todas(c, aj["op_paginas"] if ia_ligada(d) else []), d), antes)
+        enviados = 0
+        if novas and not silencioso:
+            try:
+                alvos = _celulares_de(aj.get("op_para"))
+            except Exception as e:  # noqa: BLE001
+                log("Aviso de oportunidades: não consegui ver as pessoas da casa:", e)
+                return 0  # tenta de novo no próximo horário (o dia não fica marcado como avisado)
+            enviados = AVISOS.enviar(alvos, avisos.texto_oportunidades([oportunidades.linha_aviso(x) for x in novas]),
+                                     "gerencia-oportunidades", grupo="gerencia-oportunidades", canal="Oportunidades de investimento",
+                                     caminho="/oportunidades") if alvos else 0
+        if avisadas != antes:
+            c["avisadas"] = avisadas
+            oport_gravar(c)
+    return enviados
+
+
+def testar_oport(user_id):
+    """Testar: o aviso agora, nos celulares de quem está usando o app (o que passa agora ou um exemplo)."""
+    if not TOKEN:
+        raise ValueError("Fora do Home Assistant não dá para avisar no celular.")
+    eu = next((p for p in AVISOS.pessoas(forcar=True) if user_id and p["user_id"] == user_id), None)
+    if not eu:
+        raise ValueError("Você não é uma pessoa da casa no Home Assistant.")
+    if not eu["celulares"]:
+        raise ValueError("Sem celular ligado a você no Home Assistant.")
+    passam = oport_passam(ler())
+    texto = (avisos.texto_oportunidades([oportunidades.linha_aviso(x) for x in passam]) if passam else
+             {"title": "📈 Oportunidades de investimento", "message": "Nada passou do que você quer agora. Quando passar, o aviso vem assim."})
+    if not AVISOS.enviar(eu["celulares"], texto, "gerencia-oportunidades-teste", grupo="gerencia-oportunidades",
+                         canal="Oportunidades de investimento", caminho="/oportunidades"):
+        raise ValueError("O Home Assistant não entregou o aviso.")
+    return {"enviados": len(eu["celulares"]), "passam": len(passam)}
+
+
+def rotina_oport():
+    """Com o aviso ligado, no horário escolhido, uma vez por dia: confere o Tesouro e as páginas e avisa o que passou."""
+    while True:
+        try:
+            d = ler()
+            if d["ajustes"]["op_aviso"] and hora_do_aviso_oport(d) and oport_ler().get("dia") != date.today().isoformat():
+                iniciar_oport(avisar=True, esperar=True)
+        except Exception as e:  # noqa: BLE001
+            log("Oportunidades:", e)
+        time.sleep(60)
+
+
 # ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
 
 VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"))
@@ -2537,6 +2812,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
                 return self.enviar(200, dicas_estado(ler()))
+            if p == "/api/oportunidades":
+                return self.enviar(200, oport_estado(ler()))
             if p == "/api/senhas":
                 return self.enviar(200, {"senhas": senhas_listar()})
             if p == "/api/emails":
@@ -2634,6 +2911,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
                 return self.enviar(200, testar_aviso(self.headers.get("X-Remote-User-Id")))
+            if p == "/api/oportunidades/conferir":
+                forcar = self.corpo_json().get("forcar") is not False
+                iniciar_oport(forcar=forcar, manual=True)
+                return self.enviar(200, oport_estado(ler(), disparar=False))
+            if p == "/api/oportunidades/testar":
+                return self.enviar(200, testar_oport(self.headers.get("X-Remote-User-Id")))
             if p == "/api/dicas/conferir":
                 iniciar_conferencia(forcar=True, manual=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
@@ -3171,6 +3454,7 @@ def main():
     CONEXAO.publicar(integracao_ligada())
     publicar_correria()
     threading.Thread(target=rotina, daemon=True).start()
+    threading.Thread(target=rotina_oport, daemon=True).start()  # oportunidades: o aviso no horário escolhido
     # as faturas do e-mail que ficaram esperando a senha e que uma senha já cadastrada abre (antes da 1.40.1, guardar a
     # senha no Ler com IA não relia as outras)
     threading.Thread(target=reler_emails_com_senha, daemon=True).start()

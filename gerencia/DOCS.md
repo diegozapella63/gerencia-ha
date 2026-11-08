@@ -26,13 +26,13 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
 - **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
   - **Bancos**: bancos, quem tem conta em cada um e quem tem cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
-  - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
+  - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
     - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, CorrerIA (WhatsApp, Claude e Gemini), uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
-    - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
+    - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo, corrigir valores pelo rendimento e o aviso das oportunidades de investimento no celular. Valem para todos os aparelhos.
   - **Sobre**, por último: quem faz o app (**CorrerIA Code**), os apps da família, cada um com uma linha e o link para o GitHub, e **Meu GitHub**.
 - As **caixas de seleção** (como **Como é pago** ou **IA usada pelo app**) abrem uma janela de baixo para cima com as opções; a atual vem marcada. O Voltar do celular, o **X** ou tocar fora fecham sem mudar nada. No computador, a janela abre no meio da tela, e dá para escolher com as setas e Enter.
 
@@ -210,6 +210,18 @@ Investimentos podem guardar imagens (comprovante, print do banco, extrato): no f
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.
 
 Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais › Invest › Índices de mercado**.
+
+## Oportunidades de investimento
+
+Em **Mais › Invest › Oportunidades**, as taxas de hoje do **Tesouro Direto** (Selic, Prefixado e IPCA+; Renda+ e Educa+ ficam de fora), separadas em três famílias: **Pós-fixado** (em % do CDI), **Prefixado** (% ao ano) e **IPCA+**. Em cada família aparecem as 3 melhores (**Ver mais** mostra todas).
+
+- **Alvo**: ao lado do nome de cada família, a taxa que você quer (ex.: 120% do CDI, 15% ao ano, IPCA + 7,5%). O que chega ao alvo fica verde, com **No alvo**. Vazio: sem alvo.
+- **Como um CDB**: LCI e LCA não pagam IR, então aparecem também como o CDB que renderia o mesmo depois do IR do prazo até o vencimento (sem vencimento, 15%). Ex.: uma LCA de 94% do CDI que vence em pouco mais de um ano vale um CDB de 113,9%. O Tesouro Selic aparece também em % do CDI. O alvo compara com esse valor.
+- **Perto dos seus**: cada linha diz se rende mais ou menos que os seus investimentos da mesma família (os seus, não os de terceiros).
+- **Páginas de ofertas** (só com a IA ligada): cole o endereço da página de CDB, LCI e LCA de um banco ou corretora (até 10). O app abre a página e a IA lista as ofertas; cada taxa só vale se estiver escrita na página. Só entram CDB, RDB, LC, LCI e LCA (com FGC); fundos, debêntures, CRI e CRA ficam de fora. Páginas que só mostram as taxas depois do login, ou que montam a lista na hora, não dão para ler.
+- As taxas do Tesouro vêm da tabela **Investir** do site do Tesouro Direto (se ela não abrir, dos dados abertos do Tesouro Transparente, do dia útil anterior) e valem uma hora; as páginas são lidas uma vez por dia. **Conferir agora** busca tudo de novo.
+- **Avisar no celular** (Mais › Configurações › Opções › Oportunidades de investimento; vem desligado): todo dia, no **Horário** escolhido (10:00 de início), o que chegou ao alvo vai para o celular de quem foi escolhido em **Quem recebe**, como o aviso de prazos do ResolvIA (os celulares ligados a cada pessoa no Home Assistant). Cada oportunidade é avisada uma vez; de novo só se a taxa subir (0,10 no prefixado e no IPCA+, 1 ponto no % do CDI) ou se ela sair e voltar ao alvo. **Testar** manda agora para o seu celular. Tocar no aviso abre as oportunidades.
+- Não é recomendação: confira prazo, liquidez e garantia (FGC até R$ 250 mil por banco e instituição).
 
 ## Uso da IA
 

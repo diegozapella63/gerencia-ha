@@ -199,6 +199,9 @@ def importar_servidor():
     os.environ["GERENCIA_INVENTARIO"] = os.path.join(raiz, "inventario-nao-existe.json")
     os.environ["GERENCIA_IA_MOCK"] = "1"
     os.environ["GERENCIA_DEV"] = "1"
+    # o Tesouro Direto (a tabela e os dados abertos) num endereço que não responde: nada sai para a internet
+    os.environ.setdefault("GERENCIA_TESOURO", "http://127.0.0.1:9/tesouro.csv")
+    os.environ.setdefault("GERENCIA_TESOURO_DADOS", "http://127.0.0.1:9/dados.csv")
     for k in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN"):
         os.environ.pop(k, None)
     import server
@@ -227,7 +230,9 @@ class Servidor:
                   "GERENCIA_SHARE": self.dirs["share"], "GERENCIA_MEDIA": self.dirs["media"], "GERENCIA_DOLAR": "5.0",
                   "GERENCIA_INVENTARIO": os.path.join(self.raiz, "inventario.json"), "GERENCIA_URL_INTERNA": f"http://127.0.0.1:{self.porta}",
                   # o Banco Central fica num endereço que não responde: os índices são os de partida
-                  "GERENCIA_BCB": "http://127.0.0.1:9/serie/{s}"})
+                  "GERENCIA_BCB": "http://127.0.0.1:9/serie/{s}",
+                  # o Tesouro Direto também: os testes que precisam dele passam o endereço de um servidor de mentira
+                  "GERENCIA_TESOURO": "http://127.0.0.1:9/tesouro.csv", "GERENCIA_TESOURO_DADOS": "http://127.0.0.1:9/dados.csv"})
         e.update(env or {})
         self.log = open(os.path.join(self.raiz, "server.log"), "w")
         cmd = [sys.executable, "-u", os.path.join(APP, "server.py")]

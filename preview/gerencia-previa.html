@@ -1291,6 +1291,36 @@ input[readonly] { opacity: .8; }
 .ia-senha { margin-top: 14px; }
 .ia-senha + .linha-sw { padding-top: 6px; }
 
+/* Oportunidades de investimento (Mais › Invest): cada família com o alvo ao lado do nome e as melhores taxas */
+.op-grupo { margin-top: 16px; }
+.op-grupo-cab { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.op-grupo-cab > b { font: 600 17px/1.2 var(--font-d); }
+.op-alvo { display: inline-flex; align-items: center; gap: 8px; }
+.op-alvo-t { color: var(--muted); font-size: 14px; }
+.op-alvo .pref.mini { width: auto; min-width: 120px; }
+.op-alvo .pref.mini input { width: 58px; flex: none; }
+.op-alvo .pref.mini > span { font-size: 13px; }
+.op-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.op-row:last-child { border-bottom: 0; }
+.op-row .op-meus { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.op-v { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 48%; text-align: right; }
+.op-v b { font: 600 17px/1.2 var(--font-d); font-variant-numeric: tabular-nums; }
+.op-v small { color: var(--muted); font-size: 13px; }
+.op-tag { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--font); font-style: normal; color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); border-radius: 999px; padding: 4px 8px; }
+.op-tag .ic-s { width: 13px; height: 13px; }
+.op-row.passa .op-v b { color: var(--good); }
+.op-todas { display: block; margin: 8px 0 0; }
+.dica-quando.erro { color: var(--danger); }
+.op-paginas { margin-top: 18px; }
+.op-pag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.op-add { display: flex; gap: 8px; margin-top: 10px; }
+.op-add .inp { flex: 1; min-width: 0; }
+.op-add .btn { flex: none; }
+.op-nota { margin: 12px 0 0; }
+.op-hora-l { display: flex; gap: 8px; }
+.op-hora-l .inp { flex: 1; min-width: 0; }
+.op-hora-l .btn { flex: 1; justify-content: center; }
+
 </style>
 <main id="app" aria-live="polite"></main>
 <nav id="nav" aria-label="Menu principal"><div class="in"></div></nav>
@@ -1625,7 +1655,7 @@ select:not([multiple]){pointer-events:none}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.40.1';
+const VERSAO = '1.41.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1690,7 +1720,8 @@ function taxaBem(k) {
 }
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true };
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
+  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00' };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1741,6 +1772,7 @@ const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
 /* ------------------------------------------------------------------ ícones */
 const P = {
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
   'mic': '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
   'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   'contrast': '<circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/>',
@@ -2052,6 +2084,9 @@ const apiServidor = {
   backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
+  oportunidades: () => fetch('api/oportunidades', { cache: 'no-store' }).then(jsonOk),
+  oportConferir: forcar => fetch('api/oportunidades/conferir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forcar: forcar !== false }) }).then(jsonOk),
+  oportTestar: () => fetch('api/oportunidades/testar', { method: 'POST' }).then(jsonOk),
   avisoPessoas: () => fetch('api/avisos/pessoas', { cache: 'no-store' }).then(jsonOk),
   senhas: () => fetch('api/senhas', { cache: 'no-store' }).then(jsonOk),
   senhaNova: (nome, senha) => fetch('api/senhas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, senha }) }).then(jsonOk),
@@ -2130,6 +2165,10 @@ function apiDemo() {
       return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
+    // oportunidades na prévia: taxas de exemplo do Tesouro Direto (inventadas) e uma página de ofertas de um banco inventado
+    async oportunidades() { await espera(200); return oportDemo(); },
+    async oportConferir() { await espera(700); return oportDemo(); },
+    async oportTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
     async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
     async avisoTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
@@ -5650,7 +5689,7 @@ const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="tru
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo, acao = 'ajuste') => `<button class="sw${on ? ' on' : ''}" data-a="${acao}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
-const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso', 'correria']);
+const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso', 'correria', 'op_aviso']);
 const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
@@ -5696,7 +5735,7 @@ function menuMais() {
   const linhas = [
     ['bancos', 'bank', 'Bancos', 'Quem tem conta e os cartões.'],
     ['caixa', 'fluxo', 'Caixa', 'Fixos, categorias e dicas de economia.'],
-    ['invest', 'trend', 'Invest', cardPerdaBens() ? 'Índices de mercado e perda de valor dos bens.' : 'Índices de mercado: CDI, Selic, IPCA e TR.'],
+    ['invest', 'trend', 'Invest', cardPerdaBens() ? 'Índices, oportunidades e valor dos bens.' : 'Índices de mercado e oportunidades.'],
     ['', 'file', 'Relatório de patrimônio', 'Para imprimir ou salvar em PDF.'],
     ['config', 'sliders', 'Configurações', 'Integrações, dados, aparência e opções.'],
     ['sobre', 'info', 'Sobre', 'CorrerIA Code, os apps e o GitHub.'],
@@ -5777,7 +5816,7 @@ function maisInvest() {
       `<button class="idx-row" data-a="indice" data-v="${k}"><div><b>${n}</b><span>${s}</span></div><span class="vl">${pct(+I[k] || 0)}%</span>${ic('chev', 'chev')}</button>`).join('')}
     <div class="status ${st[0]}">${st[1]}</div>
     ${linhaChaveIdx(I)}
-    <button class="btn out" data-a="indices-atualizar" style="margin-top:6px">${ic('refresh')}Atualizar agora</button></section>${cardPerdaBens()}`;
+    <button class="btn out" data-a="indices-atualizar" style="margin-top:6px">${ic('refresh')}Atualizar agora</button></section>${cardOportunidades()}${cardPerdaBens()}`;
 }
 // perda de valor por ano, por categoria: vale para os bens do InventarIA e para os investimentos do tipo Bens (de terceiros, um carro…)
 function cardPerdaBens() {
@@ -5796,6 +5835,126 @@ function cardPerdaBens() {
     <div class="bens-taxas">${cats.map(k => { const t = taxaBem(k), n = esc(nomeCatBem(k)); return `<div class="bens-tx"><span>${n}<small>${brl(valor(k), 0)}</small></span>
       <span class="bens-ctl"><span class="seg tx-dir" role="group" aria-label="${n}: perde ou valoriza">${dir(k, 1, t)}${dir(k, -1, t)}</span>
       <span class="pref mini"><input data-bens-taxa="${esc(k)}" inputmode="decimal" value="${String(Math.abs(t)).replace('.', ',')}" aria-label="${t < 0 ? 'Valorização' : 'Perda'} por ano de ${n}, em %"><span>%</span></span></span></div>`; }).join('')}</div></section>`;
+}
+/* --------- Oportunidades de investimento: as taxas do Tesouro Direto e as ofertas das páginas escolhidas (lidas pela IA
+   no servidor), comparadas com o alvo de cada família e com os seus investimentos. A conta é a mesma do calc.py
+   (equivalente, passa_alvo e comparar_meus); o aviso no celular fica em Mais › Configurações › Opções. */
+const GRUPO_IDX = { cdi_pct: 'pos', cdi_mais: 'pos', selic_mais: 'pos', poupanca: 'pos', pre: 'pre', ipca_mais: 'ipca' };
+const ALVO_GRUPO = { pos: 'op_cdi', pre: 'op_pre', ipca: 'op_ipca' };
+const GRUPOS_OP = [['pos', 'Pós-fixado'], ['pre', 'Prefixado'], ['ipca', 'IPCA+']];
+const r2 = v => Math.round(v * 100) / 100;
+// o rendimento como o de um CDB, na unidade da família (pos: % do CDI; pre: % ao ano; ipca: IPCA + %); isento de IR: a
+// taxa que um CDB precisaria ter para render o mesmo depois do IR do prazo até o vencimento (sem vencimento, 15%)
+function equivalente(x, I = S.d.indices, h = hoje()) {
+  const grupo = GRUPO_IDX[x.indexador];
+  if (!grupo) return null;
+  let bruta = taxaAnual(x, I);
+  if (x.isento) { const v = pData(x.vencimento); bruta = bruta / (1 - aliquota('reg', v ? diasEntre(h, v) : 9999)); }
+  const cdi = (+I.cdi || 0) / 100, ipca = (+I.ipca || 0) / 100;
+  const valor = grupo === 'pos' ? (cdi > 0 ? bruta / cdi * 100 : 0) : grupo === 'pre' ? bruta * 100 : ((1 + bruta) / (1 + ipca) - 1) * 100;
+  return { grupo, valor: r2(valor) };
+}
+const alvoDe = (grupo, aj = S.d.ajustes) => { const v = aj[ALVO_GRUPO[grupo]]; return typeof v === 'number' ? v : null; };
+function passaAlvo(x, aj = S.d.ajustes, I = S.d.indices, h = hoje()) {
+  const eq = equivalente(x, I, h), alvo = eq ? alvoDe(eq.grupo, aj) : null;
+  return alvo != null && eq.valor >= alvo - 1e-9;
+}
+// perto dos seus investimentos da mesma família (os seus, não os de terceiros): {n, abaixo, melhor: {nome, valor}} ou null
+function compararMeus(x, invs = S.d.investimentos, I = S.d.indices, h = hoje()) {
+  const eq = equivalente(x, I, h);
+  if (!eq) return null;
+  const meus = [];
+  for (const i of invs || []) {
+    if (i.titular === 'terceiros' || !((+i.valor || 0) > 0)) continue;
+    const e = equivalente(Object.assign({}, i, { isento: tipoDe(i.tipo).ir === 'isento' }), I, h);
+    if (e && e.grupo === eq.grupo) meus.push([e.valor, i.nome || '']);
+  }
+  if (!meus.length) return null;
+  const melhor = meus.reduce((a, m) => m[0] > a[0] ? m : a);
+  return { n: meus.length, abaixo: meus.filter(m => m[0] < eq.valor - 1e-9).length, melhor: { nome: melhor[1], valor: melhor[0] } };
+}
+// como o banco escreve (taxa_txt e valor_txt no oportunidades.py)
+// casas = 0: inteiro quando dá, senão uma casa (113,9% do CDI)
+const numOp = (v, casas = 2) => casas === 0 ? (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1).replace('.', ',')) : v.toFixed(casas).replace('.', ',');
+function taxaOp(x) {
+  const t = +x.taxa || 0;
+  return { selic_mais: t > 0.004 ? `Selic + ${numOp(t)}%` : 'Selic', pre: `${numOp(t)}% ao ano`, ipca_mais: `IPCA + ${numOp(t)}%`,
+    cdi_pct: `${numOp(t, 0)}% do CDI`, cdi_mais: `CDI + ${numOp(t)}%` }[x.indexador] || '';
+}
+const valorOp = (grupo, v) => ({ pos: `${numOp(v, 0)}% do CDI`, pre: `${numOp(v)}% ao ano`, ipca: `IPCA + ${numOp(v)}%` }[grupo] || '');
+let oportPedido = null, oportTimer = null, OP_TODAS = false;
+function carregarOport(forcar) {
+  if (oportPedido && forcar === undefined) return oportPedido;
+  oportPedido = (forcar === undefined ? api.oportunidades() : api.oportConferir(forcar)).then(r => {
+    S.oport = r;
+    clearTimeout(oportTimer);
+    if (r.conferindo) oportTimer = setTimeout(() => carregarOport(), 2500);
+    if (!FOLHA && maisTela() === 'invest') render();
+  }).catch(e => { S.oport = S.oport || { titulos: [], ofertas: [], paginas: [], tesouro: { erro: e.message } }; if (!FOLHA && maisTela() === 'invest') render(); })
+    .finally(() => { oportPedido = null; });
+  return oportPedido;
+}
+const ST_PAGINA = { ok: '', sem_ofertas: 'Nenhuma oferta com taxa na página', nao_confere: 'As taxas não bateram com a página', sem_acesso: 'A página não abriu',
+  erro_ia: 'A IA não respondeu', sem_ia: 'Sem IA no Home Assistant', ia_desligada: 'Com a IA desligada, não é lida', pendente: 'Ainda não lida' };
+function linhaOport(x) {
+  const eq = equivalente(x), passa = passaAlvo(x), m = compararMeus(x);
+  const sub = [x.origem === 'tesouro' ? 'Tesouro Direto' : x.fonte, x.vencimento ? `vence ${fData(pData(x.vencimento))}` : '',
+    x.origem !== 'tesouro' && x.liquidez === 'diaria' ? 'liquidez diária' : ''].filter(Boolean).join(' · ');
+  const extra = x.isento ? `como CDB de ${eq.grupo === 'pos' ? numOp(eq.valor, 0) + '%' : valorOp(eq.grupo, eq.valor)}` : ['selic_mais', 'cdi_mais'].includes(x.indexador) ? valorOp('pos', eq.valor) : '';
+  const meus = !m ? '' : m.abaixo === m.n ? (m.n === 1 ? 'Mais que o seu' : `Mais que os seus ${m.n}`) : !m.abaixo ? (m.n === 1 ? 'Menos que o seu' : 'Menos que os seus')
+    : `Mais que ${m.abaixo} dos seus ${m.n}`;
+  return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus ? `<span class="op-meus">${meus}</span>` : ''}</div>
+    <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}No alvo</em>` : ''}</div></div>`;
+}
+function inputAlvo(grupo) {
+  const k = ALVO_GRUPO[grupo], v = alvoDe(grupo), val = v == null ? '' : String(v).replace('.', ',');
+  const inp = `<input data-op-alvo="${k}" inputmode="decimal" value="${val}" placeholder="—" aria-label="Alvo ${GRUPOS_OP.find(g => g[0] === grupo)[1]}">`;
+  return `<label class="op-alvo"><span class="op-alvo-t">Alvo</span><span class="pref mini">${grupo === 'ipca' ? `<span>IPCA +</span>${inp}<span>%</span>` : `${inp}<span>${grupo === 'pos' ? '% do CDI' : '% ao ano'}</span>`}</span></label>`;
+}
+function cardOportunidades() {
+  const O = S.oport;
+  if (O === undefined) carregarOport();
+  const ops = O ? [...(O.titulos || []), ...(iaOn() ? O.ofertas || [] : [])] : [];
+  let h = `<section class="card" id="oportunidades">${maisCab('target', 'Oportunidades')}
+    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos.`)}`;
+  let escondidas = 0;
+  for (const [g, nome] of GRUPOS_OP) {
+    const lista = ops.map(x => [x, equivalente(x)]).filter(([, e]) => e && e.grupo === g).sort((a, b) => b[1].valor - a[1].valor || a[0].nome.localeCompare(b[0].nome)).map(([x]) => x);
+    const mostrar = OP_TODAS ? lista : lista.slice(0, 3);
+    escondidas += lista.length - mostrar.length;
+    h += `<div class="op-grupo" data-grupo="${g}"><div class="op-grupo-cab"><b>${nome}</b>${inputAlvo(g)}</div>${mostrar.map(linhaOport).join('')}</div>`;
+  }
+  if (escondidas || OP_TODAS) h += `<button class="link op-todas" data-a="op-todas">${OP_TODAS ? 'Ver menos' : `Ver mais ${escondidas}`}</button>`;
+  const T = (O && O.tesouro) || {}, quando = T.em ? new Date(T.em) : null;
+  const st = !O ? 'Buscando as taxas do Tesouro Direto…' : T.erro ? `${T.erro}${T.dia ? ` Taxas de ${fData(pData(T.dia))}.` : ''}`
+    : O.conferindo && !quando ? 'Buscando as taxas do Tesouro Direto…' : !quando ? 'Ainda sem as taxas do Tesouro Direto.'
+      : T.dia && T.dia !== iso(hoje()) ? `Tesouro Direto: taxas de ${fData(pData(T.dia))}.` : `Tesouro Direto: taxas de hoje, às ${quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
+  h += `<p class="dica-quando${T.erro ? ' erro' : ''}">${ic(T.erro ? 'alert' : 'clock', 'ic ic-s')}<span>${esc(st)}</span></p>`;
+  if (iaOn()) {
+    const pags = (O && O.paginas) || S.d.ajustes.op_paginas.map(url => ({ url, dominio: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0], status: 'pendente', ofertas: 0 }));
+    h += `<div class="campo op-paginas"><div class="lbl">Páginas de ofertas</div>${pags.map(p => {
+      const txt = p.status === 'ok' ? plural(p.ofertas, 'oferta', 'ofertas') : p.status === 'pendente' && O && O.conferindo ? 'Lendo…' : ST_PAGINA[p.status] || '';
+      return `<div class="op-pag"><div class="op-t"><b>${esc(p.dominio)}</b><span>${esc(txt)}</span></div><button class="icbtn" data-a="op-pagina-tirar" data-v="${esc(p.url)}" aria-label="Tirar ${esc(p.dominio)}">${ic('trash', 'ic-s')}</button></div>`;
+    }).join('')}
+      ${pags.length < 10 ? `<div class="op-add"><input id="op-url" class="inp" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…" aria-label="Endereço da página de ofertas"><button class="btn out" data-a="op-pagina-add">Adicionar</button></div>` : ''}</div>`;
+  }
+  h += `<button class="btn out" data-a="op-conferir"${O && O.conferindo ? ' disabled' : ''}>${ic('refresh')}${O && O.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
+    <p class="nota op-nota">Não é recomendação: confira prazo, liquidez e garantia (FGC até R$ 250 mil por banco).</p>`;
+  return h + '</section>';
+}
+// o aviso no celular (como o aviso de prazos do ResolvIA): o horário, Testar ao lado e quem recebe
+function opcoesOport() {
+  const a = S.d.ajustes, aviso = a.op_aviso === true;
+  let h = `<section class="card" id="op-oport">${maisCab('target', 'Oportunidades de investimento')}
+    ${linhaChave('op_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: todo dia no horário, o que chegou ao seu alvo.' : 'Desligado.')}`;
+  if (aviso) {
+    const quem = quemRecebe('op_para', false), P = S.avisoPessoas, eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
+    const porque = !P || !P.pessoas ? '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
+    h += `<div class="campo"><label for="op-hora">Horário</label><div class="op-hora-l"><input id="op-hora" class="inp" type="time" data-op-hora value="${esc(a.op_hora || '10:00')}">
+      <button class="btn out" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar</button></div></div>${quem}`;
+    if (!['pos', 'pre', 'ipca'].some(g => alvoDe(g) != null)) h += `<p class="nota">Nenhum alvo ainda. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Escolher em Mais › Invest</button></p>`;
+  }
+  return h + '</section>';
 }
 const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
   <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" role="switch" aria-checked="${!!I.auto}" aria-label="Atualizar sozinho"></button></div>`;
@@ -5817,7 +5976,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
+const USO_TIPO = { ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -5938,7 +6097,8 @@ function maisOpcoes() {
         ? `Ligado: os próximos meses somam a média do dia a dia, ${brl(mediaVariaveis(), 0)} por mês.`
         : 'Desligado: só fixos, parcelas e faturas.')}</section>
     <section class="card" id="op-invest">${maisCab('wallet', 'Investimentos')}
-      ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje desde o último informado. Renda variável não muda.')}</section>`;
+      ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje desde o último informado. Renda variável não muda.')}</section>
+    ${opcoesOport()}`;
 }
 
 /* Dicas de economia: conferir sozinho (todo dia, no horário) e avisar no celular, como o aviso de prazos do ResolvIA:
@@ -6594,7 +6754,7 @@ function marcarTela() {
   } catch (e) { /* ok */ }
 }
 // um atalho para um quadro de Mais (Índices, Dicas...) abre a tela (e a aba de Configurações) onde ele está
-const MAIS_ANCORA = { indices: ['invest'], 'perda-bens': ['invest'], dicas: ['caixa'], fixos: ['caixa'], ia: ['config', 'integracoes'], bens: ['config', 'integracoes'] };
+const MAIS_ANCORA = { indices: ['invest'], oportunidades: ['invest'], 'op-oport': ['config', 'opcoes'], 'perda-bens': ['invest'], dicas: ['caixa'], fixos: ['caixa'], ia: ['config', 'integracoes'], bens: ['config', 'integracoes'] };
 function irPara(tab, ancora, tela = '') {
   const de = S.ui.tab, antes = maisTela();
   S.ui.tab = tab;
@@ -6689,9 +6849,14 @@ document.addEventListener('click', ev => {
     case 'dica-fora': persistir(d => { d.ajustes.dicas_fora = [...new Set([...(d.ajustes.dicas_fora || []), v])].slice(-200); }, 'Dica dispensada'); break;
     case 'dica-cat': S.ui.cxModo = 'categorias'; S.ui.cxCatTipo = 'despesa'; S.ui.cxMes = v; salvarUI(); irPara('caixa'); break;
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
+    case 'op-conferir': if (S.oport) S.oport.conferindo = true; render(); carregarOport(true); break;
+    case 'op-todas': OP_TODAS = !OP_TODAS; render(); break;
+    case 'op-pagina-add': adicionarPaginaOport(); break;
+    case 'op-pagina-tirar': persistir(d => { d.ajustes.op_paginas = (d.ajustes.op_paginas || []).filter(u => u !== v); }, 'Página tirada').then(ok => { if (ok) carregarOport(); }); break;
+    case 'op-testar': api.oportTestar().then(r => toast(r.passam ? 'Aviso enviado para o seu celular.' : 'Aviso enviado para o seu celular (nada no alvo agora).'), e => toast(e.message)); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
     case 'dicas-freq': persistir(d => { d.ajustes.dicas_freq = v; }); break;
-    case 'aviso-pessoa': { const k = el.dataset.k === 'email_para' ? 'email_para' : 'dicas_para'; persistir(d => { const p = new Set(d.ajustes[k] || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes[k] = [...p]; }); break; }
+    case 'aviso-pessoa': { const k = ['email_para', 'op_para'].includes(el.dataset.k) ? el.dataset.k : 'dicas_para'; persistir(d => { const p = new Set(d.ajustes[k] || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes[k] = [...p]; }); break; }
     case 'email-abrir': abrirEmail(v); break;
     case 'email-ignorar': { const id = IAS && IAS.email; fecharFolha(); if (id) emailAcao('ignorar', id, 'Fatura ignorada'); break; }
     case 'email-ler': emailAcao('ler', v, 'Lendo com IA'); break;
@@ -6866,7 +7031,7 @@ document.addEventListener('click', ev => {
         if (k === 'dicas') carregarDicas();
         if (k === 'email' || k === 'correria') { S.emails = undefined; carregarEmails(k === 'email'); }
         // ligou o aviso sem ninguém escolhido: começa com quem está usando o app
-        const para = { dicas_aviso: 'dicas_para', email_aviso: 'email_para' }[k];
+        const para = { dicas_aviso: 'dicas_para', email_aviso: 'email_para', op_aviso: 'op_para' }[k];
         if (para && nv && !(S.d.ajustes[para] || []).length) carregarPessoasAviso().then(r => {
           const eu = r && r.pessoas && r.pessoas.find(p => p.eu);
           if (eu && !(S.d.ajustes[para] || []).length) persistir(d => { d.ajustes[para] = [eu.id]; });
@@ -7174,6 +7339,8 @@ document.addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
+  if (ev.key === 'Enter' && ev.target.id === 'op-url') { ev.preventDefault(); adicionarPaginaOport(); return; }
+  if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.opAlvo) { ev.preventDefault(); ev.target.blur(); return; }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
 document.addEventListener('change', ev => {
@@ -7185,11 +7352,30 @@ document.addEventListener('change', ev => {
     salvarTaxaBem(k, n < 0 ? n : val ? -n : n);
     return;
   }
+  if (el.dataset.opAlvo) { salvarAlvoOport(el); return; }
+  if (el.matches('[data-op-hora]')) { const v = el.value; if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) persistir(d => { d.ajustes.op_hora = v; }, 'Horário salvo'); return; }
   if (el.dataset.ajusteSel) {
     const k = el.dataset.ajusteSel, v = el.value, fala = k === 'voz_motor';
     persistir(d => { d.ajustes[k] = v; }, fala ? 'Fala para texto escolhida' : 'IA escolhida').then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
   }
 });
+// o alvo de uma família (Mais › Invest › Oportunidades): vazio = sem alvo; fora do que faz sentido, volta ao que era
+const FAIXA_ALVO = { op_cdi: [50, 300], op_pre: [1, 60], op_ipca: [0, 30] };
+function salvarAlvoOport(el) {
+  const k = el.dataset.opAlvo, txt = String(el.value || '').trim();
+  const n = parseNum(txt), v = txt ? Math.round(n * 100) / 100 : null, [lo, hi] = FAIXA_ALVO[k];
+  if (v != null && !(v >= lo && v <= hi)) { toast(`Use um número de ${numOp(lo, 0)} a ${numOp(hi, 0)}.`); el.value = S.d.ajustes[k] == null ? '' : String(S.d.ajustes[k]).replace('.', ','); return; }
+  if (v === (S.d.ajustes[k] ?? null)) return;
+  persistir(d => { d.ajustes[k] = v; }, v == null ? 'Alvo tirado' : 'Alvo salvo');
+}
+function adicionarPaginaOport() {
+  const inp = $('#op-url'), url = String(inp ? inp.value : '').trim();
+  if (!/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]+$/i.test(url)) { toast('Escreva o endereço da página, começando com https://'); return; }
+  const pags = S.d.ajustes.op_paginas || [];
+  if (pags.includes(url)) { toast('Essa página já está na lista.'); return; }
+  if (pags.length >= 10) { toast('Até 10 páginas.'); return; }
+  persistir(d => { d.ajustes.op_paginas = [...(d.ajustes.op_paginas || []), url]; }, 'Página adicionada').then(ok => { if (ok) carregarOport(false); });
+}
 // a % por ano de uma categoria de bens (negativa: valoriza, como um imóvel); vale também para os bens cadastrados aqui
 function salvarTaxaBem(k, v) {
   v = Math.max(-50, Math.min(100, Math.round((+v || 0) * 100) / 100));
@@ -7268,6 +7454,22 @@ function montarBens() {
   };
 }
 // prévia: bens inventados (nenhum dado real)
+// a prévia: taxas inventadas do Tesouro Direto e, para cada página escolhida, duas ofertas de um banco inventado
+function oportDemo() {
+  const t = (nome, indexador, taxa, vencimento) => ({ id: 'td:' + semAcento(nome).replace(/[^a-z0-9]+/g, '-'), nome, origem: 'tesouro', fonte: 'Tesouro Direto', produto: 'tesouro',
+    indexador, taxa, isento: false, vencimento, liquidez: 'diaria', minimo: 0 });
+  const titulos = [t('Tesouro Selic 2031', 'selic_mais', 0.09, '2031-03-01'), t('Tesouro Reserva 2036', 'selic_mais', 0, '2036-01-01'),
+    t('Tesouro Prefixado 2029', 'pre', 13.42, '2029-01-01'), t('Tesouro Prefixado 2032', 'pre', 13.71, '2032-01-01'),
+    t('Tesouro IPCA+ 2032', 'ipca_mais', 7.04, '2032-08-15'), t('Tesouro IPCA+ 2040', 'ipca_mais', 6.88, '2040-08-15'), t('Tesouro IPCA+ com Juros Semestrais 2045', 'ipca_mais', 6.81, '2045-05-15')];
+  const pags = S.d.ajustes.op_paginas || [], ofertas = [];
+  const paginas = pags.map((url, k) => {
+    const dominio = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+    ofertas.push({ id: 'of:demo' + k + 'a', nome: 'CDB Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'cdb', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 118, isento: false, vencimento: '2028-11-06', liquidez: 'vencimento', minimo: 1000 },
+      { id: 'of:demo' + k + 'b', nome: 'LCA Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'lca', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 94, isento: true, vencimento: '2027-11-08', liquidez: 'vencimento', minimo: 1000 });
+    return { url, dominio, status: 'ok', ofertas: 2, em: new Date().toISOString() };
+  });
+  return { titulos, ofertas, paginas, tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
+}
 function bensDemo() {
   const cats = [['eletronicos', 'Eletrônicos', 20, 14200, 6], ['moveis', 'Móveis', 10, 18600, 9], ['cozinha', 'Cozinha e bar', 10, 5400, 12], ['decoracao', 'Decoração e arte', 5, 3900, 7]];
   const tx = S.d.ajustes.bens_taxas || {};
@@ -7334,10 +7536,31 @@ async function iniciar() {
   S.ui.cxMes = null; S.ui.faturaAberta = null; S.ui.cxSel = null;
   S.ui.busca = ''; S.ui.buscaAberta = false; S.ui.gSel = null;
   render();
+  irRotaHA();
   carregarDicas();
   carregarVoz();
   carregarBens();
   carregarEmails();
+}
+// O toque num aviso do celular abre /app/<app>/oportunidades: o painel do Home Assistant (2026.2 ou mais novo) carrega a
+// tela e passa o caminho por mensagem (como no InventarIA); a tela vai para Mais › Invest › Oportunidades.
+let ROTA_HA = null, ROTA_HA_VISTA = null;
+function irRotaHA() {
+  if (!S.d || !ROTA_HA) return;
+  const r = ROTA_HA;
+  ROTA_HA = null;
+  if (r === '/oportunidades') { if (FOLHA) fecharFolha(); irPara('mais', 'oportunidades', 'invest'); }
+}
+if (window.parent !== window && !DEMO) {
+  window.addEventListener('message', e => {
+    if (e.source !== window.parent || !e.data || e.data.type !== 'home-assistant/properties') return;
+    const p = String((e.data.route && e.data.route.path) || '').replace(/\/+$/, '');
+    if (p === ROTA_HA_VISTA) return;
+    ROTA_HA_VISTA = p;
+    ROTA_HA = p;
+    irRotaHA();
+  });
+  try { window.parent.postMessage({ type: 'home-assistant/subscribe-properties' }, '*'); } catch (e) { /* fora do Home Assistant */ }
 }
 // Só nos testes (tests/test_tela*.py abrem a página com window.GERENCIA_TESTE = true): qualquer função ou variável
 // daqui de dentro pelo nome (GERENCIA_TESTE.totais, GERENCIA_TESTE.S, GERENCIA_TESTE.IAS = ...). No app, nada disso existe.

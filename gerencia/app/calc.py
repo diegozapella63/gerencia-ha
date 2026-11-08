@@ -207,6 +207,70 @@ def rende_mes(v, r):
     return max(0.0, v * ((1 + r) ** (1 / 12) - 1))
 
 
+# ---------------------------------------------------------------- oportunidades de investimento (Mais › Invest)
+
+# a família de cada indexador, para comparar com o que a pessoa quer e com os investimentos dela:
+# pos = em % do CDI, pre = em % ao ano, ipca = em IPCA + %
+GRUPO_IDX = {"cdi_pct": "pos", "cdi_mais": "pos", "selic_mais": "pos", "poupanca": "pos", "pre": "pre", "ipca_mais": "ipca"}
+# Avisar quando passar de (Mais › Invest › Oportunidades): o ajuste de cada família
+ALVO_GRUPO = {"pos": "op_cdi", "pre": "op_pre", "ipca": "op_ipca"}
+
+
+def equivalente(x, ind, hoje=None):
+    """O rendimento de x (uma oportunidade ou um investimento: indexador, taxa, isento, vencimento) como o de um CDB,
+    na unidade da família (equivalente no app.js): {"grupo", "valor"}; pos: % do CDI, pre: % ao ano, ipca: IPCA + %.
+    Isento de IR (LCI, LCA, poupança): a taxa que um CDB precisaria ter para render o mesmo depois do IR do prazo até o
+    vencimento (sem vencimento, 15%). Fora das famílias (ações, bens…), None."""
+    grupo = GRUPO_IDX.get(x.get("indexador"))
+    if not grupo:
+        return None
+    hoje = hoje or date.today()
+    bruta = taxa_anual(x, ind)
+    if x.get("isento"):
+        venc = parse_data(x.get("vencimento"))
+        bruta = bruta / (1 - aliquota("reg", (venc - hoje).days if venc else 9999))
+    cdi, ipca = num(ind.get("cdi")) / 100, num(ind.get("ipca")) / 100
+    if grupo == "pos":
+        valor = bruta / cdi * 100 if cdi > 0 else 0.0
+    elif grupo == "pre":
+        valor = bruta * 100
+    else:
+        valor = ((1 + bruta) / (1 + ipca) - 1) * 100
+    return {"grupo": grupo, "valor": round(valor, 2)}
+
+
+def alvo_de(grupo, ajustes):
+    """O que a pessoa quer para a família (Avisar quando passar de); None: não escolheu."""
+    v = (ajustes or {}).get(ALVO_GRUPO.get(grupo, ""))
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def passa_alvo(x, ajustes, ind, hoje=None):
+    """A oportunidade chega ao que a pessoa quer para a família dela (passaAlvo no app.js)?"""
+    eq = equivalente(x, ind, hoje)
+    alvo = alvo_de(eq["grupo"], ajustes) if eq else None
+    return alvo is not None and eq["valor"] >= alvo - 1e-9
+
+
+def comparar_meus(x, investimentos, ind, hoje=None):
+    """A oportunidade perto dos seus investimentos da mesma família (os seus, não os de terceiros; compararMeus no
+    app.js): {"n": quantos da família, "abaixo": quantos rendem menos que ela, "melhor": {"nome", "valor"}} ou None."""
+    eq = equivalente(x, ind, hoje)
+    if not eq:
+        return None
+    meus = []
+    for i in investimentos or []:
+        if i.get("titular") == "terceiros" or num(i.get("valor")) <= 0:
+            continue
+        e = equivalente({**i, "isento": IR_TIPOS.get(i.get("tipo"), "reg") == "isento"}, ind, hoje)
+        if e and e["grupo"] == eq["grupo"]:
+            meus.append((e["valor"], i.get("nome") or ""))
+    if not meus:
+        return None
+    melhor = max(meus, key=lambda m: m[0])
+    return {"n": len(meus), "abaixo": sum(1 for v, _ in meus if v < eq["valor"] - 1e-9), "melhor": {"nome": melhor[1], "valor": melhor[0]}}
+
+
 # ---------------------------------------------------------------- cor do app (Mais › Configurações › Aparência)
 
 # As cores do app, as mesmas do app.js (CORES_APP); o azul é o padrão do GerencIA.

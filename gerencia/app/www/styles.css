@@ -1284,3 +1284,33 @@ input[readonly] { opacity: .8; }
 .op .giro.peq { width: 18px; height: 18px; border-width: 2px; flex: none; }
 .ia-senha { margin-top: 14px; }
 .ia-senha + .linha-sw { padding-top: 6px; }
+
+/* Oportunidades de investimento (Mais › Invest): cada família com o alvo ao lado do nome e as melhores taxas */
+.op-grupo { margin-top: 16px; }
+.op-grupo-cab { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.op-grupo-cab > b { font: 600 17px/1.2 var(--font-d); }
+.op-alvo { display: inline-flex; align-items: center; gap: 8px; }
+.op-alvo-t { color: var(--muted); font-size: 14px; }
+.op-alvo .pref.mini { width: auto; min-width: 120px; }
+.op-alvo .pref.mini input { width: 58px; flex: none; }
+.op-alvo .pref.mini > span { font-size: 13px; }
+.op-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.op-row:last-child { border-bottom: 0; }
+.op-row .op-meus { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.op-v { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 48%; text-align: right; }
+.op-v b { font: 600 17px/1.2 var(--font-d); font-variant-numeric: tabular-nums; }
+.op-v small { color: var(--muted); font-size: 13px; }
+.op-tag { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--font); font-style: normal; color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); border-radius: 999px; padding: 4px 8px; }
+.op-tag .ic-s { width: 13px; height: 13px; }
+.op-row.passa .op-v b { color: var(--good); }
+.op-todas { display: block; margin: 8px 0 0; }
+.dica-quando.erro { color: var(--danger); }
+.op-paginas { margin-top: 18px; }
+.op-pag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.op-add { display: flex; gap: 8px; margin-top: 10px; }
+.op-add .inp { flex: 1; min-width: 0; }
+.op-add .btn { flex: none; }
+.op-nota { margin: 12px 0 0; }
+.op-hora-l { display: flex; gap: 8px; }
+.op-hora-l .inp { flex: 1; min-width: 0; }
+.op-hora-l .btn { flex: 1; justify-content: center; }

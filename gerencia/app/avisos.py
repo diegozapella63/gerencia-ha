@@ -80,6 +80,16 @@ def texto_dicas(dicas):
     return {"title": "💡 Dica de economia" if len(dicas) == 1 else f"💡 Dicas de economia: {len(dicas)}", "message": "\n".join(linhas)}
 
 
+def texto_oportunidades(linhas):
+    """O aviso: "📈 Oportunidade de investimento" e uma linha por oportunidade (até 5), já escritas
+    (oportunidades.linha_aviso: "Tesouro IPCA+ 2032: IPCA + 7,82%")."""
+    corpo = [f"• {x}" for x in linhas[:5]]
+    if len(linhas) > 5:
+        corpo.append(f"e mais {len(linhas) - 5}")
+    return {"title": "📈 Oportunidade de investimento" if len(linhas) == 1 else f"📈 Oportunidades de investimento: {len(linhas)}",
+            "message": "\n".join(corpo)}
+
+
 class Avisos:
     """As pessoas da casa e os celulares delas, e o envio do aviso. rest(metodo, caminho, corpo) fala com a API REST
     do Home Assistant; ws(comando) faz uma pergunta à API WebSocket (os registros de entidades e aparelhos)."""
@@ -114,10 +124,12 @@ class Avisos:
         self.cache = (time.time(), out)
         return out
 
-    def enviar(self, alvos, texto, tag, grupo="gerencia-dicas", canal="Dicas de economia"):
+    def enviar(self, alvos, texto, tag, grupo="gerencia-dicas", canal="Dicas de economia", caminho=""):
         """Manda o aviso para estes celulares (notify.mobile_app_*); devolve quantos o Home Assistant aceitou. grupo e
-        canal separam os avisos no Android (as dicas de um lado, as faturas do e-mail do outro)."""
+        canal separam os avisos no Android (as dicas de um lado, as faturas do e-mail do outro); caminho: a tela que o
+        toque abre (/oportunidades, que a tela recebe do Home Assistant)."""
         url = endereco_app()
+        url = url + caminho if url else None
         dados = {"tag": tag, "group": grupo, "channel": canal, **({"url": url, "clickAction": url} if url else {})}
         n = 0
         for alvo in alvos:

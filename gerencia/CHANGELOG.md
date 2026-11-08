@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.41.0
+
+- **Oportunidades de investimento** (Mais › Invest): as taxas de hoje do Tesouro Direto em três famílias (Pós-fixado, Prefixado e IPCA+), com as melhores de cada uma. Ao lado de cada família, o seu **alvo** (ex.: 120% do CDI, IPCA + 7,5%): o que chega nele fica verde, **No alvo**.
+- Cada linha diz se rende mais ou menos que os seus investimentos da mesma família. LCI e LCA aparecem também como o CDB que renderia o mesmo, já sem o IR.
+- **Páginas de ofertas** (com a IA ligada): cole o endereço da página de CDB, LCI e LCA de um banco ou corretora, e a IA lê as ofertas. Só valem as taxas escritas na página, e só produtos com FGC.
+- **Aviso no celular** (Mais › Configurações › Opções › Oportunidades de investimento; vem desligado), como o do ResolvIA: todo dia no horário escolhido, o que chegou ao alvo vai para quem você escolher. Tem **Testar** ao lado do horário, e tocar no aviso abre as oportunidades.
+
 ## 1.40.1
 
 - **Conferir lançamentos**: quando a fatura é de um banco que não está nos seus bancos, as linhas ficam em **Sem conta** (antes iam para outro banco) e aparece o botão **+** com o nome que a IA viu (ex.: **+ Banco Coral**) em **Lançar todos em**. Ele cadastra o banco ali mesmo, já com cartão se as compras foram no cartão, e volta para a conferência com a conta nova escolhida. Sem banco visto, o botão é **+ Banco**.

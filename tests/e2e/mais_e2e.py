@@ -13,13 +13,13 @@ LINHAS = ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configuraç
 TELAS = {  # tela: (título, as seções)
     'bancos': ('Bancos', []),
     'caixa': ('Caixa', ['Fixos', 'Categorias', 'Dicas de economia']),
-    'invest': ('Invest', ['Índices de mercado']),
+    'invest': ('Invest', ['Índices de mercado', 'Oportunidades']),
 }
 ABAS = {
     'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'Leitura por IA', 'Senhas dos PDFs', 'Faturas por e-mail', 'CorrerIA', 'Uso da IA', 'Sensores no Home Assistant'],
     'Dados': ['Exportar', 'Backup na pasta share', 'Importar', 'Versões anteriores', 'Onde ficam os dados', 'Começar do zero'],
     'Aparência': ['Tema', 'Cor do app'],
-    'Opções': ['Início', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos'],
+    'Opções': ['Início', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos', 'Oportunidades de investimento'],
 }
 def cheia(pg, nome):
     h=pg.evaluate('document.documentElement.scrollHeight')

@@ -88,6 +88,27 @@ class TestIgualAoServidor(Tela):
             for dias in (0, 180, 181, 360, 361, 720, 721, 2000):
                 self.assertEqual(self.js(f"T.aliquota('{ir}', {dias})"), calc.aliquota(ir, dias), (ir, dias))
 
+    # oportunidades de investimento: a tela (Mais › Invest) e o aviso no celular (servidor) precisam concordar
+    OPS = [{"indexador": "cdi_pct", "taxa": 118}, {"indexador": "cdi_pct", "taxa": 94, "isento": True, "vencimento": "2027-11-08"},
+           {"indexador": "cdi_pct", "taxa": 92, "isento": True, "vencimento": "2027-02-01"}, {"indexador": "cdi_pct", "taxa": 95, "isento": True},
+           {"indexador": "selic_mais", "taxa": 0.0950}, {"indexador": "selic_mais", "taxa": 0}, {"indexador": "cdi_mais", "taxa": 1.2},
+           {"indexador": "pre", "taxa": 13.71}, {"indexador": "pre", "taxa": 12.1, "isento": True, "vencimento": "2028-05-01"},
+           {"indexador": "ipca_mais", "taxa": 7.04}, {"indexador": "ipca_mais", "taxa": 6.4, "isento": True, "vencimento": "2029-08-15"},
+           {"indexador": "estimado", "taxa": 9}]
+
+    def test_oportunidades_equivalente_alvo_e_comparacao(self):
+        import oportunidades as O
+        aj = {"op_cdi": 110, "op_pre": 13.71, "op_ipca": 7.5}
+        self.usar(base(investimentos=self.INVS, ajustes=aj))
+        for x in self.OPS:
+            with self.subTest(x=x):
+                self.assertEqual(self.js("T.equivalente(a)", x), calc.equivalente(x, INDICES, HOJE))
+                self.assertEqual(self.js("T.passaAlvo(a)", x), calc.passa_alvo(x, aj, INDICES, HOJE))
+                self.assertEqual(self.js("T.compararMeus(a)", x), calc.comparar_meus(x, self.INVS, INDICES, HOJE))
+                self.assertEqual(self.js("T.taxaOp(a)", x), O.taxa_txt(x))
+        for g, v in (("pos", 113.94), ("pos", 120.0), ("pos", 101.02), ("pre", 13.2), ("ipca", 6.88)):
+            self.assertEqual(self.js("T.valorOp(a[0], a[1])", [g, v]), O.valor_txt(g, v), (g, v))
+
     def test_totais(self):
         self.usar(base(investimentos=self.INVS))
         js = self.js("T.totais()")
