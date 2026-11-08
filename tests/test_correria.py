@@ -55,6 +55,13 @@ class TestInstrucoes(unittest.TestCase):
         self.assertEqual(len(conversa), chat.MAX_HISTORICO)
         self.assertEqual(conversa[-2:], ["IA: resposta", "Pessoa: Quanto gastei?"])
 
+    def test_na_conversa_do_correria(self):
+        t = chat.instrucoes_whatsapp(self.d(), [{"papel": "eu", "texto": "oi"}], "Ana", HOJE, canal="correria")
+        self.assertIn("conversa do CorrerIA", t)
+        self.assertIn("Também pode conversar sobre outros assuntos.", t, "a regra da Meta é só do WhatsApp")
+        self.assertNotIn("WhatsApp", t)
+        self.assertIn("ainda não dá para lançar", t)
+
     def test_sem_nome(self):
         self.assertNotIn("Quem está conversando", chat.instrucoes_whatsapp(self.d(), [{"papel": "eu", "texto": "oi"}], "", HOJE))
 
@@ -84,6 +91,10 @@ class TestConversa(unittest.TestCase):
         self.assertEqual(r, {"resposta": "Você gastou *R$ 123,45*."}, "as ações ficam de fora")
         tipo, payload = pedidos[0]
         self.assertEqual((tipo, payload["task_name"]), ("whatsapp", "GerencIA: WhatsApp"))
+        with mock.patch.object(S, "IA_MOCK", False), mock.patch.object(S, "ia_chamar", ia):
+            S.conversa_correria({"texto": "oi", "canal": "correria"})
+        self.assertEqual(pedidos[1][1]["task_name"], "GerencIA: CorrerIA")
+        self.assertIn("conversa do CorrerIA", pedidos[1][1]["instructions"])
         self.assertIn("Pessoa: oi\nIA: Olá!\nPessoa: Quanto gastei?", payload["instructions"])
         self.assertEqual(S.CHAT.ler(), antes, "a conversa do app não muda")
 

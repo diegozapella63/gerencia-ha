@@ -35,7 +35,7 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.38.0"
+VERSAO = "1.38.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2293,7 +2293,9 @@ def conversa_correria(corpo):
         registrar_uso("whatsapp", "ai_task.simulada", 2000, 200, 0, 0.3, "ok")
         bruto = chat.simulado(texto, d)
     else:
-        payload = {"task_name": "GerencIA: WhatsApp", "instructions": chat.instrucoes_whatsapp(d, historico, nome)}
+        canal = "correria" if corpo.get("canal") == "correria" else "whatsapp"
+        payload = {"task_name": "GerencIA: CorrerIA" if canal == "correria" else "GerencIA: WhatsApp",
+                   "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal)}
         ent = d["ajustes"].get("ia_entidade") or ""
         if ent:
             payload["entity_id"] = ent
@@ -2355,7 +2357,7 @@ def conversa_anexo(corpo):
         lido, fim = f"Não encontrei gastos nem recebimentos n{oque}.", ""
     if texto and PERGUNTA_RE.search(texto):
         contexto = f"{texto}\n\n(A pessoa mandou {oque} junto. {lido})"
-        resposta = conversa_correria({"texto": contexto, "historico": corpo.get("historico"), "pessoa": pessoa})["resposta"]
+        resposta = conversa_correria({"texto": contexto, "historico": corpo.get("historico"), "pessoa": pessoa, "canal": corpo.get("canal")})["resposta"]
         return {"resposta": resposta + (f"\n\n{fim}" if fim else "")}
     return {"resposta": lido + (f"\n\n{fim}" if fim else "")}
 

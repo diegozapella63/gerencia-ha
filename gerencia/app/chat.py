@@ -168,11 +168,18 @@ Por aqui você só ajuda com as finanças e os apps da casa: para qualquer outro
 Pelo WhatsApp ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que por enquanto isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
 
 
-def instrucoes_whatsapp(d, historico, usuario="", hoje=None):
-    """O pedido para a IA quando a pergunta vem pelo WhatsApp (o CorrerIA): só responde, sem ações, só sobre os apps."""
+# a conversa na tela do CorrerIA (o app que junta os apps da casa): sem a regra do WhatsApp sobre outros assuntos
+CORRERIA = """Você responde pela conversa do CorrerIA, o app que junta os apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, curto e direto, como num chat de celular: frases simples, no máximo uns 4 parágrafos curtos. Formatação: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
+Responda sobre as finanças da casa com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. Contas de cabeça podem errar: some e compare com cuidado. Também pode conversar sobre outros assuntos.
+Por aqui ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
+
+
+def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp"):
+    """O pedido para a IA quando a pergunta vem pelo CorrerIA: pelo WhatsApp (só sobre os apps, a regra da Meta) ou
+    pela conversa na tela dele (canal correria). Só responde, sem ações."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
-    partes = [WHATSAPP + (f"\nQuem está conversando: {nome}." if nome else ""),
+    partes = [(CORRERIA if canal == "correria" else WHATSAPP) + (f"\nQuem está conversando: {nome}." if nome else ""),
               "Dados do app:\n" + resumo(d, hoje)]
     conversa = [("IA: " if m.get("papel") == "ia" else "Pessoa: ") + str(m.get("texto") or "").strip()[:MAX_TEXTO]
                 for m in historico[-MAX_HISTORICO:] if str(m.get("texto") or "").strip()]

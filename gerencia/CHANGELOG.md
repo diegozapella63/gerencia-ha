@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.38.1
+
+- Na conversa pela tela do **CorrerIA** (0.3.0), a IA do GerencIA responde sem falar em WhatsApp e também conversa sobre outros assuntos, como no balão do app.
+
 ## 1.38.0
 
 - **Fotos e PDFs pelo WhatsApp** (com o CorrerIA 0.2.0): mande a foto de uma nota, um print ou a fatura em PDF para o contato no WhatsApp e a IA do GerencIA lê. O que ela achar fica para conferir nos **Avisos do Início** ("Enviado por Ana · Pelo WhatsApp"), como as faturas por e-mail: toque, confira e lance (ou Ignorar). A fatura com senha abre com as Senhas dos PDFs. Com uma pergunta junto ("quanto deu essa nota?"), a resposta vem com o que foi lido.
