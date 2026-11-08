@@ -35,7 +35,7 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.37.0"
+VERSAO = "1.38.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1655,6 +1655,22 @@ def abrir_pdf(bruto, digitada="", guardar=False, nome_arquivo=""):
     return aberto
 
 
+EXT_ANEXO = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def mime_anexo(b):
+    """O tipo do arquivo pelos primeiros bytes: PDF, JPG, PNG ou WebP (o resto, None)."""
+    if b[:4] == b"%PDF":
+        return "application/pdf"
+    if b[:2] == b"\xff\xd8":
+        return "image/jpeg"
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def ia_ler(corpo):
     d = ler()
     if not ia_ligada(d):
@@ -1678,9 +1694,9 @@ def ia_ler(corpo):
                 b = base64.b64decode(str(anexo["b64"]).split(",", 1)[-1], validate=True)
             except (ValueError, TypeError):
                 raise ValueError("Arquivo inválido.")
-            m = "application/pdf" if b[:4] == b"%PDF" else "image/jpeg" if b[:2] == b"\xff\xd8" else None
+            m = mime_anexo(b)
             if not m:
-                raise ValueError("Envie uma imagem (JPG) ou um PDF.")
+                raise ValueError("Envie uma imagem (JPG, PNG ou WebP) ou um PDF.")
             arquivos.append((b, m))
     if len(arquivos) > 1 and any(m == "application/pdf" for _, m in arquivos):
         raise ValueError("Envie um PDF por vez.")
@@ -1728,7 +1744,7 @@ def ia_ler(corpo):
                 os.makedirs(pasta, exist_ok=True)
                 payload["attachments"] = []
                 for b, m in arquivos:
-                    nome_tmp = f"{secrets.token_hex(8)}.{'pdf' if m == 'application/pdf' else 'jpg'}"
+                    nome_tmp = f"{secrets.token_hex(8)}.{EXT_ANEXO[m]}"
                     tmps.append(os.path.join(pasta, nome_tmp))
                     with open(tmps[-1], "wb") as f:
                         f.write(b)
@@ -2243,7 +2259,8 @@ CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)
 # de share/gerencia/correria.json (só existe com Mais › Configurações › Integrações › CorrerIA ligado e a IA ligada).
 CORRERIA = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, nome="correria",
                               extra={"nome": "GerencIA", "assunto": "finanças da casa: caixa, gastos, recebimentos, contas a pagar, "
-                                     "cartões e faturas, investimentos e patrimônio", "rota": "/api/integracao/conversa"})
+                                     "cartões e faturas, investimentos e patrimônio", "rota": "/api/integracao/conversa",
+                                     "anexos": sorted(EXT_ANEXO)})
 
 
 def integracao_ligada(d=None):
@@ -2255,9 +2272,14 @@ def correria_ligada(d=None):
     return d.get("ajustes", {}).get("correria") is True and ia_ligada(d)
 
 
+PERGUNTA_RE = re.compile(r"\?|^(quanto|quantos|quantas|qual|quais|quando|onde|como|o que|que|por que|porque|tem|é|e)\b", re.I)
+
+
 def conversa_correria(corpo):
     """Uma pergunta que veio pelo WhatsApp (o CorrerIA manda a conversa daquela pessoa): só a resposta, sem ações e sem
-    mexer na conversa do app."""
+    mexer na conversa do app. Com um anexo (foto ou PDF), lê com a IA e o que achar fica para conferir no Início."""
+    if isinstance(corpo.get("anexo"), dict) and corpo["anexo"].get("b64"):
+        return conversa_anexo(corpo)
     d = ler()
     texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
     if not texto:
@@ -2290,6 +2312,67 @@ def conversa_correria(corpo):
     resposta, _ = chat.separar(bruto)
     log("CorrerIA: pergunta de", nome or "alguém", "respondida")
     return {"resposta": resposta or "Não entendi. Pode dizer de outro jeito?"}
+
+
+def _linhas_lidas(lanc, invs):
+    out = [f"- {x.get('descricao') or 'Sem descrição'}: {calc.fmt_brl(float(x.get('valor') or 0))}"
+           + (f" ({x['parcela_atual']}/{x['parcelas_total']})" if x.get("parcelas_total") else "") for x in lanc[:8]]
+    out += [f"- {x.get('nome') or 'Investimento'}: {calc.fmt_brl(float(x.get('valor') or x.get('aporte') or 0))}" for x in invs[:5]]
+    if len(lanc) > 8:
+        out.append(f"- e mais {len(lanc) - 8}")
+    return "\n".join(out)
+
+
+def conversa_anexo(corpo):
+    """Uma foto ou um PDF pelo WhatsApp: a IA lê como no Ler com IA (o PDF com senha abre com as Senhas dos PDFs). O que
+    achar fica para conferir no Início, como as faturas por e-mail (nada é lançado sozinho). Com uma pergunta junto
+    ("quanto deu essa nota?"), a IA responde com o que leu."""
+    anexo = corpo["anexo"]
+    texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
+    pessoa = corpo.get("pessoa") if isinstance(corpo.get("pessoa"), dict) else {}
+    nome = str(pessoa.get("nome") or "")[:60]
+    arquivo = str(anexo.get("nome") or "").strip()[:120]
+    try:
+        bruto = base64.b64decode(str(anexo["b64"]).split(",", 1)[-1], validate=True)
+    except (ValueError, TypeError):
+        raise ValueError("Arquivo inválido.") from None
+    mime = mime_anexo(bruto)
+    if not mime:
+        return {"resposta": "Esse tipo de arquivo eu não leio. Mande uma foto ou um PDF."}
+    try:
+        r = ia_ler({"modo": "auto", "dica": "caixa", "nome_arquivo": arquivo,
+                    "anexo": {"b64": f"data:{mime};base64," + base64.b64encode(bruto).decode()}})
+    except ErroSenhaPdf:
+        return {"resposta": "Esse PDF tem senha, e nenhuma das senhas cadastradas abre. Cadastre a senha no GerencIA "
+                            "(Mais › Configurações › Integrações › Senhas dos PDFs) e mande de novo."}
+    lanc, invs = r.get("lancamentos") or [], r.get("investimentos") or []
+    oque = "o PDF" if mime == "application/pdf" else "a foto"
+    if lanc or invs:
+        it = pendente_whatsapp(nome, texto, arquivo or ("PDF" if mime == "application/pdf" else "Foto"), {"lancamentos": lanc, "investimentos": invs})
+        lido = f"Li {_resumo_fatura(it)} n{oque}:\n{_linhas_lidas(lanc, invs)}"
+        fim = "Para lançar, confira no GerencIA: está nos Avisos do Início."
+    else:
+        lido, fim = f"Não encontrei gastos nem recebimentos n{oque}.", ""
+    if texto and PERGUNTA_RE.search(texto):
+        contexto = f"{texto}\n\n(A pessoa mandou {oque} junto. {lido})"
+        resposta = conversa_correria({"texto": contexto, "historico": corpo.get("historico"), "pessoa": pessoa})["resposta"]
+        return {"resposta": resposta + (f"\n\n{fim}" if fim else "")}
+    return {"resposta": lido + (f"\n\n{fim}" if fim else "")}
+
+
+def pendente_whatsapp(nome, texto, arquivo, resultado):
+    """O que a IA leu de uma foto ou PDF do WhatsApp fica para conferir no Início (junto das faturas por e-mail)."""
+    it = {"id": secrets.token_hex(6), "origem": "whatsapp", "chave": "", "de": nome or "WhatsApp", "assunto": texto[:200],
+          "data": agora_iso(), "recebido_em": agora_iso(), "arquivo": arquivo, "estado": "conferir", "erro": "", "resultado": resultado}
+    with _trava_emails:
+        e = emails_ler()
+        e["itens"].insert(0, it)
+        for velho in e["itens"][EMAILS_MAX:]:
+            _email_apagar_pdf(velho["id"])
+        e["itens"] = e["itens"][:EMAILS_MAX]
+        _emails_gravar(e)
+    log("CorrerIA: o que veio de", nome or "alguém", "pelo WhatsApp ficou para conferir")
+    return it
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2712,7 +2795,11 @@ def _email_mudar(eid, se=None, **campos):
 def email_publico(it):
     """O que a tela vê de um e-mail (sem o id da conta nem o da mensagem)."""
     r = {k: it.get(k) or "" for k in ("id", "assunto", "data", "recebido_em", "arquivo", "estado", "erro")}
-    r["de"], r["endereco"] = emails.nome_remetente(it.get("de")), emails.endereco(it.get("de"))
+    r["origem"] = "whatsapp" if it.get("origem") == "whatsapp" else "email"
+    if r["origem"] == "whatsapp":  # quem mandou, pelo nome da pessoa no Home Assistant
+        r["de"], r["endereco"] = str(it.get("de") or ""), ""
+    else:
+        r["de"], r["endereco"] = emails.nome_remetente(it.get("de")), emails.endereco(it.get("de"))
     if it.get("estado") == "conferir":
         r["resultado"] = it.get("resultado") or {"lancamentos": [], "investimentos": []}
     return r

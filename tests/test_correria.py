@@ -107,6 +107,97 @@ class TestConversa(unittest.TestCase):
         self.assertFalse(S.normalizar({"ajustes": {"correria": "sim"}})["ajustes"]["correria"])
 
 
+JPG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "pdf_senha")
+
+
+def b64(b, mime="image/jpeg"):
+    import base64
+    return f"data:{mime};base64," + base64.b64encode(b).decode()
+
+
+class TestAnexo(unittest.TestCase):
+    """Uma foto ou um PDF pelo WhatsApp: a IA lê e o que achar fica para conferir no Início."""
+
+    def setUp(self):
+        for arq in (S.EMAILS_ARQ, S.SENHAS_ARQ):
+            if os.path.exists(arq):
+                os.remove(arq)
+        with S.TRAVA:
+            d = S.ler()
+            d["ajustes"].update(ia=True, correria=True, email=False)
+            S.salvar(d, versao=False)
+        p = mock.patch.object(S.time, "sleep")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_tipos_de_arquivo(self):
+        self.assertEqual(S.mime_anexo(JPG), "image/jpeg")
+        self.assertEqual(S.mime_anexo(b"\x89PNG\r\n\x1a\n" + b"x"), "image/png")
+        self.assertEqual(S.mime_anexo(b"RIFF\x00\x00\x00\x00WEBPVP8 "), "image/webp")
+        self.assertEqual(S.mime_anexo(b"%PDF-1.7"), "application/pdf")
+        self.assertIsNone(S.mime_anexo(b"GIF89a"))
+        with self.assertRaisesRegex(ValueError, r"Envie uma imagem \(JPG, PNG ou WebP\) ou um PDF."):
+            S.ia_ler({"anexo": {"b64": b64(b"GIF89a", "image/gif")}})
+        self.assertTrue(S.ia_ler({"dica": "caixa", "anexo": {"b64": b64(b"\x89PNG\r\n\x1a\n" + b"x" * 40, "image/png")}})["lancamentos"], "PNG também")
+
+    def test_foto_lida_fica_para_conferir(self):
+        r = S.conversa_correria({"texto": "", "pessoa": {"id": "person.ana", "nome": "Ana"}, "anexo": {"tipo": "image/jpeg", "nome": "", "b64": b64(JPG)}})
+        self.assertTrue(r["resposta"].startswith("Li 4 lançamentos · R$ "), r["resposta"])
+        self.assertIn("na foto:\n- iFood: R$ 64,90", r["resposta"])
+        self.assertIn("- Magazine Luiza: R$ 189,90 (2/6)", r["resposta"])
+        self.assertTrue(r["resposta"].endswith("Para lançar, confira no GerencIA: está nos Avisos do Início."))
+        it = S.emails_ler()["itens"][0]
+        self.assertEqual((it["origem"], it["de"], it["estado"], it["arquivo"]), ("whatsapp", "Ana", "conferir", "Foto"))
+        self.assertEqual(len(it["resultado"]["lancamentos"]), 4)
+        pub = S.email_publico(it)
+        self.assertEqual((pub["origem"], pub["de"]), ("whatsapp", "Ana"))
+        self.assertEqual(S.email_publico({"id": "a" * 12, "estado": "fora"})["origem"], "email")
+
+    def test_pdf_com_senha_que_nenhuma_abre(self):
+        with open(os.path.join(FIX, "fatura-aes256.pdf"), "rb") as f:
+            pdf = f.read()
+        r = S.conversa_correria({"anexo": {"tipo": "application/pdf", "nome": "fatura.pdf", "b64": b64(pdf, "application/pdf")}})
+        self.assertIn("Esse PDF tem senha", r["resposta"])
+        self.assertEqual(S.emails_ler()["itens"], [])
+        S.senha_nova("CPF da Ana", "12345")
+        r = S.conversa_correria({"anexo": {"tipo": "application/pdf", "nome": "fatura.pdf", "b64": b64(pdf, "application/pdf")}})
+        self.assertIn("no PDF:", r["resposta"], "com a senha cadastrada, abre")
+        self.assertEqual(S.emails_ler()["itens"][0]["arquivo"], "fatura.pdf")
+
+    def test_arquivo_que_nao_le(self):
+        r = S.conversa_correria({"anexo": {"tipo": "image/gif", "b64": b64(b"GIF89a", "image/gif")}})
+        self.assertEqual(r, {"resposta": "Esse tipo de arquivo eu não leio. Mande uma foto ou um PDF."})
+        with self.assertRaisesRegex(ValueError, "Arquivo inválido."):
+            S.conversa_correria({"anexo": {"b64": "!!"}})
+
+    def test_nada_encontrado(self):
+        with mock.patch.object(S, "ia_ler", return_value={"lancamentos": [], "investimentos": []}):
+            r = S.conversa_correria({"anexo": {"b64": b64(JPG)}})
+        self.assertEqual(r, {"resposta": "Não encontrei gastos nem recebimentos na foto."})
+        self.assertEqual(S.emails_ler()["itens"], [])
+
+    def test_pergunta_junto_com_a_foto(self):
+        pedidos = []
+
+        def ia(tipo, payload, imagens, timeout):
+            pedidos.append(payload["instructions"])
+            return {"service_response": {"data": {"resposta": "Deu R$ 314,80 no total."}}}
+        with mock.patch.object(S, "IA_MOCK", False), mock.patch.object(S, "ia_chamar", ia), \
+                mock.patch.object(S, "ia_ler", return_value={"lancamentos": [{"tipo": "despesa", "descricao": "Mercado Bom", "valor": 314.8}], "investimentos": []}):
+            r = S.conversa_correria({"texto": "Quanto deu essa nota?", "pessoa": {"nome": "Ana"}, "anexo": {"b64": b64(JPG)}})
+        self.assertEqual(r["resposta"], "Deu R$ 314,80 no total.\n\nPara lançar, confira no GerencIA: está nos Avisos do Início.")
+        self.assertIn("Pessoa: Quanto deu essa nota?\n\n(A pessoa mandou a foto junto. Li 1 lançamento · R$ 314,80 na foto:\n- Mercado Bom: R$ 314,80)", pedidos[0])
+        self.assertTrue(S.PERGUNTA_RE.search("quanto foi?") and S.PERGUNTA_RE.search("Qual o total") and not S.PERGUNTA_RE.search("fatura do Banco Azul"))
+
+    def test_legenda_sem_pergunta_so_le(self):
+        with mock.patch.object(S, "conversa_correria", wraps=S.conversa_correria) as c:
+            r = S.conversa_correria({"texto": "fatura do Banco Azul", "anexo": {"b64": b64(JPG)}})
+        self.assertEqual(c.call_count, 1, "sem pergunta, nada de conversa")
+        self.assertTrue(r["resposta"].startswith("Li 4 lançamentos"))
+        self.assertEqual(S.emails_ler()["itens"][0]["assunto"], "fatura do Banco Azul")
+
+
 class TestRota(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -135,6 +226,7 @@ class TestRota(unittest.TestCase):
             p = json.load(f)
         self.assertEqual((p["app"], p["nome"], p["rota"], p["url"]), ("gerencia", "GerencIA", "/api/integracao/conversa", self.s.url))
         self.assertIn("finanças", p["assunto"])
+        self.assertEqual(p["anexos"], ["application/pdf", "image/jpeg", "image/png", "image/webp"], "o que o GerencIA lê")
         self.ligar(True, ia=False)
         self.assertFalse(os.path.exists(self.arq), "sem a IA, também some")
 
@@ -149,6 +241,16 @@ class TestRota(unittest.TestCase):
         self.assertEqual(self.s.get("/api/rev")[2]["correria_ultimo"]["app"], "CorrerIA")
         st, _, r = self.s.post("/api/integracao/conversa", {"texto": ""}, cabecalhos=cab)
         self.assertEqual((st, r["erro"]), (400, "Escreva uma mensagem."))
+
+    def test_conversa_com_foto(self):
+        self.ligar(True)
+        cab = {"Authorization": f"Bearer {self.chave()}", "X-App": "CorrerIA"}
+        st, _, r = self.s.post("/api/integracao/conversa", {"texto": "", "pessoa": {"nome": "Beto"}, "anexo": {"tipo": "image/jpeg", "b64": b64(JPG)}}, cabecalhos=cab)
+        self.assertEqual(st, 200, r)
+        self.assertTrue(r["resposta"].startswith("Li "))
+        st, _, e = self.s.get("/api/emails")
+        it = next(x for x in e["itens"] if x["de"] == "Beto")
+        self.assertEqual((it["origem"], it["estado"]), ("whatsapp", "conferir"))
 
     def test_sem_a_chave_certa_nao_entra(self):
         self.ligar(True)

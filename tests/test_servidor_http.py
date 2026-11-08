@@ -178,7 +178,7 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(r["lancamentos"], [], "do Novo investimento: só investimentos")
         self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto"})[2]["erro"], "Envie uma imagem, um PDF ou cole um texto.")
         self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexo": {"b64": "!!!"}})[2]["erro"], "Arquivo inválido.")
-        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexo": {"b64": base64.b64encode(b"GIF89a").decode()}})[2]["erro"], "Envie uma imagem (JPG) ou um PDF.")
+        self.assertEqual(self.s.post("/api/ia/ler", {"modo": "auto", "anexo": {"b64": base64.b64encode(b"GIF89a").decode()}})[2]["erro"], "Envie uma imagem (JPG, PNG ou WebP) ou um PDF.")
 
     def test_digitalizar_varias_paginas(self):
         antes = self.s.get("/api/ia/uso")[2]["today"]["images"]

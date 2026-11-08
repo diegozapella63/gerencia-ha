@@ -268,11 +268,12 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 O [CorrerIA](https://github.com/diegozapella63/correria-ha) é o contato da CorrerIA Code no WhatsApp, um app da mesma família. Com ele configurado e **Mais › Configurações › Integrações › CorrerIA no WhatsApp** ligado (vem desligado; precisa da IA ligada), as pessoas da casa perguntam pelo WhatsApp ("quanto gastei com mercado este mês?", "o que vence esta semana?") e a resposta vem da IA do GerencIA, com os seus dados.
 
 - Pelo WhatsApp a IA só responde: lançar, pagar ou mudar um saldo continua no app (o balão Conversar com a IA). E fala só dos apps da casa: é uma regra do WhatsApp para contatos de empresas.
+- **Fotos e PDFs**: uma foto de nota, um print ou uma fatura em PDF mandados pelo WhatsApp são lidos como no Ler com IA (o PDF com senha abre com as Senhas dos PDFs). O que a IA achar fica para conferir nos **Avisos do Início** ("Enviado por Ana · Pelo WhatsApp · 4 lançamentos"), junto das faturas por e-mail: toque para conferir e **Lançar** ou **Ignorar**. A resposta no WhatsApp lista o que foi lido; com uma pergunta junto ("quanto deu essa nota?"), ela responde com isso. Áudio chega como texto (o CorrerIA ouve antes).
 - A conversa do WhatsApp não aparece no balão do app, e o balão não aparece no WhatsApp.
 - As perguntas e as respostas passam pelos servidores do WhatsApp (da Meta). Quem pode conversar é escolhido no CorrerIA.
 - O cartão mostra quando o CorrerIA perguntou pela última vez. Desligado, o arquivo `share/gerencia/correria.json` (o endereço e uma chave só do CorrerIA) é apagado e a chave deixa de valer.
 
-O CorrerIA usa `POST /api/integracao/conversa` com `Authorization: Bearer <chave>`: `{texto, historico: [{papel: eu|ia, texto}], pessoa: {id, nome}}` → `{resposta}`.
+O CorrerIA usa `POST /api/integracao/conversa` com `Authorization: Bearer <chave>`: `{texto, historico: [{papel: eu|ia, texto}], pessoa: {id, nome}, anexo?: {tipo, nome, b64}}` → `{resposta}`. O `correria.json` diz os tipos de anexo que o GerencIA lê (`anexos`: PDF, JPG, PNG e WebP).
 
 ## Dados e backup
 

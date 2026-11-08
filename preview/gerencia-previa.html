@@ -1623,7 +1623,7 @@ select:not([multiple]){pointer-events:none}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.37.0';
+const VERSAO = '1.38.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5396,6 +5396,9 @@ function cardIA() {
    novo; o servidor pega o PDF da fatura, abre com as Senhas dos PDFs e lê com a IA. A fatura lida espera a conferência
    (um aviso no Início); nada é lançado sozinho. */
 const emailOn = () => S.d.ajustes.email === true && iaOn();
+// a lista vale também para o que chega pelo WhatsApp (o CorrerIA): uma foto ou PDF lido fica para conferir no Início
+const pendentesOn = () => iaOn() && (S.d.ajustes.email === true || S.d.ajustes.correria === true);
+const doEmail = it => it.origem !== 'whatsapp';
 const EMAIL_PEND = ['conferir', 'senha', 'lendo', 'erro'];
 const EMAIL_ST = { lendo: 'Lendo…', conferir: 'Para conferir', senha: 'Precisa da senha', erro: 'Não li', fora: 'Não é fatura', feito: 'Lançada', ignorado: 'Ignorada' };
 function aplicarEmails(r) {
@@ -5407,7 +5410,7 @@ function aplicarEmails(r) {
   return r;
 }
 function carregarEmails(forcar) {
-  if (!emailOn()) { S.emails = null; return Promise.resolve(null); }
+  if (!pendentesOn()) { S.emails = null; return Promise.resolve(null); }
   if (S.emailsPedido) return S.emailsPedido;
   S.emailsPedido = api.emails(forcar).then(r => r, () => S.emails || null).then(r => { S.emailsPedido = null; return aplicarEmails(r); });
   return S.emailsPedido;
@@ -5415,7 +5418,7 @@ function carregarEmails(forcar) {
 function emailAcao(acao, id, msg) {
   return api.emailAcao(acao, id).then(r => { if (msg) toast(msg); return aplicarEmails(r); }).catch(e => toast(e.message));
 }
-const emailsPendentes = () => (emailOn() && S.emails && S.emails.itens ? S.emails.itens.filter(x => EMAIL_PEND.includes(x.estado)) : []);
+const emailsPendentes = () => (pendentesOn() && S.emails && S.emails.itens ? S.emails.itens.filter(x => EMAIL_PEND.includes(x.estado) && (emailOn() || !doEmail(x))) : []);
 function totalEmail(it) {
   return ((it.resultado || {}).lancamentos || []).reduce((a, x) => a + (x.tipo === 'receita' ? -1 : 1) * (+x.valor || 0), 0);
 }
@@ -5431,8 +5434,9 @@ function avisosEmail() {
   return emailsPendentes().map(it => {
     const t = it.estado === 'conferir' ? totalEmail(it) : 0;
     const cls = it.estado === 'erro' ? ' alerta' : it.estado === 'senha' ? ' neutro' : ' terc';
-    return `<button class="op" data-a="email-abrir" data-v="${esc(it.id)}"${it.estado === 'lendo' ? ' disabled' : ''}><div class="op-ic${cls}">${ic(it.estado === 'senha' ? 'lock' : it.estado === 'erro' ? 'alert' : 'mail')}</div>
-      <div class="op-t"><b>Fatura ${esc(it.de || it.endereco)}</b><span>Por e-mail · ${esc(resumoEmail(it))}</span></div>
+    return `<button class="op" data-a="email-abrir" data-v="${esc(it.id)}"${it.estado === 'lendo' ? ' disabled' : ''}><div class="op-ic${cls}">${ic(it.estado === 'senha' ? 'lock' : it.estado === 'erro' ? 'alert' : doEmail(it) ? 'mail' : 'chat')}</div>
+      <div class="op-t">${doEmail(it) ? `<b>Fatura ${esc(it.de || it.endereco)}</b><span>Por e-mail · ${esc(resumoEmail(it))}</span>`
+        : `<b>Enviado por ${esc(it.de)}</b><span>Pelo WhatsApp · ${esc(resumoEmail(it))}</span>`}</div>
       ${t > 0 ? `<div class="op-n">${brl(t, 0)}</div>` : ''}${it.estado === 'lendo' ? '<span class="giro peq"></span>' : ic('chev', 'chev')}</button>`;
   });
 }
@@ -5472,7 +5476,7 @@ function cardEmail() {
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
     <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
     <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura” no assunto.'}</div></div>`;
-  const L = ((E && E.itens) || []).slice(0, 5);
+  const L = ((E && E.itens) || []).filter(doEmail).slice(0, 5);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
   return h + '</section>';
 }
@@ -6801,7 +6805,7 @@ document.addEventListener('click', ev => {
         if (!ok) return;
         if (k === 'ia') { S.ia = null; S.uso = null; S.emails = undefined; carregarVoz(); render(); }
         if (k === 'dicas') carregarDicas();
-        if (k === 'email') { S.emails = undefined; carregarEmails(true); }
+        if (k === 'email' || k === 'correria') { S.emails = undefined; carregarEmails(k === 'email'); }
         // ligou o aviso sem ninguém escolhido: começa com quem está usando o app
         const para = { dicas_aviso: 'dicas_para', email_aviso: 'email_para' }[k];
         if (para && nv && !(S.d.ajustes[para] || []).length) carregarPessoasAviso().then(r => {
@@ -7240,7 +7244,7 @@ if (!DEMO) setInterval(() => {
   fetch('api/rev', { cache: 'no-store' }).then(jsonOk).then(r => {
     S.integracaoUltimo = r.integracao_ultimo || null;
     S.correriaUltimo = r.correria_ultimo || null;
-    if (emailOn() && r.emails !== S.emailsCarimbo) { S.emailsCarimbo = r.emails; carregarEmails(); }  // chegou ou mudou e-mail
+    if (pendentesOn() && r.emails !== S.emailsCarimbo) { S.emailsCarimbo = r.emails; carregarEmails(); }  // chegou fatura por e-mail ou foto pelo WhatsApp
     if (r.rev !== S.d.rev && !FOLHA) return api.state().then(d => { S.d = normalizar(d); render(); });
   }).catch(() => {});
 }, 20000);

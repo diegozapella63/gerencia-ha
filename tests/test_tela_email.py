@@ -68,6 +68,24 @@ class TestAvisoNoInicio(TelaEmail):
         self.assertTrue(self.js("document.querySelector('[data-a=\"email-abrir\"][data-v=\"e00000000003\"]').disabled"), "lendo: ainda não dá para abrir")
         self.assertEqual(self.js("document.querySelector('.rot-t') && [...document.querySelectorAll('.rot-t')].map(e => e.textContent).includes('Avisos')"), True)
 
+    def test_foto_do_whatsapp_tambem_aparece(self):
+        """O CorrerIA: uma foto ou PDF lido pelo WhatsApp fica para conferir no Início, mesmo com o e-mail desligado."""
+        zap = email(8, "conferir", "Ana", assunto="", origem="whatsapp", endereco="", arquivo="Foto")
+        self.abrir_com([zap, email(1, "conferir")], email=False, correria=True)
+        self.assertEqual(self.avisos(), [["Enviado por Ana", "Pelo WhatsApp · 2 lançamentos", "R$ 169"]], "a fatura do e-mail não (e-mail desligado)")
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.folha(), "Conferir lançamentos")
+        self.assertEqual(self.textos("#folhas .folha-pe .btn")[0], "Ignorar")
+        self.clicar('#folhas [data-a="email-ignorar"]')
+        self.assertEqual(self.estados()[0], "ignorado")
+        self.abrir_com([zap], email=False, correria=False)
+        self.assertEqual(self.avisos(), [], "sem o CorrerIA e sem o e-mail, nada")
+
+    def test_foto_do_whatsapp_fora_dos_recebidos_do_email(self):
+        zap = email(8, "fora", "Ana", origem="whatsapp", endereco="")
+        self.abrir_com([zap, email(1, "conferir")], ui=INTEG, correria=True)
+        self.assertEqual(self.js("[...document.querySelectorAll('#email .email-l b')].map(b => b.textContent)"), ["Banco Azul"])
+
     def test_some_com_a_opcao_ou_a_ia_desligada(self):
         self.abrir_com([email(1, "conferir")], email=False)
         self.assertEqual(self.avisos(), [])
