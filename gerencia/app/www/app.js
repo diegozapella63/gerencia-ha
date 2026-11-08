@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.35.0';
+const VERSAO = '1.35.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4199,8 +4199,29 @@ function carregarPessoasAviso() {
 let FOLHA = null, PILHA = [];
 const nivelHist = () => { try { return (history.state && history.state.g) || 0; } catch (e) { return 0; } };
 const nivel = () => (CAM ? CAM.h : FOLHA ? FOLHA.h : 0);
-function voltarHist(h) { const g = nivelHist(); if (g > h) { try { history.go(h - g); } catch (e) { /* ok */ } } }
+// O Voltar que o app pede (history.go) chega depois, num popstate. Uma folha aberta antes disso (salvou uma e já abriu
+// outra) marcaria o histórico na entrada velha e o popstate a fecharia: ela espera o Voltar chegar para marcar a dela.
+let VOLTA = null, MARCAR = null, VOLTA_T = 0;
+const nivelAgora = () => (VOLTA !== null ? VOLTA : nivelHist());
+function voltarHist(h) {
+  if (MARCAR !== null && h < MARCAR) MARCAR = null;  // a folha que esperava já fechou: nada a marcar
+  const g = nivelAgora();
+  if (g <= h) return;
+  try { history.go(h - g); } catch (e) { return; }
+  VOLTA = h;
+  clearTimeout(VOLTA_T);
+  VOLTA_T = setTimeout(chegouVolta, 1000);  // se o popstate não vier
+}
+function chegouVolta() {
+  clearTimeout(VOLTA_T);
+  VOLTA = null;
+  const m = MARCAR;
+  MARCAR = null;
+  if (m !== null && nivel() >= m) marcarHist(m);
+  return m !== null;
+}
 function marcarHist(h) {
+  if (VOLTA !== null) { MARCAR = h; return; }
   // a entrada de agora já é desse nível (a câmera acabou de fechar e a folha entra no lugar dela): só troca
   try { if (nivelHist() >= h) history.replaceState({ folha: 1, g: h }, ''); else history.pushState({ folha: 1, g: h }, ''); } catch (e) { /* ok */ }
 }
@@ -4217,7 +4238,7 @@ function abrirFolha(montar, aoFechar, sobre) {
   }
   fecharFolha(true);
   root.innerHTML = `<div class="veu" data-a="fechar"></div><section class="folha" role="dialog" aria-modal="true"></section>`;
-  FOLHA = { montar, aoFechar, h: Math.max(1, nivelHist()) };
+  FOLHA = { montar, aoFechar, h: Math.max(1, nivelAgora()) };
   pintarFolha();
   requestAnimationFrame(() => { $('.veu', root).classList.add('on'); $('.folha', root).classList.add('on'); });
   marcarHist(FOLHA.h);
@@ -4255,6 +4276,8 @@ function fecharFolha(semHistorico, umNivel) {
   cbs.forEach(cb => cb());
 }
 window.addEventListener('popstate', () => {
+  // o Voltar que o app pediu chegou; uma folha aberta enquanto isso marca a entrada dela agora
+  if (VOLTA !== null && chegouVolta()) return;
   const alvo = nivelHist();
   if (CAM && CAM.h > alvo) fecharCamera(true);
   while (FOLHA && FOLHA.h > alvo) fecharFolha(true, true);

@@ -1441,6 +1441,21 @@ class TestNavegacao(TelaMais):
         self.clicar('.imp-tile[data-ini="texto"]')
         self.assertEqual((self.folha(), self.niveis()), ("Colar mensagem", 2))
 
+    def test_janela_aberta_logo_depois_de_fechar_outra_fica_aberta(self):
+        """Salvou uma janela e já abriu outra, antes do Voltar que a primeira deu no histórico chegar: a nova fica
+        aberta (antes, esse Voltar atrasado fechava a nova), e o Voltar do celular fecha só ela."""
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.js("(T.abrirSenhaNova(), new Promise(r => setTimeout(r, 30)))")
+        self.js("(T.fecharFolha(), T.abrirSenhaNova(), new Promise(r => setTimeout(r, 300)))")
+        self.assertEqual((self.folha(), self.js("history.state && history.state.g")), ("Nova senha", 1), "aberta e no histórico")
+        self.voltar()
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA")
+        self.assertEqual((self.js("T.S.ui.maisTela"), self.js("history.state && history.state.tela")), ("config", "config"), "fecha só a janela")
+        # fechou também antes do Voltar chegar: nada sobra no histórico e a tela continua
+        self.js("(T.abrirSenhaNova(), new Promise(r => setTimeout(r, 30)))")
+        self.js("(T.fecharFolha(), T.abrirSenhaNova(), T.fecharFolha(), new Promise(r => setTimeout(r, 300)))")
+        self.assertEqual((self.niveis(), self.js("T.S.ui.maisTela"), self.js("history.state && history.state.tela")), (0, "config", "config"))
+
     def test_menu_de_baixo_troca_de_aba(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
         for aba, titulo in (("caixa", "Caixa"), ("investimentos", "Investimentos"), ("mais", "Mais"), ("inicio", "Início")):
