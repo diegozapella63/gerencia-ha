@@ -1314,3 +1314,5 @@ input[readonly] { opacity: .8; }
 .op-hora-l { display: flex; gap: 8px; }
 .op-hora-l .inp { flex: 1; min-width: 0; }
 .op-hora-l .btn { flex: 1; justify-content: center; }
+.op-sug { margin: 10px 0 0; }
+.op-dias { width: 132px; }

@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.42.0
+
+- **Oportunidades sem alvo**: numa família sem alvo, vale o que rende mais que o melhor dos seus investimentos daquela família. A linha mostra **Melhor que os seus**, e o aviso no celular vale para isso também. Com um alvo escolhido, vale o alvo.
+- **Avisar a cada X dias** (Opções › Oportunidades de investimento): todo dia ou a cada quantos dias você quiser (de 1 a 30), sempre no horário escolhido.
+- **Páginas prontas**: Mercado Pago, Nubank, PagBank, Inter e um comparativo de CDBs de liquidez diária. É só tocar para adicionar.
+- As **caixinhas e cofrinhos** das contas digitais também entram, com a condição de cada taxa escrita junto (ex.: "clientes Ultravioleta").
+- **Faturas por e-mail**: com "boleto" no assunto ou no nome do PDF também é lido sozinho, como o aluguel e o condomínio.
+
 ## 1.41.0
 
 - **Oportunidades de investimento** (Mais › Invest): as taxas de hoje do Tesouro Direto em três famílias (Pós-fixado, Prefixado e IPCA+), com as melhores de cada uma. Ao lado de cada família, o seu **alvo** (ex.: 120% do CDI, IPCA + 7,5%): o que chega nele fica verde, **No alvo**.

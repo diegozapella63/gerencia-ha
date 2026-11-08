@@ -213,7 +213,7 @@ class TestCartaoIntegracoes(TelaEmail):
         self.pg.wait_for_selector("#email .status")
         self.assertEqual(self.texto("#email .status"), "ana@exemplo.com")
         self.assertIn("Ligado: recebendo os e-mails pelo Home Assistant.", self.cartao())
-        self.assertIn("Sem nenhum, os e-mails com PDF e “fatura” no assunto.", self.cartao())
+        self.assertIn("Sem nenhum, os e-mails com PDF e “fatura” ou “boleto” no assunto.", self.cartao())
 
     def test_some_sem_a_ia(self):
         self.abrir_com([], ui=INTEG, ia=False)

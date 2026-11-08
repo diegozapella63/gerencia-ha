@@ -76,12 +76,13 @@ def limpar_remetente(texto):
 
 def e_fatura(remetente, assunto, arquivo, remetentes):
     """É e-mail de fatura? Com remetentes cadastrados, o endereço de quem mandou tem um deles (o endereço inteiro ou
-    o fim, como bancoazul.com.br); sem nenhum, a palavra fatura no assunto ou no nome do PDF."""
+    o fim, como bancoazul.com.br); sem nenhum, a palavra fatura ou boleto no assunto ou no nome do PDF."""
     de = endereco(remetente)
     regras = [limpar_remetente(r) for r in remetentes or [] if str(r or "").strip()]
     if regras:
         return any(de == r or de.endswith("@" + r) or de.endswith("." + r) for r in regras)
-    return "fatura" in _sem_acento(f"{assunto} {arquivo}")
+    t = _sem_acento(f"{assunto} {arquivo}")
+    return "fatura" in t or "boleto" in t
 
 
 def chave(ev):

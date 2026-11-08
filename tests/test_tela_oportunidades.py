@@ -74,9 +74,9 @@ class TestCartao(TelaOport):
         self.abrir_invest()
         self.assertEqual(self.conta("#oportunidades .op-todas"), 0, "nenhuma família com mais de 3")
         self.abrir_invest(op_paginas=[PAGINA])
-        self.assertEqual(self.texto("#oportunidades .op-todas"), "Ver mais 1")
+        self.assertEqual(self.texto("#oportunidades .op-todas"), "Ver mais 2")
         self.clicar('#oportunidades [data-a="op-todas"]')
-        self.assertEqual(len(self.grupo("pos")), 4)
+        self.assertEqual(len(self.grupo("pos")), 5)
         self.assertEqual(self.texto("#oportunidades .op-todas"), "Ver menos")
 
     def test_ofertas_das_paginas_com_o_equivalente_em_cdb(self):
@@ -86,7 +86,30 @@ class TestCartao(TelaOport):
         self.assertEqual(pos[1][:3], ["LCA Banco Sol", "94% do CDI", "como CDB de 113,9%"], "isenta: a LCA de 94% vale um CDB de 113,9% (IR de 17,5% até o vencimento)")
         self.assertIn("bancosol.exemplo · vence 06/11/2028", self.linha("#oportunidades .op-row", "CDB Banco Sol"))
         self.assertEqual(self.textos("#oportunidades .op-pag b"), ["bancosol.exemplo"])
-        self.assertEqual(self.textos("#oportunidades .op-pag .op-t span"), ["2 ofertas"])
+        self.assertEqual(self.textos("#oportunidades .op-pag .op-t span"), ["3 ofertas"])
+        cx = self.grupo("pos")[2]
+        self.assertEqual(cx[:2], ["Caixinha (Banco Sol)", "112% do CDI"])
+        self.assertIn("liquidez diária · clientes Sol Mais", self.linha("#oportunidades .op-row", "Caixinha"), "a condição da taxa")
+
+    def test_sem_alvo_vale_o_que_rende_mais_que_os_seus(self):
+        self.abrir_invest(op_paginas=[PAGINA])
+        pos = self.grupo("pos")
+        self.assertEqual([(r[0], r[4]) for r in pos], [("CDB Banco Sol", True), ("LCA Banco Sol", True), ("Caixinha (Banco Sol)", True)],
+                         "acima do seu CDB de 104%")
+        self.assertEqual(self.linha("#oportunidades .op-row.passa", "CDB Banco Sol").endswith("Melhor que os seus"), True)
+        self.assertEqual([r[4] for r in self.grupo("ipca")], [True, True, True], "acima do seu IPCA + 6,20%")
+        self.assertEqual([r[4] for r in self.grupo("pre")], [False, False], "sem prefixado seu: nada")
+        self.assertIn("Sem alvo, vale o que render mais que os seus.", self.texto("#oportunidades .painel-lead"))
+
+    def test_paginas_prontas(self):
+        self.abrir_invest()
+        self.assertEqual(self.textos("#oportunidades .op-sug .chip"), ["+ Mercado Pago", "+ Nubank", "+ PagBank", "+ Inter", "+ CDBs de liquidez diária (iDinheiro)"])
+        self.clicar('#oportunidades .op-sug [data-v="https://nubank.com.br/nu/caixinhas"]')
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["op_paginas"], ["https://nubank.com.br/nu/caixinhas"])
+        self.pg.wait_for_function("() => document.querySelectorAll('#oportunidades .op-sug .chip').length === 4")
+        self.abrir_invest(ia=False)
+        self.assertEqual(self.conta("#oportunidades .op-sug"), 0, "sem a IA, sem páginas")
 
     def test_com_a_ia_desligada_so_o_tesouro(self):
         self.abrir_invest(op_paginas=[PAGINA], ia=False)
@@ -145,12 +168,22 @@ class TestAvisoNoCelular(TelaOport):
         self.pg.wait_for_selector("#op-oport .quem-p")
         self.assertEqual(self.pg.input_value("#op-hora"), "10:00")
         self.assertEqual(self.textos("#op-oport .op-hora-l .btn"), ["Testar"], "o Testar ao lado do horário, como no ResolvIA")
-        self.assertIn("Nenhum alvo ainda.", self.texto("#op-oport"))
+        self.assertIn("O que chegou ao alvo ou, sem alvo, rende mais que os seus.", self.texto("#op-oport"))
+        self.assertEqual(self.pg.input_value("#op-dias"), "1")
 
     def test_horario_quem_recebe_e_testar(self):
         self.abrir(base(bancos=BANCOS, ajustes={"op_aviso": True, "op_para": ["person.ana"], "op_cdi": 120}), ui=OPCOES)
         self.pg.wait_for_selector("#op-oport .quem-p")
-        self.assertNotIn("Nenhum alvo", self.texto("#op-oport"))
+        self.pg.fill("#op-dias", "3")
+        self.pg.locator("#op-dias").dispatch_event("change")
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["op_dias"], 3)
+        self.assertIn("Ligado: a cada 3 dias, no horário.", self.texto("#op-oport"))
+        self.assertEqual(self.texto("#op-oport .op-dias > span"), "dias")
+        self.pg.fill("#op-dias", "90")
+        self.pg.locator("#op-dias").dispatch_event("change")
+        self.assertEqual(self.esperar_aviso("Use de 1"), "Use de 1 a 30 dias.")
+        self.assertEqual((self.pg.input_value("#op-dias"), self.dados()["ajustes"]["op_dias"]), ("3", 3))
         self.pg.fill("#op-hora", "08:30")
         self.pg.locator("#op-hora").dispatch_event("change")
         self.esperar()

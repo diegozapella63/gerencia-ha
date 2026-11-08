@@ -33,7 +33,8 @@ DADOS = ("Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Man
          "Tesouro Prefixado;01/01/2032;04/11/2026;13,9;14,0;500,00\n").encode("cp1252")
 PAGINA = """<html><body><h1>Investimentos do Banco Sol</h1>
 <ul><li>CDB Banco Sol 130% do CDI, liquidez diária</li><li>LCA Banco Sol 95% do CDI vence em 10/11/2027</li>
-<li>CDB Banco Sol IPCA + 7,5% vence em 15/05/2030</li><li>Fundo Multimercado Sol: 120% do CDI no ano</li></ul></body></html>"""
+<li>CDB Banco Sol IPCA + 7,5% vence em 15/05/2030</li><li>Fundo Multimercado Sol: 120% do CDI no ano</li>
+<li>Caixinha Banco Sol 115% do CDI (clientes Sol Mais)</li></ul></body></html>"""
 
 
 def titulos():
@@ -95,9 +96,27 @@ class TestOfertas(unittest.TestCase):
         self.assertEqual([(o["nome"], o["produto"], o["indexador"], o["taxa"], o["isento"], o["vencimento"], o["liquidez"], o["familia"]) for o in ofs], [
             ("CDB Banco Sol", "cdb", "cdi_pct", 130.0, False, "", "diaria", "pos"),
             ("LCA Banco Sol", "lca", "cdi_pct", 95.0, True, "2027-11-10", "", "pos"),
-            ("CDB Banco Sol", "cdb", "ipca_mais", 7.5, False, "2030-05-15", "", "ipca")], "o fundo fica de fora")
+            ("CDB Banco Sol", "cdb", "ipca_mais", 7.5, False, "2030-05-15", "", "ipca"),
+            ("Caixinha (Banco Sol)", "conta", "cdi_pct", 115.0, False, "", "", "pos")], "o fundo fica de fora")
+        self.assertEqual(ofs[3]["condicao"], "clientes Sol Mais", "a condição da taxa vai junto")
         self.assertEqual({o["fonte"] for o in ofs}, {"bancosol.exemplo"})
-        self.assertEqual(len({o["id"] for o in ofs}), 3)
+        self.assertEqual(len({o["id"] for o in ofs}), 4)
+
+    def test_nome_e_condicao_da_ia(self):
+        texto = "Caixinha Turbo do Banco Lua: até 120% do CDI para clientes Lua Prime. Caixinhas: 100% do CDI."
+        ofs, _ = O.limpar_ofertas({"ofertas": [
+            {"emissor": "Banco Lua", "nome": "Caixinha Turbo", "produto": "conta", "indexador": "cdi_pct", "taxa": 120,
+             "condicao": "clientes Lua Prime.", "trecho": "até 120% do CDI para clientes Lua Prime"},
+            {"emissor": "Banco Lua", "nome": "Caixinha do Banco Lua", "produto": "conta", "indexador": "cdi_pct", "taxa": 100, "trecho": "Caixinhas: 100% do CDI"}]},
+            texto, self.URL, HOJE)
+        self.assertEqual([(o["nome"], o["condicao"]) for o in ofs], [("Caixinha Turbo (Banco Lua)", "clientes Lua Prime"), ("Caixinha do Banco Lua", "")],
+                         "o banco junto do nome (quando ainda não está nele)")
+        self.assertEqual(O.linha_aviso(dict(ofs[0], eq={"grupo": "pos", "valor": 120.0}, meus=None)),
+                         "Caixinha Turbo (Banco Lua): 120% do CDI (clientes Lua Prime)")
+
+    def test_paginas_prontas(self):
+        self.assertTrue(all(O.limpar_url(x["url"]) == x["url"] and x["nome"] for x in O.SUGESTOES))
+        self.assertEqual(len({x["url"] for x in O.SUGESTOES}), len(O.SUGESTOES))
 
     def test_so_o_que_a_pagina_confirma(self):
         texto = self.texto()
@@ -145,6 +164,16 @@ class TestConta(unittest.TestCase):
         ipca = calc.equivalente({"indexador": "ipca_mais", "taxa": 6, "isento": True}, INDICES, HOJE)["valor"]
         self.assertEqual(ipca, round((((1.045 * 1.06 - 1) / 0.85 + 1) / 1.045 - 1) * 100, 2), "o IPCA + que um CDB precisaria ter")
 
+    def test_sem_alvo_melhor_que_os_seus(self):
+        invs = [{"nome": "CDB Lua", "tipo": "cdb", "indexador": "cdi_pct", "taxa": 104, "valor": 1000},
+                {"nome": "Da Carla", "tipo": "cdb", "indexador": "cdi_pct", "taxa": 150, "valor": 900, "titular": "terceiros"}]
+        p = lambda taxa, aj=None: calc.passa_alvo({"indexador": "cdi_pct", "taxa": taxa}, aj or {}, INDICES, HOJE, invs)  # noqa: E731
+        self.assertEqual((p(105), p(104), p(90)), ("meus", "", ""), "só o que rende mais que o seu melhor (o de terceiros não conta)")
+        self.assertEqual(p(105, {"op_cdi": 110}), "", "com alvo, vale o alvo")
+        self.assertEqual(p(112, {"op_cdi": 110}), "alvo")
+        self.assertEqual(calc.passa_alvo({"indexador": "pre", "taxa": 20}, {}, INDICES, HOJE, invs), "", "sem prefixado seu")
+        self.assertEqual(calc.passa_alvo({"indexador": "estimado"}, {}, INDICES, HOJE, invs), "")
+
     def test_alvo(self):
         cdb = {"indexador": "cdi_pct", "taxa": 120}
         self.assertTrue(calc.passa_alvo(cdb, {"op_cdi": 120}, INDICES, HOJE), "igual ao alvo passa")
@@ -176,8 +205,14 @@ class TestAvisarQuais(unittest.TestCase):
     def test_ordem_e_o_que_passa(self):
         av = self.avaliadas(op_ipca=7)
         self.assertEqual([(x["nome"], x["passa"]) for x in av], [
-            ("Tesouro Selic 2031", False), ("Tesouro Reserva 2036", False), ("Tesouro Prefixado 2032", False),
-            ("Tesouro IPCA+ 2032", True), ("Tesouro IPCA+ 2040", False)])
+            ("Tesouro Selic 2031", ""), ("Tesouro Reserva 2036", ""), ("Tesouro Prefixado 2032", ""),
+            ("Tesouro IPCA+ 2032", "alvo"), ("Tesouro IPCA+ 2040", "")])
+
+    def test_sem_alvo_vale_o_que_rende_mais_que_os_seus(self):
+        av = {x["nome"]: x["passa"] for x in self.avaliadas()}
+        self.assertEqual((av["Tesouro IPCA+ 2032"], av["Tesouro IPCA+ 2040"]), ("meus", "meus"), "acima do seu IPCA + 6,20%")
+        self.assertEqual(av["Tesouro Prefixado 2032"], "", "sem prefixado seu: nada para comparar")
+        self.assertEqual(self.avaliadas(op_ipca=7.5)[3]["passa"], "", "o alvo escolhido vale sobre os seus")
 
     def test_cada_uma_uma_vez_e_de_novo_se_subir(self):
         av = self.avaliadas(op_ipca=7)
@@ -214,14 +249,17 @@ class TestAjustes(unittest.TestCase):
     def test_padrao_e_limpeza(self):
         aj = S.vazio()["ajustes"]
         self.assertEqual({k: aj[k] for k in aj if k.startswith("op_")}, {"op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [],
-                                                                       "op_aviso": False, "op_para": [], "op_hora": "10:00"})
+                                                                       "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1})
         d = S.vazio()
-        d["ajustes"].update(op_cdi=120.456, op_pre="15", op_ipca=31, op_aviso="sim", op_hora="7:00", op_para=["person.ana", "x", "person.ana"],
+        d["ajustes"].update(op_cdi=120.456, op_pre="15", op_ipca=31, op_aviso="sim", op_hora="7:00", op_para=["person.ana", "x", "person.ana"], op_dias=45,
                             op_paginas=["https://banco.exemplo/a", "javascript:alert(1)", "https://banco.exemplo/a"] + [f"https://b{k}.exemplo" for k in range(12)])
         aj = S.normalizar(d)["ajustes"]
         self.assertEqual((aj["op_cdi"], aj["op_pre"], aj["op_ipca"], aj["op_aviso"], aj["op_hora"], aj["op_para"]),
                          (120.46, None, None, False, "10:00", ["person.ana"]))
         self.assertEqual(aj["op_paginas"][:2], ["https://banco.exemplo/a", "https://b0.exemplo"])
+        self.assertEqual(aj["op_dias"], 1, "de 1 a 30")
+        d["ajustes"]["op_dias"] = 7
+        self.assertEqual(S.normalizar(d)["ajustes"]["op_dias"], 7)
         self.assertEqual(len(aj["op_paginas"]), 10)
 
 
@@ -276,7 +314,7 @@ class TestPaginas(ComServidor):
     def test_le_a_pagina_com_a_ia(self):
         d = self.salvar()
         p = S.ler_pagina_ofertas(self.falso.url + "/pagina", d)
-        self.assertEqual((p["status"], [o["nome"] for o in p["ofertas"]]), ("ok", ["CDB Banco Sol", "LCA Banco Sol", "CDB Banco Sol"]))
+        self.assertEqual((p["status"], [o["nome"] for o in p["ofertas"]]), ("ok", ["CDB Banco Sol", "LCA Banco Sol", "CDB Banco Sol", "Caixinha (Banco Sol)"]))
 
     def test_situacoes(self):
         d = self.salvar()
@@ -305,8 +343,9 @@ class TestConferirEEstado(ComServidor):
         S.iniciar_oport(esperar=True)
         e = S.oport_estado(S.ler(), disparar=False)
         self.assertEqual([x["nome"] for x in e["titulos"]][:2], ["Tesouro Selic 2031", "Tesouro Reserva 2036"])
-        self.assertEqual(len(e["ofertas"]), 3)
-        self.assertEqual(e["paginas"], [{"url": url, "dominio": "127.0.0.1", "status": "ok", "ofertas": 3, "em": e["paginas"][0]["em"]}])
+        self.assertEqual(len(e["ofertas"]), 4)
+        self.assertEqual(e["paginas"], [{"url": url, "dominio": "127.0.0.1", "status": "ok", "ofertas": 4, "em": e["paginas"][0]["em"]}])
+        self.assertEqual([x["nome"] for x in e["sugestoes"]], [x["nome"] for x in O.SUGESTOES], "as páginas prontas que ainda não estão na lista")
         self.assertEqual((e["tesouro"]["fonte"], e["conferindo"]), ("investir", False))
         # de novo, sem forçar: nada é buscado (o Tesouro vale uma hora; a página, o dia)
         n = len(self.falso.pedidos)
@@ -320,7 +359,7 @@ class TestConferirEEstado(ComServidor):
         self.assertEqual(S.oport_ler()["paginas"], {})
         self.salvar(op_paginas=[url], ia=False)
         e = S.oport_estado(S.ler(), disparar=False)
-        self.assertEqual((e["ofertas"], e["paginas"]), ([], []))
+        self.assertEqual((e["ofertas"], e["paginas"], e["sugestoes"]), ([], [], []))
         self.assertEqual(d["ajustes"]["op_paginas"], [url])
 
     def test_olhar_busca_o_que_esta_velho(self):
@@ -373,6 +412,15 @@ class TestAvisar(ComServidor):
         d = self.salvar(op_para=["person.ana"])
         self.assertEqual(S.avisar_oport(d), 0)
         self.assertNotIn("avisadas", S.oport_ler(), "tenta de novo depois")
+
+    def test_a_cada_tantos_dias(self):
+        d = self.salvar(op_dias=1)
+        self.assertTrue(S.dia_do_aviso_oport(d, None, date(2026, 11, 2)), "nunca avisou")
+        self.assertFalse(S.dia_do_aviso_oport(d, "2026-11-02", date(2026, 11, 2)), "já avisou hoje")
+        self.assertTrue(S.dia_do_aviso_oport(d, "2026-11-01", date(2026, 11, 2)))
+        d = self.salvar(op_dias=3)
+        self.assertFalse(S.dia_do_aviso_oport(d, "2026-11-01", date(2026, 11, 3)))
+        self.assertTrue(S.dia_do_aviso_oport(d, "2026-11-01", date(2026, 11, 4)), "três dias depois")
 
     def test_no_horario_uma_vez_por_dia_com_o_aviso_ligado(self):
         d = self.salvar(op_hora="10:00")

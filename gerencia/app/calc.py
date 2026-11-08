@@ -245,11 +245,17 @@ def alvo_de(grupo, ajustes):
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
-def passa_alvo(x, ajustes, ind, hoje=None):
-    """A oportunidade chega ao que a pessoa quer para a família dela (passaAlvo no app.js)?"""
+def passa_alvo(x, ajustes, ind, hoje=None, investimentos=None):
+    """A oportunidade vale o aviso (passaAlvo no app.js)? "alvo": chega ao alvo da família; sem alvo, "meus": rende mais
+    que o melhor dos seus investimentos da mesma família; "": não. Um alvo escolhido vale sobre os seus investimentos."""
     eq = equivalente(x, ind, hoje)
-    alvo = alvo_de(eq["grupo"], ajustes) if eq else None
-    return alvo is not None and eq["valor"] >= alvo - 1e-9
+    if not eq:
+        return ""
+    alvo = alvo_de(eq["grupo"], ajustes)
+    if alvo is not None:
+        return "alvo" if eq["valor"] >= alvo - 1e-9 else ""
+    m = comparar_meus(x, investimentos, ind, hoje)
+    return "meus" if m and eq["valor"] > m["melhor"]["valor"] + 1e-9 else ""
 
 
 def comparar_meus(x, investimentos, ind, hoje=None):

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.41.0';
+const VERSAO = '1.42.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -69,7 +69,7 @@ function taxaBem(k) {
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
 const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
-  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00' };
+  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1 };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -3882,7 +3882,7 @@ function cardEmail() {
   h += `<div class="campo email-campo"><label for="email-de">De quem</label>
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
     <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
-    <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura” no assunto.'}</div></div>`;
+    <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura” ou “boleto” no assunto.'}</div></div>`;
   const L = ((E && E.itens) || []).filter(doEmail).slice(0, 5);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
   return h + '</section>';
@@ -4203,9 +4203,14 @@ function equivalente(x, I = S.d.indices, h = hoje()) {
   return { grupo, valor: r2(valor) };
 }
 const alvoDe = (grupo, aj = S.d.ajustes) => { const v = aj[ALVO_GRUPO[grupo]]; return typeof v === 'number' ? v : null; };
-function passaAlvo(x, aj = S.d.ajustes, I = S.d.indices, h = hoje()) {
-  const eq = equivalente(x, I, h), alvo = eq ? alvoDe(eq.grupo, aj) : null;
-  return alvo != null && eq.valor >= alvo - 1e-9;
+// vale o aviso? 'alvo': chega ao alvo da família; sem alvo, 'meus': rende mais que o melhor dos seus da família; '': não
+function passaAlvo(x, aj = S.d.ajustes, I = S.d.indices, h = hoje(), invs = S.d.investimentos) {
+  const eq = equivalente(x, I, h);
+  if (!eq) return '';
+  const alvo = alvoDe(eq.grupo, aj);
+  if (alvo != null) return eq.valor >= alvo - 1e-9 ? 'alvo' : '';
+  const m = compararMeus(x, invs, I, h);
+  return m && eq.valor > m.melhor.valor + 1e-9 ? 'meus' : '';
 }
 // perto dos seus investimentos da mesma família (os seus, não os de terceiros): {n, abaixo, melhor: {nome, valor}} ou null
 function compararMeus(x, invs = S.d.investimentos, I = S.d.indices, h = hoje()) {
@@ -4247,12 +4252,12 @@ const ST_PAGINA = { ok: '', sem_ofertas: 'Nenhuma oferta com taxa na página', n
 function linhaOport(x) {
   const eq = equivalente(x), passa = passaAlvo(x), m = compararMeus(x);
   const sub = [x.origem === 'tesouro' ? 'Tesouro Direto' : x.fonte, x.vencimento ? `vence ${fData(pData(x.vencimento))}` : '',
-    x.origem !== 'tesouro' && x.liquidez === 'diaria' ? 'liquidez diária' : ''].filter(Boolean).join(' · ');
+    x.origem !== 'tesouro' && x.liquidez === 'diaria' ? 'liquidez diária' : '', x.condicao || ''].filter(Boolean).join(' · ');
   const extra = x.isento ? `como CDB de ${eq.grupo === 'pos' ? numOp(eq.valor, 0) + '%' : valorOp(eq.grupo, eq.valor)}` : ['selic_mais', 'cdi_mais'].includes(x.indexador) ? valorOp('pos', eq.valor) : '';
   const meus = !m ? '' : m.abaixo === m.n ? (m.n === 1 ? 'Mais que o seu' : `Mais que os seus ${m.n}`) : !m.abaixo ? (m.n === 1 ? 'Menos que o seu' : 'Menos que os seus')
     : `Mais que ${m.abaixo} dos seus ${m.n}`;
   return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus ? `<span class="op-meus">${meus}</span>` : ''}</div>
-    <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}No alvo</em>` : ''}</div></div>`;
+    <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}${passa === 'meus' ? 'Melhor que os seus' : 'No alvo'}</em>` : ''}</div></div>`;
 }
 function inputAlvo(grupo) {
   const k = ALVO_GRUPO[grupo], v = alvoDe(grupo), val = v == null ? '' : String(v).replace('.', ',');
@@ -4264,7 +4269,7 @@ function cardOportunidades() {
   if (O === undefined) carregarOport();
   const ops = O ? [...(O.titulos || []), ...(iaOn() ? O.ofertas || [] : [])] : [];
   let h = `<section class="card" id="oportunidades">${maisCab('target', 'Oportunidades')}
-    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos.`)}`;
+    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}`;
   let escondidas = 0;
   for (const [g, nome] of GRUPOS_OP) {
     const lista = ops.map(x => [x, equivalente(x)]).filter(([, e]) => e && e.grupo === g).sort((a, b) => b[1].valor - a[1].valor || a[0].nome.localeCompare(b[0].nome)).map(([x]) => x);
@@ -4284,6 +4289,7 @@ function cardOportunidades() {
       const txt = p.status === 'ok' ? plural(p.ofertas, 'oferta', 'ofertas') : p.status === 'pendente' && O && O.conferindo ? 'Lendo…' : ST_PAGINA[p.status] || '';
       return `<div class="op-pag"><div class="op-t"><b>${esc(p.dominio)}</b><span>${esc(txt)}</span></div><button class="icbtn" data-a="op-pagina-tirar" data-v="${esc(p.url)}" aria-label="Tirar ${esc(p.dominio)}">${ic('trash', 'ic-s')}</button></div>`;
     }).join('')}
+      ${pags.length < 10 && O && (O.sugestoes || []).length ? `<div class="chips op-sug">${O.sugestoes.map(x => `<button class="chip" data-a="op-pagina-sug" data-v="${esc(x.url)}">+ ${esc(x.nome)}</button>`).join('')}</div>` : ''}
       ${pags.length < 10 ? `<div class="op-add"><input id="op-url" class="inp" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…" aria-label="Endereço da página de ofertas"><button class="btn out" data-a="op-pagina-add">Adicionar</button></div>` : ''}</div>`;
   }
   h += `<button class="btn out" data-a="op-conferir"${O && O.conferindo ? ' disabled' : ''}>${ic('refresh')}${O && O.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
@@ -4294,13 +4300,14 @@ function cardOportunidades() {
 function opcoesOport() {
   const a = S.d.ajustes, aviso = a.op_aviso === true;
   let h = `<section class="card" id="op-oport">${maisCab('target', 'Oportunidades de investimento')}
-    ${linhaChave('op_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: todo dia no horário, o que chegou ao seu alvo.' : 'Desligado.')}`;
+    ${linhaChave('op_aviso', aviso, 'Avisar no celular', !aviso ? 'Desligado.' : (a.op_dias || 1) > 1 ? `Ligado: a cada ${a.op_dias} dias, no horário.` : 'Ligado: todo dia, no horário.')}`;
   if (aviso) {
     const quem = quemRecebe('op_para', false), P = S.avisoPessoas, eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
     const porque = !P || !P.pessoas ? '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
     h += `<div class="campo"><label for="op-hora">Horário</label><div class="op-hora-l"><input id="op-hora" class="inp" type="time" data-op-hora value="${esc(a.op_hora || '10:00')}">
-      <button class="btn out" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar</button></div></div>${quem}`;
-    if (!['pos', 'pre', 'ipca'].some(g => alvoDe(g) != null)) h += `<p class="nota">Nenhum alvo ainda. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Escolher em Mais › Invest</button></p>`;
+      <button class="btn out" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar</button></div></div>
+      <div class="campo"><label for="op-dias">A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div>${quem}
+      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
   }
   return h + '</section>';
 }
@@ -5200,6 +5207,7 @@ document.addEventListener('click', ev => {
     case 'op-conferir': if (S.oport) S.oport.conferindo = true; render(); carregarOport(true); break;
     case 'op-todas': OP_TODAS = !OP_TODAS; render(); break;
     case 'op-pagina-add': adicionarPaginaOport(); break;
+    case 'op-pagina-sug': adicionarPaginaOport(v); break;
     case 'op-pagina-tirar': persistir(d => { d.ajustes.op_paginas = (d.ajustes.op_paginas || []).filter(u => u !== v); }, 'Página tirada').then(ok => { if (ok) carregarOport(); }); break;
     case 'op-testar': api.oportTestar().then(r => toast(r.passam ? 'Aviso enviado para o seu celular.' : 'Aviso enviado para o seu celular (nada no alvo agora).'), e => toast(e.message)); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
@@ -5701,6 +5709,12 @@ document.addEventListener('change', ev => {
     return;
   }
   if (el.dataset.opAlvo) { salvarAlvoOport(el); return; }
+  if (el.matches('[data-op-dias]')) {
+    const n = parseInt(el.value, 10);
+    if (!(n >= 1 && n <= 30)) { toast('Use de 1 a 30 dias.'); el.value = S.d.ajustes.op_dias || 1; return; }
+    if (n !== (S.d.ajustes.op_dias || 1)) persistir(d => { d.ajustes.op_dias = n; }, n === 1 ? 'Todo dia' : `A cada ${n} dias`);
+    return;
+  }
   if (el.matches('[data-op-hora]')) { const v = el.value; if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) persistir(d => { d.ajustes.op_hora = v; }, 'Horário salvo'); return; }
   if (el.dataset.ajusteSel) {
     const k = el.dataset.ajusteSel, v = el.value, fala = k === 'voz_motor';
@@ -5716,8 +5730,8 @@ function salvarAlvoOport(el) {
   if (v === (S.d.ajustes[k] ?? null)) return;
   persistir(d => { d.ajustes[k] = v; }, v == null ? 'Alvo tirado' : 'Alvo salvo');
 }
-function adicionarPaginaOport() {
-  const inp = $('#op-url'), url = String(inp ? inp.value : '').trim();
+function adicionarPaginaOport(sug) {
+  const inp = $('#op-url'), url = String(sug || (inp ? inp.value : '')).trim();
   if (!/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]+$/i.test(url)) { toast('Escreva o endereço da página, começando com https://'); return; }
   const pags = S.d.ajustes.op_paginas || [];
   if (pags.includes(url)) { toast('Essa página já está na lista.'); return; }
@@ -5813,10 +5827,15 @@ function oportDemo() {
   const paginas = pags.map((url, k) => {
     const dominio = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     ofertas.push({ id: 'of:demo' + k + 'a', nome: 'CDB Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'cdb', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 118, isento: false, vencimento: '2028-11-06', liquidez: 'vencimento', minimo: 1000 },
-      { id: 'of:demo' + k + 'b', nome: 'LCA Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'lca', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 94, isento: true, vencimento: '2027-11-08', liquidez: 'vencimento', minimo: 1000 });
-    return { url, dominio, status: 'ok', ofertas: 2, em: new Date().toISOString() };
+      { id: 'of:demo' + k + 'b', nome: 'LCA Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'lca', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 94, isento: true, vencimento: '2027-11-08', liquidez: 'vencimento', minimo: 1000 },
+      { id: 'of:demo' + k + 'c', nome: 'Caixinha (Banco Sol)', origem: 'pagina', fonte: dominio, url, produto: 'conta', emissor: 'Banco Sol', condicao: 'clientes Sol Mais', indexador: 'cdi_pct', taxa: 112, isento: false, vencimento: '', liquidez: 'diaria', minimo: 0 });
+    return { url, dominio, status: 'ok', ofertas: 3, em: new Date().toISOString() };
   });
-  return { titulos, ofertas, paginas, tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
+  // as páginas prontas (no app, a lista vem do servidor: oportunidades.SUGESTOES)
+  const sugestoes = [['Mercado Pago', 'https://www.mercadopago.com.br/cofrinhos'], ['Nubank', 'https://nubank.com.br/nu/caixinhas'], ['PagBank', 'https://pagbank.com.br/cdb'],
+    ['Inter', 'https://inter.co/pra-voce/investimentos/meu-porquinho/'], ['CDBs de liquidez diária (iDinheiro)', 'https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/']]
+    .filter(([, url]) => !pags.includes(url)).map(([nome, url]) => ({ nome, url }));
+  return { titulos, ofertas, paginas, sugestoes: iaOn() ? sugestoes : [], tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
 }
 function bensDemo() {
   const cats = [['eletronicos', 'Eletrônicos', 20, 14200, 6], ['moveis', 'Móveis', 10, 18600, 9], ['cozinha', 'Cozinha e bar', 10, 5400, 12], ['decoracao', 'Decoração e arte', 5, 3900, 7]];

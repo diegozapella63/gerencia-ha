@@ -103,7 +103,8 @@ class TestIgualAoServidor(Tela):
         for x in self.OPS:
             with self.subTest(x=x):
                 self.assertEqual(self.js("T.equivalente(a)", x), calc.equivalente(x, INDICES, HOJE))
-                self.assertEqual(self.js("T.passaAlvo(a)", x), calc.passa_alvo(x, aj, INDICES, HOJE))
+                self.assertEqual(self.js("T.passaAlvo(a)", x), calc.passa_alvo(x, aj, INDICES, HOJE, self.INVS))
+                self.assertEqual(self.js("T.passaAlvo(a, {})", x), calc.passa_alvo(x, {}, INDICES, HOJE, self.INVS), "sem alvo: melhor que os seus")
                 self.assertEqual(self.js("T.compararMeus(a)", x), calc.comparar_meus(x, self.INVS, INDICES, HOJE))
                 self.assertEqual(self.js("T.taxaOp(a)", x), O.taxa_txt(x))
         for g, v in (("pos", 113.94), ("pos", 120.0), ("pos", 101.02), ("pre", 13.2), ("ipca", 6.88)):

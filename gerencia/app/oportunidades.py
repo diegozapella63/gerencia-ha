@@ -5,7 +5,8 @@ páginas que a pessoa escolher, comparadas com o que ela quer (Avisar quando pas
    se ela não abrir, os dados abertos do Tesouro Transparente (todas as datas; ficam os títulos à venda no dia mais novo).
 2. Páginas de ofertas (só com a IA ligada): o app abre a página, a IA do Home Assistant lista os CDB, RDB, LC, LCI e
    LCA que aparecem lá, e cada taxa só vale se o trecho citado pela IA estiver escrito na página, com aquele número
-   (como as dicas de economia, em assinaturas.py). Só produtos com FGC.
+   (como as dicas de economia, em assinaturas.py). Entram CDB, RDB, LC, LCI, LCA e as caixinhas e cofrinhos das contas
+   (Mercado Pago, Nubank…), com o nome e a condição que a página escreve (ex.: "clientes Ultravioleta").
 3. A conta (equivalente, passa_alvo e comparar_meus) fica no calc.py, igual à do app.js.
 Só biblioteca padrão do Python.
 """
@@ -25,7 +26,15 @@ TRANSPARENTE_URL = ("https://www.tesourotransparente.gov.br/ckan/dataset/df56aa4
 # parcelas) e IGP-M ficam de fora
 FAMILIAS = ("selic", "pre", "ipca")
 INDEXADOR_FAMILIA = {"selic": "selic_mais", "pre": "pre", "ipca": "ipca_mais", "renda": "ipca_mais", "educa": "ipca_mais"}
-PRODUTOS = {"cdb": "CDB", "rdb": "RDB", "lc": "LC", "lci": "LCI", "lca": "LCA"}
+PRODUTOS = {"cdb": "CDB", "rdb": "RDB", "lc": "LC", "lci": "LCI", "lca": "LCA", "conta": "Caixinha"}
+# páginas públicas conferidas (a taxa está escrita no texto da página): um toque põe na lista
+SUGESTOES = [
+    {"nome": "Mercado Pago", "url": "https://www.mercadopago.com.br/cofrinhos"},
+    {"nome": "Nubank", "url": "https://nubank.com.br/nu/caixinhas"},
+    {"nome": "PagBank", "url": "https://pagbank.com.br/cdb"},
+    {"nome": "Inter", "url": "https://inter.co/pra-voce/investimentos/meu-porquinho/"},
+    {"nome": "CDBs de liquidez diária (iDinheiro)", "url": "https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/"},
+]
 ISENTOS = {"lci", "lca"}
 # a taxa que faz sentido em cada indexador (fora disso, a IA leu errado)
 FAIXA = {"cdi_pct": (50, 250), "cdi_mais": (0.01, 15), "pre": (2, 40), "ipca_mais": (0.5, 20)}
@@ -156,18 +165,20 @@ def trechos_taxa(texto):
     return assinaturas.trechos_preco(texto, limite=14000, margem=260, padrao=_TAXA)
 
 
-PROMPT = """Este é o texto de uma página de investimentos de um banco ou corretora ({url}).
-Liste as ofertas de CDB, RDB, LC, LCI e LCA que aparecem no texto, com a taxa escrita nele.
+PROMPT = """Este é o texto de uma página de investimentos de um banco, corretora ou conta digital ({url}).
+Liste as ofertas de CDB, RDB, LC, LCI e LCA e as caixinhas, cofrinhos e contas que rendem uma taxa (produto "conta"),
+com a taxa escrita no texto. Uma oferta por taxa: "100% do CDI" e "até 120% do CDI para clientes X" são duas.
 
 Responda só com JSON, sem texto fora dele:
-{{"ofertas": [{{"emissor": "o banco que emite", "produto": "cdb | rdb | lc | lci | lca",
+{{"ofertas": [{{"emissor": "o banco ou a conta (ex.: Nubank)", "nome": "o nome do produto na página (ex.: Caixinha Turbo), ou vazio",
+  "produto": "cdb | rdb | lc | lci | lca | conta", "condicao": "a condição para essa taxa, curta (ex.: clientes Ultravioleta; até R$ 10 mil), ou vazio",
   "indexador": "cdi_pct | cdi_mais | pre | ipca_mais",
   "taxa": número (110 para 110% do CDI; 1.5 para CDI + 1,5%; 14.2 para 14,2% ao ano; 7.1 para IPCA + 7,1%),
   "vencimento": "AAAA-MM-DD ou vazio", "liquidez": "diaria | vencimento | vazio", "minimo": número em reais ou 0,
   "trecho": "o pedaço do texto, copiado igual, com a taxa"}}]}}
 
 Regras: só o que está escrito no texto (não invente nem calcule); fundos, ações, debêntures, CRI, CRA e Tesouro ficam
-de fora; sem nenhuma oferta, {{"ofertas": []}}.
+de fora; "rende até X% do CDI" vale X; sem nenhuma oferta, {{"ofertas": []}}.
 
 Texto da página:
 <<<
@@ -199,22 +210,25 @@ def limpar_ofertas(parsed, texto, url, hoje=None):
             recusadas += 1
             continue
         emissor = re.sub(r"\s+", " ", str(o.get("emissor") or "")).strip()[:60]
+        nome_prod = re.sub(r"\s+", " ", str(o.get("nome") or "")).strip()[:40]
+        condicao = re.sub(r"\s+", " ", str(o.get("condicao") or "")).strip().rstrip(".")[:90]
         venc = calc.parse_data(o.get("vencimento"))
         venc = venc.isoformat() if venc and venc > hoje else ""
         liq = o.get("liquidez") if o.get("liquidez") in ("diaria", "vencimento") else ""
-        chave = (prod, emissor.lower(), idx, round(taxa, 4), venc, liq)
+        chave = (prod, emissor.lower(), nome_prod.lower(), idx, round(taxa, 4), venc, liq, condicao.lower())
         if chave in vistos:
             continue
         vistos.add(chave)
         out.append({"id": "of:" + hashlib.sha1(repr((url,) + chave).encode()).hexdigest()[:12],
-                    "nome": f"{PRODUTOS[prod]} {emissor}".strip(), "origem": "pagina", "fonte": dominio(url), "url": url,
-                    "produto": prod, "emissor": emissor, "familia": calc.GRUPO_IDX[idx], "indexador": idx, "taxa": round(taxa, 4),
+                    "nome": (f"{nome_prod} ({emissor})" if nome_prod and emissor and emissor.lower() not in nome_prod.lower() else nome_prod)
+                            or f"{PRODUTOS[prod]} {emissor}".strip(), "origem": "pagina", "fonte": dominio(url), "url": url,
+                    "produto": prod, "emissor": emissor, "condicao": condicao, "familia": calc.GRUPO_IDX[idx], "indexador": idx, "taxa": round(taxa, 4),
                     "isento": prod in ISENTOS, "vencimento": venc, "liquidez": liq,
                     "minimo": round(max(0.0, calc.num_br(o.get("minimo"), 0.0)), 2)})
     return out, recusadas
 
 
-_SIMULADA = re.compile(r"\b(CDB|RDB|LCI|LCA|LC)\s+(.+?)\s+(?:(\d+(?:,\d+)?)%\s+do\s+CDI|CDI\s*\+\s*(\d+(?:,\d+)?)%|"
+_SIMULADA = re.compile(r"\b(CDB|RDB|LCI|LCA|LC|Caixinha|Cofrinho)\s+(.+?)\s+(?:(\d+(?:,\d+)?)%\s+do\s+CDI|CDI\s*\+\s*(\d+(?:,\d+)?)%|"
                        r"IPCA\s*\+\s*(\d+(?:,\d+)?)%|(\d+(?:,\d+)?)%\s+ao\s+ano)", re.I)
 
 
@@ -228,7 +242,10 @@ def simuladas(texto):
             continue
         idx, taxa = next((k, v) for k, v in zip(("cdi_pct", "cdi_mais", "ipca_mais", "pre"), m.groups()[2:]) if v)
         venc = re.search(r"vence em (\d{1,2}/\d{1,2}/\d{4})", linha)
-        out.append({"emissor": m.group(2).strip(), "produto": m.group(1).lower(), "indexador": idx, "taxa": calc.num_br(taxa),
+        cond = re.search(r"\(([^)]{3,90})\)", linha)
+        conta = m.group(1).lower() in ("caixinha", "cofrinho")
+        out.append({"emissor": m.group(2).strip(), "produto": "conta" if conta else m.group(1).lower(), "indexador": idx, "taxa": calc.num_br(taxa),
+                    "nome": m.group(1) if conta else "", "condicao": cond.group(1) if cond else "",
                     "vencimento": data_br(venc.group(1)) if venc else "", "liquidez": "diaria" if "diária" in linha.lower() else "",
                     "minimo": 0, "trecho": linha.strip()})
     return {"ofertas": out}
@@ -281,7 +298,7 @@ def avaliar(ops, d, hoje=None):
         eq = calc.equivalente(x, ind, hoje)
         if not eq:
             continue
-        out.append({**x, "eq": eq, "passa": calc.passa_alvo(x, aj, ind, hoje), "meus": calc.comparar_meus(x, invs, ind, hoje)})
+        out.append({**x, "eq": eq, "passa": calc.passa_alvo(x, aj, ind, hoje, invs), "meus": calc.comparar_meus(x, invs, ind, hoje)})
     ordem = list(calc.ALVO_GRUPO)
     return sorted(out, key=lambda x: (ordem.index(x["eq"]["grupo"]), -x["eq"]["valor"], x["nome"]))
 
@@ -300,6 +317,8 @@ def linha_aviso(x):
     """ "Tesouro IPCA+ 2032: IPCA + 7,82%"; isento: ", como CDB de 112% do CDI"; acima de todos os seus: "(o seu
     melhor: IPCA + 6,10%)"."""
     t = f"{x['nome']}: {taxa_txt(x)}"
+    if x.get("condicao"):
+        t += f" ({x['condicao']})"
     if x.get("isento"):
         t += f", como CDB de {valor_txt(x['eq']['grupo'], x['eq']['valor'])}"
     m = x.get("meus")

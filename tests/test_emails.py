@@ -88,6 +88,8 @@ class TestModulo(unittest.TestCase):
         self.assertTrue(E.e_fatura("Banco Verde <x@bancoverde.com.br>", "Sua FATURA chegou", "doc.pdf", []))
         self.assertTrue(E.e_fatura("x@y.com", "Documento", "Fatura-Novembro.pdf", None), "pelo nome do PDF")
         self.assertFalse(E.e_fatura("x@y.com", "Promoção imperdível", "folheto.pdf", ["  "]), "remetente em branco não conta")
+        self.assertTrue(E.e_fatura("Imobiliária Sol <boletos@imobsol.com.br>", "Boleto de aluguel - novembro", "doc.pdf", []), "boleto também vale")
+        self.assertTrue(E.e_fatura("x@condominio.com.br", "Cobrança", "Boleto_Condominio.pdf", []))
 
     def test_chave(self):
         self.assertEqual(E.chave(evento()), "imap-ana|101|Sua fatura de novembro")

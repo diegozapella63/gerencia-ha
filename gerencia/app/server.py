@@ -37,7 +37,7 @@ import emails  # noqa: E402
 import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 
-VERSAO = "1.41.0"
+VERSAO = "1.42.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -83,7 +83,7 @@ AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir":
                   "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False,
                   # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
                   # % ao ano, IPCA + %; None = não escolheu), as páginas de ofertas e o aviso no celular no horário
-                  "op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [], "op_aviso": False, "op_para": [], "op_hora": "10:00"}
+                  "op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [], "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1}
 # o que faz sentido em cada Avisar quando passar de (fora disso, não escolheu)
 OP_FAIXA = {"op_cdi": (50.0, 300.0), "op_pre": (1.0, 60.0), "op_ipca": (0.0, 30.0)}
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
@@ -161,6 +161,8 @@ def normalizar(d):
     aj["op_paginas"] = list(dict.fromkeys(u for u in (oportunidades.limpar_url(x) for x in pags) if u))[:oportunidades.MAX_PAGINAS]
     aj["op_aviso"] = aj.get("op_aviso") is True
     aj["op_hora"] = aj.get("op_hora") if HORA_RE.match(str(aj.get("op_hora") or "")) else AJUSTES_PADRAO["op_hora"]
+    dias = aj.get("op_dias")
+    aj["op_dias"] = int(dias) if isinstance(dias, (int, float)) and not isinstance(dias, bool) and 1 <= dias <= 30 else 1  # avisar a cada quantos dias
     para = aj.get("op_para") if isinstance(aj.get("op_para"), list) else []
     aj["op_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     try:
@@ -2388,6 +2390,15 @@ def hora_do_aviso_oport(d, agora=None):
     return (agora.hour, agora.minute) >= (h, m)
 
 
+def dia_do_aviso_oport(d, ultimo, hoje=None):
+    """Hoje é dia de avisar? Todo dia ou a cada tantos dias (op_dias), contando do último aviso; nunca avisou: hoje."""
+    hoje = hoje or date.today()
+    try:
+        return (hoje - date.fromisoformat(str(ultimo))).days >= d["ajustes"]["op_dias"]
+    except ValueError:
+        return True
+
+
 def oport_estado(d, disparar=True):
     """Para a tela: os títulos do Tesouro, as ofertas e a situação de cada página (a conta fica na tela, igual ao
     calc.py). Olhando, as taxas do Tesouro com mais de uma hora são buscadas de novo (em segundo plano)."""
@@ -2405,6 +2416,7 @@ def oport_estado(d, disparar=True):
                          "ofertas": len((paginas.get(u) or {}).get("ofertas") or []), "em": (paginas.get(u) or {}).get("em")}
                         for u in d["ajustes"]["op_paginas"]] if ia else [],
             "tesouro": {"dia": t.get("dia"), "em": t.get("em"), "erro": t.get("erro"), "fonte": t.get("fonte")},
+            "sugestoes": [x for x in oportunidades.SUGESTOES if x["url"] not in d["ajustes"]["op_paginas"]] if ia else [],
             "conferindo": _oport_conferindo.is_set(), "atualizado": c.get("atualizado")}
 
 
@@ -2469,11 +2481,12 @@ def testar_oport(user_id):
 
 
 def rotina_oport():
-    """Com o aviso ligado, no horário escolhido, uma vez por dia: confere o Tesouro e as páginas e avisa o que passou."""
+    """Com o aviso ligado, no horário escolhido, todo dia ou a cada tantos dias: confere o Tesouro e as páginas e avisa
+    o que passou."""
     while True:
         try:
             d = ler()
-            if d["ajustes"]["op_aviso"] and hora_do_aviso_oport(d) and oport_ler().get("dia") != date.today().isoformat():
+            if d["ajustes"]["op_aviso"] and hora_do_aviso_oport(d) and dia_do_aviso_oport(d, oport_ler().get("dia")):
                 iniciar_oport(avisar=True, esperar=True)
         except Exception as e:  # noqa: BLE001
             log("Oportunidades:", e)
