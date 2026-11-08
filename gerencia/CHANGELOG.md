@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.37.0
+
+- **CorrerIA no WhatsApp** (Mais › Configurações › Integrações; vem desligado): com o app **CorrerIA** (o contato da CorrerIA Code no WhatsApp) instalado, as pessoas da casa perguntam sobre as finanças pelo WhatsApp e a IA do GerencIA responde com os seus dados. Por lá a IA só responde: lançar, pagar e mudar saldo continuam no app. O cartão mostra quando o CorrerIA perguntou pela última vez.
+
 ## 1.36.0
 
 - **Faturas por e-mail** (Mais › Configurações › Integrações; vem desligado): com o seu e-mail ligado ao Home Assistant pela integração **IMAP** (no Gmail, com uma senha de app), cada fatura que chega em PDF é aberta com as **Senhas dos PDFs**, lida pela IA e fica esperando a sua conferência num aviso no **Início**. Nada é lançado sozinho: toque no aviso, confira e lance (ou **Ignorar**).

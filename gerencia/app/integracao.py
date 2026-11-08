@@ -38,12 +38,17 @@ def add_ym(ym, k):
 # ---------------------------------------------------------------- chave e arquivo
 
 class Conexao:
-    def __init__(self, data_dir, share_dir, porta, versao, log):
-        self.arq_chave = os.path.join(data_dir, "integracao.key")
-        self.arq_share = os.path.join(share_dir, "integracao.json")
+    """Uma conexão com outros apps: a chave (em /data) e o arquivo na pasta share que o outro app lê (url, ip_url,
+    chave). nome separa as conexões (integracao: o CronologIA; correria: o CorrerIA, o contato no WhatsApp), cada uma
+    com a sua chave; extra vai junto no arquivo."""
+
+    def __init__(self, data_dir, share_dir, porta, versao, log, nome="integracao", extra=None):
+        self.arq_chave = os.path.join(data_dir, f"{nome}.key")
+        self.arq_share = os.path.join(share_dir, f"{nome}.json")
         self.porta = porta
         self.versao = versao
         self.log = log
+        self.extra = extra or {}
         self.ultimo = None  # {"app": "CronologIA", "em": "..."}
         self._chave = None
 
@@ -82,7 +87,7 @@ class Conexao:
                     os.remove(self.arq_share)
                 return
             url, ip = self.endereco()
-            corpo = {"app": "gerencia", "versao": self.versao, "url": url,
+            corpo = {"app": "gerencia", **self.extra, "versao": self.versao, "url": url,
                      "ip_url": f"http://{ip}:{self.porta}" if ip else None,
                      "chave": self.chave(), "gravado_em": datetime.now().isoformat(timespec="seconds")}
             os.makedirs(os.path.dirname(self.arq_share), exist_ok=True)

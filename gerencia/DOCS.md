@@ -29,7 +29,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
-    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, uso da IA e sensores no Home Assistant.
+    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, CorrerIA no WhatsApp, uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
@@ -262,6 +262,17 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | POST | `/api/integracao/pagar` | `{id, valor?}`: dá baixa. |
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
 | POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
+
+## CorrerIA no WhatsApp
+
+O [CorrerIA](https://github.com/diegozapella63/correria-ha) é o contato da CorrerIA Code no WhatsApp, um app da mesma família. Com ele configurado e **Mais › Configurações › Integrações › CorrerIA no WhatsApp** ligado (vem desligado; precisa da IA ligada), as pessoas da casa perguntam pelo WhatsApp ("quanto gastei com mercado este mês?", "o que vence esta semana?") e a resposta vem da IA do GerencIA, com os seus dados.
+
+- Pelo WhatsApp a IA só responde: lançar, pagar ou mudar um saldo continua no app (o balão Conversar com a IA). E fala só dos apps da casa: é uma regra do WhatsApp para contatos de empresas.
+- A conversa do WhatsApp não aparece no balão do app, e o balão não aparece no WhatsApp.
+- As perguntas e as respostas passam pelos servidores do WhatsApp (da Meta). Quem pode conversar é escolhido no CorrerIA.
+- O cartão mostra quando o CorrerIA perguntou pela última vez. Desligado, o arquivo `share/gerencia/correria.json` (o endereço e uma chave só do CorrerIA) é apagado e a chave deixa de valer.
+
+O CorrerIA usa `POST /api/integracao/conversa` com `Authorization: Bearer <chave>`: `{texto, historico: [{papel: eu|ia, texto}], pessoa: {id, nome}}` → `{resposta}`.
 
 ## Dados e backup
 

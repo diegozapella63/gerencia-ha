@@ -8,6 +8,7 @@ GerencIA é um app (add-on) do Home Assistant para as finanças da casa: caixa (
 | CronologIA | `diegozapella63/cronologia-ha` | calendário, rotinas, remédios, placar (mostra as contas daqui) |
 | ResolvIA | `diegozapella63/resolvia-ha` | listas de tarefas, pontos, repetição |
 | InventarIA | `diegozapella63/inventario-ha` | inventário da casa: cômodos e itens com valor (vira "Bens da casa" aqui) |
+| CorrerIA | `diegozapella63/correria-ha` | o contato da CorrerIA Code no WhatsApp: as perguntas sobre finanças vêm para cá |
 
 O Home Assistant instala direto do GitHub (`repository.yaml` + `gerencia/config.yaml`), a partir da branch `main`: o que está em `main` é o que os usuários recebem.
 
@@ -65,6 +66,7 @@ Abra `http://localhost:8099`. Em **Carregar exemplo** aparecem dados inventados.
 Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro app junto.
 
 - **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Configurações › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
+- **CorrerIA → GerencIA**: com **Mais › Configurações › Integrações › CorrerIA no WhatsApp** ligado (e a IA), este app grava `share/gerencia/correria.json` (`app`, `nome`, `assunto`, `rota`, `url`, `ip_url`, `chave`; chave própria em `/data/correria.key`) e responde em `POST /api/integracao/conversa` (`{texto, historico, pessoa}` → `{resposta}`, sem ações, pelo `chat.instrucoes_whatsapp`). O CorrerIA acha os apps pelos `share/*/correria.json`.
 - **InventarIA → GerencIA**: o InventarIA grava `share/inventario/integracao.json` e este app lê `/api/integracao/itens` e `/comodos` (`bens.py`, cache de 10 min). Só lê; nada muda lá. Patrimônio = investimentos meus + bens (os de terceiros ficam fora).
 - **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`, que também tem a `ConexaoWS` usada pelo `emails.py`), faturas por e-mail (`emails.py`: assina `imap_content` pelo WebSocket, pega o PDF com `imap.fetch_part?return_response` e lista as contas com `config_entries/get` do domínio `imap`; com a IA simulada (testes), `/api/emails/simular` faz um e-mail chegar), aviso das dicas nos celulares das pessoas escolhidas (`avisos.py`: `notify.mobile_app_*`, achados pelos rastreadores de cada `person.*` e o aparelho no registro, como no ResolvIA), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
 

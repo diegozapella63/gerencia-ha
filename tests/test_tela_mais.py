@@ -560,6 +560,23 @@ class TestIntegracoes(TelaMais):
         self.assertEqual((self.js("T.S.ui.maisTela"), self.js("T.S.ui.maisAba")), ("config", "integracoes"), "continua nas Integrações")
         self.assertEqual(self.senhas(), [], "sem salvar")
 
+    # ---- CorrerIA (o contato no WhatsApp pergunta sobre as finanças)
+    def test_correria_comeca_desligado_e_mostra_quando_perguntou(self):
+        self.abrir_int()
+        self.assertEqual(self.texto("#correria h2"), "CorrerIA no WhatsApp")
+        self.assertIn("Desligado.", self.texto("#correria"))
+        self.assertEqual(self.conta("#correria .status"), 0)
+        self.clicar('#correria [data-a="ajuste"][data-k="correria"]')
+        self.assertTrue(self.dados()["ajustes"]["correria"])
+        self.assertEqual(self.texto("#correria .status"), "Nenhuma pergunta ainda. Configure o WhatsApp no app CorrerIA.")
+        self.js("(T.S.correriaUltimo = { app: 'CorrerIA', em: new Date().toISOString() }, T.render(), true)")
+        self.assertRegex(self.texto("#correria .status"), r"^CorrerIA perguntou hoje às \d\d:\d\d\.$")
+        self.assertFalse(self.js("document.querySelector('#correria .status').classList.contains('manual')"))
+
+    def test_correria_some_sem_a_ia(self):
+        self.abrir(base(bancos=BANCOS, ajustes={"ia": False, "correria": True}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.assertEqual(self.conta("#correria"), 0)
+
     def test_falar_so_aparece_com_a_ia_ligada(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
         self.addCleanup(lambda: self.js("(T.S.voz = null, true)"))
@@ -1171,7 +1188,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "uso-ia", "sensores"]),
+             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

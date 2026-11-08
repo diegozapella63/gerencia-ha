@@ -35,7 +35,7 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.36.0"
+VERSAO = "1.37.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -78,7 +78,7 @@ INDICES_PADRAO = {
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
-                  "email": False, "email_de": [], "email_aviso": False, "email_para": []}
+                  "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False}
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
 DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -140,6 +140,7 @@ def normalizar(d):
     aj["dicas_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     # Faturas por e-mail: de quem (endereço ou o fim dele, como bancoazul.com.br) e quem recebe o aviso no celular
     aj["email"] = aj.get("email") is True
+    aj["correria"] = aj.get("correria") is True
     aj["email_aviso"] = aj.get("email_aviso") is True
     de = aj.get("email_de") if isinstance(aj.get("email_de"), list) else []
     aj["email_de"] = list(dict.fromkeys(x for x in (emails.limpar_remetente(r) for r in de if isinstance(r, str)) if x))[:20]
@@ -2238,10 +2239,57 @@ CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos"
 
 
 CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)
+# O CorrerIA (o contato da CorrerIA Code no WhatsApp) pergunta pela rota /api/integracao/conversa, com a chave própria
+# de share/gerencia/correria.json (só existe com Mais › Configurações › Integrações › CorrerIA ligado e a IA ligada).
+CORRERIA = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, nome="correria",
+                              extra={"nome": "GerencIA", "assunto": "finanças da casa: caixa, gastos, recebimentos, contas a pagar, "
+                                     "cartões e faturas, investimentos e patrimônio", "rota": "/api/integracao/conversa"})
 
 
 def integracao_ligada(d=None):
     return (d or ler()).get("ajustes", {}).get("integracao", True) is not False
+
+
+def correria_ligada(d=None):
+    d = d or ler()
+    return d.get("ajustes", {}).get("correria") is True and ia_ligada(d)
+
+
+def conversa_correria(corpo):
+    """Uma pergunta que veio pelo WhatsApp (o CorrerIA manda a conversa daquela pessoa): só a resposta, sem ações e sem
+    mexer na conversa do app."""
+    d = ler()
+    texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
+    if not texto:
+        raise ValueError("Escreva uma mensagem.")
+    hist = [m for m in corpo.get("historico") or [] if isinstance(m, dict)][-chat.MAX_HISTORICO:]
+    historico = [{"papel": "ia" if m.get("papel") == "ia" else "eu", "texto": str(m.get("texto") or "")[:chat.MAX_TEXTO]} for m in hist]
+    historico.append({"papel": "eu", "texto": texto})
+    pessoa = corpo.get("pessoa") if isinstance(corpo.get("pessoa"), dict) else {}
+    nome = str(pessoa.get("nome") or "")[:60]
+    if IA_MOCK:
+        registrar_uso("whatsapp", "ai_task.simulada", 2000, 200, 0, 0.3, "ok")
+        bruto = chat.simulado(texto, d)
+    else:
+        payload = {"task_name": "GerencIA: WhatsApp", "instructions": chat.instrucoes_whatsapp(d, historico, nome)}
+        ent = d["ajustes"].get("ia_entidade") or ""
+        if ent:
+            payload["entity_id"] = ent
+        try:
+            res = ia_chamar("whatsapp", payload, 0, timeout=120)
+        except ErroHA as e:
+            raise ValueError(str(e))
+        bruto = ((res or {}).get("service_response") or {}).get("data")
+        if bruto is None:
+            raise ValueError("A IA não devolveu resposta.")
+        if isinstance(bruto, str):
+            try:
+                bruto = extrair_json(bruto)
+            except ValueError:
+                pass  # respondeu só com texto: vale como resposta
+    resposta, _ = chat.separar(bruto)
+    log("CorrerIA: pergunta de", nome or "alguém", "respondida")
+    return {"resposta": resposta or "Não entendi. Pode dizer de outro jeito?"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2253,6 +2301,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- util
     def permitido(self):
+        if self.caminho() == "/api/integracao/conversa":
+            # o CorrerIA (WhatsApp), com a chave de share/gerencia/correria.json
+            if correria_ligada() and CORRERIA.autorizado(self.headers):
+                return True
+            self.enviar(401, {"erro": "Chave inválida ou CorrerIA desligado no GerencIA."})
+            return False
         if self.caminho().startswith("/api/integracao/"):
             # Outros apps do Home Assistant (CronologIA) chegam pela rede interna, com a chave de share/gerencia.
             if integracao_ligada() and CONEXAO.autorizado(self.headers):
@@ -2316,9 +2370,10 @@ class Handler(BaseHTTPRequestHandler):
                 d["usuario"] = (self.headers.get("X-Remote-User-Display-Name")
                                 or self.headers.get("X-Remote-User-Name") or None)
                 d["integracao_ultimo"] = CONEXAO.ultimo
+                d["correria_ultimo"] = CORRERIA.ultimo
                 return self.enviar(200, d)
             if p == "/api/rev":
-                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "emails": emails_carimbo()})
+                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "correria_ultimo": CORRERIA.ultimo, "emails": emails_carimbo()})
             if p == "/api/integracao/contas":
                 hoje = date.today()
                 de = date.fromisoformat(q.get("de", [(hoje - timedelta(days=31)).isoformat()])[0])
@@ -2466,6 +2521,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.restaurar(self.corpo_json().get("nome", ""))
             if p in ("/api/integracao/pagar", "/api/integracao/desfazer", "/api/integracao/nova"):
                 return self.post_integracao(p.rsplit("/", 1)[1], self.corpo_json())
+            if p == "/api/integracao/conversa":
+                return self.enviar(200, conversa_correria(self.corpo_json()))
             return self.enviar(404, {"erro": "não encontrado"})
         except LookupError as e:
             return self.enviar(404, {"erro": str(e)})
@@ -2494,7 +2551,7 @@ class Handler(BaseHTTPRequestHandler):
             atual = ler()
             if int(corpo.get("rev", -1)) != atual["rev"]:
                 return self.enviar(409, atual)
-            ligada_antes = integracao_ligada(atual)
+            ligada_antes, correria_antes = integracao_ligada(atual), correria_ligada(atual)
             for k in CAMPOS_USUARIO:
                 if k in corpo:
                     atual[k] = corpo[k]
@@ -2505,6 +2562,8 @@ class Handler(BaseHTTPRequestHandler):
             salvar(d)
         if integracao_ligada(d) != ligada_antes:
             CONEXAO.publicar(integracao_ligada(d))
+        if correria_ligada(d) != correria_antes:
+            CORRERIA.publicar(correria_ligada(d))
         return self.enviar(200, d)
 
     def put_indices(self, corpo):
@@ -2860,6 +2919,7 @@ def rotina():
                 publicar_sensores_async(d)
             limpar_fotos(d)
             CONEXAO.publicar(integracao_ligada(d))
+            CORRERIA.publicar(correria_ligada(d))
             dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
@@ -2871,6 +2931,7 @@ def rotina():
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     CONEXAO.publicar(integracao_ligada())
+    CORRERIA.publicar(correria_ligada())
     threading.Thread(target=rotina, daemon=True).start()
     if ESCUTA:
         ESCUTA.iniciar()  # faturas por e-mail: só conecta com a opção ligada

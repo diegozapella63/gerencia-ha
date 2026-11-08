@@ -162,6 +162,25 @@ REGRAS_ACOES = """Ações: quando a pessoa pedir para lançar um gasto ou um rec
 - "investimentos": cada saldo novo ou aplicação, com "existente" (o id da lista de investimentos, se for um deles; senão ""), "valor" (o saldo de agora, se ela disse; senão 0), "aporte" (quanto aplicou agora; senão 0) e, só para um investimento novo, "nome", "banco", "tipo" (cdb, lci, tesouro, poupanca, caixinha, fundo, acoes, ouro, dinheiro, previdencia, outro), "indexador" (cdi_pct, cdi_mais, pre, ipca_mais, selic_mais, poupanca, estimado, parado), "taxa", "vencimento" (AAAA-MM-DD ou "") e "liquidez" ("diaria" ou "vencimento"), e "dono" ("" se for da própria pessoa)."""
 
 
+WHATSAPP = """Você responde pelo WhatsApp da CorrerIA Code, o contato dos apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, curto e direto, como no WhatsApp: frases simples, no máximo uns 4 parágrafos curtos. Formatação do WhatsApp: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
+Responda sobre as finanças da casa com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. Contas de cabeça podem errar: some e compare com cuidado.
+Por aqui você só ajuda com as finanças e os apps da casa: para qualquer outro assunto, diga numa frase, com gentileza, que pelo WhatsApp você ajuda só com os apps da CorrerIA Code.
+Pelo WhatsApp ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que por enquanto isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
+
+
+def instrucoes_whatsapp(d, historico, usuario="", hoje=None):
+    """O pedido para a IA quando a pergunta vem pelo WhatsApp (o CorrerIA): só responde, sem ações, só sobre os apps."""
+    hoje = hoje or date.today()
+    nome = (usuario or "").split(" ")[0]
+    partes = [WHATSAPP + (f"\nQuem está conversando: {nome}." if nome else ""),
+              "Dados do app:\n" + resumo(d, hoje)]
+    conversa = [("IA: " if m.get("papel") == "ia" else "Pessoa: ") + str(m.get("texto") or "").strip()[:MAX_TEXTO]
+                for m in historico[-MAX_HISTORICO:] if str(m.get("texto") or "").strip()]
+    partes.append("A conversa (a última mensagem é a que você responde agora):\n" + "\n".join(conversa))
+    partes.append('Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:\n{"resposta":""}')
+    return "\n\n".join(partes)
+
+
 def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None):
     """O pedido para a IA: quem ela é, a tela que a pessoa vê, os dados, as ações e a conversa (a última mensagem é a pergunta)."""
     hoje = hoje or date.today()

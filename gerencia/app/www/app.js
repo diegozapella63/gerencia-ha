@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.36.0';
+const VERSAO = '1.37.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3972,7 +3972,7 @@ const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="tru
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo, acao = 'ajuste') => `<button class="sw${on ? ' on' : ''}" data-a="${acao}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
-const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso']);
+const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso', 'correria']);
 const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
@@ -4128,7 +4128,7 @@ function maisIntegracoes() {
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
   const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
     ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
-  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() + cardUsoIA() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() + cardCorreria(a) + cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
@@ -4139,7 +4139,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa' };
+const USO_TIPO = { caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -5594,13 +5594,21 @@ function bensDemo() {
     categorias, comodos: [{ id: 'sala', nome: 'Sala', hoje: round2(hojeT * 0.45), n: 14 }, { id: 'cozinha', nome: 'Cozinha', hoje: round2(hojeT * 0.25), n: 12 }, { id: 'quarto', nome: 'Quarto', hoje: round2(hojeT * 0.3), n: 8 }], versao: '1.16.0' };
 }
 
+function quandoUsou(u, verbo = 'usou') {
+  if (!u || !u.em) return '';
+  const dt = new Date(u.em), hj = iso(hoje()) === iso(dt);
+  return `${esc(u.app)} ${verbo} ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
+}
+// O CorrerIA: o contato da CorrerIA Code no WhatsApp pergunta sobre as finanças (só com a IA ligada)
+function cardCorreria(a) {
+  const lig = a.correria === true, quando = quandoUsou(S.correriaUltimo, 'perguntou');
+  return `<section class="card" id="correria">${maisCab('chat', 'CorrerIA no WhatsApp')}
+    ${maisLead('O CorrerIA é o contato da CorrerIA Code no WhatsApp: as perguntas sobre as finanças vêm para cá, e a resposta volta por lá, passando pelo WhatsApp.')}
+    ${linhaChave('correria', lig, 'Responder pelo WhatsApp', lig ? 'Ligado: o CorrerIA pode perguntar sobre as finanças.' : 'Desligado.')}
+    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhuma pergunta ainda. Configure o WhatsApp no app CorrerIA.'}</div>` : ''}</section>`;
+}
 function cardOutrosApps(a) {
-  const lig = a.integracao !== false, u = S.integracaoUltimo;
-  let quando = '';
-  if (u && u.em) {
-    const dt = new Date(u.em), hj = iso(hoje()) === iso(dt);
-    quando = `${esc(u.app)} usou ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
-  }
+  const lig = a.integracao !== false, quando = quandoUsou(S.integracaoUltimo);
   return `<section class="card" id="outros-apps">${maisCab('calendar', 'Contas no CronologIA')}
     ${maisLead('O CronologIA mostra as contas a pagar e as faturas na agenda e dá baixa com o Paguei.')}
     ${linhaChave('integracao', lig, 'Usar a integração', lig ? 'Ligado: o CronologIA lê e dá baixa nas contas daqui.' : 'Desligado: o CronologIA não vê as contas do GerencIA.')}
@@ -5611,6 +5619,7 @@ if (!DEMO) setInterval(() => {
   if (document.hidden || FOLHA || !S.d) return;
   fetch('api/rev', { cache: 'no-store' }).then(jsonOk).then(r => {
     S.integracaoUltimo = r.integracao_ultimo || null;
+    S.correriaUltimo = r.correria_ultimo || null;
     if (emailOn() && r.emails !== S.emailsCarimbo) { S.emailsCarimbo = r.emails; carregarEmails(); }  // chegou ou mudou e-mail
     if (r.rev !== S.d.rev && !FOLHA) return api.state().then(d => { S.d = normalizar(d); render(); });
   }).catch(() => {});
@@ -5623,6 +5632,7 @@ async function iniciar() {
     const st = await api.state();
     S.usuario = st.usuario || null;
     S.integracaoUltimo = st.integracao_ultimo || null;
+    S.correriaUltimo = st.correria_ultimo || null;
     S.d = normalizar(st);
   } catch (e) {
     $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;

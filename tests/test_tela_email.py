@@ -234,7 +234,7 @@ class TestCartaoIntegracoes(TelaEmail):
     def test_ordem_dos_cartoes(self):
         self.abrir_com([], ui=INTEG)
         self.assertEqual(self.js("[...document.querySelectorAll('#app section.card')].map(s => s.id)"),
-                         ["outros-apps", "bens", "ia", "senhas-pdf", "email", "uso-ia", "sensores"])
+                         ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"])
 
 
 class TestAvisoNoCelular(TelaEmail):
