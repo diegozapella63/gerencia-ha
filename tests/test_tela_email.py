@@ -249,6 +249,38 @@ class TestCartaoIntegracoes(TelaEmail):
         self.assertEqual(self.estados()[2], "lendo")
         self.assertEqual(self.js("[...document.querySelectorAll('#email .email-l')].filter(l => l.scrollWidth > l.clientWidth + 1).length"), 0, "nada sai da linha")
 
+    def test_procurar_faturas_agora(self):
+        self.abrir_com([], ui=INTEG)
+        self.assertEqual(self.texto("#email [data-a=\"email-procurar\"]"), "Procurar faturas agora")
+        self.assertEqual(self.texto("#email .email-procurar + .ajuda"), "Abre os 30 e-mails mais novos e lê as faturas que achar.")
+        rodando = "{ ligado: true, conectada: true, contas: [{ id: 'e', nome: 'ana@exemplo.com', ok: true }], itens: [], procura: { rodando: true, vistos: 3, total: 30, pdfs: 0, achados: 0, erro: '', etapa: 'Abrindo os e-mails de ana@exemplo.com…', fim: null } }"
+        self.trocar_api("emailProcurar", f"async () => ({rodando})")
+        self.trocar_api("emails", f"async () => ({rodando})")
+        self.clicar('#email [data-a="email-procurar"]')
+        self.pg.wait_for_selector("#email .email-procurar[disabled]")
+        self.assertEqual(self.texto("#email .email-procurar"), "Procurando… 3 de 30")
+        self.assertEqual(self.texto("#email .email-procurar + .ajuda"), "Abrindo os e-mails de ana@exemplo.com…")
+        self.trocar_api("emails", "async () => ({ ligado: true, conectada: true, contas: [{ id: 'e', nome: 'ana@exemplo.com', ok: true }], itens: [], procura: { rodando: false, vistos: 30, total: 30, pdfs: 3, achados: 2, erro: '', etapa: '', fim: '2026-11-02T10:00:00' } })")
+        self.pg.wait_for_function("() => (document.querySelector('#email .email-procurar + .ajuda') || {}).textContent === 'Achei 2 faturas nos 30 e-mails mais novos.'", timeout=8000)
+        self.assertEqual(self.texto("#email [data-a=\"email-procurar\"]"), "Procurar faturas agora", "olha de novo sozinho enquanto procura")
+        self.trocar_api("emails", "async () => ({ ligado: true, conectada: true, contas: [{ id: 'e', nome: 'ana@exemplo.com', ok: true }], itens: [], procura: { rodando: false, vistos: 30, total: 30, pdfs: 1, achados: 0, erro: '', etapa: '', fim: '2026-11-02T10:00:00' } })")
+        self.js("T.carregarEmails()")
+        self.esperar()
+        self.assertEqual(self.texto("#email .email-procurar + .ajuda"), "Nenhuma fatura nos 30 e-mails mais novos; o PDF que achei está em Recebidos.")
+
+    def test_procurar_na_previa_explica(self):
+        self.abrir_com([], ui=INTEG)
+        self.clicar('#email [data-a="email-procurar"]')
+        self.assertEqual(self.aviso(), "Na prévia não há caixa de entrada.")
+        self.assertFalse(self.js("document.querySelector('#email .email-procurar').disabled"))
+
+    def test_sem_conta_funcionando_sem_procurar(self):
+        self.abrir_com([], ui=INTEG)
+        self.trocar_api("emails", "async () => ({ ligado: true, conectada: false, contas: [{ id: 'e', nome: 'ana@exemplo.com', ok: false }], itens: [] })")
+        self.js("(T.S.emails = undefined, T.render(), T.carregarEmails())")
+        self.esperar()
+        self.assertEqual(self.conta("#email .email-procurar"), 0)
+
     def test_ordem_dos_cartoes(self):
         self.abrir_com([], ui=INTEG)
         self.assertEqual(self.js("[...document.querySelectorAll('#app section.card')].map(s => s.id)"),

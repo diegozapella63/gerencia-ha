@@ -382,6 +382,86 @@ class TestEmailChegou(ComServidor):
         self.assertNotEqual(S.emails_carimbo(), c0)
 
 
+class TestProcurar(ComServidor):
+    """Procurar faturas agora: abre os e-mails mais novos pela ação imap.fetch (o "uid" da integração IMAP é o número
+    da mensagem na pasta) e o que tiver PDF segue como um e-mail que chegou."""
+
+    def setUp(self):
+        super().setUp()
+        self.caixa = {}  # número -> {sender, subject, date, parts}
+        for n in range(1, 41):
+            self.caixa[n] = {"sender": f"Loja {n} <oi@loja{n}.com>", "subject": f"Novidades {n}", "date": "2026-11-0%dT08:00:00" % (n % 9 + 1),
+                             "parts": {"0": {"content_type": "text/plain"}}}
+        pdf = lambda nome: {"0": {"content_type": "text/plain"}, "1": {"content_type": "application/pdf", "filename": nome}}  # noqa: E731
+        self.caixa[40].update(sender="Banco Azul <fatura@bancoazul.com.br>", subject="Sua fatura de novembro", parts=pdf("fatura-nov.pdf"))
+        self.caixa[38].update(parts=pdf("catalogo.pdf"))
+        self.caixa[5].update(sender="Banco Azul <fatura@bancoazul.com.br>", subject="Fatura de março", parts=pdf("fatura-mar.pdf"))
+        for alvo, valor in (("_email_simulado", lambda: False), ("contas_imap", lambda forcar=False: [{"id": "imap-ana", "nome": "ana@exemplo.com", "ok": True}])):
+            p = mock.patch.object(S, alvo, valor)
+            p.start()
+            self.addCleanup(p.stop)
+        S.PROCURA.update(rodando=False, fim=None)
+
+    def ha(self, metodo, caminho, corpo=None, timeout=20):
+        if caminho == "/services/imap/fetch?return_response":
+            self.pedidos.append(("fetch", corpo["uid"]))
+            n = int(corpo["uid"])
+            if n not in self.caixa:
+                raise S.ErroHA("O Home Assistant recusou o pedido: Fetch failed")
+            return {"service_response": dict(self.caixa[n], uid=corpo["uid"], text="...")}
+        return super().ha(metodo, caminho, corpo, timeout)
+
+    def buscas(self):
+        return [x for x in self.pedidos if x[0] == "fetch"]
+
+    def test_acha_o_ultimo_email_em_poucos_passos(self):
+        self.assertEqual(S._ultimo_email("imap-ana"), 40)
+        self.assertLessEqual(len(self.buscas()), 14, "dobra e divide ao meio")
+        self.pedidos.clear()
+        self.assertEqual(S._ultimo_email("imap-ana", 38), 40, "do palpite (o último que chegou) para a frente")
+        self.assertLessEqual(len(self.buscas()), 8)
+        self.assertEqual(S._ultimo_email("imap-ana", 300), 40, "palpite depois do fim (e-mails apagados)")
+        self.caixa.clear()
+        self.assertEqual(S._ultimo_email("imap-ana"), 0, "pasta vazia")
+
+    def test_procurar_le_as_faturas_dos_mais_novos(self):
+        self.ajustar(email_aviso=True, email_para=["person.ana"])
+        with mock.patch.object(S, "avisar_fatura") as aviso:
+            S.PROCURA.update(rodando=True, vistos=0, total=30, pdfs=0, achados=0, erro="")
+            S._procurar([{"id": "imap-ana", "nome": "ana@exemplo.com"}])
+        self.assertEqual({k: S.PROCURA[k] for k in ("rodando", "vistos", "pdfs", "achados", "erro")},
+                         {"rodando": False, "vistos": 30, "pdfs": 2, "achados": 1, "erro": ""})
+        self.assertTrue(S.PROCURA["fim"])
+        it = {x["assunto"]: x for x in self.itens()}
+        self.assertEqual(sorted(it), ["Novidades 38", "Sua fatura de novembro"], "os 30 mais novos: o de março (5) fica de fora")
+        self.assertEqual((it["Sua fatura de novembro"]["estado"], it["Sua fatura de novembro"]["uid"]), ("conferir", "40"))
+        self.assertEqual(it["Novidades 38"]["estado"], "fora", "PDF de outro remetente fica em Recebidos, sem ler")
+        self.assertEqual([x for x in self.pedidos if x[0] == "POST"], [("POST", "/services/imap/fetch_part?return_response", {"entry": "imap-ana", "uid": "40", "part": "1"})])
+        aviso.assert_not_called()  # procurar não manda aviso no celular
+        S.PROCURA.update(rodando=True, vistos=0, pdfs=0, achados=0)
+        S._procurar([{"id": "imap-ana", "nome": "ana@exemplo.com"}])
+        self.assertEqual((S.PROCURA["pdfs"], S.PROCURA["achados"], len(self.itens())), (2, 0, 2), "de novo: nada repetido")
+
+    def test_validacoes_e_em_segundo_plano(self):
+        self.ajustar(email=False)
+        with self.assertRaisesRegex(ValueError, "Ligue Ler as faturas do e-mail"):
+            S.email_procurar()
+        self.ajustar(email=True)
+        with mock.patch.object(S, "contas_imap", lambda forcar=False: [{"id": "x", "nome": "x", "ok": False}]):
+            with self.assertRaisesRegex(ValueError, "Nenhuma conta de e-mail funcionando"):
+                S.email_procurar()
+        r = S.email_procurar()
+        self.assertEqual((r["procura"]["rodando"], r["procura"]["total"]), (True, 30))
+        self.assertTrue(esperar(lambda: not S.PROCURA["rodando"]))
+        self.assertEqual(S.emails_estado()["procura"]["achados"], 1)
+
+    def test_erro_aparece(self):
+        S.PROCURA.update(rodando=True)
+        with mock.patch.object(S, "_ultimo_email", side_effect=S.ErroHA("Sem resposta do Home Assistant (timeout).")):
+            S._procurar([{"id": "imap-ana", "nome": "ana@exemplo.com"}])
+        self.assertEqual((S.PROCURA["rodando"], S.PROCURA["erro"]), (False, "Sem resposta do Home Assistant (timeout)."))
+
+
 class TestAvisoEContas(ComServidor):
     def test_aviso_no_celular_de_quem_foi_escolhido(self):
         self.ajustar(email_aviso=True, email_para=["person.ana"])
@@ -505,6 +585,20 @@ class TestRotas(unittest.TestCase):
         self.assertEqual(next(x for x in r["itens"] if x["id"] == it["id"])["estado"], "feito")
         st, _, r = self.s.post("/api/emails/feito", {"id": "000000000000"})
         self.assertEqual((st, r["erro"]), (400, "Esse e-mail não está mais aqui."))
+
+    def test_procurar_na_caixa_de_entrada(self):
+        self.ligar()
+        for assunto, nome in (("Fatura na caixa 1", "fatura-azul.pdf"), ("Fatura na caixa 2", "fatura-azul.pdf")):
+            st, _, r = self.s.post("/api/emails/simular", {"de": "Banco Azul <fatura@bancoazul.com.br>", "assunto": assunto, "arquivo": nome,
+                                                          "b64": base64.b64encode(arq(nome)).decode(), "caixa": True})
+            self.assertEqual(st, 200)
+        self.assertFalse(any(x["assunto"].startswith("Fatura na caixa") for x in self.itens()), "na caixa, ainda não chegou para o app")
+        st, _, r = self.s.post("/api/emails/procurar", {})
+        self.assertEqual(st, 200, r)
+        self.assertTrue(esperar(lambda: not self.s.get("/api/emails")[2]["procura"]["rodando"], 20))
+        p = self.s.get("/api/emails")[2]["procura"]
+        self.assertEqual((p["achados"], p["erro"]), (2, ""))
+        self.assertTrue(esperar(lambda: {x["assunto"] for x in self.itens() if x["estado"] == "conferir"} >= {"Fatura na caixa 1", "Fatura na caixa 2"}, 15))
 
     def test_senha_pdf_e_ignorar(self):
         self.ligar()

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.39.0';
+const VERSAO = '1.40.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -438,6 +438,7 @@ const apiServidor = {
   emails: forcar => fetch('api/emails' + (forcar ? '?forcar=1' : ''), { cache: 'no-store' }).then(jsonOk),
   emailPdf: id => fetch('api/emails/pdf?id=' + encodeURIComponent(id), { cache: 'no-store' }).then(jsonOk),
   emailAcao: (acao, id) => fetch('api/emails/' + acao, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
+  emailProcurar: () => fetch('api/emails/procurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(jsonOk),
   chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
   chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   chatAcao: (id, grupo, estado) => fetch('api/chat/acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, grupo, estado }) }).then(jsonOk),
@@ -517,6 +518,7 @@ function apiDemo() {
     // faturas por e-mail na prévia: sem Home Assistant, a lista fica na memória (vazia; os testes põem e-mails inventados)
     async emails() { const ligado = S.d.ajustes.email === true && iaOn(); return { ligado, conectada: ligado, contas: ligado ? [{ id: 'imap-previa', nome: 'ana@exemplo.com', ok: true }] : null, itens: clone(this._emails || []) }; },
     async emailPdf() { throw new Error('Na prévia não há PDF.'); },
+    async emailProcurar() { throw new Error('Na prévia não há caixa de entrada.'); },
     async emailAcao(acao, id) { const it = (this._emails || []).find(x => x.id === id); if (!it) throw new Error('Esse e-mail não está mais aqui.'); it.estado = acao === 'ler' ? 'lendo' : acao === 'feito' ? 'feito' : 'ignorado'; it.erro = ''; if (acao !== 'ler') delete it.resultado; return this.emails(); },
     // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
     async chat() { return { mensagens: clone(CHAT_DEMO) }; },
@@ -3784,8 +3786,9 @@ const EMAIL_ST = { lendo: 'Lendo…', conferir: 'Para conferir', senha: 'Precisa
 function aplicarEmails(r) {
   S.emails = r;
   clearTimeout(S.emailsTimer);
-  // alguma sendo lida pela IA: olha de novo daqui a pouco
-  if (r && (r.itens || []).some(x => x.estado === 'lendo')) S.emailsTimer = setTimeout(() => carregarEmails(), 4000);
+  // alguma sendo lida pela IA, ou procurando na caixa de entrada: olha de novo daqui a pouco
+  if (r && (r.procura || {}).rodando) S.emailsTimer = setTimeout(() => carregarEmails(), 2500);
+  else if (r && (r.itens || []).some(x => x.estado === 'lendo')) S.emailsTimer = setTimeout(() => carregarEmails(), 4000);
   render();
   return r;
 }
@@ -3850,7 +3853,8 @@ function cardEmail() {
   if (!E) h += `<div class="status manual">Procurando as contas de e-mail…</div>`;
   else if (!C) h += `<div class="status manual">Não consegui ver as contas de e-mail do Home Assistant.</div>`;
   else if (!C.length) h += `<div class="status manual">Nenhuma conta de e-mail no Home Assistant. Adicione a integração IMAP: no Gmail, imap.gmail.com, porta 993, com uma senha de app.</div>`;
-  else h += `<div class="status${C.every(c => c.ok) && E.conectada ? '' : ' manual'}">${C.map(c => esc(c.nome) + (c.ok ? '' : ' (com erro no Home Assistant)')).join(' · ')}${E.conectada ? '' : ' · conectando…'}</div>`;
+  else h += `<div class="status${C.every(c => c.ok) && E.conectada ? '' : ' manual'}">${C.map(c => esc(c.nome) + (c.ok ? '' : ' (com erro no Home Assistant)')).join(' · ')}${E.conectada ? '' : ' · conectando…'}</div>`
+    + procurarEmail(E);
   const de = a.email_de || [];
   h += `<div class="campo email-campo"><label for="email-de">De quem</label>
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
@@ -3859,6 +3863,19 @@ function cardEmail() {
   const L = ((E && E.itens) || []).filter(doEmail).slice(0, 5);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
   return h + '</section>';
+}
+// Procurar faturas agora: abre os e-mails mais novos da caixa de entrada (o Home Assistant só avisa os que chegam)
+function procurarEmail(E) {
+  if (!(E.contas || []).some(c => c.ok)) return '';
+  const P = E.procura || {};
+  if (P.rodando) return `<button class="btn out larga email-procurar" disabled>${ic('search', 'ic-s')}Procurando… ${P.vistos} de ${P.total}</button>
+    <div class="ajuda">${esc(P.etapa || '')}</div>`;
+  const fim = !P.fim ? 'Abre os 30 e-mails mais novos e lê as faturas que achar.'
+    : P.erro ? esc(P.erro)
+      : P.achados ? `Achei ${plural(P.achados, 'fatura', 'faturas')} nos ${P.vistos} e-mails mais novos.`
+        : P.pdfs ? `Nenhuma fatura nos ${P.vistos} e-mails mais novos; ${P.pdfs === 1 ? 'o PDF que achei está' : 'os PDFs que achei estão'} em Recebidos.`
+          : `Nenhum PDF nos ${P.vistos} e-mails mais novos.`;
+  return `<button class="btn out larga email-procurar" data-a="email-procurar">${ic('search', 'ic-s')}Procurar faturas agora</button><div class="ajuda">${fim}</div>`;
 }
 function linhaEmail(it) {
   const ler = ['fora', 'erro', 'ignorado'].includes(it.estado);
@@ -5021,6 +5038,7 @@ document.addEventListener('click', ev => {
     case 'email-abrir': abrirEmail(v); break;
     case 'email-ignorar': { const id = IAS && IAS.email; fecharFolha(); if (id) emailAcao('ignorar', id, 'Fatura ignorada'); break; }
     case 'email-ler': emailAcao('ler', v, 'Lendo com IA'); break;
+    case 'email-procurar': el.disabled = true; api.emailProcurar().then(aplicarEmails, e => { el.disabled = false; toast(e.message); }); break;
     case 'email-de-add': emailDeAdicionar(); break;
     case 'email-de-rm': persistir(d => { d.ajustes.email_de = (d.ajustes.email_de || []).filter(x => x !== v); }); break;
     case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;

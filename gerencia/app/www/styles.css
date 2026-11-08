@@ -1263,6 +1263,8 @@ input[readonly] { opacity: .8; }
 /* Faturas por e-mail (Mais › Configurações › Integrações) */
 #email .status { margin-bottom: 14px; }
 .email-campo { margin-bottom: 4px; }
+.email-procurar { margin: 4px 0 0; }
+.email-procurar + .ajuda { margin: 8px 0 16px; }
 .email-de { margin: 0 0 10px; }
 .email-de .chip { gap: 6px; }
 .email-add { display: flex; gap: 10px; }

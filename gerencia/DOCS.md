@@ -150,6 +150,7 @@ Quando chega um e-mail com PDF de um desses remetentes, o app pega o PDF, abre c
 
 - Se nenhuma senha cadastrada abrir o PDF, o aviso diz "o PDF tem senha": toque, digite a senha e leia. Com **Guardar para as próximas faturas**, ela entra nas senhas. Uma senha cadastrada depois abre sozinha as faturas que esperavam.
 - Se a leitura der erro (o Home Assistant não respondeu, por exemplo), tocar no aviso lê de novo.
+- **Procurar faturas agora**, no mesmo cartão: o Home Assistant só avisa os e-mails que chegam depois de ligar; para as faturas que já estão na caixa de entrada, o botão abre os 30 e-mails mais novos (de cada conta) e segue com os que têm PDF como se tivessem acabado de chegar: os de fatura são lidos e esperam a conferência no Início (sem aviso no celular) e os outros ficam em Recebidos. Pode levar uns minutos; o botão mostra quantos já abriu. Os que já estavam no app não entram de novo.
 - **Recebidos**, no mesmo cartão, mostra os últimos 5 e-mails com PDF: **Para conferir**, **Precisa da senha**, **Lançada**, **Ignorada**, **Não é fatura**... Os que não pareciam fatura (ou foram ignorados) têm **Ler**.
 - **Avisar no celular**, em **Mais › Configurações › Opções › Faturas por e-mail** (vem desligado): quando uma fatura fica pronta para conferir, quem você marcar em **Quem recebe** ganha um aviso nos celulares ligados a essa pessoa no Home Assistant.
 - O Home Assistant avisa um e-mail por vez (o mais novo da busca). Se chegarem dois juntos, o mais antigo pode não aparecer: leia pelo **Ler com IA**.

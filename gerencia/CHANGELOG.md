@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.40.0
+
+- **Procurar faturas agora** (Mais › Configurações › Integrações › Faturas por e-mail): o Home Assistant só avisa os e-mails que chegam; o botão abre os 30 e-mails mais novos da caixa de entrada e lê as faturas que já estavam lá. Enquanto procura, mostra quantos já abriu; no fim, quantas faturas achou. Elas esperam a conferência no Início, como as outras (sem aviso no celular).
+
 ## 1.39.0
 
 - **CorrerIA: WhatsApp, Claude e Gemini** (Mais › Configurações › Integrações › CorrerIA; vem desligado). Com o app **CorrerIA** 0.4.0, o WhatsApp, o Claude e o Gemini leem e mudam as finanças: perguntam o resumo, os lançamentos, as contas a pagar e os investimentos, e lançam gastos (também parcelados ou no cartão), editam, apagam, marcam contas e faturas como pagas, atualizam saldos e cadastram investimentos e fixos. Antes de gravar, eles mostram o que vão fazer (pelo WhatsApp, pedem um sim). A tela daqui se atualiza sozinha.

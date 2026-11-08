@@ -36,7 +36,7 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.39.0"
+VERSAO = "1.40.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2624,6 +2624,8 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     _email_mudar(eid, estado="feito" if p.endswith("feito") else "ignorado", erro="")
                 return self.enviar(200, emails_estado())
+            if p == "/api/emails/procurar":
+                return self.enviar(200, email_procurar())
             if p == "/api/emails/simular":
                 return self.enviar(200, email_simular(self.corpo_json()))
             if p == "/api/senhas/apagar":
@@ -2886,12 +2888,14 @@ def emails_estado(forcar=False):
     return {"ligado": ligado,
             "conectada": ligado and (_email_simulado() or bool(ESCUTA and ESCUTA.conectada)),
             "contas": contas_imap(forcar) if ligado else None,
+            "procura": dict(PROCURA),
             "itens": [email_publico(x) for x in emails_ler()["itens"]]}
 
 
-def email_chegou(ev):
-    """O evento imap_content: um e-mail com PDF fica guardado; o de fatura (do remetente cadastrado ou, sem nenhum,
-    com fatura no assunto) é lido com a IA. Devolve o id guardado, ou None."""
+def email_chegou(ev, avisar=True):
+    """O evento imap_content (ou um e-mail achado pelo Procurar faturas agora): um e-mail com PDF fica guardado; o de
+    fatura (do remetente cadastrado ou, sem nenhum, com fatura no assunto) é lido com a IA. Devolve o id guardado, ou
+    None (sem PDF, desligado ou já visto)."""
     d = ler()
     aj = d["ajustes"]
     if aj.get("email") is not True or not ia_ligada(d):
@@ -2917,8 +2921,91 @@ def email_chegou(ev):
         _emails_gravar(e)
     log(f"E-mail de {emails.endereco(it['de'])} com PDF:", "lendo a fatura" if fatura else "não é de fatura")
     if fatura:
-        email_ler(it["id"])
+        email_ler(it["id"], avisar=avisar)
     return it["id"]
+
+
+# Procurar faturas agora: o Home Assistant só avisa os e-mails que chegam; para as faturas que já estão na caixa de
+# entrada, o app abre os mais novos pela ação imap.fetch. A integração IMAP numera os e-mails da pasta (o "uid" dela é
+# o número da mensagem: 1 é o mais antigo e o último é o mais novo), então o app acha o último e volta dali.
+PROCURAR_N = 30           # os e-mails mais novos de cada conta
+PROCURA = {"rodando": False, "vistos": 0, "total": 0, "pdfs": 0, "achados": 0, "erro": "", "etapa": "", "fim": None}
+_trava_procura = threading.Lock()
+CAIXA_SIMULADA = []       # só com a IA simulada: a caixa de entrada de mentira (testes e prévia)
+
+
+def _imap_fetch(entry, n):
+    """O e-mail número n da pasta (imap.fetch: remetente, assunto, data e as partes), ou None se não existe."""
+    if _email_simulado():
+        return dict(CAIXA_SIMULADA[n - 1]) if entry == "imap-simulado" and 1 <= n <= len(CAIXA_SIMULADA) else None
+    try:
+        res = ha_request("POST", "/services/imap/fetch?return_response", {"entry": entry, "uid": str(n)}, timeout=60)
+    except ErroHA:
+        return None
+    r = (res or {}).get("service_response") or {}
+    return r if isinstance(r, dict) and (r.get("subject") or r.get("sender") or r.get("date")) else None
+
+
+def _ultimo_email(entry, palpite=1):
+    """O número do e-mail mais novo: dobra a partir do palpite até passar do fim e depois divide ao meio (cada passo
+    abre um e-mail; uns 30 passos para uma caixa de 20 mil). 0: a pasta está vazia."""
+    a = max(1, int(palpite or 1))
+    if _imap_fetch(entry, a):
+        b = a * 2
+        while b < 10 ** 7 and _imap_fetch(entry, b):
+            a, b = b, b * 2
+    else:
+        if a == 1 or not _imap_fetch(entry, 1):
+            return 0
+        a, b = 1, a
+    while b - a > 1:
+        m = (a + b) // 2
+        if _imap_fetch(entry, m):
+            a = m
+        else:
+            b = m
+    return a
+
+
+def _procurar(contas):
+    try:
+        for c in contas:
+            PROCURA["etapa"] = f"Achando o e-mail mais novo de {c['nome']}…"
+            numeros = [int(x["uid"]) for x in emails_ler()["itens"] if x.get("entry") == c["id"] and str(x.get("uid") or "").isdigit()]
+            ultimo = _ultimo_email(c["id"], max(numeros or [1]))
+            PROCURA["etapa"] = f"Abrindo os e-mails de {c['nome']}…"
+            for n in range(ultimo, max(0, ultimo - PROCURAR_N), -1):
+                r = _imap_fetch(c["id"], n)
+                PROCURA["vistos"] += 1
+                if not r or emails.anexo_pdf(r.get("parts"))[0] is None:
+                    continue
+                PROCURA["pdfs"] += 1
+                eid = email_chegou({"entry_id": c["id"], "uid": str(r.get("uid") or n), "sender": r.get("sender"), "subject": r.get("subject"),
+                                    "date": r.get("date"), "parts": r.get("parts")}, avisar=False)
+                it = next((x for x in emails_ler()["itens"] if x["id"] == eid), None) if eid else None
+                if it and it["estado"] != "fora":
+                    PROCURA["achados"] += 1
+    except Exception as e:  # noqa: BLE001  (em segundo plano: o erro aparece no cartão)
+        log("E-mail: procurar faturas:", e)
+        PROCURA["erro"] = str(e) if isinstance(e, (ValueError, ErroHA)) else "Não consegui procurar."
+    finally:
+        PROCURA.update(rodando=False, etapa="", fim=agora_iso())
+        log("E-mail: procurar faturas:", PROCURA["vistos"], "e-mails abertos,", PROCURA["pdfs"], "com PDF,", PROCURA["achados"], "de fatura")
+
+
+def email_procurar():
+    """Procurar faturas agora (Mais › Configurações › Integrações › Faturas por e-mail): em segundo plano."""
+    d = ler()
+    if d["ajustes"].get("email") is not True or not ia_ligada(d):
+        raise ValueError("Ligue Ler as faturas do e-mail.")
+    contas = [c for c in contas_imap(forcar=True) or [] if c.get("ok")]
+    if not contas:
+        raise ValueError("Nenhuma conta de e-mail funcionando no Home Assistant.")
+    with _trava_procura:
+        if not PROCURA["rodando"]:
+            PROCURA.update(rodando=True, vistos=0, total=PROCURAR_N * len(contas), pdfs=0, achados=0, erro="", etapa="Começando…", fim=None)
+            threading.Thread(target=_procurar, args=(contas,), daemon=True).start()
+    return emails_estado()
 
 
 def _email_baixar(it):
@@ -3022,6 +3109,9 @@ def email_simular(c):
     arquivo = str(c.get("arquivo") or "fatura.pdf")
     ev = {"entry_id": "imap-simulado", "uid": uid, "sender": str(c.get("de") or ""), "subject": str(c.get("assunto") or ""),
           "date": agora_iso(), "parts": {"0": {"content_type": "text/plain"}, "1": {"content_type": "application/pdf", "filename": arquivo}}}
+    if c.get("caixa"):  # já estava na caixa de entrada: o Procurar faturas agora acha
+        CAIXA_SIMULADA.append(ev)
+        return {"ok": True, "numero": len(CAIXA_SIMULADA)}
     threading.Thread(target=email_chegou, args=(ev,), daemon=True).start()
     return {"ok": True}
 
