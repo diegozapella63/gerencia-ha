@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.39.0
+
+- **CorrerIA: WhatsApp, Claude e Gemini** (Mais › Configurações › Integrações › CorrerIA; vem desligado). Com o app **CorrerIA** 0.4.0, o WhatsApp, o Claude e o Gemini leem e mudam as finanças: perguntam o resumo, os lançamentos, as contas a pagar e os investimentos, e lançam gastos (também parcelados ou no cartão), editam, apagam, marcam contas e faturas como pagas, atualizam saldos e cadastram investimentos e fixos. Antes de gravar, eles mostram o que vão fazer (pelo WhatsApp, pedem um sim). A tela daqui se atualiza sozinha.
+- Funciona com a IA daqui desligada; só as fotos e os PDFs mandados pelo WhatsApp precisam dela.
+- O cartão mostra o último uso ("Claude usou hoje às 9:41").
+
 ## 1.38.1
 
 - Na conversa pela tela do **CorrerIA** (0.3.0), a IA do GerencIA responde sem falar em WhatsApp e também conversa sobre outros assuntos, como no balão do app.

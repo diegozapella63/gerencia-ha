@@ -29,7 +29,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
-    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, CorrerIA no WhatsApp, uso da IA e sensores no Home Assistant.
+    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, CorrerIA (WhatsApp, Claude e Gemini), uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
@@ -263,17 +263,24 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
 | POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
 
-## CorrerIA no WhatsApp
+## CorrerIA (WhatsApp, Claude e Gemini)
 
-O [CorrerIA](https://github.com/diegozapella63/correria-ha) é o contato da CorrerIA Code no WhatsApp, um app da mesma família. Com ele configurado e **Mais › Configurações › Integrações › CorrerIA no WhatsApp** ligado (vem desligado; precisa da IA ligada), as pessoas da casa perguntam pelo WhatsApp ("quanto gastei com mercado este mês?", "o que vence esta semana?") e a resposta vem da IA do GerencIA, com os seus dados.
+O [CorrerIA](https://github.com/diegozapella63/correria-ha) é um app da mesma família que junta os apps da casa no **WhatsApp** (o contato da CorrerIA Code), no **Claude** e no **Gemini**. Com **Mais › Configurações › Integrações › CorrerIA** ligado (vem desligado), eles leem e mudam as finanças pelo GerencIA, com os seus dados:
 
-- Pelo WhatsApp a IA só responde: lançar, pagar ou mudar um saldo continua no app (o balão Conversar com a IA). E fala só dos apps da casa: é uma regra do WhatsApp para contatos de empresas.
-- **Fotos e PDFs**: uma foto de nota, um print ou uma fatura em PDF mandados pelo WhatsApp são lidos como no Ler com IA (o PDF com senha abre com as Senhas dos PDFs). O que a IA achar fica para conferir nos **Avisos do Início** ("Enviado por Ana · Pelo WhatsApp · 4 lançamentos"), junto das faturas por e-mail: toque para conferir e **Lançar** ou **Ignorar**. A resposta no WhatsApp lista o que foi lido; com uma pergunta junto ("quanto deu essa nota?"), ela responde com isso. Áudio chega como texto (o CorrerIA ouve antes).
-- A conversa do WhatsApp não aparece no balão do app, e o balão não aparece no WhatsApp.
-- As perguntas e as respostas passam pelos servidores do WhatsApp (da Meta). Quem pode conversar é escolhido no CorrerIA.
-- O cartão mostra quando o CorrerIA perguntou pela última vez. Desligado, o arquivo `share/gerencia/correria.json` (o endereço e uma chave só do CorrerIA) é apagado e a chave deixa de valer.
+- **Ler**: o resumo de hoje, os lançamentos de um período (com os gastos por categoria), as contas a pagar e as faturas, os investimentos e os cadastros (contas, cartões, categorias, fixos). Ex.: "quanto gastei com mercado em outubro?", "o que vence esta semana?".
+- **Gravar**: lançar um gasto ou recebimento (também parcelado ou no cartão), editar ou apagar um lançamento (num fixo, só o daquele mês), marcar uma conta, um fixo ou a fatura como paga (ou desfazer), atualizar o saldo de um investimento (saldo, aporte ou resgate), cadastrar um investimento e cadastrar um fixo. Ex.: "lança 45,90 de mercado no cartão do Banco Azul", "paguei a internet".
+- Antes de gravar, o Claude e o Gemini mostram o que vão fazer; pelo WhatsApp, o CorrerIA pede um **sim**. A tela daqui se atualiza sozinha, e as versões automáticas (Mais › Configurações › Dados) guardam como estava.
+- **Fotos e PDFs pelo WhatsApp** (precisa da IA ligada aqui): uma foto de nota, um print ou uma fatura em PDF são lidos como no Ler com IA (o PDF com senha abre com as Senhas dos PDFs). O que a IA achar fica para conferir nos **Avisos do Início** ("Enviado por Ana · Pelo WhatsApp · 4 lançamentos"), junto das faturas por e-mail: toque para conferir e **Lançar** ou **Ignorar**. Áudio chega como texto (o CorrerIA ouve antes).
+- Quem pode usar é escolhido no CorrerIA: as pessoas com o WhatsApp cadastrado e quem conectou o Claude ou o Gemini (aprovado no painel do Home Assistant).
+- O cartão mostra o último uso ("Claude usou hoje às 9:41"). Desligado, o arquivo `share/gerencia/correria.json` (o endereço e uma chave só do CorrerIA) é apagado e a chave deixa de valer.
 
-O CorrerIA usa `POST /api/integracao/conversa` com `Authorization: Bearer <chave>`: `{texto, historico: [{papel: eu|ia, texto}], pessoa: {id, nome}, anexo?: {tipo, nome, b64}}` → `{resposta}`. O `correria.json` diz os tipos de anexo que o GerencIA lê (`anexos`: PDF, JPG, PNG e WebP).
+O CorrerIA usa, com `Authorization: Bearer <chave>`:
+
+| Método | Rota | O que faz |
+|---|---|---|
+| GET | `/api/integracao/ferramentas` | `{instrucoes, ferramentas: [{nome, titulo, descricao, entrada (JSON Schema), grava, apaga}]}`. |
+| POST | `/api/integracao/ferramentas` | `{nome, argumentos, pessoa: {id, nome}, cliente}` → `{texto}`; argumento inválido: 400 `{erro}` (diz o que vale). |
+| POST | `/api/integracao/conversa` | Só com a IA ligada: `{texto, historico, pessoa, canal, anexo?: {tipo, nome, b64}}` → `{resposta}`. O `correria.json` diz os tipos de anexo (`anexos`: PDF, JPG, PNG e WebP). |
 
 ## Dados e backup
 

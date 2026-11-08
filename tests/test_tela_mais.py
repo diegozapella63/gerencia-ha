@@ -560,22 +560,26 @@ class TestIntegracoes(TelaMais):
         self.assertEqual((self.js("T.S.ui.maisTela"), self.js("T.S.ui.maisAba")), ("config", "integracoes"), "continua nas Integrações")
         self.assertEqual(self.senhas(), [], "sem salvar")
 
-    # ---- CorrerIA (o contato no WhatsApp pergunta sobre as finanças)
-    def test_correria_comeca_desligado_e_mostra_quando_perguntou(self):
+    # ---- CorrerIA (WhatsApp, Claude e Gemini leem e gravam pelas ferramentas)
+    def test_correria_comeca_desligado_e_mostra_o_ultimo_uso(self):
         self.abrir_int()
-        self.assertEqual(self.texto("#correria h2"), "CorrerIA no WhatsApp")
+        self.assertEqual(self.texto("#correria h2"), "CorrerIA")
         self.assertIn("Desligado.", self.texto("#correria"))
         self.assertEqual(self.conta("#correria .status"), 0)
         self.clicar('#correria [data-a="ajuste"][data-k="correria"]')
         self.assertTrue(self.dados()["ajustes"]["correria"])
-        self.assertEqual(self.texto("#correria .status"), "Nenhuma pergunta ainda. Configure o WhatsApp no app CorrerIA.")
-        self.js("(T.S.correriaUltimo = { app: 'CorrerIA', em: new Date().toISOString() }, T.render(), true)")
+        self.assertIn("Ligado: pelo WhatsApp, o Claude e o Gemini leem e mudam as finanças.", self.texto("#correria"))
+        self.assertEqual(self.texto("#correria .status"), "Nenhum uso ainda. Conecte no app CorrerIA.")
+        self.js("(T.S.correriaUltimo = { app: 'CorrerIA', em: new Date(Date.now() - 60000).toISOString() }, T.render(), true)")
         self.assertRegex(self.texto("#correria .status"), r"^CorrerIA perguntou hoje às \d\d:\d\d\.$")
         self.assertFalse(self.js("document.querySelector('#correria .status').classList.contains('manual')"))
+        self.js("(T.S.correriaUso = { app: 'Claude', nome: 'lancar', em: new Date().toISOString() }, T.render(), true)")
+        self.assertRegex(self.texto("#correria .status"), r"^Claude usou hoje às \d\d:\d\d\.$", "o mais recente")
 
-    def test_correria_some_sem_a_ia(self):
+    def test_correria_sem_a_ia_continua(self):
         self.abrir(base(bancos=BANCOS, ajustes={"ia": False, "correria": True}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
-        self.assertEqual(self.conta("#correria"), 0)
+        self.assertEqual(self.conta("#correria"), 1, "as ferramentas não precisam da IA daqui")
+        self.assertEqual(self.textos("#correria .status")[-1], "Fotos e PDFs pelo WhatsApp precisam da IA ligada.")
 
     def test_falar_so_aparece_com_a_ia_ligada(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))

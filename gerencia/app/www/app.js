@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.38.1';
+const VERSAO = '1.39.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4132,7 +4132,7 @@ function maisIntegracoes() {
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
   const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
     ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
-  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() + cardCorreria(a) + cardUsoIA() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() : '') + cardCorreria(a) + (iaOn() ? cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
@@ -5603,13 +5603,18 @@ function quandoUsou(u, verbo = 'usou') {
   const dt = new Date(u.em), hj = iso(hoje()) === iso(dt);
   return `${esc(u.app)} ${verbo} ${hj ? 'hoje' : 'em ' + fData(dt)} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
 }
-// O CorrerIA: o contato da CorrerIA Code no WhatsApp pergunta sobre as finanças (só com a IA ligada)
+// O CorrerIA junta os apps da casa no WhatsApp, no Claude e no Gemini: eles leem e gravam pelas ferramentas (sem a IA
+// daqui); as fotos e os PDFs mandados pelo WhatsApp vêm para a leitura por IA daqui (com a IA ligada)
 function cardCorreria(a) {
-  const lig = a.correria === true, quando = quandoUsou(S.correriaUltimo, 'perguntou');
-  return `<section class="card" id="correria">${maisCab('chat', 'CorrerIA no WhatsApp')}
-    ${maisLead('O CorrerIA é o contato da CorrerIA Code no WhatsApp: as perguntas sobre as finanças vêm para cá, e a resposta volta por lá, passando pelo WhatsApp.')}
-    ${linhaChave('correria', lig, 'Responder pelo WhatsApp', lig ? 'Ligado: o CorrerIA pode perguntar sobre as finanças.' : 'Desligado.')}
-    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhuma pergunta ainda. Configure o WhatsApp no app CorrerIA.'}</div>` : ''}</section>`;
+  const lig = a.correria === true;
+  // o último uso: uma ferramenta (Claude usou…) ou uma pergunta com foto ou PDF (CorrerIA perguntou…)
+  const ult = [S.correriaUso, S.correriaUltimo].filter(u => u && u.em).sort((x, y) => (y.em > x.em ? 1 : -1))[0];
+  const quando = ult ? quandoUsou(ult, ult === S.correriaUso ? 'usou' : 'perguntou') : '';
+  return `<section class="card" id="correria">${maisCab('chat', 'CorrerIA')}
+    ${maisLead('O CorrerIA junta os apps da casa no WhatsApp, no Claude e no Gemini.')}
+    ${linhaChave('correria', lig, 'Usar com o CorrerIA', lig ? 'Ligado: pelo WhatsApp, o Claude e o Gemini leem e mudam as finanças.' : 'Desligado.')}
+    ${lig ? `<div class="status${quando ? '' : ' manual'}">${quando || 'Nenhum uso ainda. Conecte no app CorrerIA.'}</div>` : ''}
+    ${lig && !iaOn() ? '<div class="status manual">Fotos e PDFs pelo WhatsApp precisam da IA ligada.</div>' : ''}</section>`;
 }
 function cardOutrosApps(a) {
   const lig = a.integracao !== false, quando = quandoUsou(S.integracaoUltimo);
@@ -5624,6 +5629,7 @@ if (!DEMO) setInterval(() => {
   fetch('api/rev', { cache: 'no-store' }).then(jsonOk).then(r => {
     S.integracaoUltimo = r.integracao_ultimo || null;
     S.correriaUltimo = r.correria_ultimo || null;
+    S.correriaUso = r.correria_uso || null;
     if (pendentesOn() && r.emails !== S.emailsCarimbo) { S.emailsCarimbo = r.emails; carregarEmails(); }  // chegou fatura por e-mail ou foto pelo WhatsApp
     if (r.rev !== S.d.rev && !FOLHA) return api.state().then(d => { S.d = normalizar(d); render(); });
   }).catch(() => {});
@@ -5637,6 +5643,7 @@ async function iniciar() {
     S.usuario = st.usuario || null;
     S.integracaoUltimo = st.integracao_ultimo || null;
     S.correriaUltimo = st.correria_ultimo || null;
+    S.correriaUso = st.correria_uso || null;
     S.d = normalizar(st);
   } catch (e) {
     $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;

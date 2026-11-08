@@ -1,6 +1,6 @@
-"""O CorrerIA (o contato da CorrerIA Code no WhatsApp) perguntando ao GerencIA: a chave própria em
-share/gerencia/correria.json (só com a opção e a IA ligadas), a rota /api/integracao/conversa e o pedido para a IA
-(só responde, sem ações, só sobre os apps). Pessoas e valores inventados (Ana, Beto)."""
+"""O CorrerIA (WhatsApp, Claude e Gemini) no GerencIA: a chave própria em share/gerencia/correria.json (com a opção
+ligada), as ferramentas (/api/integracao/ferramentas, sem precisar da IA daqui), a rota /api/integracao/conversa (com a
+IA ligada: fotos e PDFs) e o pedido para a IA (só responde, sem ações). Pessoas e valores inventados (Ana, Beto)."""
 import json
 import os
 import unittest
@@ -111,8 +111,9 @@ class TestConversa(unittest.TestCase):
             S.conversa_correria({"texto": "  "})
 
     def test_ligada_so_com_a_opcao_e_a_ia(self):
-        self.assertTrue(S.correria_ligada())
-        self.assertFalse(S.correria_ligada({"ajustes": {"correria": True, "ia": False}}))
+        self.assertTrue(S.correria_conversa())
+        self.assertFalse(S.correria_conversa({"ajustes": {"correria": True, "ia": False}}), "a conversa precisa da IA")
+        self.assertTrue(S.correria_ligada({"ajustes": {"correria": True, "ia": False}}), "as ferramentas, não")
         self.assertFalse(S.correria_ligada({"ajustes": {"ia": True}}))
         self.assertFalse(S.normalizar({})["ajustes"]["correria"], "vem desligado")
         self.assertFalse(S.normalizar({"ajustes": {"correria": "sim"}})["ajustes"]["correria"])
@@ -238,8 +239,16 @@ class TestRota(unittest.TestCase):
         self.assertEqual((p["app"], p["nome"], p["rota"], p["url"]), ("gerencia", "GerencIA", "/api/integracao/conversa", self.s.url))
         self.assertIn("finanças", p["assunto"])
         self.assertEqual(p["anexos"], ["application/pdf", "image/jpeg", "image/png", "image/webp"], "o que o GerencIA lê")
+        self.assertEqual(p["ferramentas"], "/api/integracao/ferramentas")
+        chave = p["chave"]
         self.ligar(True, ia=False)
-        self.assertFalse(os.path.exists(self.arq), "sem a IA, também some")
+        with open(self.arq, encoding="utf-8") as f:
+            p = json.load(f)
+        self.assertEqual((p["ferramentas"], p["chave"]), ("/api/integracao/ferramentas", chave), "sem a IA, ficam as ferramentas")
+        self.assertNotIn("rota", p, "sem a IA, sem a conversa (fotos e PDFs)")
+        self.assertNotIn("anexos", p)
+        self.ligar(False)
+        self.assertFalse(os.path.exists(self.arq))
 
     def test_conversa(self):
         self.ligar(True)
@@ -263,6 +272,38 @@ class TestRota(unittest.TestCase):
         it = next(x for x in e["itens"] if x["de"] == "Beto")
         self.assertEqual((it["origem"], it["estado"]), ("whatsapp", "conferir"))
 
+    def test_ferramentas(self):
+        self.ligar(True, ia=False)
+        cab = {"Authorization": f"Bearer {self.chave()}", "X-App": "CorrerIA"}
+        st, _, r = self.s.get("/api/integracao/ferramentas", cabecalhos=cab)
+        self.assertEqual(st, 200, r)
+        self.assertEqual(r["ferramentas"][0]["nome"], "resumo")
+        self.assertIn("gerencia_resumo", r["instrucoes"])
+        self.assertTrue(all("entrada" in f and "grava" in f and "apaga" in f for f in r["ferramentas"]))
+        st, _, r = self.s.post("/api/integracao/ferramentas", {"nome": "resumo", "argumentos": {}, "cliente": "Claude"}, cabecalhos=cab)
+        self.assertEqual(st, 200, r)
+        self.assertIn("Hoje é", r["texto"])
+        _, _, d = self.s.get("/api/state")
+        rev = d["rev"]
+        st, _, r = self.s.post("/api/integracao/ferramentas", {"nome": "lancar", "argumentos": {"tipo": "despesa", "descricao": "Feira", "valor": 32.5},
+                                                                "pessoa": {"id": "person.ana", "nome": "Ana"}, "cliente": "Gemini"}, cabecalhos=cab)
+        self.assertEqual(st, 200, r)
+        self.assertTrue(r["texto"].startswith("Lançado: Feira · R$ 32,50"))
+        _, _, d = self.s.get("/api/state")
+        self.assertEqual(d["rev"], rev + 1, "a tela vê a mudança pela revisão")
+        self.assertEqual(d["lancamentos"][-1]["descricao"], "Feira")
+        self.assertEqual((d["correria_uso"]["app"], d["correria_uso"]["nome"]), ("Gemini", "lancar"))
+        self.assertEqual(self.s.get("/api/rev")[2]["correria_uso"]["app"], "Gemini")
+        st, _, r = self.s.post("/api/integracao/ferramentas", {"nome": "lancar", "argumentos": {"tipo": "despesa"}}, cabecalhos=cab)
+        self.assertEqual((st, r["erro"]), (400, "Falta a descrição."))
+        st, _, r = self.s.post("/api/integracao/ferramentas", {"nome": "sacar"}, cabecalhos=cab)
+        self.assertEqual((st, r["erro"]), (404, "Ferramenta desconhecida: sacar."))
+        st, _, r = self.s.post("/api/integracao/conversa", {"texto": "oi"}, cabecalhos=cab)
+        self.assertEqual(st, 401, "sem a IA, a conversa não entra (as ferramentas sim)")
+        self.ligar(False)
+        st, _, r = self.s.get("/api/integracao/ferramentas", cabecalhos=cab)
+        self.assertEqual(st, 401, "desligado, nem com a chave")
+
     def test_sem_a_chave_certa_nao_entra(self):
         self.ligar(True)
         with open(os.path.join(self.s.dirs["share"], "integracao.json"), encoding="utf-8") as f:
@@ -270,6 +311,8 @@ class TestRota(unittest.TestCase):
         for cab in ({}, {"Authorization": "Bearer errada"}, {"Authorization": f"Bearer {do_cronologia}"}):
             st, _, r = self.s.post("/api/integracao/conversa", {"texto": "oi"}, cabecalhos=cab)
             self.assertEqual((st, r["erro"]), (401, "Chave inválida ou CorrerIA desligado no GerencIA."))
+            st, _, r = self.s.post("/api/integracao/ferramentas", {"nome": "resumo"}, cabecalhos=cab)
+            self.assertEqual(st, 401)
         chave = self.chave()
         st, _, r = self.s.get("/api/integracao/contas", cabecalhos={"Authorization": f"Bearer {chave}"})
         self.assertEqual(st, 401, "a chave do CorrerIA não abre as contas do CronologIA")

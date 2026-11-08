@@ -79,15 +79,15 @@ class Conexao:
             ip = None
         return f"http://{host}:{self.porta}", ip
 
-    def publicar(self, ligado=True):
-        """Grava (ou apaga, se desligado) o arquivo que os outros apps leem."""
+    def publicar(self, ligado=True, extra=None):
+        """Grava (ou apaga, se desligado) o arquivo que os outros apps leem. extra: campos a mais nesta gravação."""
         try:
             if not ligado:
                 if os.path.exists(self.arq_share):
                     os.remove(self.arq_share)
                 return
             url, ip = self.endereco()
-            corpo = {"app": "gerencia", **self.extra, "versao": self.versao, "url": url,
+            corpo = {"app": "gerencia", **self.extra, **(extra or {}), "versao": self.versao, "url": url,
                      "ip_url": f"http://{ip}:{self.porta}" if ip else None,
                      "chave": self.chave(), "gravado_em": datetime.now().isoformat(timespec="seconds")}
             os.makedirs(os.path.dirname(self.arq_share), exist_ok=True)
@@ -99,12 +99,12 @@ class Conexao:
         except OSError as e:
             self.log("Conexão com outros apps: não consegui gravar", self.arq_share, e)
 
-    def autorizado(self, headers):
+    def autorizado(self, headers, marcar=True):
         h = headers.get("Authorization") or ""
         if not h.startswith("Bearer "):
             return False
         ok = hmac.compare_digest(h[7:].strip().encode(), self.chave().encode())
-        if ok:
+        if ok and marcar:
             self.ultimo = {"app": (headers.get("X-App") or "outro app")[:40],
                            "em": datetime.now().isoformat(timespec="seconds")}
         return ok

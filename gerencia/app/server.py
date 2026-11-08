@@ -30,12 +30,13 @@ import assinaturas  # noqa: E402
 import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
+import ferramentas  # noqa: E402
 import avisos  # noqa: E402
 import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.38.1"
+VERSAO = "1.39.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2255,12 +2256,13 @@ CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos"
 
 
 CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)
-# O CorrerIA (o contato da CorrerIA Code no WhatsApp) pergunta pela rota /api/integracao/conversa, com a chave própria
-# de share/gerencia/correria.json (só existe com Mais › Configurações › Integrações › CorrerIA ligado e a IA ligada).
+# O CorrerIA (o WhatsApp, o Claude e o Gemini) usa as ferramentas (/api/integracao/ferramentas: ler e gravar, sem a IA
+# daqui) e, com a IA ligada, pergunta pela rota /api/integracao/conversa (as fotos e os PDFs vêm por ela). A chave própria
+# fica em share/gerencia/correria.json, que só existe com Mais › Configurações › Integrações › CorrerIA ligado.
 CORRERIA = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, nome="correria",
                               extra={"nome": "GerencIA", "assunto": "finanças da casa: caixa, gastos, recebimentos, contas a pagar, "
-                                     "cartões e faturas, investimentos e patrimônio", "rota": "/api/integracao/conversa",
-                                     "anexos": sorted(EXT_ANEXO)})
+                                     "cartões e faturas, investimentos e patrimônio"})
+CORRERIA_USO = {"ultimo": None}  # a última ferramenta usada: {"app": "Claude", "em", "nome"}
 
 
 def integracao_ligada(d=None):
@@ -2268,8 +2270,46 @@ def integracao_ligada(d=None):
 
 
 def correria_ligada(d=None):
+    """As ferramentas (ler e gravar pelo WhatsApp, pelo Claude e pelo Gemini): só a opção, sem precisar da IA daqui."""
     d = d or ler()
-    return d.get("ajustes", {}).get("correria") is True and ia_ligada(d)
+    return d.get("ajustes", {}).get("correria") is True
+
+
+def correria_conversa(d=None):
+    """A conversa com a IA daqui (fotos e PDFs pelo WhatsApp): a opção e a IA ligadas."""
+    d = d or ler()
+    return correria_ligada(d) and ia_ligada(d)
+
+
+def correria_estado(d):
+    return correria_ligada(d), correria_conversa(d)
+
+
+def publicar_correria(d=None):
+    d = d or ler()
+    extra = {"ferramentas": "/api/integracao/ferramentas"}
+    if correria_conversa(d):
+        extra.update(rota="/api/integracao/conversa", anexos=sorted(EXT_ANEXO))
+    CORRERIA.publicar(correria_ligada(d), extra)
+
+
+def usar_ferramenta(corpo):
+    """Uma ferramenta chamada pelo CorrerIA: as de leitura só leem; as de gravar mudam os dados (com a revisão nova, a
+    versão automática e a tela atualizada como no Paguei do CronologIA)."""
+    nome = str(corpo.get("nome") or "")
+    pessoa = corpo.get("pessoa") if isinstance(corpo.get("pessoa"), dict) else {}
+    cliente = str(corpo.get("cliente") or "CorrerIA")[:40]
+    with TRAVA:
+        d = ler()
+        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d)
+        if mudou:
+            d["rev"] = d["rev"] + 1
+            salvar(d)
+    CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+    if mudou:
+        quem = str(pessoa.get("nome") or "")[:40]
+        log("CorrerIA:", cliente + (f" ({quem})" if quem else ""), nome, "→", texto.split("\n")[0][:160])
+    return {"texto": texto}
 
 
 PERGUNTA_RE = re.compile(r"\?|^(quanto|quantos|quantas|qual|quais|quando|onde|como|o que|que|por que|porque|tem|é|e)\b", re.I)
@@ -2386,9 +2426,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- util
     def permitido(self):
-        if self.caminho() == "/api/integracao/conversa":
-            # o CorrerIA (WhatsApp), com a chave de share/gerencia/correria.json
-            if correria_ligada() and CORRERIA.autorizado(self.headers):
+        if self.caminho() in ("/api/integracao/conversa", "/api/integracao/ferramentas"):
+            # o CorrerIA (WhatsApp, Claude e Gemini), com a chave de share/gerencia/correria.json
+            conversa = self.caminho().endswith("conversa")
+            if (correria_conversa() if conversa else correria_ligada()) and CORRERIA.autorizado(self.headers, marcar=conversa):
                 return True
             self.enviar(401, {"erro": "Chave inválida ou CorrerIA desligado no GerencIA."})
             return False
@@ -2456,9 +2497,13 @@ class Handler(BaseHTTPRequestHandler):
                                 or self.headers.get("X-Remote-User-Name") or None)
                 d["integracao_ultimo"] = CONEXAO.ultimo
                 d["correria_ultimo"] = CORRERIA.ultimo
+                d["correria_uso"] = CORRERIA_USO["ultimo"]
                 return self.enviar(200, d)
             if p == "/api/rev":
-                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "correria_ultimo": CORRERIA.ultimo, "emails": emails_carimbo()})
+                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "correria_ultimo": CORRERIA.ultimo,
+                                         "correria_uso": CORRERIA_USO["ultimo"], "emails": emails_carimbo()})
+            if p == "/api/integracao/ferramentas":
+                return self.enviar(200, {"versao": VERSAO, "instrucoes": ferramentas.INSTRUCOES, "ferramentas": ferramentas.lista()})
             if p == "/api/integracao/contas":
                 hoje = date.today()
                 de = date.fromisoformat(q.get("de", [(hoje - timedelta(days=31)).isoformat()])[0])
@@ -2608,6 +2653,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.post_integracao(p.rsplit("/", 1)[1], self.corpo_json())
             if p == "/api/integracao/conversa":
                 return self.enviar(200, conversa_correria(self.corpo_json()))
+            if p == "/api/integracao/ferramentas":
+                return self.enviar(200, usar_ferramenta(self.corpo_json()))
             return self.enviar(404, {"erro": "não encontrado"})
         except LookupError as e:
             return self.enviar(404, {"erro": str(e)})
@@ -2636,7 +2683,7 @@ class Handler(BaseHTTPRequestHandler):
             atual = ler()
             if int(corpo.get("rev", -1)) != atual["rev"]:
                 return self.enviar(409, atual)
-            ligada_antes, correria_antes = integracao_ligada(atual), correria_ligada(atual)
+            ligada_antes, correria_antes = integracao_ligada(atual), correria_estado(atual)
             for k in CAMPOS_USUARIO:
                 if k in corpo:
                     atual[k] = corpo[k]
@@ -2647,8 +2694,8 @@ class Handler(BaseHTTPRequestHandler):
             salvar(d)
         if integracao_ligada(d) != ligada_antes:
             CONEXAO.publicar(integracao_ligada(d))
-        if correria_ligada(d) != correria_antes:
-            CORRERIA.publicar(correria_ligada(d))
+        if correria_estado(d) != correria_antes:
+            publicar_correria(d)
         return self.enviar(200, d)
 
     def put_indices(self, corpo):
@@ -3008,7 +3055,7 @@ def rotina():
                 publicar_sensores_async(d)
             limpar_fotos(d)
             CONEXAO.publicar(integracao_ligada(d))
-            CORRERIA.publicar(correria_ligada(d))
+            publicar_correria(d)
             dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
@@ -3020,7 +3067,7 @@ def rotina():
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     CONEXAO.publicar(integracao_ligada())
-    CORRERIA.publicar(correria_ligada())
+    publicar_correria()
     threading.Thread(target=rotina, daemon=True).start()
     if ESCUTA:
         ESCUTA.iniciar()  # faturas por e-mail: só conecta com a opção ligada
