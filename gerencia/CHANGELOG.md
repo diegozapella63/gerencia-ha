@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.42.1
+
+- **Oportunidades**: na primeira vez que a tela abre, as taxas do Tesouro aparecem sozinhas assim que chegam (às vezes ficava em "Ainda sem as taxas" até abrir de novo).
+
 ## 1.42.0
 
 - **Oportunidades sem alvo**: numa família sem alvo, vale o que rende mais que o melhor dos seus investimentos daquela família. A linha mostra **Melhor que os seus**, e o aviso no celular vale para isso também. Com um alvo escolhido, vale o alvo.

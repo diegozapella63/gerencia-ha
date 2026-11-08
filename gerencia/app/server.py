@@ -37,7 +37,7 @@ import emails  # noqa: E402
 import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 
-VERSAO = "1.42.0"
+VERSAO = "1.42.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2408,8 +2408,8 @@ def oport_estado(d, disparar=True):
     ia = ia_ligada(d)
     velho = (_idade_s(t.get("em")) >= TESOURO_VALE_S and _idade_s(t.get("em_erro")) >= 600
              or ia and any(_pagina_velha(paginas.get(u), False) for u in d["ajustes"]["op_paginas"]))
-    if disparar and velho and not _oport_conferindo.is_set():
-        iniciar_oport()
+    # disparou: a resposta diz "conferindo" mesmo que a busca já tenha terminado (a tela pergunta de novo e vê as taxas)
+    disparou = bool(disparar and velho and not _oport_conferindo.is_set() and iniciar_oport())
     return {"titulos": oportunidades.do_tesouro(t.get("titulos")),
             "ofertas": [o for u in d["ajustes"]["op_paginas"] if ia for o in (paginas.get(u) or {}).get("ofertas") or []],
             "paginas": [{"url": u, "dominio": oportunidades.dominio(u), "status": (paginas.get(u) or {}).get("status") or "pendente",
@@ -2417,7 +2417,7 @@ def oport_estado(d, disparar=True):
                         for u in d["ajustes"]["op_paginas"]] if ia else [],
             "tesouro": {"dia": t.get("dia"), "em": t.get("em"), "erro": t.get("erro"), "fonte": t.get("fonte")},
             "sugestoes": [x for x in oportunidades.SUGESTOES if x["url"] not in d["ajustes"]["op_paginas"]] if ia else [],
-            "conferindo": _oport_conferindo.is_set(), "atualizado": c.get("atualizado")}
+            "conferindo": disparou or _oport_conferindo.is_set(), "atualizado": c.get("atualizado")}
 
 
 def oport_passam(d, c=None):

@@ -363,9 +363,10 @@ class TestConferirEEstado(ComServidor):
         self.assertEqual(d["ajustes"]["op_paginas"], [url])
 
     def test_olhar_busca_o_que_esta_velho(self):
-        with mock.patch.object(S, "iniciar_oport") as ini:
-            S.oport_estado(self.salvar())
+        with mock.patch.object(S, "iniciar_oport", return_value=True) as ini:
+            e = S.oport_estado(self.salvar())
         ini.assert_called_once_with()
+        self.assertTrue(e["conferindo"], "a tela pergunta de novo, mesmo que a busca termine antes da resposta")
         S.oport_gravar({"tesouro": {"em": S.agora_iso(), "titulos": titulos()}})
         with mock.patch.object(S, "iniciar_oport") as ini:
             S.oport_estado(S.ler())
