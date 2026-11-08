@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.44.1';
+const VERSAO = '1.45.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -427,6 +427,7 @@ const apiServidor = {
   foto: jpg => fetch('api/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jpg }) }).then(jsonOk),
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
+  beneficiosLer: corpo => fetch('api/beneficios/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
   bens: () => fetch('api/bens', { cache: 'no-store' }).then(jsonOk),
   bensAtualizar: () => fetch('api/bens/atualizar', { method: 'POST' }).then(jsonOk),
@@ -521,6 +522,14 @@ function apiDemo() {
     async oportunidades() { await espera(200); return oportDemo(); },
     async oportConferir() { await espera(700); return oportDemo(); },
     async oportTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
+    // benefícios lidos pela IA na prévia: a IA simulada (igual à do servidor); a página e as imagens viram um exemplo inventado
+    async beneficiosLer(c) {
+      await espera(600);
+      const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
+      const itens = simBeneficios(c.anexo || c.anexos || url ? BEN_EXEMPLO : t);
+      if (!itens.length) throw new Error('A IA não achou benefícios aqui.');
+      return { beneficios: itens, recusados: 0, origem: c.origem || '' };
+    },
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
     async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
     async avisoTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
@@ -2912,10 +2921,10 @@ function montarIA() {
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
-function prevArquivo(arq) {
+function prevArquivo(arq, tirar = 'ia-arq-rm') {
   const n = (arq.paginas || []).length;
   return `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
-    <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : n > 1 ? `${n} páginas` : 'Imagem'}</small></span><button class="icbtn" data-a="ia-arq-rm" aria-label="Tirar arquivo">${ic('x')}</button></div>`;
+    <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : n > 1 ? `${n} páginas` : 'Imagem'}</small></span><button class="icbtn" data-a="${tirar}" aria-label="Tirar arquivo">${ic('x')}</button></div>`;
 }
 const botaoCam = () => `<button class="btn larga" data-a="ia-cam" style="margin-top:8px">${ic('scan')}Digitalizar com a câmera</button>`;
 const donosSaldos = () => [['', 'Vários'], ['meu', 'Meus'], ...pessoas().map(p => [p, p])];
@@ -2950,17 +2959,23 @@ function acharInvSaldo(it, pessoa) {
   const cands = S.d.investimentos.filter(doDono).filter(i => { const b = semAcento(bancoDe(i.banco)?.nome); return (b && (b === n || b.includes(n) || n.includes(b))) || semAcento(i.nome).includes(n); });
   return cands.length === 1 ? cands[0].id : '';
 }
-async function iaPegarArquivo(file) {
-  if (!file) return;
+// a imagem (em JPG) ou o PDF escolhido, colado ou arrastado, pronto para a IA; null se não serve
+async function arquivoIA(file) {
+  if (!file) return null;
   const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-  if (!pdf && !/^image\//.test(file.type)) { toast('Envie uma imagem ou um PDF.'); return; }
-  if (file.size > 15 * 1024 * 1024) { toast('Arquivo grande demais (máximo 15 MB).'); return; }
+  if (!pdf && !/^image\//.test(file.type)) { toast('Envie uma imagem ou um PDF.'); return null; }
+  if (file.size > 15 * 1024 * 1024) { toast('Arquivo grande demais (máximo 15 MB).'); return null; }
   try {
     const dataUrl = pdf ? await lerArquivo(file) : await imagemJPG(file);
-    IAS.arquivo = { nome: file.name || (pdf ? 'arquivo.pdf' : 'imagem.jpg'), pdf, dataUrl, foto: null };
-    IAS.erro = ''; IAS.pedeSenha = false; IAS.senha = '';
-    pintarFolha();
-  } catch (e) { toast(e.message); }
+    return { nome: file.name || (pdf ? 'arquivo.pdf' : 'imagem.jpg'), pdf, dataUrl, foto: null };
+  } catch (e) { toast(e.message); return null; }
+}
+async function iaPegarArquivo(file) {
+  const a = await arquivoIA(file);
+  if (!a || !IAS) return;
+  IAS.arquivo = a;
+  IAS.erro = ''; IAS.pedeSenha = false; IAS.senha = '';
+  pintarFolha();
 }
 // as fotos tiradas na hora (Digitalizar com IA) já vão para a leitura, como no ResolvIA
 function iaUsarFotos(fotos) {
@@ -3344,6 +3359,7 @@ document.addEventListener('paste', ev => {
   const f = [...(ev.clipboardData?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (!f) return;
   if (IAS && IAS.etapa === 'entrada') { ev.preventDefault(); iaPegarArquivo(f); return; }
+  if (BLER && BLER.etapa === 'entrada' && FOLHA && FOLHA.montar === montarLerBeneficios) { ev.preventDefault(); blerPegarArquivo(f); return; }
   // com a Nova despesa ou o Novo investimento aberto, colar uma imagem já abre a leitura por IA com ela
   if (!IAS && FOLHA && $('#folhas .imp-campo')) {
     ev.preventDefault();
@@ -3353,7 +3369,8 @@ document.addEventListener('paste', ev => {
 });
 
 // No computador, dá para arrastar a imagem ou o PDF para a janela (Nova despesa, Novo investimento ou Ler com IA)
-const podeSoltar = () => iaOn() && FOLHA && ((IAS && IAS.etapa === 'entrada') || (!IAS && $('#folhas .imp-campo')));
+const blerSolta = () => BLER && BLER.etapa === 'entrada' && FOLHA && FOLHA.montar === montarLerBeneficios;
+const podeSoltar = () => iaOn() && FOLHA && ((IAS && IAS.etapa === 'entrada') || blerSolta() || (!IAS && $('#folhas .imp-campo')));
 document.addEventListener('dragover', ev => {
   if (podeSoltar() && [...(ev.dataTransfer?.types || [])].includes('Files')) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; }
 });
@@ -3362,6 +3379,7 @@ document.addEventListener('drop', ev => {
   const f = [...(ev.dataTransfer?.files || [])].find(x => /^image\//.test(x.type) || x.type === 'application/pdf');
   if (!f) return;
   ev.preventDefault();
+  if (blerSolta()) { blerPegarArquivo(f); return; }
   if (!IAS) { const inv = FOLHA.montar === montarFormInv; abrirIA(inv ? 'invest' : 'caixa', 'colado', { soInvest: inv, sobre: true }); }
   iaPegarArquivo(f);
 });
@@ -4435,7 +4453,8 @@ function maisBeneficios() {
     h += `<div class="ben-grupo"><div class="ben-grupo-cab">${ic(o.tipo === 'fixo' ? 'repeat' : o.tipo === 'conta' ? 'card' : 'gift', 'ic-s')}<b>${esc(o.nome || 'Sem origem')}</b>
       ${!o.ativa ? `<em class="ben-acabou">${o.tipo === 'fixo' ? 'o fixo acabou' : 'a conta saiu'}</em>` : ''}</div>${lista.map(linhaBeneficio).join('')}</div>`;
   }
-  return h + `<button class="btn out larga" data-a="ben-novo">${ic('plus')}Cadastrar benefício</button></section>`;
+  return h + (iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="ben-novo">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="ben-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
+    : `<button class="btn out larga" data-a="ben-novo">${ic('plus')}Cadastrar benefício</button>`) + '</section>';
 }
 // os avisos do Início: o que sobrou para usar e vence em até 30 dias, e o que vai parar porque o pagamento acabou
 function avisosBeneficios(h) {
@@ -4451,6 +4470,13 @@ function avisosBeneficios(h) {
   if (param.length) av.push(linha('alert', 'alerta', param.length === 1 ? 'Benefício que vai parar' : `${param.length} benefícios que vão parar`, param));
   return av;
 }
+// de onde vem: os fixos de despesa e as contas e cartões dos bancos (a origem que saiu continua na lista)
+function origensBeneficio(atual) {
+  const o = [['', 'Nenhum']].concat(fixosAtivos().filter(r => r.tipo !== 'receita').map(r => ['fixo:' + r.id, r.descricao + ' (fixo)']),
+    S.d.bancos.flatMap(bc => (bc.contas || []).map(k => ['conta:' + k.id, bc.nome + (k.pessoa ? ' · ' + k.pessoa : '') + (k.cartao ? ' · cartão' + (k.cartao_nivel ? ' ' + k.cartao_nivel : '') : k.nivel ? ' · ' + k.nivel : '')])));
+  if (atual && !o.some(([v]) => v === atual)) o.push([atual, origemBeneficio({ origem: atual }).nome]);
+  return o;
+}
 // o formulário: nome, de onde vem, tipo, quanto, renova, desde, vale até e os usos do período
 let FBEN = null;
 const SUG_BEN = ['Sala VIP', 'Créditos de uso', 'Seguro viagem', 'Cashback', 'Frete grátis', 'Streaming', 'Milhas'];
@@ -4460,9 +4486,7 @@ function abrirBeneficio(id) {
   FBEN.erro = '';
   abrirFolha(() => {
     const f = FBEN, conta = f.tipo !== 'vantagem', c = f.id ? cicloBeneficio(f) : null;
-    const origens = [['', 'Nenhum']].concat(fixosAtivos().filter(r => r.tipo !== 'receita').map(r => ['fixo:' + r.id, r.descricao + ' (fixo)']),
-      S.d.bancos.flatMap(bc => (bc.contas || []).map(k => ['conta:' + k.id, bc.nome + (k.pessoa ? ' · ' + k.pessoa : '') + (k.cartao ? ' · cartão' + (k.cartao_nivel ? ' ' + k.cartao_nivel : '') : k.nivel ? ' · ' + k.nivel : '')])));
-    if (f.origem && !origens.some(([v]) => v === f.origem)) origens.push([f.origem, origemBeneficio(f).nome]);
+    const origens = origensBeneficio(f.origem);
     const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fben-seg" data-k="${k}" data-v="${v}">${t}</button>`).join('')}</div>`;
     const usos = (f.usos || []).filter(u => { const d = pData(u.data); return c && d && d >= pData(c.inicio) && (!c.fim || d < pData(c.fim)); });
     return {
@@ -4511,6 +4535,110 @@ function usarBeneficio(id) {
   FBEN.lancar = lancar;
 }
 
+/* --------- Ler benefícios com IA: um print, uma foto, um PDF, o texto ou o endereço da página oficial do plano ou do
+   cartão (beneficios.py no servidor). A IA lista; da página e do texto, só fica o que está escrito lá. A pessoa confere
+   e cadastra os escolhidos (depois dá para mudar cada um no formulário). */
+let BLER = null;
+function abrirLerBeneficios() {
+  BLER = { etapa: 'entrada', origem: '', texto: '', arquivo: null, itens: [], erro: '' };
+  if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (BLER && FOLHA) pintarFolha(); }).catch(() => {});
+  abrirFolha(montarLerBeneficios, () => { BLER = null; });
+}
+const subBen = x => [x.tipo === 'vantagem' ? 'Vantagem' : `${qtdBen(x, +x.total || 0)} ${RENOVA_TXT[x.renova] || ''}`.trim(), x.obs || ''].filter(Boolean).join(' · ');
+function montarLerBeneficios() {
+  const s = BLER, arq = s.arquivo;
+  if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${arq ? (arq.pdf ? 'o PDF' : 'a imagem') : /^\S+\.\S+$/.test(s.texto.trim()) ? 'a página' : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
+  if (s.etapa === 'revisao') {
+    const n = s.itens.filter(x => x.on).length, de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
+    return {
+      titulo: 'Benefícios encontrados',
+      corpo: `<p class="da-intro" style="margin:0 0 8px">${de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
+        <div class="bler-lista">${s.itens.map((x, k) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="bler-marca" data-v="${k}">
+          <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(x.nome)}</b><span>${esc(subBen(x))}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`).join('')}</div>`,
+      pe: `<button class="btn" data-a="bler-voltar">Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>Cadastrar${n ? ' ' + n : ''}</button>`,
+    };
+  }
+  const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais › Configurações › Integrações.</span></div>` : '';
+  return {
+    titulo: 'Ler benefícios com IA',
+    corpo: `${aviso}<div class="campo"><label for="bler-origem">De onde vêm</label><select id="bler-origem" class="inp" data-bler="origem">${origensBeneficio(s.origem).map(([v, t]) => `<option value="${esc(v)}"${v === s.origem ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+      <div class="ia-arq">${arq ? prevArquivo(arq, 'bler-arq-rm') : `<button class="btn larga" data-a="bler-arq">${ic('image')}Print, foto ou PDF</button><button class="btn larga" data-a="bler-cam" style="margin-top:8px">${ic('scan')}Digitalizar com a câmera</button>`}</div>
+      <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
+        <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="Ex.: https://… (a página dos benefícios do cartão ou do plano)">${esc(s.texto)}</textarea></div>
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
+  };
+}
+async function blerPegarArquivo(file) {
+  const a = await arquivoIA(file);
+  if (!a || !BLER) return;
+  BLER.arquivo = a; BLER.erro = '';
+  pintarFolha();
+}
+function blerFotos(fotos) {
+  if (!BLER || !fotos.length) return;
+  BLER.arquivo = { nome: fotos.length > 1 ? 'Fotos da câmera' : 'Foto da câmera', pdf: false, dataUrl: fotos[0], paginas: fotos, foto: null };
+  blerLer();
+}
+async function blerLer() {
+  const s = BLER;
+  if (!s || (!s.arquivo && !s.texto.trim())) return;
+  s.erro = ''; s.etapa = 'lendo'; pintarFolha();
+  try {
+    const corpo = { origem: s.origem, texto: s.texto.trim() };
+    if (s.arquivo && (s.arquivo.paginas || []).length > 1) corpo.anexos = s.arquivo.paginas.map(b64 => ({ b64 }));
+    else if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
+    const r = await api.beneficiosLer(corpo);
+    if (BLER !== s) return;
+    // o que já está cadastrado (mesmo nome, mesma origem) vem desmarcado
+    s.itens = (r.beneficios || []).map(x => {
+      const ja = S.d.beneficios.some(b => semAcento(b.nome) === semAcento(x.nome) && (b.origem || '') === (s.origem || ''));
+      return Object.assign({}, x, { ja, on: !ja });
+    });
+    s.etapa = 'revisao';
+  } catch (e) {
+    if (BLER !== s) return;
+    s.etapa = 'entrada'; s.erro = e.message;
+  }
+  pintarFolha();
+}
+function salvarLerBeneficios() {
+  const s = BLER, hj = iso(hoje());
+  const novos = s.itens.filter(x => x.on).map(x => {
+    const b = { id: 'bn-' + uid(), nome: String(x.nome).slice(0, 60), origem: s.origem || '', tipo: x.tipo, renova: x.tipo === 'vantagem' ? 'nunca' : x.renova, desde: hj, usos: [] };
+    if (x.tipo !== 'vantagem') b.total = +x.total || 0;
+    if (x.tipo === 'saldo') b.moeda = x.moeda === 'USD' ? 'USD' : 'BRL';
+    if (x.obs) b.obs = String(x.obs).slice(0, 80);
+    return b;
+  });
+  if (!novos.length) return;
+  persistir(d => { d.beneficios.push(...novos); }, novos.length === 1 ? 'Benefício cadastrado' : `${novos.length} benefícios cadastrados`)
+    .then(ok => { if (ok) fecharFolha(false, true); });
+}
+// a IA simulada da prévia: uma linha por benefício, como a do servidor (beneficios.simulados)
+const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional';
+function simBeneficios(texto) {
+  const out = [];
+  for (let ln of String(texto || '').split(/[\n;•]+/)) {
+    ln = ln.trim();
+    const n = semAcento(ln).replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!n || /\b(anuidade|tarifa|mensalidade|preco)\b/.test(n)) continue;  // preço não é benefício
+    const renova = /\bpor ano\b|\bao ano\b|\banua/.test(n) ? 'ano' : /\bpor mes\b|\bao mes\b|\bmensa/.test(n) ? 'mes' : 'nunca';
+    const cond = ln.match(/com \d+ acompanhantes?/), qtd = n.match(/\b(\d+)\s+(acessos?|entradas?|usos?|visitas?)\b/), din = ln.match(/(US\$|R\$)\s?([\d.,]+)/);
+    let b;
+    if (/sala vip|lounge/.test(n)) b = qtd ? { nome: 'Sala VIP', tipo: 'contagem', total: +qtd[1], renova } : { nome: 'Sala VIP', tipo: 'vantagem', renova: 'nunca' };
+    else if (din) b = { nome: /credito/.test(n) ? 'Créditos de uso' : 'Saldo', tipo: 'saldo', total: numDinheiro(din[2]), moeda: din[1] === 'US$' ? 'USD' : 'BRL', renova };
+    else if (/seguro/.test(n)) b = { nome: /viagem/.test(n) ? 'Seguro viagem' : 'Seguro', tipo: 'vantagem', renova: 'nunca' };
+    else if (/cashback/.test(n)) b = { nome: 'Cashback', tipo: 'vantagem', renova: 'nunca' };
+    else if (/frete/.test(n)) b = { nome: 'Frete grátis', tipo: 'vantagem', renova: 'nunca' };
+    else continue;
+    if (cond) b.obs = cond[0];
+    b.trecho = ln.slice(0, 100);
+    out.push(b);
+  }
+  return out;
+}
+
 /* --------- Integrações: outros apps, IA, uso da IA e sensores */
 function maisIntegracoes() {
   const a = S.d.ajustes, sens = a.sensores === true;
@@ -4528,7 +4656,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
+const USO_TIPO = { beneficios: 'Ler benefícios', ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -5675,6 +5803,14 @@ document.addEventListener('click', ev => {
     case 'ben-novo': abrirBeneficio(null); break;
     case 'ben-editar': abrirBeneficio(id); break;
     case 'ben-usar': usarBeneficio(id); break;
+    case 'ben-ler': abrirLerBeneficios(); break;
+    case 'bler-arq': escolherArquivo('image/*,application/pdf').then(blerPegarArquivo); break;
+    case 'bler-cam': abrirCamera(blerFotos); break;
+    case 'bler-arq-rm': if (BLER) { BLER.arquivo = null; BLER.erro = ''; pintarFolha(); } break;
+    case 'bler-ler': blerLer(); break;
+    case 'bler-marca': if (BLER && BLER.itens[+v]) { BLER.itens[+v].on = !BLER.itens[+v].on; pintarFolha(); } break;
+    case 'bler-voltar': if (BLER) { BLER.etapa = 'entrada'; BLER.erro = ''; pintarFolha(); } break;
+    case 'bler-salvar': salvarLerBeneficios(); break;
     case 'fben-seg': if (FBEN) { FBEN[el.dataset.k] = v; FBEN.erro = ''; pintarFolha(); } break;
     case 'fben-salvar': salvarBeneficio(); break;
     case 'fben-uso-rm': if (FBEN) { FBEN.usos = (FBEN.usos || []).filter(u => u.id !== v); pintarFolha(); } break;
@@ -5740,6 +5876,12 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.fb && FB) { FB[el.dataset.fb] = el.value; return; }
+  if (el.dataset.bler && BLER) {
+    BLER[el.dataset.bler] = el.value;
+    const b = $('[data-a="bler-ler"]'); if (b) b.disabled = !BLER.arquivo && !BLER.texto.trim();
+    if (BLER.erro) { BLER.erro = ''; $('.folha .msg-erro')?.remove(); }
+    return;
+  }
   if (el.dataset.fben && FBEN) { FBEN[el.dataset.fben] = el.value; if (FBEN.erro && el.dataset.fben === FBEN.erro) { FBEN.erro = ''; el.classList.remove('erro'); el.parentElement.classList.remove('erro'); } return; }
   if (el.dataset.fbc && FB) {
     const k = el.dataset.fbc, c = FB.contas[+el.dataset.i];

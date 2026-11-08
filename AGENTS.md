@@ -28,6 +28,8 @@ gerencia/app/oportunidades.py oportunidades de investimento: as taxas do Tesouro
                               dados abertos do Tesouro Transparente), as ofertas das páginas escolhidas lidas pela IA (o trecho
                               conferido, só com FGC), o que avisar e os textos; a conta (equivalente, passa_alvo, comparar_meus)
                               fica no calc.py, igual à do app.js
+gerencia/app/beneficios.py    benefícios lidos pela IA (print, foto, PDF, texto ou a página oficial): o pedido, o trecho conferido
+                              e o número no trecho; a conta do período fica no calc.py (ciclo_beneficio)
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
 gerencia/app/ferramentas.py   as ferramentas do CorrerIA (WhatsApp, Claude e Gemini): ler e gravar com as regras da tela, sem a IA daqui
 gerencia/app/pdfsenha.py      abre PDF com senha (RC4 e AES de 128 e 256 bits, só biblioteca padrão) para a leitura por IA; as

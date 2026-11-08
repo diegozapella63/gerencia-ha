@@ -36,8 +36,9 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 import oportunidades  # noqa: E402
+import beneficios  # noqa: E402
 
-VERSAO = "1.44.1"
+VERSAO = "1.45.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1807,6 +1808,121 @@ def ia_ler(corpo):
     return {"itens": limpar(extrair_json(dados), d), "entidade": ent or "padrão do Home Assistant"}
 
 
+# ---------------------------------------------------------------- ler benefícios com a IA (Mais › Benefícios)
+
+def _anexos(corpo, maximo=4):
+    """Os arquivos que a tela mandou (anexo ou anexos, em base64): [(bytes, mime)]; o PDF com senha abre com as cadastradas."""
+    lista = corpo.get("anexos") if isinstance(corpo.get("anexos"), list) else [corpo.get("anexo") or {}]
+    arquivos = []
+    for anexo in lista[:maximo]:
+        if not (isinstance(anexo, dict) and anexo.get("b64")):
+            continue
+        try:
+            b = base64.b64decode(str(anexo["b64"]).split(",", 1)[-1], validate=True)
+        except (ValueError, TypeError):
+            raise ValueError("Arquivo inválido.")
+        m = mime_anexo(b)
+        if not m:
+            raise ValueError("Envie uma imagem (JPG, PNG ou WebP) ou um PDF.")
+        arquivos.append((b, m))
+    if len(arquivos) > 1 and any(m == "application/pdf" for _, m in arquivos):
+        raise ValueError("Envie um PDF por vez.")
+    if arquivos and arquivos[0][1] == "application/pdf":
+        arquivos[0] = (abrir_pdf(arquivos[0][0]), "application/pdf")
+    return arquivos
+
+
+def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240):
+    """Uma tarefa de IA com anexos: as imagens e o PDF vão pela pasta media do Home Assistant e são apagados depois."""
+    payload = {"task_name": nome, "instructions": instrucoes}
+    if d["ajustes"].get("ia_entidade"):
+        payload["entity_id"] = d["ajustes"]["ia_entidade"]
+    tmps = []
+    try:
+        if arquivos:
+            pasta = os.path.join(MEDIA_ROOT, IA_TMP_REL)
+            if not os.path.isdir(MEDIA_ROOT):
+                raise ValueError("A pasta media do Home Assistant não está disponível para o app.")
+            os.makedirs(pasta, exist_ok=True)
+            payload["attachments"] = []
+            for b, m in arquivos:
+                nome_tmp = f"{secrets.token_hex(8)}.{EXT_ANEXO[m]}"
+                tmps.append(os.path.join(pasta, nome_tmp))
+                with open(tmps[-1], "wb") as f:
+                    f.write(b)
+                payload["attachments"].append({"media_content_id": f"media-source://media_source/local/{IA_TMP_REL}/{nome_tmp}",
+                                               "media_content_type": m})
+        res = ia_chamar(tipo_uso, payload, len(arquivos), timeout=timeout)
+    finally:
+        for tmp in tmps:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    dados = ((res or {}).get("service_response") or {}).get("data")
+    if dados is None:
+        raise ValueError("A IA não devolveu resposta.")
+    return dados
+
+
+def beneficios_ler(corpo):
+    """Um print, uma foto, um PDF, um texto ou o endereço da página oficial: a IA lista os benefícios para a tela conferir.
+    Da página e do texto, só fica o que está escrito lá (beneficios.limpar)."""
+    d = ler()
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
+    origem = str(corpo.get("origem") or "")[:60]
+    de = beneficios.nome_origem(d, origem)
+    texto = str(corpo.get("texto") or "").strip()[:20000]
+    arquivos = _anexos(corpo)
+    url = ""
+    if texto and not arquivos and not re.search(r"\s", texto):
+        if re.fullmatch(r"(?i)(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(/\S*)?", texto):  # o endereço sem o https://
+            texto = "https://" + texto
+        url = oportunidades.limpar_url(texto)
+        if not url and re.match(r"(?i)[a-z]+:", texto):
+            raise ValueError("Cole um endereço que comece com https://.")
+    if url:
+        try:
+            with _abrir_url(url) as r:
+                bruto = r.read(4 * 1024 * 1024)
+                texto = assinaturas.html_texto(bruto.decode(r.headers.get_content_charset() or "utf-8", "replace"))
+        except Exception as e:  # noqa: BLE001
+            log("Benefícios: não abriu", url, e)
+            raise ValueError("Não deu para abrir a página. Tente um print dela.") from None
+        if len(re.findall(r"[A-Za-zÀ-ÿ]", texto)) < 40:
+            raise ValueError("A página não mostrou o texto para o app (pode depender do navegador). Tente um print dela.")
+    if not arquivos and not texto:
+        raise ValueError("Envie um print, uma foto ou um PDF, ou cole o texto ou o endereço da página.")
+    if not ia_disponivel(d):
+        raise ValueError("Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).")
+    conferir = texto if not arquivos else ""  # do print e da foto não há texto para conferir
+    if IA_MOCK:
+        time.sleep(0.3)
+        registrar_uso("beneficios", "ai_task.simulada", 1500, 400, len(arquivos), 0.3, "ok")
+        dados = beneficios.simulados(texto if not arquivos else beneficios.EXEMPLO_ANEXO)
+    else:
+        mandar = beneficios.trechos(texto) if url else texto[:14000]
+        instr = beneficios.prompt(de, url, mandar, bool(arquivos))
+        try:
+            dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos)
+        except ErroHA as e:
+            # IA que não aceita PDF: tenta de novo só com o texto tirado do arquivo
+            extra = pdf_texto(arquivos[0][0]) if arquivos and arquivos[0][1] == "application/pdf" else ""
+            if not extra:
+                raise ValueError(str(e)) from None
+            conferir = (texto + "\n" + extra).strip()
+            try:
+                dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", beneficios.prompt(de, "", conferir[:14000]))
+            except ErroHA as e2:
+                raise ValueError(str(e2)) from None
+    itens, recusados = beneficios.limpar(extrair_json(dados), conferir or None)
+    if not itens:
+        raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
+                         if recusados else "A IA não achou benefícios aqui.")
+    return {"beneficios": itens, "recusados": recusados, "origem": origem}
+
+
 # ---------------------------------------------------------------- conversar com a IA (o balão ao lado do microfone)
 
 def _gravar_chat(caminho, texto):
@@ -2905,6 +3021,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, salvar_foto(self.corpo_json()))
             if p == "/api/ia/ler":
                 return self.enviar(200, ia_ler(self.corpo_json()))
+            if p == "/api/beneficios/ler":
+                return self.enviar(200, beneficios_ler(self.corpo_json()))
             if p == "/api/bens/atualizar":
                 return self.enviar(200, bens_estado(ler(), forcar=True))
             if p == "/api/senhas":

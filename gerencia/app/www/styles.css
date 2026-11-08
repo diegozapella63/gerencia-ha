@@ -1344,3 +1344,14 @@ input[readonly] { opacity: .8; }
 .ben-usar { flex: none; min-width: 74px; }
 .ben-uso { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .ben-uso span { flex: 1; color: var(--text-2); }
+.ben-botoes { margin-top: 14px; }
+/* Ler benefícios com IA: a lista para conferir (marcar e desmarcar) */
+.bler-lista { display: flex; flex-direction: column; }
+.bler-it { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 2px; border-bottom: 1px solid var(--line); text-align: left; color: var(--text); }
+.bler-it:last-child { border-bottom: 0; }
+.bler-ck { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line-2); display: grid; place-items: center; color: var(--on-accent); }
+.bler-it.on .bler-ck { background: var(--accent); border-color: var(--accent); }
+.bler-t { flex: 1; min-width: 0; }
+.bler-t b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bler-t > span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.bler-t em { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--font); font-style: normal; color: var(--text-2); background: var(--card-2); border-radius: 999px; padding: 4px 8px; }

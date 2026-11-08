@@ -129,6 +129,82 @@ class TestCadastro(TelaBen):
         self.assertEqual(self.dados()["beneficios"], [])
 
 
+class TestLerComIA(TelaBen):
+    """Ler com IA: a IA simulada da prévia (a mesma regra do servidor) lê o texto, a página ou a imagem; a pessoa confere
+    (o que já está cadastrado vem desmarcado) e cadastra os escolhidos."""
+    TEXTO = "6 acessos à sala VIP por ano\nUS$ 100 em créditos de uso por mês\nFrete grátis\nAnuidade de R$ 1.200,00"
+
+    def ler(self):
+        self.clicar('#folhas [data-a="bler-ler"]')
+        self.pg.wait_for_function("() => { const s = window.GERENCIA_TESTE.BLER; return s && s.etapa !== 'lendo'; }")
+        self.esperar()
+
+    def itens(self):
+        return self.js("""[...document.querySelectorAll('#folhas .bler-it')].map(b => [b.getAttribute('aria-checked') === 'true',
+            b.querySelector('.bler-t b').textContent, b.querySelector('.bler-t > span').textContent, (b.querySelector('em') || {}).textContent || ''])""")
+
+    def test_texto_conferir_e_cadastrar(self):
+        self.abrir_ben([VIP])
+        self.assertEqual(self.textos("#beneficios .ben-botoes .btn"), ["Cadastrar", "Ler com IA"])
+        self.clicar('[data-a="ben-ler"]')
+        self.assertEqual(self.folha(), "Ler benefícios com IA")
+        self.assertTrue(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"))
+        self.pg.select_option("#bler-origem", "conta:k-ana")
+        self.preencher("#bler-txt", self.TEXTO)
+        self.assertFalse(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"))
+        self.ler()
+        self.assertEqual(self.folha(), "Benefícios encontrados")
+        self.assertIn("De Banco Azul · Ana.", self.texto("#folhas .da-intro"))
+        self.assertEqual(self.itens(), [[False, "Sala VIP", "6 por ano", "já cadastrado"], [True, "Créditos de uso", "US$ 100 por mês", ""],
+                                        [True, "Frete grátis", "Vantagem", ""]], "a anuidade é preço, não benefício")
+        self.assertEqual(self.texto('#folhas [data-a="bler-salvar"]'), "Cadastrar 2")
+        self.clicar('#folhas [data-a="bler-marca"][data-v="2"]')
+        self.assertEqual(self.texto('#folhas [data-a="bler-salvar"]'), "Cadastrar 1")
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrado"), "Benefício cadastrado")
+        self.assertIsNone(self.folha())
+        b = self.dados()["beneficios"][1]
+        self.assertEqual({k: v for k, v in b.items() if k != "id"},
+                         {"nome": "Créditos de uso", "origem": "conta:k-ana", "tipo": "saldo", "total": 100, "moeda": "USD", "renova": "mes", "desde": "2026-11-02", "usos": []})
+        self.assertEqual(self.linhas()[1], ["Créditos de uso", "US$ 100 por mês · renova em 02/12/2026", "restam US$ 100", "de US$ 100"])
+
+    def test_imagem_voltar_e_nada_achado(self):
+        from tests.test_tela_ia import _SOLTAR
+        self.abrir_ben()
+        self.clicar('[data-a="ben-ler"]')
+        self.preencher("#bler-txt", "Nada que sirva")
+        self.ler()
+        self.assertEqual((self.folha(), self.texto("#folhas .msg-erro")), ("Ler benefícios com IA", "A IA não achou benefícios aqui."))
+        self.preencher("#bler-txt", "")
+        self.assertEqual(self.conta("#folhas .msg-erro"), 0, "digitando, o aviso sai")
+        self.pg.evaluate(_SOLTAR, {"como": "colar", "tipo": "png", "nome": "beneficios.png"})
+        self.pg.wait_for_selector("#folhas .ia-prev")
+        self.assertEqual(self.texto("#folhas .ia-prev b"), "beneficios.png")
+        self.ler()
+        self.assertEqual([x[1] for x in self.itens()], ["Sala VIP", "Créditos de uso", "Seguro viagem"])
+        self.assertEqual(self.itens()[0][2], "6 por ano · com 1 acompanhante")
+        self.clicar('#folhas [data-a="bler-voltar"]')
+        self.assertEqual(self.folha(), "Ler benefícios com IA")
+        self.assertEqual(self.texto("#folhas .ia-prev b"), "beneficios.png", "a imagem continua")
+        self.clicar('#folhas [data-a="bler-arq-rm"]')
+        self.assertEqual(self.conta("#folhas .ia-prev"), 0)
+        self.voltar()
+        self.assertIsNone(self.folha(), "o Voltar do celular fecha a janela")
+        self.assertEqual(self.dados()["beneficios"], [])
+
+    def test_ia_simulada_igual_a_do_servidor(self):
+        import beneficios as B  # o tela_base põe gerencia/app no caminho
+        texto = self.TEXTO + "\nSala VIP liberada\n2 visitas ao lounge ao ano, com 2 acompanhantes\nR$ 50 de bônus\nSeguro celular; Cashback de 1%"
+        self.abrir_ben()
+        js = self.js("T.simBeneficios(" + __import__("json").dumps(texto) + ")")
+        self.assertEqual(js, B.limpar(B.simulados(texto), texto)[0])
+
+    def test_sem_ia_so_cadastrar(self):
+        self.abrir_ben(ajustes={"corrigir": True, "ia": False})
+        self.assertEqual(self.textos("#beneficios > .btn"), ["Cadastrar benefício"])
+        self.assertEqual(self.conta('[data-a="ben-ler"]'), 0)
+
+
 class TestAvisosEContagem(TelaBen):
     def test_avisos_do_inicio(self):
         perto = dict(VIP, desde="2025-11-20")  # renova em 20/11/2026: o que sobrou vence em 19/11

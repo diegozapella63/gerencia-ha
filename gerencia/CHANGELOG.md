@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.45.0
+
+- **Benefícios › Ler com IA**: em vez de cadastrar um por um, mande um print ou uma foto da tela de benefícios do banco, o PDF do regulamento, o texto ou o endereço da página oficial do cartão ou do plano. A IA lista o que achou e você confere: desmarque o que não quiser e toque em **Cadastrar**.
+  - Escolha **De onde vêm** (o fixo ou a conta e o cartão): numa página com vários cartões, a IA fica só com os do seu.
+  - Da página e do texto só entra o que está escrito lá, e o número (6 salas, US$ 100) precisa estar no trecho. Preço e anuidade não contam como benefício.
+  - O que já está cadastrado vem desmarcado, com "já cadastrado".
+- **Uso da IA**: a leitura dos benefícios aparece como "Ler benefícios".
+
 ## 1.44.1
 
 - **Mais › Sobre**: a CorrerIA agora é descrita como o chat com todos os apps (pergunte e peça, também pelo WhatsApp).
