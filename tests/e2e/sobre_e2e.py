@@ -1,5 +1,5 @@
 """Mais › Sobre (1.27.0), a última linha do menu, como no CronologIA 1.51.0: CorrerIA Code (desenvolvimento de
-softwares) e por que o nome, os seis apps da família, cada um com a sua linha e o GitHub (este marcado com a versão),
+softwares) e por que o nome, os sete apps da família, cada um com a sua linha e o GitHub (este marcado com a versão),
 e Meu GitHub. Capturas em 390 px escuro, 320 px claro e no computador; um toque abre o GitHub noutra aba e o app fica
 em Sobre; o Voltar e o "‹ Mais" voltam ao menu."""
 import os, re, sys
@@ -9,7 +9,7 @@ SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 GH = 'https://github.com/diegozapella63'
 APPS = [('CronologIA', 'cronologia-ha'), ('ResolvIA', 'resolvia-ha'), ('GerencIA', 'gerencia-ha'), ('InventarIA', 'inventario-ha'),
-        ('EconomIA', 'economia-ha'), ('MemorIA', 'memoria-ha')]
+        ('EconomIA', 'economia-ha'), ('MemorIA', 'memoria-ha'), ('CorrerIA', 'correria-ha')]
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 with open(f'{RAIZ}/gerencia/config.yaml', encoding='utf-8') as f:
     VERSAO = re.search(r'^version:\s*"?([\d.]+)', f.read(), re.M).group(1)
@@ -38,16 +38,16 @@ with sync_playwright() as p:
         por = junta(pg.inner_text('#por-que'))
         sim(por.startswith('Por que CorrerIA?') and 'programador sem tempo' in por and 'reclamo dos botões tortos.' in por, f'{nome}: Por que CorrerIA?', por[:80])
         linhas = pg.locator('#os-apps .sb-app')
-        igual([linhas.nth(k).get_attribute('href') for k in range(linhas.count())], [f'{GH}/{r}' for _, r in APPS], f'{nome}: os seis apps, cada um no seu GitHub')
+        igual([linhas.nth(k).get_attribute('href') for k in range(linhas.count())], [f'{GH}/{r}' for _, r in APPS], f'{nome}: os sete apps, cada um no seu GitHub')
         nomes = [junta(t) for t in linhas.locator('b').all_inner_texts()]
         igual([n.split(' Este app')[0] for n in nomes], [n for n, _ in APPS], f'{nome}: os nomes')
         txt = linhas.locator('.mb > span').all_inner_texts()
-        sim(len(txt) == 6 and all(0 < len(t) <= 55 for t in txt), f'{nome}: uma linha curta cada', txt)
+        sim(len(txt) == 7 and all(0 < len(t) <= 55 for t in txt), f'{nome}: uma linha curta cada', txt)
         aqui = pg.locator('#os-apps .sb-app.aqui')
         igual((aqui.count(), aqui.get_attribute('href'), junta(aqui.locator('.sb-aqui').inner_text())), (1, f'{GH}/gerencia-ha', f'Este app · v{VERSAO}'),
               f'{nome}: este app marcado, com a v{VERSAO}')
         alvos = pg.locator('.sb-pagina a').evaluate_all("xs => xs.map(x => x.target + ' ' + x.rel)")
-        igual(alvos, ['_blank noopener'] * 7, f'{nome}: os 7 links abrem fora')
+        igual(alvos, ['_blank noopener'] * 8, f'{nome}: os 8 links abrem fora')
         gh = pg.locator('a.sb-github')
         igual((gh.get_attribute('href'), gh.inner_text().strip()), (GH, 'Meu GitHub'), f'{nome}: Meu GitHub')
         passa = pg.evaluate("document.documentElement.scrollWidth - window.innerWidth")

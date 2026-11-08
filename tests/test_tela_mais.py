@@ -1359,7 +1359,7 @@ class TestMenuMais(TelaMais):
 
 
 class TestMaisSobre(TelaMais):
-    """Mais › Sobre, a última linha do menu: quem faz os apps (CorrerIA Code) e por que o nome, os seis apps da família,
+    """Mais › Sobre, a última linha do menu: quem faz os apps (CorrerIA Code) e por que o nome, os sete apps da família,
     cada um com a sua linha e o link para o GitHub (este marcado com a versão), e Meu GitHub. A mesma página do CronologIA."""
 
     GH = "https://github.com/diegozapella63"
@@ -1368,7 +1368,8 @@ class TestMaisSobre(TelaMais):
             ("GerencIA", "gerencia-ha", "Finanças da casa: caixa, cartões e investimentos."),
             ("InventarIA", "inventario-ha", "Inventário da casa: cômodos, itens e valores."),
             ("EconomIA", "economia-ha", "Lista de compras com o melhor preço perto de casa."),
-            ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa.")]
+            ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa."),
+            ("CorrerIA", "correria-ha", "O contato no WhatsApp: os apps respondem por lá.")]
 
     def versao(self):
         """A versão do config.yaml (a mesma do app.js e do server.py)."""
@@ -1408,14 +1409,14 @@ class TestMaisSobre(TelaMais):
         self.assertEqual(self.texto("#por-que .sb-txt"), "Porque eu sou um programador sem tempo: vivo na correria. Então eu uso a IA para rodar tudo isso aqui. "
                                                          "Ela escreve, testa e publica; eu dou as ideias e reclamo dos botões tortos.")
 
-    def test_os_seis_apps_cada_um_com_a_linha_e_o_github(self):
+    def test_os_sete_apps_cada_um_com_a_linha_e_o_github(self):
         self.abrir_sobre()
         self.assertEqual(self.texto("#os-apps .mais-head h2"), "Os apps")
         linhas = self.js("[...document.querySelectorAll('#os-apps .sb-app')].map(a => [a.querySelector('.sb-wm').textContent, a.getAttribute('href'), a.querySelector('.mb > span').textContent])")
         self.assertEqual([tuple(x) for x in linhas], [(n, f"{self.GH}/{r}", t) for n, r, t in self.APPS])
         self.assertEqual(self.js("[...document.querySelectorAll('#os-apps .sb-wm')].map(w => w.innerHTML)"),
                          [f"{n[:-2]}<span>IA</span>" for n, _, _ in self.APPS], "o IA de cada nome na cor de destaque, sem espaço no meio")
-        self.assertEqual(self.conta("#os-apps .sb-app .mais-ic svg"), 6, "cada app com o seu ícone")
+        self.assertEqual(self.conta("#os-apps .sb-app .mais-ic svg"), 7, "cada app com o seu ícone")
 
     def test_este_app_marcado_com_a_versao(self):
         self.abrir_sobre()
@@ -1426,7 +1427,7 @@ class TestMaisSobre(TelaMais):
         self.assertEqual(aqui.get_attribute("href"), f"{self.GH}/gerencia-ha")
         self.assertEqual(self.textos("#os-apps .sb-aqui"), [f"Este app · v{v}"])
 
-    def test_os_sete_links_abrem_fora_e_meu_github(self):
+    def test_os_oito_links_abrem_fora_e_meu_github(self):
         self.abrir_sobre()
         links = self.js("[...document.querySelectorAll('#app .sb-pagina a')].map(a => [a.getAttribute('href'), a.target, a.rel])")
         self.assertEqual(links, [[f"{self.GH}/{r}", "_blank", "noopener"] for _, r, _ in self.APPS] + [[self.GH, "_blank", "noopener"]])

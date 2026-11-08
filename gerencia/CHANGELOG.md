@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.43.1
+
+- **Mais › Sobre**: a **CorrerIA** (o contato no WhatsApp) entra na lista dos apps.
+
 ## 1.43.0
 
 - **Nível da conta e do cartão** (Mais › Bancos): em cada conta, o **Nível da conta** (ex.: One, Black) e, com cartão, o **Cartão** (ex.: Gold). E o **Próximo nível**, com quanto ele pede investido.
