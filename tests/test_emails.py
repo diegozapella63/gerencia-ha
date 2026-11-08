@@ -301,6 +301,34 @@ class TestEmailChegou(ComServidor):
         self.assertTrue(esperar(lambda: self.itens()[0]["estado"] == "conferir"))
         self.assertEqual(len(self.pedidos), 1, "lê da cópia guardada, sem baixar de novo")
 
+    def test_senha_guardada_no_ler_com_ia_reabre_as_outras_faturas(self):
+        # duas faturas esperando a senha; a pessoa digita a senha numa delas no Ler com IA (guardar ligado)
+        self.resposta = resposta_fetch_part(arq("fatura-aes256.pdf"))
+        S.email_chegou(evento("101"))
+        S.email_chegou(evento("102", assunto="Sua fatura de outubro"))
+        self.assertEqual([x["estado"] for x in self.itens()], ["senha", "senha"])
+        S.abrir_pdf(arq("fatura-aes256.pdf"), "12345", guardar=True, nome_arquivo="fatura-nov.pdf")
+        self.assertEqual([x["nome"] for x in S.senhas_listar()], ["Da fatura fatura-nov"])
+        self.assertTrue(esperar(lambda: [x["estado"] for x in self.itens()] == ["conferir", "conferir"]), self.itens())
+
+    def test_reler_so_as_que_alguma_senha_abre(self):
+        self.resposta = resposta_fetch_part(arq("fatura-aes256.pdf"))
+        S.email_chegou(evento("101"))
+        S.senha_nova("Outra", "99999")  # não abre esta fatura
+        with mock.patch.object(S, "email_ler_depois") as ler:
+            S.reler_emails_com_senha()
+        ler.assert_not_called()
+        self.assertEqual(self.itens()[0]["estado"], "senha", "continua esperando, sem passar por lendo")
+        S.senha_nova("CPF da Ana", "12345")
+        self.ajustar(ia=False)
+        with mock.patch.object(S, "email_ler_depois") as ler:
+            S.reler_emails_com_senha()
+        ler.assert_not_called()  # com a IA desligada, nada
+        self.ajustar(ia=True)
+        with mock.patch.object(S, "email_ler_depois") as ler:
+            S.reler_emails_com_senha()
+        ler.assert_called_once_with(self.itens()[0]["id"])
+
     def test_com_a_senha_cadastrada_abre_direto(self):
         S.senha_nova("CPF da Ana", "12345")
         self.resposta = resposta_fetch_part(arq("fatura-rc4-128.pdf"))

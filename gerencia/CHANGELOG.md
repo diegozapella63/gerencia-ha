@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.40.1
+
+- **Conferir lançamentos**: quando a fatura é de um banco que não está nos seus bancos, as linhas ficam em **Sem conta** (antes iam para outro banco) e aparece o botão **+** com o nome que a IA viu (ex.: **+ Banco Coral**) em **Lançar todos em**. Ele cadastra o banco ali mesmo, já com cartão se as compras foram no cartão, e volta para a conferência com a conta nova escolhida. Sem banco visto, o botão é **+ Banco**.
+- **Faturas por e-mail com senha**: ao tocar numa que pede a senha, o app tenta antes as senhas cadastradas e só pede se nenhuma abrir. Guardar a senha no **Ler com IA** agora também abre as outras faturas que esperavam (como já acontecia ao cadastrar em Senhas dos PDFs), e as que já estavam esperando são lidas de novo ao atualizar.
+
 ## 1.40.0
 
 - **Procurar faturas agora** (Mais › Configurações › Integrações › Faturas por e-mail): o Home Assistant só avisa os e-mails que chegam; o botão abre os 30 e-mails mais novos da caixa de entrada e lê as faturas que já estavam lá. Enquanto procura, mostra quantos já abriu; no fim, quantas faturas achou. Elas esperam a conferência no Início, como as outras (sem aviso no celular).

@@ -36,7 +36,7 @@ import pdfsenha  # noqa: E402
 import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.40.0"
+VERSAO = "1.40.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1651,6 +1651,8 @@ def abrir_pdf(bruto, digitada="", guardar=False, nome_arquivo=""):
         try:  # só guarda se foi ela que abriu (as cadastradas sozinhas podiam abrir)
             pdfsenha.abrir(bruto, [digitada])
             senha_nova(f"Da fatura {os.path.splitext(str(nome_arquivo))[0]}"[:40] if nome_arquivo else "", digitada)
+            # as outras faturas do e-mail que esperavam a senha (a do mês passado, a do outro cartão) tentam de novo
+            threading.Thread(target=reler_emails_com_senha, daemon=True).start()
         except (pdfsenha.SenhaErrada, pdfsenha.PdfInvalido, ValueError):
             pass
     return aberto
@@ -3057,10 +3059,20 @@ def email_ler_depois(eid):
 
 
 def reler_emails_com_senha():
-    """Uma senha nova pode abrir as faturas que esperavam a senha."""
+    """Uma senha nova pode abrir as faturas que esperavam a senha: as que alguma senha cadastrada abre são lidas de
+    novo (as outras continuam esperando, sem piscar "lendo"). Com a IA desligada, nada."""
+    if not ia_ligada(ler()):
+        return
+    cadastradas = [x["senha"] for x in senhas_pdf()]
     for it in emails_ler()["itens"]:
-        if it["estado"] == "senha":
-            email_ler_depois(it["id"])
+        if it["estado"] != "senha" or not cadastradas:
+            continue
+        try:
+            with open(_email_pdf(it["id"]), "rb") as f:
+                pdfsenha.abrir(f.read(), cadastradas)
+        except (OSError, pdfsenha.SenhaErrada, pdfsenha.PdfInvalido):
+            continue
+        email_ler_depois(it["id"])
 
 
 def email_pdf_b64(eid):
@@ -3159,6 +3171,9 @@ def main():
     CONEXAO.publicar(integracao_ligada())
     publicar_correria()
     threading.Thread(target=rotina, daemon=True).start()
+    # as faturas do e-mail que ficaram esperando a senha e que uma senha já cadastrada abre (antes da 1.40.1, guardar a
+    # senha no Ler com IA não relia as outras)
+    threading.Thread(target=reler_emails_com_senha, daemon=True).start()
     if ESCUTA:
         ESCUTA.iniciar()  # faturas por e-mail: só conecta com a opção ligada
     srv = ThreadingHTTPServer(("0.0.0.0", PORTA), Handler)

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.40.0';
+const VERSAO = '1.40.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3100,20 +3100,32 @@ function campoSenhaPdf() {
       <input id="ia-senha" class="inp" data-ias="senha" value="${esc(s.senha || '')}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ex.: os primeiros dígitos do CPF"></div>
     ${linhaChave('ias-guardar', s.guardarSenha !== false, 'Guardar para as próximas faturas', 'Fica em Mais › Configurações › Integrações › Senhas dos PDFs.', 'ias-guardar')}`;
 }
+// a conta de um banco: no cartão, a que tem cartão (se houver); senão a primeira
+const contaDoBanco = (b, cartao) => { const cs = contas().filter(c => c.banco === b.id); return (cartao && cs.find(c => c.cartao)) || cs[0] || null; };
+// o nome do banco que a IA viu, como na lista dos bancos comuns ("Banco Bradesco S.A." -> "Bradesco")
+function nomeBancoVisto(nome) {
+  const n = semAcento(nome);
+  return BANCOS_COMUNS.find(x => n.includes(semAcento(x))) || String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+}
 function prepararRevisaoCaixa() {
   const s = IAS;
   const cartao = s.itens.filter(i => i.cartao).length > s.itens.length / 2;
   const nomeBanco = (s.itens.find(i => i.banco) || {}).banco;
   const b = bancoPorNome(nomeBanco);
   const cs = contas();
-  const conta = (b && (cs.find(c => c.banco === b.id && (!cartao || c.cartao)) || cs.find(c => c.banco === b.id))) || (cartao ? cs.find(c => c.cartao) : null) || cs[0];
+  // a IA viu um banco que não está cadastrado (a fatura de um banco que ainda não está em Bancos): fica sem conta, com
+  // o botão para cadastrar ali mesmo, em vez de cair noutro banco
+  s.bancoNovo = nomeBanco && !b ? nomeBancoVisto(nomeBanco) : '';
+  s.cartaoMaioria = cartao;
+  const conta = b ? contaDoBanco(b, cartao) : s.bancoNovo ? null : (cartao ? cs.find(c => c.cartao) : null) || cs[0];
   s.conta = conta?.id || '';
   s.cartao = cartao && !!conta?.cartao;
   for (const it of s.itens) {
-    // cada linha com a sua conta: a do banco que a IA viu nela (no cartão, se ela viu compra no cartão e a conta tem cartão); senão a de todos
+    // cada linha com a sua conta: a do banco que a IA viu nela (no cartão, se ela viu compra no cartão e a conta tem
+    // cartão); um banco que não está cadastrado, sem conta; sem banco, a de todos
     const bi = bancoPorNome(it.banco);
-    const ci = bi && (cs.find(c => c.banco === bi.id && (!it.cartao || c.cartao)) || cs.find(c => c.banco === bi.id));
-    it.conta = (ci || conta)?.id || '';
+    const ci = bi && contaDoBanco(bi, it.cartao);
+    it.conta = (ci || (it.banco && !bi ? null : conta))?.id || '';
     it.noCartao = it.tipo === 'despesa' && !!contaDe(it.conta)?.cartao && (ci ? it.cartao === true : s.cartao && it.cartao !== false);
     if (!it.categoria) it.categoria = it.tipo === 'receita' ? 'c-outros-receb' : 'c-outros-gastos';
     if (!S.d.categorias.some(c => c.id === it.categoria)) it.categoria = S.d.categorias.find(c => c.tipo === it.tipo)?.id || '';
@@ -3166,7 +3178,9 @@ function revisaoCaixa() {
   const todasCartao = desp.length && desp.every(iaNoCartao), nenhumaCartao = desp.every(i => !iaNoCartao(i));
   return `<div class="campo"><div class="lbl">Lançar todos em</div><div class="chips" style="margin:0">
       <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
-      ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>
+      ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}
+      <button class="chip add" data-a="iac-banco-novo">${ic('plus', 'ic-s')}${esc(s.bancoNovo || 'Banco')}</button></div>
+      ${s.bancoNovo ? `<div class="ajuda">${esc(s.bancoNovo)} não está nos seus bancos.</div>` : ''}
       ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
       <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
@@ -3835,9 +3849,9 @@ function abrirEmail(id) {
   pintarFolha();
   api.emailPdf(id).then(r => {
     if (!IAS || IAS.email !== id) return;
-    Object.assign(IAS, { arquivo: { nome: r.nome, pdf: true, dataUrl: r.b64 }, pedeSenha: true, erro: it.erro || 'Este PDF tem senha.' });
-    pintarFolha();
-    setTimeout(() => { const i = $('#ia-senha'); if (i) i.focus(); }, 60);
+    // primeiro com as senhas cadastradas (uma pode ter entrado depois que o e-mail chegou); só pede a senha se nenhuma abrir
+    Object.assign(IAS, { arquivo: { nome: r.nome, pdf: true, dataUrl: r.b64 }, pedeSenha: false, erro: '' });
+    iaLer();
   }).catch(e => { if (IAS && IAS.email === id) { IAS.erro = e.message; pintarFolha(); } });
 }
 function cardEmail() {
@@ -3933,7 +3947,8 @@ function resumoContas(b) {
 }
 
 let FB = null;
-function abrirBanco(id, nome) {
+// sobre: aberto por cima de outra janela (o + Banco do Conferir lançamentos), volta para ela ao salvar ou cancelar
+function abrirBanco(id, nome, sobre) {
   const b = id && S.d.bancos.find(x => x.id === id);
   const usadas = S.d.bancos.map(x => x.cor);
   const eu = S.usuario ? S.usuario.split(' ')[0] : (pessoasContas()[0] || '');
@@ -3963,7 +3978,23 @@ function abrirBanco(id, nome) {
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'investimento usa', 'investimentos usam')} este banco.</p>` : ''}`,
       pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="b-salvar">Salvar</button>`,
     };
-  });
+  }, null, sobre);
+}
+// o banco cadastrado do Conferir lançamentos: as linhas sem conta vão para ele (no cartão, se a IA viu compra no cartão)
+function usarBancoNaRevisao(b) {
+  const s = IAS;
+  if (!s || !s.itens) return;
+  for (const it of s.itens) {
+    if (it.conta) continue;
+    const doBanco = bancoPorNome(it.banco)?.id === b.id;
+    const c = contaDoBanco(b, doBanco ? it.cartao : s.cartaoMaioria);
+    if (!c) continue;
+    it.conta = c.id;
+    it.noCartao = it.tipo === 'despesa' && !!c.cartao && (doBanco ? it.cartao === true : s.cartaoMaioria && it.cartao !== false);
+  }
+  const c = contaDoBanco(b, s.cartaoMaioria);
+  if (c) Object.assign(s, { conta: c.id, cartao: s.cartaoMaioria && !!c.cartao });
+  s.bancoNovo = '';
 }
 function salvarBanco() {
   const nome = (FB.nome || '').trim();
@@ -3972,8 +4003,12 @@ function salvarBanco() {
   const dia = (v, p) => Math.min(31, Math.max(1, parseInt(v, 10) || p));
   const b = { id: FB.id || 'b-' + uid(), nome, cor: FB.cor, obs: (FB.obs || '').trim(),
     contas: FB.contas.map(c => ({ id: c.id, pessoa: (c.pessoa || '').trim(), cartao: !!c.cartao, fechamento: dia(c.fechamento, 1), vencimento: dia(c.vencimento, 10) })) };
+  const naRevisao = !FB.id && PILHA.length && PILHA[PILHA.length - 1].montar === montarIA && IAS;
   persistir(d => { const k = d.bancos.findIndex(x => x.id === b.id); if (k >= 0) d.bancos[k] = b; else d.bancos.push(b); }, FB.id ? 'Banco salvo' : 'Banco cadastrado')
-    .then(ok => { if (ok) fecharFolha(); });
+    .then(ok => {
+      if (!ok) return;
+      if (naRevisao) { usarBancoNaRevisao(b); fecharFolha(false, true); } else fecharFolha();
+    });
 }
 
 /* ------------------------------------------------------------------ Mais: um menu, como no InventarIA */
@@ -5142,6 +5177,10 @@ document.addEventListener('click', ev => {
       for (const it of IAS.itens) { it.conta = v; it.noCartao = it.tipo === 'despesa' && IAS.cartao && !!contaDe(v)?.cartao && it.cartao !== false; }
       pintarFolha(); break;
     case 'iac-cartao': IAS.cartao = !!v; for (const it of IAS.itens) it.noCartao = it.tipo === 'despesa' && !!v && !!contaDe(it.conta)?.cartao; pintarFolha(); break;
+    case 'iac-banco-novo': // compras no cartão: o banco novo já vem com cartão
+      abrirBanco(null, IAS.bancoNovo || '', true);
+      if (IAS.cartaoMaioria && FB) { FB.contas[0].cartao = true; pintarFolha(); }
+      break;
     case 'iac-sit': IAS.situacao = v; pintarFolha(); break;
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
 

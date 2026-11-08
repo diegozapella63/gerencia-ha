@@ -148,27 +148,44 @@ class TestConferir(TelaEmail):
 class TestSenha(TelaEmail):
     PDF = "data:application/pdf;base64,JVBERi0xLjQKJSBmYXR1cmEgaW52ZW50YWRhCiUlRU9GCg=="
 
-    def test_abre_o_pdf_com_o_campo_da_senha(self):
-        self.abrir_com([email(2, "senha", "Banco Verde", erro="Nenhuma das senhas cadastradas abre este PDF.")])
+    SEM_SENHA = ("async c => { window.__ped.push(c); if (!c.senha) throw Object.assign(new Error('Nenhuma das senhas cadastradas abre este PDF.'), "
+                 "{ codigo: 'senha_pdf' }); return { lancamentos: [{ tipo: 'despesa', descricao: 'Posto Bom', valor: 80, data: '2026-11-01', "
+                 "categoria: 'c-transporte', cartao: true }], investimentos: [] }; }")
+
+    def test_tenta_as_senhas_cadastradas_e_so_entao_pede_a_senha(self):
+        self.abrir_com([email(2, "senha", "Banco Verde", erro="Este PDF tem senha.")])
         self.trocar_api("emailPdf", "async id => ({ b64: '" + self.PDF + "', nome: 'fatura-2.pdf' })")
+        self.js("(window.__ped = [], true)")
+        self.trocar_api("iaLer", self.SEM_SENHA)
         self.clicar('[data-a="email-abrir"]')
         self.pg.wait_for_selector("#ia-senha")
         self.assertEqual(self.folha(), "Fatura, print ou foto", "só o arquivo, sem as outras opções")
         self.assertEqual(self.texto("#folhas .ia-prev b"), "fatura-2.pdf")
         self.assertEqual(self.texto("#folhas .msg-erro"), "Nenhuma das senhas cadastradas abre este PDF.")
         self.pg.wait_for_function("document.activeElement && document.activeElement.id === 'ia-senha'")
+        self.assertEqual([("senha" in p, p["anexo"]["b64"]) for p in self.js("window.__ped")], [(False, self.PDF)], "primeiro sem digitar nada")
+
+    def test_uma_senha_cadastrada_abre_direto(self):
+        # a senha entrou depois que o e-mail chegou (digitada em outra fatura): abre sem pedir
+        self.abrir_com([email(2, "senha", "Banco Verde", erro="Este PDF tem senha.")])
+        self.trocar_api("emailPdf", "async id => ({ b64: '" + self.PDF + "', nome: 'fatura-2.pdf' })")
+        self.trocar_api("iaLer", "async c => ({ lancamentos: [{ tipo: 'despesa', descricao: 'Posto Bom', valor: 80, data: '2026-11-01', categoria: 'c-transporte' }], investimentos: [] })")
+        self.clicar('[data-a="email-abrir"]')
+        self.pg.wait_for_function("() => window.GERENCIA_TESTE.IAS && window.GERENCIA_TESTE.IAS.etapa === 'revisao'")
+        self.assertEqual(self.folha(), "Conferir lançamentos")
+        self.assertEqual(self.conta("#ia-senha"), 0)
 
     def test_com_a_senha_le_e_ao_lancar_marca_a_fatura(self):
         self.abrir_com([email(2, "senha", "Banco Verde")])
         self.trocar_api("emailPdf", "async id => ({ b64: '" + self.PDF + "', nome: 'fatura-2.pdf' })")
         self.js("(window.__ped = [], true)")
-        self.trocar_api("iaLer", "async c => { window.__ped.push(c); return { lancamentos: [{ tipo: 'despesa', descricao: 'Posto Bom', valor: 80, data: '2026-11-01', categoria: 'c-transporte', cartao: true }], investimentos: [] }; }")
+        self.trocar_api("iaLer", self.SEM_SENHA)
         self.clicar('[data-a="email-abrir"]')
         self.pg.wait_for_selector("#ia-senha")
         self.preencher("#ia-senha", "12345")
         self.clicar('#folhas [data-a="ia-ler"]')
         self.pg.wait_for_function("() => window.GERENCIA_TESTE.IAS && window.GERENCIA_TESTE.IAS.etapa === 'revisao'")
-        p = self.js("window.__ped[0]")
+        p = self.js("window.__ped[1]")
         self.assertEqual((p["senha"], p["guardar_senha"], p["nome_arquivo"], p["anexo"]["b64"]), ("12345", True, "fatura-2.pdf", self.PDF))
         self.assertEqual(self.textos("#folhas .folha-pe .btn")[0], "Ignorar")
         self.clicar('#folhas [data-a="ia-salvar"]')

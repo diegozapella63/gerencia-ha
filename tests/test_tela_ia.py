@@ -782,6 +782,65 @@ class TestConferirLancamentos(TelaIA):
         self.salvar_ia()
         self.assertEqual(self.lancamentos("descricao", "conta"), [("Feira do bairro", "k-verde"), ("Pix do Beto", "k-verde")])
 
+    def contas_das_linhas(self):
+        return self.js("[...document.querySelectorAll('#folhas [data-iai=\"contasel\"]')].map(s => s.value)")
+
+    def test_banco_que_nao_esta_cadastrado_fica_sem_conta(self):
+        # a fatura é do Banco Coral, que não está nos bancos: nada de cair no Banco Azul (o primeiro com cartão)
+        self.abrir(base(bancos=BANCOS))
+        self.ler([gasto("Anuidade do cartão", 55, banco="Banco Coral S.A.", cartao=True), gasto("Padaria", 20, banco="Banco Coral S.A.", cartao=True)])
+        self.assertEqual(self.contas_das_linhas(), ["", ""])
+        self.assertEqual(self.texto('#folhas [data-a="iac-conta"].on'), "Sem conta")
+        self.assertEqual(self.texto('#folhas [data-a="iac-banco-novo"]'), "Banco Coral S.A.")
+        self.assertEqual(self.texto("#folhas .campo .ajuda"), "Banco Coral S.A. não está nos seus bancos.")
+
+    def test_banco_conhecido_pelo_nome_da_lista(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ler([gasto("Anuidade", 55, banco="Banco Bradesco S.A.", cartao=True)])
+        self.assertEqual(self.texto('#folhas [data-a="iac-banco-novo"]'), "Bradesco", "o nome como na lista dos bancos comuns")
+
+    def test_cadastrar_o_banco_ali_ja_escolhe_a_conta_no_cartao(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ler([gasto("Anuidade do cartão", 55, banco="Banco Coral", cartao=True), gasto("Juros do cartão", 9, banco="Banco Coral", cartao=True),
+                  gasto("Feira", 30)])
+        self.clicar('#folhas [data-a="iac-banco-novo"]')
+        self.assertEqual((self.folha(), self.niveis()), ("Novo banco", 2))
+        self.assertEqual(self.pg.input_value("#b-nome"), "Banco Coral")
+        self.assertIn("on", self.pg.get_attribute('#folhas [data-a="bc-cartao"]', "class"), "compras no cartão: já vem com cartão")
+        self.preencher('[data-fbc="fechamento"]', "3")
+        self.preencher('[data-fbc="vencimento"]', "10")
+        self.clicar('#folhas [data-a="b-salvar"]')
+        self.esperar()
+        self.assertEqual((self.folha(), self.niveis()), ("Conferir lançamentos", 1), "volta para a conferência")
+        coral = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Coral")
+        k = coral["contas"][0]["id"]
+        self.assertEqual(self.contas_das_linhas(), [k + "|c", k + "|c", k], "no cartão; a feira (que a IA viu fora do cartão), no débito")
+        self.assertNotIn("não está nos seus bancos", self.texto("#folhas .folha-corpo"))
+        self.assertEqual(self.texto('#folhas [data-a="iac-banco-novo"]'), "Banco")
+        self.salvar_ia()
+        self.assertEqual(self.lancamentos("descricao", "conta", "cartao"), [("Anuidade do cartão", k, True), ("Juros do cartão", k, True), ("Feira", k, False)])
+
+    def test_banco_novo_sem_compras_no_cartao_vem_sem_cartao(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ler([gasto("Tarifa", 15, banco="Banco Coral")])
+        self.clicar('#folhas [data-a="iac-banco-novo"]')
+        self.assertNotIn("on", self.pg.get_attribute('#folhas [data-a="bc-cartao"]', "class"))
+        self.clicar('#folhas [data-a="b-salvar"]')
+        self.esperar()
+        k = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Coral")["contas"][0]["id"]
+        self.assertEqual(self.contas_das_linhas(), [k])
+
+    def test_cancelar_o_banco_volta_para_a_conferencia(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ler([FEIRA])
+        self.assertEqual(self.texto('#folhas [data-a="iac-banco-novo"]'), "Banco", "sem banco visto: + Banco")
+        self.clicar('#folhas [data-a="iac-banco-novo"]')
+        self.assertEqual(self.pg.input_value("#b-nome"), "")
+        self.clicar('#folhas .folha-pe [data-a="fechar"]')
+        self.assertEqual((self.folha(), self.niveis()), ("Conferir lançamentos", 1))
+        self.assertEqual(self.contas_das_linhas(), ["k-ana"], "a conta não mudou")
+        self.assertEqual(len(self.dados()["bancos"]), 2)
+
     def test_tudo_pendente_lanca_a_pagar_e_a_receber(self):
         self.abrir(base(bancos=BANCOS))
         self.ler([FEIRA, PIX])
