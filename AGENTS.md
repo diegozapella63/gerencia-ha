@@ -26,6 +26,8 @@ gerencia/app/assinaturas.py   dicas de economia com preços conferidos na págin
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
 gerencia/app/pdfsenha.py      abre PDF com senha (RC4 e AES de 128 e 256 bits, só biblioteca padrão) para a leitura por IA; as
                               senhas ficam em /data/senhas_pdf.json (fora das exportações e dos backups da pasta share)
+gerencia/app/emails.py        faturas por e-mail: escuta o evento imap_content do Home Assistant (WebSocket aberto, reconecta
+                              sozinho), acha o PDF anexado e decide se é fatura; o resto (imap.fetch_part, senhas, IA) no server.py
 gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada, fotos JPG) para o Baixar PDF do Relatório de patrimônio;
                               o mesmo arquivo do InventarIA (inventario/app/pdf.py): ao mudar, copie para lá
 gerencia/app/avisos.py        avisos no celular: as pessoas da casa e os celulares delas (mesma regra do phones.js do ResolvIA), o envio
@@ -37,7 +39,7 @@ tests/                        testes (ver tests/README.md)
 docs/                         capturas de tela do README
 ```
 
-Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup), as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e do backup da pasta share; a tela só vê o fim, ••••45) e backups em `/share/gerencia`.
+Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup), as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e do backup da pasta share; a tela só vê o fim, ••••45), as faturas por e-mail em `/data/emails.json` e os PDFs delas em `/data/emails` (os últimos 30; fora das exportações) e backups em `/share/gerencia`.
 
 ## Rodar no computador
 
@@ -64,7 +66,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 - **GerencIA → CronologIA**: este app grava `share/gerencia/integracao.json` (`url`, `ip_url`, `chave`) e responde em `/api/integracao/contas`, `/pagar`, `/desfazer` e `/nova` com `Authorization: Bearer <chave>` (`integracao.py`). Desligado em **Mais › Configurações › Integrações**, o arquivo some e as rotas respondem 401. Um fixo do mês tem sempre o id `v:<fixo>:<AAAA-MM>`, lançado ou não; uma fatura, `f:<conta>|<vencimento>`.
 - **InventarIA → GerencIA**: o InventarIA grava `share/inventario/integracao.json` e este app lê `/api/integracao/itens` e `/comodos` (`bens.py`, cache de 10 min). Só lê; nada muda lá. Patrimônio = investimentos meus + bens (os de terceiros ficam fora).
-- **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`), aviso das dicas nos celulares das pessoas escolhidas (`avisos.py`: `notify.mobile_app_*`, achados pelos rastreadores de cada `person.*` e o aparelho no registro, como no ResolvIA), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
+- **Home Assistant**: IA pela ação `ai_task.generate_data` para a leitura, as dicas e o chat (anexos em `/media/gerencia/ia-temp`, apagados depois; no chat a IA devolve `{resposta, lancamentos, pagar, investimentos}` e a tela confirma cada ação com as funções da leitura por IA e do Pagar), fala para texto (`voz.py`, que também tem a `ConexaoWS` usada pelo `emails.py`), faturas por e-mail (`emails.py`: assina `imap_content` pelo WebSocket, pega o PDF com `imap.fetch_part?return_response` e lista as contas com `config_entries/get` do domínio `imap`; com a IA simulada (testes), `/api/emails/simular` faz um e-mail chegar), aviso das dicas nos celulares das pessoas escolhidas (`avisos.py`: `notify.mobile_app_*`, achados pelos rastreadores de cada `person.*` e o aparelho no registro, como no ResolvIA), sensores opcionais e índices do Banco Central (CDI, Selic, IPCA, TR) a cada 12 h.
 
 ## Como o dono gosta (interface)
 

@@ -11,6 +11,7 @@ import base64
 import http.client
 import json
 import os
+import select
 import socket
 import ssl
 import struct
@@ -26,27 +27,59 @@ class ErroVoz(Exception):
     pass
 
 
-def _ws_comando(url, token, comando, timeout=10):
-    """Uma pergunta à API WebSocket do Home Assistant: conecta, autentica, manda o comando e devolve o resultado."""
-    u = urlparse(url)
-    seguro = u.scheme == "wss"
-    porta = u.port or (443 if seguro else 80)
-    s = socket.create_connection((u.hostname, porta), timeout=timeout)
-    if seguro:
-        s = ssl.create_default_context().wrap_socket(s, server_hostname=u.hostname)
-    buf = bytearray()
+class ConexaoWS:
+    """Uma conexão com a API WebSocket do Home Assistant, falada à mão: aperto de mão, autenticação, mandar e ler
+    mensagens JSON (o ping do Home Assistant é respondido sozinho). Serve para uma pergunta (_ws_comando) e para
+    ficar escutando eventos (emails.py)."""
 
-    def receber(n):
-        while len(buf) < n:
-            pedaco = s.recv(65536)
+    def __init__(self, url, token, timeout=10):
+        u = urlparse(url)
+        seguro = u.scheme == "wss"
+        porta = u.port or (443 if seguro else 80)
+        self.s = socket.create_connection((u.hostname, porta), timeout=timeout)
+        self.buf = bytearray()
+        try:
+            if seguro:
+                self.s = ssl.create_default_context().wrap_socket(self.s, server_hostname=u.hostname)
+            chave = base64.b64encode(os.urandom(16)).decode()
+            caminho = (u.path or "/") + (f"?{u.query}" if u.query else "")
+            self.s.sendall((f"GET {caminho} HTTP/1.1\r\nHost: {u.hostname}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                            f"Sec-WebSocket-Key: {chave}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+            resp = b""
+            while b"\r\n\r\n" not in resp:
+                pedaco = self.s.recv(4096)
+                if not pedaco:
+                    raise ErroVoz("O Home Assistant não aceitou a conexão.")
+                resp += pedaco
+            cab, resto = resp.split(b"\r\n\r\n", 1)
+            if b" 101" not in cab.split(b"\r\n", 1)[0]:
+                raise ErroVoz("O Home Assistant não aceitou a conexão.")
+            self.buf.extend(resto)
+            self.ler()  # auth_required
+            self.enviar({"type": "auth", "access_token": token})
+            if self.ler().get("type") != "auth_ok":
+                raise ErroVoz("O Home Assistant recusou o acesso do app.")
+        except BaseException:
+            self.fechar()
+            raise
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.fechar()
+
+    def _receber(self, n):
+        while len(self.buf) < n:
+            pedaco = self.s.recv(65536)
             if not pedaco:
                 raise ErroVoz("O Home Assistant fechou a conexão.")
-            buf.extend(pedaco)
-        out = bytes(buf[:n])
-        del buf[:n]
+            self.buf.extend(pedaco)
+        out = bytes(self.buf[:n])
+        del self.buf[:n]
         return out
 
-    def enviar(dados, op=1):
+    def enviar(self, dados, op=1):
         if isinstance(dados, (dict, list)):
             dados = json.dumps(dados).encode()
         mascara = os.urandom(4)
@@ -58,63 +91,56 @@ def _ws_comando(url, token, comando, timeout=10):
             cab += bytes([0x80 | 126]) + struct.pack(">H", n)
         else:
             cab += bytes([0x80 | 127]) + struct.pack(">Q", n)
-        s.sendall(cab + mascara + bytes(c ^ mascara[i % 4] for i, c in enumerate(dados)))
+        self.s.sendall(cab + mascara + bytes(c ^ mascara[i % 4] for i, c in enumerate(dados)))
 
-    def ler():
+    def ler(self, espera=None):
+        """A próxima mensagem (dict). Com espera (segundos), devolve None se nada começar a chegar nesse tempo."""
         texto = b""
         while True:
-            b1, b2 = receber(2)
+            if espera is not None and not texto and not self.buf and not (hasattr(self.s, "pending") and self.s.pending()):
+                if not select.select([self.s], [], [], espera)[0]:
+                    return None
+            b1, b2 = self._receber(2)
             op, n = b1 & 0x0F, b2 & 0x7F
             if n == 126:
-                n = struct.unpack(">H", receber(2))[0]
+                n = struct.unpack(">H", self._receber(2))[0]
             elif n == 127:
-                n = struct.unpack(">Q", receber(8))[0]
-            mascara = receber(4) if b2 & 0x80 else None
-            dados = receber(n)
+                n = struct.unpack(">Q", self._receber(8))[0]
+            mascara = self._receber(4) if b2 & 0x80 else None
+            dados = self._receber(n)
             if mascara:
                 dados = bytes(c ^ mascara[i % 4] for i, c in enumerate(dados))
             if op == 8:
                 raise ErroVoz("O Home Assistant fechou a conexão.")
             if op == 9:
-                enviar(dados, 10)  # ping: responde pong
+                self.enviar(dados, 10)  # ping: responde pong
                 continue
             if op in (0, 1):
                 texto += dados
                 if b1 & 0x80:
                     return json.loads(texto.decode("utf-8"))
 
-    try:
-        chave = base64.b64encode(os.urandom(16)).decode()
-        caminho = (u.path or "/") + (f"?{u.query}" if u.query else "")
-        s.sendall((f"GET {caminho} HTTP/1.1\r\nHost: {u.hostname}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-                   f"Sec-WebSocket-Key: {chave}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
-        resp = b""
-        while b"\r\n\r\n" not in resp:
-            pedaco = s.recv(4096)
-            if not pedaco:
-                raise ErroVoz("O Home Assistant não aceitou a conexão.")
-            resp += pedaco
-        cab, resto = resp.split(b"\r\n\r\n", 1)
-        if b" 101" not in cab.split(b"\r\n", 1)[0]:
-            raise ErroVoz("O Home Assistant não aceitou a conexão.")
-        buf.extend(resto)
-        ler()  # auth_required
-        enviar({"type": "auth", "access_token": token})
-        if ler().get("type") != "auth_ok":
-            raise ErroVoz("O Home Assistant recusou o acesso do app.")
-        enviar({"id": 1, **comando})
+    def fechar(self):
+        try:
+            self.enviar(b"", 8)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.s.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _ws_comando(url, token, comando, timeout=10):
+    """Uma pergunta à API WebSocket do Home Assistant: conecta, autentica, manda o comando e devolve o resultado."""
+    with ConexaoWS(url, token, timeout) as c:
+        c.enviar({"id": 1, **comando})
         while True:
-            m = ler()
+            m = c.ler()
             if m.get("id") == 1 and m.get("type") == "result":
                 if not m.get("success"):
                     raise ErroVoz((m.get("error") or {}).get("message") or "O Home Assistant recusou o pedido.")
                 return m.get("result")
-    finally:
-        try:
-            enviar(b"", 8)
-        except Exception:  # noqa: BLE001
-            pass
-        s.close()
 
 
 class Voz:

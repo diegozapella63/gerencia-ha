@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.35.1';
+const VERSAO = '1.36.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -162,6 +162,7 @@ const P = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   swap: '<path d="M4 8h15l-4-4M20 16H5l4 4"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
   sofa: '<path d="M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 18v-6a2 2 0 0 1 4 0v2h10v-2a2 2 0 0 1 4 0v6z"/><path d="M5 18v2M19 18v2"/>',
   alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
   trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
@@ -434,6 +435,9 @@ const apiServidor = {
   senhaNova: (nome, senha) => fetch('api/senhas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, senha }) }).then(jsonOk),
   senhaApagar: id => fetch('api/senhas/apagar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
   avisoTestar: () => fetch('api/avisos/testar', { method: 'POST' }).then(jsonOk),
+  emails: forcar => fetch('api/emails' + (forcar ? '?forcar=1' : ''), { cache: 'no-store' }).then(jsonOk),
+  emailPdf: id => fetch('api/emails/pdf?id=' + encodeURIComponent(id), { cache: 'no-store' }).then(jsonOk),
+  emailAcao: (acao, id) => fetch('api/emails/' + acao, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
   chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
   chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   chatAcao: (id, grupo, estado) => fetch('api/chat/acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, grupo, estado }) }).then(jsonOk),
@@ -510,6 +514,10 @@ function apiDemo() {
     async senhas() { return { senhas: (this._senhas || []).map(x => ({ id: x.id, nome: x.nome, fim: '••••' + (x.senha.length >= 4 ? x.senha.slice(-2) : '') })) }; },
     async senhaNova(nome, senha) { if (!String(senha || '').trim()) throw new Error('Digite a senha.'); (this._senhas = this._senhas || []).push({ id: uid(), nome: nome || 'Senha', senha: String(senha).trim() }); return this.senhas(); },
     async senhaApagar(id) { this._senhas = (this._senhas || []).filter(x => x.id !== id); return this.senhas(); },
+    // faturas por e-mail na prévia: sem Home Assistant, a lista fica na memória (vazia; os testes põem e-mails inventados)
+    async emails() { const ligado = S.d.ajustes.email === true && iaOn(); return { ligado, conectada: ligado, contas: ligado ? [{ id: 'imap-previa', nome: 'ana@exemplo.com', ok: true }] : null, itens: clone(this._emails || []) }; },
+    async emailPdf() { throw new Error('Na prévia não há PDF.'); },
+    async emailAcao(acao, id) { const it = (this._emails || []).find(x => x.id === id); if (!it) throw new Error('Esse e-mail não está mais aqui.'); it.estado = acao === 'ler' ? 'lendo' : acao === 'feito' ? 'feito' : 'ignorado'; it.erro = ''; if (acao !== 'ler') delete it.resultado; return this.emails(); },
     // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
     async chat() { return { mensagens: clone(CHAT_DEMO) }; },
     async chatEnviar(c) {
@@ -867,7 +875,7 @@ function cardCaixaInicio() {
     <button class="cx-card-pe" data-a="tab" data-v="caixa"><span>Saldo hoje <b>${brl(saldoCaixa(), 0)}</b> · fim do mês <b>${brl(saldoPrevisto(ym), 0)}</b></span>${ic('chev', 'chev')}</button></div>`;
 }
 function avisosCaixa(h) {
-  const av = [];
+  const av = avisosEmail();
   if (!temCaixa()) return av;
   const hj = iso(h);
   const pend = lancamentosEntre(addYm(ymHoje(), -2), addYm(ymHoje(), 1)).filter(l => !l.pago && !l.ajuste && !ehRec(l) && !l.vinculo && !l.desconto);
@@ -3058,24 +3066,29 @@ async function iaLer() {
     const r = await api.iaLer(corpo);
     if (s.pedeSenha && corpo.senha && corpo.guardar_senha) S.senhas = undefined;  // a senha nova entrou na lista
     if (!IAS) return;
-    const lanc = s.saldos || s.soInvest ? [] : r.lancamentos || [], invs = r.investimentos || [];
-    for (const it of invs) {
-      it.dono = donoDe(it.dono);
-      if (s.saldos) it.aporte = 0;
-      if (!it.existente && (s.saldos || s.soInvest)) it.existente = acharInvSaldo(it, s.pessoa || it.dono);
-    }
-    if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : s.soInvest ? 'A IA não encontrou investimento. Tente outra imagem ou cole o texto.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
-    s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
-    s.invs = invs.map(it => Object.assign({ marcado: true }, it));
-    if (s.itens.length) prepararRevisaoCaixa();
-    s.etapa = 'revisao';
-    pintarFolha();
+    iaResultado(r);
   } catch (e) {
     if (!IAS) return;
     // PDF com senha: a folha pede a senha (e oferece guardar para as próximas faturas)
     if (e.codigo === 'senha_pdf') { s.pedeSenha = true; s.etapa = 'entrada'; s.erro = e.message; pintarFolha(); setTimeout(() => { const i = $('#ia-senha'); if (i) i.focus(); }, 60); return; }
     s.etapa = 'entrada'; s.erro = 'Não consegui ler. ' + e.message; pintarFolha();
   }
+}
+// o que a IA leu vai para a conferência (também a fatura que chegou por e-mail e já foi lida no servidor)
+function iaResultado(r) {
+  const s = IAS;
+  const lanc = s.saldos || s.soInvest ? [] : r.lancamentos || [], invs = r.investimentos || [];
+  for (const it of invs) {
+    it.dono = donoDe(it.dono);
+    if (s.saldos) it.aporte = 0;
+    if (!it.existente && (s.saldos || s.soInvest)) it.existente = acharInvSaldo(it, s.pessoa || it.dono);
+  }
+  if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : s.soInvest ? 'A IA não encontrou investimento. Tente outra imagem ou cole o texto.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
+  s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
+  s.invs = invs.map(it => Object.assign({ marcado: true }, it));
+  if (s.itens.length) prepararRevisaoCaixa();
+  s.etapa = 'revisao';
+  pintarFolha();
 }
 // o campo da senha do PDF, quando o PDF tem senha e nenhuma cadastrada abriu
 function campoSenhaPdf() {
@@ -3120,7 +3133,7 @@ function revisaoIA() {
   const n = ml.length + mi.length;
   const rot = s.saldos ? `Atualizar ${n}` : ni && !nl ? `Salvar ${n}` : nl && !ni ? `Lançar ${n} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}` : `Salvar ${n}`;
   return { titulo: s.saldos ? 'Conferir os saldos' : nl && ni ? 'Conferir o que a IA leu' : nl ? 'Conferir lançamentos' : 'Conferir investimentos', corpo,
-    pe: `<button class="btn" data-a="ia-voltar">Voltar</button><button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${rot}</button>` };
+    pe: `${s.email ? '<button class="btn" data-a="email-ignorar">Ignorar</button>' : '<button class="btn" data-a="ia-voltar">Voltar</button>'}<button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${rot}</button>` };
 }
 // o lançamento fica pago ou pendente: Automática segue o que a IA viu (conta a pagar, a receber) e, sem isso, a data
 function iaPago(it, data) {
@@ -3187,6 +3200,7 @@ async function salvarIA() {
     if (mi.length) aplicarIAInvest(d, mi);
   }, msg).then(ok => {
     if (!ok) return;
+    if (s.email) api.emailAcao('feito', s.email).then(r => { S.emails = r; render(); }).catch(() => {});
     if (s.chat) { fecharFolha(false, true); marcarAcaoChat(s.chat.id, s.chat.chave); return; } // aberta do chat: volta para a conversa
     fecharFolha();
     if (ml.length) { S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; } else { S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; }
@@ -3758,6 +3772,103 @@ function cardIA() {
     <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p></section>`;
 }
 
+/* --------- Faturas por e-mail: a integração IMAP do Home Assistant (o Gmail, com uma senha de app) avisa cada e-mail
+   novo; o servidor pega o PDF da fatura, abre com as Senhas dos PDFs e lê com a IA. A fatura lida espera a conferência
+   (um aviso no Início); nada é lançado sozinho. */
+const emailOn = () => S.d.ajustes.email === true && iaOn();
+const EMAIL_PEND = ['conferir', 'senha', 'lendo', 'erro'];
+const EMAIL_ST = { lendo: 'Lendo…', conferir: 'Para conferir', senha: 'Precisa da senha', erro: 'Não li', fora: 'Não é fatura', feito: 'Lançada', ignorado: 'Ignorada' };
+function aplicarEmails(r) {
+  S.emails = r;
+  clearTimeout(S.emailsTimer);
+  // alguma sendo lida pela IA: olha de novo daqui a pouco
+  if (r && (r.itens || []).some(x => x.estado === 'lendo')) S.emailsTimer = setTimeout(() => carregarEmails(), 4000);
+  render();
+  return r;
+}
+function carregarEmails(forcar) {
+  if (!emailOn()) { S.emails = null; return Promise.resolve(null); }
+  if (S.emailsPedido) return S.emailsPedido;
+  S.emailsPedido = api.emails(forcar).then(r => r, () => S.emails || null).then(r => { S.emailsPedido = null; return aplicarEmails(r); });
+  return S.emailsPedido;
+}
+function emailAcao(acao, id, msg) {
+  return api.emailAcao(acao, id).then(r => { if (msg) toast(msg); return aplicarEmails(r); }).catch(e => toast(e.message));
+}
+const emailsPendentes = () => (emailOn() && S.emails && S.emails.itens ? S.emails.itens.filter(x => EMAIL_PEND.includes(x.estado)) : []);
+function totalEmail(it) {
+  return ((it.resultado || {}).lancamentos || []).reduce((a, x) => a + (x.tipo === 'receita' ? -1 : 1) * (+x.valor || 0), 0);
+}
+function resumoEmail(it) {
+  if (it.estado === 'lendo') return 'lendo com IA…';
+  if (it.estado === 'senha') return 'o PDF tem senha';
+  if (it.estado === 'erro') return it.erro || 'não consegui ler';
+  const r = it.resultado || {}, l = r.lancamentos || [], v = r.investimentos || [];
+  return l.length ? plural(l.length, 'lançamento', 'lançamentos') : plural(v.length, 'investimento', 'investimentos');
+}
+// no Início, junto dos avisos: cada fatura que chegou e ainda não foi lançada nem ignorada
+function avisosEmail() {
+  return emailsPendentes().map(it => {
+    const t = it.estado === 'conferir' ? totalEmail(it) : 0;
+    const cls = it.estado === 'erro' ? ' alerta' : it.estado === 'senha' ? ' neutro' : ' terc';
+    return `<button class="op" data-a="email-abrir" data-v="${esc(it.id)}"${it.estado === 'lendo' ? ' disabled' : ''}><div class="op-ic${cls}">${ic(it.estado === 'senha' ? 'lock' : it.estado === 'erro' ? 'alert' : 'mail')}</div>
+      <div class="op-t"><b>Fatura ${esc(it.de || it.endereco)}</b><span>Por e-mail · ${esc(resumoEmail(it))}</span></div>
+      ${t > 0 ? `<div class="op-n">${brl(t, 0)}</div>` : ''}${it.estado === 'lendo' ? '<span class="giro peq"></span>' : ic('chev', 'chev')}</button>`;
+  });
+}
+// tocar no aviso: a conferência do que a IA leu; com senha, o PDF com o campo da senha; com erro, lê de novo
+function abrirEmail(id) {
+  const it = ((S.emails && S.emails.itens) || []).find(x => x.id === id);
+  if (!it || it.estado === 'lendo') return;
+  if (it.estado === 'erro') { emailAcao('ler', id, 'Lendo de novo'); return; }
+  abrirIA('caixa');
+  Object.assign(IAS, { email: id, so: 'arquivo' });
+  if (it.estado === 'conferir') { iaResultado(clone(it.resultado)); return; }
+  IAS.erro = 'Abrindo o PDF…';
+  pintarFolha();
+  api.emailPdf(id).then(r => {
+    if (!IAS || IAS.email !== id) return;
+    Object.assign(IAS, { arquivo: { nome: r.nome, pdf: true, dataUrl: r.b64 }, pedeSenha: true, erro: it.erro || 'Este PDF tem senha.' });
+    pintarFolha();
+    setTimeout(() => { const i = $('#ia-senha'); if (i) i.focus(); }, 60);
+  }).catch(e => { if (IAS && IAS.email === id) { IAS.erro = e.message; pintarFolha(); } });
+}
+function cardEmail() {
+  const a = S.d.ajustes, on = a.email === true;
+  if (on && S.emails === undefined) carregarEmails(true);
+  const E = S.emails;
+  let h = `<section class="card" id="email">${maisCab('mail', 'Faturas por e-mail')}
+    ${maisLead('As faturas que chegam no seu e-mail são lidas pela IA e esperam a conferência no Início.')}
+    ${linhaChave('email', on, 'Ler as faturas do e-mail', on ? (E && E.conectada ? 'Ligado: recebendo os e-mails pelo Home Assistant.' : 'Ligado.') : 'Desligado.')}`;
+  if (!on) return h + '</section>';
+  // a conta de e-mail é a integração IMAP do Home Assistant
+  const C = E ? E.contas : undefined;
+  if (!E) h += `<div class="status manual">Procurando as contas de e-mail…</div>`;
+  else if (!C) h += `<div class="status manual">Não consegui ver as contas de e-mail do Home Assistant.</div>`;
+  else if (!C.length) h += `<div class="status manual">Nenhuma conta de e-mail no Home Assistant. Adicione a integração IMAP: no Gmail, imap.gmail.com, porta 993, com uma senha de app.</div>`;
+  else h += `<div class="status${C.every(c => c.ok) && E.conectada ? '' : ' manual'}">${C.map(c => esc(c.nome) + (c.ok ? '' : ' (com erro no Home Assistant)')).join(' · ')}${E.conectada ? '' : ' · conectando…'}</div>`;
+  const de = a.email_de || [];
+  h += `<div class="campo email-campo"><label for="email-de">De quem</label>
+    ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
+    <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
+    <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura” no assunto.'}</div></div>`;
+  const L = ((E && E.itens) || []).slice(0, 5);
+  if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
+  return h + '</section>';
+}
+function linhaEmail(it) {
+  const ler = ['fora', 'erro', 'ignorado'].includes(it.estado);
+  const dt = pData(String(it.data || it.recebido_em || '').slice(0, 10));
+  return `<div class="email-l"><span><b>${esc(it.de || it.endereco)}</b><small>${esc(it.assunto || it.arquivo)}${dt ? ' · ' + fDataC(dt) : ''}</small></span>
+    ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}</div>`;
+}
+function emailDeAdicionar() {
+  const i = $('#email-de'), v = String(i ? i.value : '').trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1').replace(/\s+/g, '').replace(/^@/, '');
+  if (!v) { if (i) i.focus(); return; }
+  if (i) i.value = '';
+  persistir(d => { const l = d.ajustes.email_de || []; if (!l.includes(v)) d.ajustes.email_de = [...l, v].slice(0, 20); });
+}
+
 /* Senhas dos PDFs: as faturas com senha (ex.: os dígitos do CPF) abrem sozinhas na leitura por IA. As senhas ficam
    no servidor, fora das exportações; a tela só vê o nome e o fim (••••45). */
 function cardSenhas() {
@@ -3861,7 +3972,7 @@ const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="tru
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo, acao = 'ajuste') => `<button class="sw${on ? ' on' : ''}" data-a="${acao}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
-const DESLIGADAS_PADRAO = new Set(['dicas_aviso']);
+const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso']);
 const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
@@ -4017,7 +4128,7 @@ function maisIntegracoes() {
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
   const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
     ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
-  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardUsoIA() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() + cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
@@ -4143,6 +4254,7 @@ function maisOpcoes() {
         : iaOn() ? 'Ligado: no Início, planos anuais mais baratos e categorias acima da média.'
           : 'Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.')}</section>
     ${opcoesDicas()}
+    ${opcoesEmail()}
     <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
       ${linhaChave('prever_dia', a.prever_dia !== false, 'Prever o dia a dia', a.prever_dia !== false
         ? `Ligado: os próximos meses somam a média do dia a dia, ${brl(mediaVariaveis(), 0)} por mês.`
@@ -4167,11 +4279,19 @@ function opcoesDicas() {
   if (aviso) h += quemRecebe();
   return h + '</section>';
 }
+// Faturas por e-mail: o aviso no celular quando uma fatura fica pronta para conferir (como o das dicas)
+function opcoesEmail() {
+  if (!emailOn()) return '';
+  const aviso = S.d.ajustes.email_aviso === true;
+  return `<section class="card" id="op-email">${maisCab('mail', 'Faturas por e-mail')}
+    ${linhaChave('email_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando uma fatura do e-mail fica pronta para conferir.' : 'Desligado.')}
+    ${aviso ? quemRecebe('email_para', false) : ''}</section>`;
+}
 const DICAS_FREQ = { semana: ['Toda semana'], quinzena: ['A cada 15 dias'], mes: ['Todo mês'] };
-function quemRecebe() {
+function quemRecebe(chave = 'dicas_para', testar = true) {
   const P = S.avisoPessoas;
   if (P === undefined) carregarPessoasAviso();
-  const para = new Set(S.d.ajustes.dicas_para || []);
+  const para = new Set(S.d.ajustes[chave] || []);
   const eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
   const porque = !P || !P.pessoas ? (P && P.erro) || '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
   let h = `<div class="campo"><label>Quem recebe</label>`;
@@ -4179,12 +4299,12 @@ function quemRecebe() {
   else if (!P || !P.pessoas) h += `<p class="nota">${esc((P && P.erro) || 'Não consegui ver as pessoas da casa.')}</p>`;
   else if (!P.pessoas.length) h += `<p class="nota">Nenhuma pessoa da casa no Home Assistant.</p>`;
   else {
-    h += `<div class="quem">${P.pessoas.map(p => `<button class="quem-p${para.has(p.id) ? ' on' : ''}${p.celular ? '' : ' sem'}" data-a="aviso-pessoa" data-v="${esc(p.id)}" aria-pressed="${para.has(p.id)}">${ic('user', 'ic-s')}<b>${esc(p.nome)}</b>${p.celular ? '' : '<span>sem celular</span>'}</button>`).join('')}</div>`;
+    h += `<div class="quem">${P.pessoas.map(p => `<button class="quem-p${para.has(p.id) ? ' on' : ''}${p.celular ? '' : ' sem'}" data-a="aviso-pessoa" data-k="${chave}" data-v="${esc(p.id)}" aria-pressed="${para.has(p.id)}">${ic('user', 'ic-s')}<b>${esc(p.nome)}</b>${p.celular ? '' : '<span>sem celular</span>'}</button>`).join('')}</div>`;
     const sem = P.pessoas.filter(p => para.has(p.id) && !p.celular).map(p => p.nome);
     if (sem.length) h += `<p class="nota">Sem celular para ${esc(juntarE(sem))}: ligue o celular à pessoa no Home Assistant.</p>`;
     else if (!para.size) h += `<p class="nota">Escolha quem recebe.</p>`;
   }
-  return h + `</div><button class="btn out op-testar" data-a="aviso-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>`;
+  return h + '</div>' + (testar ? `<button class="btn out op-testar" data-a="aviso-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>` : '');
 }
 function carregarPessoasAviso() {
   if (S.avisoPedido) return S.avisoPedido;
@@ -4893,7 +5013,12 @@ document.addEventListener('click', ev => {
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
     case 'dicas-freq': persistir(d => { d.ajustes.dicas_freq = v; }); break;
-    case 'aviso-pessoa': persistir(d => { const p = new Set(d.ajustes.dicas_para || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes.dicas_para = [...p]; }); break;
+    case 'aviso-pessoa': { const k = el.dataset.k === 'email_para' ? 'email_para' : 'dicas_para'; persistir(d => { const p = new Set(d.ajustes[k] || []); if (p.has(v)) p.delete(v); else p.add(v); d.ajustes[k] = [...p]; }); break; }
+    case 'email-abrir': abrirEmail(v); break;
+    case 'email-ignorar': { const id = IAS && IAS.email; fecharFolha(); if (id) emailAcao('ignorar', id, 'Fatura ignorada'); break; }
+    case 'email-ler': emailAcao('ler', v, 'Lendo com IA'); break;
+    case 'email-de-add': emailDeAdicionar(); break;
+    case 'email-de-rm': persistir(d => { d.ajustes.email_de = (d.ajustes.email_de || []).filter(x => x !== v); }); break;
     case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
     case 'da-ok': confirmarDicaAnual(); break;
     case 'categoria': abrirCategoria(id); break;
@@ -5054,12 +5179,14 @@ document.addEventListener('click', ev => {
       const k = el.dataset.k; const nv = DESLIGADAS_PADRAO.has(k) ? S.d.ajustes[k] !== true : S.d.ajustes[k] === false;
       persistir(d => { d.ajustes[k] = nv; }).then(ok => {
         if (!ok) return;
-        if (k === 'ia') { S.ia = null; S.uso = null; carregarVoz(); render(); }
+        if (k === 'ia') { S.ia = null; S.uso = null; S.emails = undefined; carregarVoz(); render(); }
         if (k === 'dicas') carregarDicas();
+        if (k === 'email') { S.emails = undefined; carregarEmails(true); }
         // ligou o aviso sem ninguém escolhido: começa com quem está usando o app
-        if (k === 'dicas_aviso' && nv && !(S.d.ajustes.dicas_para || []).length) carregarPessoasAviso().then(r => {
+        const para = { dicas_aviso: 'dicas_para', email_aviso: 'email_para' }[k];
+        if (para && nv && !(S.d.ajustes[para] || []).length) carregarPessoasAviso().then(r => {
           const eu = r && r.pessoas && r.pessoas.find(p => p.eu);
-          if (eu && !(S.d.ajustes.dicas_para || []).length) persistir(d => { d.ajustes.dicas_para = [eu.id]; });
+          if (eu && !(S.d.ajustes[para] || []).length) persistir(d => { d.ajustes[para] = [eu.id]; });
         });
         if (k === 'bens') carregarBens();
       });
@@ -5363,6 +5490,7 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
+  if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
 document.addEventListener('change', ev => {
@@ -5483,6 +5611,7 @@ if (!DEMO) setInterval(() => {
   if (document.hidden || FOLHA || !S.d) return;
   fetch('api/rev', { cache: 'no-store' }).then(jsonOk).then(r => {
     S.integracaoUltimo = r.integracao_ultimo || null;
+    if (emailOn() && r.emails !== S.emailsCarimbo) { S.emailsCarimbo = r.emails; carregarEmails(); }  // chegou ou mudou e-mail
     if (r.rev !== S.d.rev && !FOLHA) return api.state().then(d => { S.d = normalizar(d); render(); });
   }).catch(() => {});
 }, 20000);
@@ -5508,6 +5637,7 @@ async function iniciar() {
   carregarDicas();
   carregarVoz();
   carregarBens();
+  carregarEmails();
 }
 // Só nos testes (tests/test_tela*.py abrem a página com window.GERENCIA_TESTE = true): qualquer função ou variável
 // daqui de dentro pelo nome (GERENCIA_TESTE.totais, GERENCIA_TESTE.S, GERENCIA_TESTE.IAS = ...). No app, nada disso existe.

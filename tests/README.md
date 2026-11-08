@@ -4,7 +4,7 @@ Três camadas, rodando a cada push no GitHub (aba Actions):
 
 | Camada | Onde | Como rodar | O que confere |
 |---|---|---|---|
-| Unitários e servidor | `tests/test_*.py` (fora `test_tela*`) | `python3 -m unittest discover -s tests -t .` | cada parte do servidor (`calc.py`, `bens.py`, `voz.py`, `integracao.py`, `assinaturas.py`, `pdf.py`, `pdfsenha.py`, `server.py`), funções e rotas HTTP, com a IA, a fala, o Banco Central e o Home Assistant de mentira |
+| Unitários e servidor | `tests/test_*.py` (fora `test_tela*`) | `python3 -m unittest discover -s tests -t .` | cada parte do servidor (`calc.py`, `bens.py`, `voz.py`, `integracao.py`, `assinaturas.py`, `pdf.py`, `pdfsenha.py`, `emails.py`, `server.py`), funções e rotas HTTP, com a IA, a fala, o Banco Central e o Home Assistant de mentira |
 | Tela | `tests/test_tela*.py` | o mesmo comando (precisa do playwright) | o `app.js` de verdade num Chromium, sem servidor: os cálculos um a um (iguais ao `calc.py`) e o que a pessoa faz em cada área: caixa, investimentos, aplicar/transferir/gráficos, IA/câmera/fala, início/mais/navegação, chat e sistema (o caminho do servidor com um fetch falso, o microfone de verdade do Chromium, arrastar, tema, opções) |
 | Visuais | `tests/e2e/*.py` | `tests/e2e/run.sh` (ou `tests/e2e/run.sh fluxo2 bens_e2e`) | o app inteiro com o servidor de verdade: clica, digita, confere e grava capturas |
 
@@ -25,7 +25,7 @@ Cada script confere com `tests/e2e/_confere.py` (`igual`, `tem`, `sim`, `perto`,
 - `Servidor()`: sobe o `server.py` num processo, numa porta livre, com pastas temporárias, a IA e a fala simuladas e o Banco Central desligado; `get`, `post`, `put` devolvem `(status, cabeçalhos, corpo)`.
 - `importar_servidor()`: importa o `server.py` com as mesmas pastas temporárias, para testar as funções direto.
 - `ServidorFalso(rotas)`: um servidor HTTP de mentira (o InventarIA, o Home Assistant, o Banco Central, a página de preços) que guarda os pedidos.
-- `WSFalso(responder)`: a API WebSocket do Home Assistant, só o bastante para o `voz.py`.
+- `WSFalso(responder)`: a API WebSocket do Home Assistant, só o bastante para o `voz.py` e a escuta dos e-mails (`emails.Escuta`).
 
 ## Cobertura
 

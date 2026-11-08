@@ -32,9 +32,10 @@ import bens  # noqa: E402
 import chat  # noqa: E402
 import avisos  # noqa: E402
 import pdfsenha  # noqa: E402
+import emails  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.35.1"
+VERSAO = "1.36.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -76,7 +77,8 @@ INDICES_PADRAO = {
 # sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
-                  "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": []}
+                  "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
+                  "email": False, "email_de": [], "email_aviso": False, "email_para": []}
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
 DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -136,6 +138,13 @@ def normalizar(d):
     aj["dicas_freq"] = aj.get("dicas_freq") if aj.get("dicas_freq") in DICAS_FREQ else AJUSTES_PADRAO["dicas_freq"]
     para = aj.get("dicas_para") if isinstance(aj.get("dicas_para"), list) else []
     aj["dicas_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
+    # Faturas por e-mail: de quem (endereço ou o fim dele, como bancoazul.com.br) e quem recebe o aviso no celular
+    aj["email"] = aj.get("email") is True
+    aj["email_aviso"] = aj.get("email_aviso") is True
+    de = aj.get("email_de") if isinstance(aj.get("email_de"), list) else []
+    aj["email_de"] = list(dict.fromkeys(x for x in (emails.limpar_remetente(r) for r in de if isinstance(r, str)) if x))[:20]
+    para = aj.get("email_para") if isinstance(aj.get("email_para"), list) else []
+    aj["email_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     try:
         base["rev"] = int(base["rev"])
     except (TypeError, ValueError):
@@ -2309,7 +2318,7 @@ class Handler(BaseHTTPRequestHandler):
                 d["integracao_ultimo"] = CONEXAO.ultimo
                 return self.enviar(200, d)
             if p == "/api/rev":
-                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo})
+                return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "emails": emails_carimbo()})
             if p == "/api/integracao/contas":
                 hoje = date.today()
                 de = date.fromisoformat(q.get("de", [(hoje - timedelta(days=31)).isoformat()])[0])
@@ -2343,6 +2352,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, dicas_estado(ler()))
             if p == "/api/senhas":
                 return self.enviar(200, {"senhas": senhas_listar()})
+            if p == "/api/emails":
+                return self.enviar(200, emails_estado(forcar=bool(q.get("forcar"))))
+            if p == "/api/emails/pdf":
+                return self.enviar(200, email_pdf_b64((q.get("id") or [""])[0]))
             if p == "/api/avisos/pessoas":
                 try:
                     return self.enviar(200, {"pessoas": pessoas_aviso(self.headers.get("X-Remote-User-Id"))})
@@ -2416,7 +2429,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, bens_estado(ler(), forcar=True))
             if p == "/api/senhas":
                 c = self.corpo_json()
-                return self.enviar(200, {"senhas": senha_nova(c.get("nome"), c.get("senha"))})
+                r = {"senhas": senha_nova(c.get("nome"), c.get("senha"))}
+                reler_emails_com_senha()  # a senha nova pode abrir as faturas do e-mail que esperavam
+                return self.enviar(200, r)
+            if p in ("/api/emails/ler", "/api/emails/feito", "/api/emails/ignorar"):
+                eid = str(self.corpo_json().get("id") or "")
+                if p.endswith("ler"):
+                    email_ler_depois(eid)
+                else:
+                    _email_mudar(eid, estado="feito" if p.endswith("feito") else "ignorado", erro="")
+                return self.enviar(200, emails_estado())
+            if p == "/api/emails/simular":
+                return self.enviar(200, email_simular(self.corpo_json()))
             if p == "/api/senhas/apagar":
                 return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
@@ -2555,6 +2579,266 @@ def listar_versoes():
 
 # ---------------------------------------------------------------- rotina
 
+# ---------------------------------------------------------------- faturas por e-mail
+# A integração IMAP do Home Assistant avisa cada e-mail novo (evento imap_content); o app escuta pelo WebSocket
+# (emails.Escuta), pega o PDF da fatura (imap.fetch_part), abre com as senhas cadastradas e lê com a IA. A fatura lida
+# espera a conferência na tela (nada é lançado sozinho). Fica em /data/emails.json e os PDFs em /data/emails, fora das
+# exportações; os mais velhos saem sozinhos.
+EMAILS_ARQ = os.path.join(DATA_DIR, "emails.json")
+EMAILS_PDF = os.path.join(DATA_DIR, "emails")
+EMAILS_MAX = 30          # os últimos e-mails com PDF guardados
+EMAILS_VISTOS = 300      # os já recebidos (o Home Assistant manda o último de novo quando reinicia)
+EMAIL_ESTADOS = ("lendo", "conferir", "senha", "erro", "fora", "feito", "ignorado")
+RE_EMAIL_ID = re.compile(r"^[0-9a-f]{12}$")
+EMAIL_SIMULADO = {}      # só com a IA simulada (testes e prévia): uid -> bytes do PDF
+_trava_emails = threading.Lock()
+_contas_imap = {"t": 0.0, "v": None}
+
+
+def emails_ler():
+    try:
+        with open(EMAILS_ARQ, encoding="utf-8") as f:
+            e = json.load(f)
+    except (OSError, ValueError):
+        e = {}
+    if not isinstance(e, dict):
+        e = {}
+    itens = [x for x in e.get("itens") or [] if isinstance(x, dict) and RE_EMAIL_ID.match(str(x.get("id") or ""))
+             and x.get("estado") in EMAIL_ESTADOS]
+    vistos = [x for x in e.get("vistos") or [] if isinstance(x, str)][-EMAILS_VISTOS:]
+    return {"itens": itens, "vistos": vistos}
+
+
+def _emails_gravar(e):
+    gravar_arquivo(EMAILS_ARQ, json.dumps(e, ensure_ascii=False, indent=1))
+
+
+def _email_pdf(eid):
+    return os.path.join(EMAILS_PDF, eid + ".pdf")
+
+
+def _email_apagar_pdf(eid):
+    try:
+        os.remove(_email_pdf(eid))
+    except OSError:
+        pass
+
+
+def emails_carimbo():
+    """Muda quando os e-mails mudam: a tela pede a lista de novo (pelo /api/rev, a cada 20 s)."""
+    try:
+        return os.path.getmtime(EMAILS_ARQ)
+    except OSError:
+        return 0
+
+
+def _email_mudar(eid, se=None, **campos):
+    """Muda um e-mail guardado; lançado ou ignorado, o PDF e o que a IA leu saem. se: só muda se ainda estiver nesse
+    estado (a leitura que termina depois de você lançar ou ignorar não volta o e-mail para conferir)."""
+    with _trava_emails:
+        e = emails_ler()
+        it = next((x for x in e["itens"] if x["id"] == eid), None)
+        if not it:
+            raise ValueError("Esse e-mail não está mais aqui.")
+        if se and it["estado"] != se:
+            return dict(it)
+        it.update(campos)
+        if it["estado"] in ("feito", "ignorado"):
+            it.pop("resultado", None)
+            _email_apagar_pdf(eid)
+        _emails_gravar(e)
+        return dict(it)
+
+
+def email_publico(it):
+    """O que a tela vê de um e-mail (sem o id da conta nem o da mensagem)."""
+    r = {k: it.get(k) or "" for k in ("id", "assunto", "data", "recebido_em", "arquivo", "estado", "erro")}
+    r["de"], r["endereco"] = emails.nome_remetente(it.get("de")), emails.endereco(it.get("de"))
+    if it.get("estado") == "conferir":
+        r["resultado"] = it.get("resultado") or {"lancamentos": [], "investimentos": []}
+    return r
+
+
+def _email_simulado():
+    return IA_MOCK and not os.environ.get("GERENCIA_HA_WS")
+
+
+def contas_imap(forcar=False):
+    """As contas de e-mail da integração IMAP do Home Assistant: [{"id", "nome", "ok"}] (None: não consegui ver)."""
+    if _email_simulado():
+        return [{"id": "imap-simulado", "nome": "ana@exemplo.com", "ok": True}]
+    if not TOKEN:
+        return None
+    if not forcar and _contas_imap["v"] is not None and time.time() - _contas_imap["t"] < 300:
+        return _contas_imap["v"]
+    try:
+        r = voz._ws_comando(HA_WS, TOKEN, {"type": "config_entries/get", "domain": "imap"}) or []
+        v = [{"id": str(x.get("entry_id") or ""), "nome": str(x.get("title") or "E-mail"), "ok": x.get("state") == "loaded"}
+             for x in r if isinstance(x, dict) and x.get("domain", "imap") == "imap"]
+    except Exception as e:  # noqa: BLE001
+        log("E-mail: não consegui ver as contas do Home Assistant:", e)
+        v = None
+    _contas_imap.update(t=time.time(), v=v)
+    return v
+
+
+def emails_estado(forcar=False):
+    """Para a tela: ligado, se está escutando o Home Assistant, as contas de e-mail e os e-mails com PDF recebidos."""
+    d = ler()
+    ligado = d["ajustes"].get("email") is True and ia_ligada(d)
+    if ligado and ESCUTA and not ESCUTA.conectada:
+        ESCUTA.acordar()
+    return {"ligado": ligado,
+            "conectada": ligado and (_email_simulado() or bool(ESCUTA and ESCUTA.conectada)),
+            "contas": contas_imap(forcar) if ligado else None,
+            "itens": [email_publico(x) for x in emails_ler()["itens"]]}
+
+
+def email_chegou(ev):
+    """O evento imap_content: um e-mail com PDF fica guardado; o de fatura (do remetente cadastrado ou, sem nenhum,
+    com fatura no assunto) é lido com a IA. Devolve o id guardado, ou None."""
+    d = ler()
+    aj = d["ajustes"]
+    if aj.get("email") is not True or not ia_ligada(d):
+        return None
+    parte, arquivo = emails.anexo_pdf(ev.get("parts"))
+    if parte is None or not ev.get("uid") or not ev.get("entry_id"):
+        return None
+    k = emails.chave(ev)
+    fatura = emails.e_fatura(ev.get("sender"), ev.get("subject"), arquivo, aj.get("email_de"))
+    with _trava_emails:
+        e = emails_ler()
+        if k in e["vistos"]:
+            return None
+        e["vistos"] = (e["vistos"] + [k])[-EMAILS_VISTOS:]
+        it = {"id": secrets.token_hex(6), "chave": k, "entry": str(ev["entry_id"]), "uid": str(ev["uid"]), "parte": parte,
+              "de": str(ev.get("sender") or "")[:200], "assunto": str(ev.get("subject") or "")[:200],
+              "data": str(ev.get("date") or "")[:25], "recebido_em": agora_iso(), "arquivo": str(arquivo)[:120],
+              "estado": "lendo" if fatura else "fora", "erro": ""}
+        e["itens"].insert(0, it)
+        for velho in e["itens"][EMAILS_MAX:]:
+            _email_apagar_pdf(velho["id"])
+        e["itens"] = e["itens"][:EMAILS_MAX]
+        _emails_gravar(e)
+    log(f"E-mail de {emails.endereco(it['de'])} com PDF:", "lendo a fatura" if fatura else "não é de fatura")
+    if fatura:
+        email_ler(it["id"])
+    return it["id"]
+
+
+def _email_baixar(it):
+    """Os bytes do PDF anexado, pela ação imap.fetch_part do Home Assistant."""
+    if IA_MOCK and it["uid"] in EMAIL_SIMULADO:
+        return EMAIL_SIMULADO[it["uid"]]
+    res = ha_request("POST", "/services/imap/fetch_part?return_response", {"entry": it["entry"], "uid": it["uid"], "part": it["parte"]}, timeout=60)
+    r = (res or {}).get("service_response") or {}
+    bruto = emails.decodificar(r.get("part_data"), r.get("content_transfer_encoding"))
+    if not bruto.startswith(b"%PDF"):
+        raise ValueError("O anexo do e-mail não é um PDF.")
+    return bruto
+
+
+def email_ler(eid, avisar=True):
+    """Pega o PDF do e-mail (guarda uma cópia), abre com as senhas cadastradas e lê com a IA: fica em conferir, senha
+    (nenhuma senha cadastrada abriu) ou erro. Lida, avisa no celular de quem foi escolhido."""
+    it = _email_mudar(eid, estado="lendo", erro="")
+    try:
+        if os.path.isfile(_email_pdf(eid)):
+            with open(_email_pdf(eid), "rb") as f:
+                bruto = f.read()
+        else:
+            bruto = _email_baixar(it)
+            os.makedirs(EMAILS_PDF, exist_ok=True)
+            with open(_email_pdf(eid), "wb") as f:
+                f.write(bruto)
+        r = ia_ler({"modo": "auto", "dica": "caixa", "nome_arquivo": it["arquivo"],
+                    "anexo": {"b64": "data:application/pdf;base64," + base64.b64encode(bruto).decode()}})
+        lanc, invs = r.get("lancamentos") or [], r.get("investimentos") or []
+        if not lanc and not invs:
+            return _email_mudar(eid, se="lendo", estado="erro", erro="A IA não encontrou lançamentos neste PDF.")
+        it = _email_mudar(eid, se="lendo", estado="conferir", resultado={"lancamentos": lanc, "investimentos": invs})
+    except ErroSenhaPdf as e:
+        return _email_mudar(eid, se="lendo", estado="senha", erro=str(e))
+    except Exception as e:  # noqa: BLE001  (lendo em segundo plano: qualquer erro vira o aviso do e-mail)
+        log("E-mail:", e)
+        msg = str(e) if isinstance(e, (ValueError, ErroHA, voz.ErroVoz)) else ""
+        return _email_mudar(eid, se="lendo", estado="erro", erro=msg or "Não consegui ler.")
+    if avisar and it["estado"] == "conferir":
+        avisar_fatura(it)
+    return it
+
+
+def email_ler_depois(eid):
+    """Ler de novo (ou ler um que não parecia fatura) sem segurar a tela: a IA pode levar um minuto."""
+    _email_mudar(eid, estado="lendo", erro="")
+    threading.Thread(target=email_ler, args=(eid,), daemon=True).start()
+
+
+def reler_emails_com_senha():
+    """Uma senha nova pode abrir as faturas que esperavam a senha."""
+    for it in emails_ler()["itens"]:
+        if it["estado"] == "senha":
+            email_ler_depois(it["id"])
+
+
+def email_pdf_b64(eid):
+    if not RE_EMAIL_ID.match(str(eid or "")) or not os.path.isfile(_email_pdf(eid)):
+        raise ValueError("O PDF desse e-mail não está mais aqui.")
+    it = next((x for x in emails_ler()["itens"] if x["id"] == eid), {})
+    with open(_email_pdf(eid), "rb") as f:
+        return {"b64": "data:application/pdf;base64," + base64.b64encode(f.read()).decode(), "nome": it.get("arquivo") or "fatura.pdf"}
+
+
+def _resumo_fatura(it):
+    lanc = (it.get("resultado") or {}).get("lancamentos") or []
+    total = sum(float(x.get("valor") or 0) * (1 if x.get("tipo") == "despesa" else -1) for x in lanc if isinstance(x, dict))
+    n = len(lanc) or len((it.get("resultado") or {}).get("investimentos") or [])
+    txt = f"{n} {'lançamento' if n == 1 else 'lançamentos'}" if lanc else f"{n} {'investimento' if n == 1 else 'investimentos'}"
+    return txt + (f" · {calc.fmt_brl(total)}" if lanc and total > 0 else "")
+
+
+def avisar_fatura(it):
+    """A fatura lida vai para os celulares de quem foi escolhido (Mais › Configurações › Opções)."""
+    aj = ler()["ajustes"]
+    if aj.get("email_aviso") is not True or not aj.get("email_para"):
+        return 0
+    try:
+        alvos = []
+        for pessoa in AVISOS.pessoas():
+            if pessoa["id"] in aj["email_para"]:
+                alvos += [c for c in pessoa["celulares"] if c not in alvos]
+    except Exception as e:  # noqa: BLE001
+        log("Aviso de fatura: não consegui ver as pessoas da casa:", e)
+        return 0
+    texto = avisos.texto_faturas([{"de": emails.nome_remetente(it.get("de")), "resumo": _resumo_fatura(it)}])
+    return AVISOS.enviar(alvos, texto, "gerencia-email-" + it["id"], grupo="gerencia-email", canal="Faturas do e-mail") if alvos else 0
+
+
+def email_simular(c):
+    """Só com a IA simulada (testes e prévia): um e-mail com PDF chega como se viesse do Home Assistant."""
+    if not IA_MOCK:
+        raise ValueError("Só nos testes.")
+    try:
+        b = base64.b64decode(str(c.get("b64") or "").split(",", 1)[-1], validate=True)
+    except (ValueError, TypeError):
+        raise ValueError("Arquivo inválido.") from None
+    uid = str(len(EMAIL_SIMULADO) + 1)
+    EMAIL_SIMULADO[uid] = b
+    arquivo = str(c.get("arquivo") or "fatura.pdf")
+    ev = {"entry_id": "imap-simulado", "uid": uid, "sender": str(c.get("de") or ""), "subject": str(c.get("assunto") or ""),
+          "date": agora_iso(), "parts": {"0": {"content_type": "text/plain"}, "1": {"content_type": "application/pdf", "filename": arquivo}}}
+    threading.Thread(target=email_chegou, args=(ev,), daemon=True).start()
+    return {"ok": True}
+
+
+def _email_ligado():
+    d = ler()
+    return d["ajustes"].get("email") is True and ia_ligada(d)
+
+
+ESCUTA = emails.Escuta(HA_WS, TOKEN, email_chegou, _email_ligado, log) if TOKEN else None
+
+
 def rotina():
     """Atualiza índices (a cada 12 h), grava o ponto do dia e republica os sensores a cada 15 min."""
     while True:
@@ -2588,6 +2872,8 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     CONEXAO.publicar(integracao_ligada())
     threading.Thread(target=rotina, daemon=True).start()
+    if ESCUTA:
+        ESCUTA.iniciar()  # faturas por e-mail: só conecta com a opção ligada
     srv = ThreadingHTTPServer(("0.0.0.0", PORTA), Handler)
     log(f"GerencIA {VERSAO} ouvindo na porta {PORTA} (dados em {DATA_DIR})")
     srv.serve_forever()

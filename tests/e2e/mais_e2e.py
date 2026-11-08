@@ -16,7 +16,7 @@ TELAS = {  # tela: (título, as seções)
     'invest': ('Invest', ['Índices de mercado']),
 }
 ABAS = {
-    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'Leitura por IA', 'Senhas dos PDFs', 'Uso da IA', 'Sensores no Home Assistant'],
+    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'Leitura por IA', 'Senhas dos PDFs', 'Faturas por e-mail', 'Uso da IA', 'Sensores no Home Assistant'],
     'Dados': ['Exportar', 'Backup na pasta share', 'Importar', 'Versões anteriores', 'Onde ficam os dados', 'Começar do zero'],
     'Aparência': ['Tema', 'Cor do app'],
     'Opções': ['Início', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos'],

@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.36.0
+
+- **Faturas por e-mail** (Mais › Configurações › Integrações; vem desligado): com o seu e-mail ligado ao Home Assistant pela integração **IMAP** (no Gmail, com uma senha de app), cada fatura que chega em PDF é aberta com as **Senhas dos PDFs**, lida pela IA e fica esperando a sua conferência num aviso no **Início**. Nada é lançado sozinho: toque no aviso, confira e lance (ou **Ignorar**).
+  - **De quem**: os remetentes das faturas (o endereço ou só o fim dele, como `bancoazul.com.br`). Sem nenhum, valem os e-mails com PDF e "fatura" no assunto.
+  - Se nenhuma senha abrir o PDF, o aviso diz que o PDF tem senha: toque, digite a senha e ela fica guardada para as próximas. Uma senha nova cadastrada abre sozinha as faturas que esperavam.
+  - **Recebidos** mostra os últimos e-mails com PDF e o que aconteceu com cada um; o que não parecia fatura dá para ler com **Ler**.
+  - **Avisar no celular** (Mais › Configurações › Opções › Faturas por e-mail): quando uma fatura fica pronta para conferir, quem você escolher recebe um aviso.
+
 ## 1.35.1
 
 - Uma janela aberta logo depois de salvar outra (por exemplo, **Adicionar senha** logo depois de guardar uma) não fecha mais sozinha, e o Voltar do celular fecha só ela.

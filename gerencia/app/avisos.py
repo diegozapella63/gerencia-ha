@@ -62,6 +62,15 @@ def endereco_app(host=None):
     return "/app/" + host.replace("-", "_", 1) if re.fullmatch(r"[a-z0-9]+-gerencia", host or "") else None
 
 
+def texto_faturas(itens):
+    """O aviso das faturas que chegaram por e-mail e já foram lidas: "📧 Fatura do e-mail" e uma linha por fatura."""
+    linhas = [f"• {x['de']}: {x['resumo']}" for x in itens[:5]]
+    if len(itens) > 5:
+        linhas.append(f"e mais {len(itens) - 5}")
+    return {"title": "📧 Fatura do e-mail para conferir" if len(itens) == 1 else f"📧 Faturas do e-mail para conferir: {len(itens)}",
+            "message": "\n".join(linhas)}
+
+
 def texto_dicas(dicas):
     """O aviso: "💡 Dica de economia" e uma linha por dica (até 5), com quanto economiza por ano no plano anual."""
     from calc import fmt_brl  # noqa: PLC0415  (calc fica ao lado; evita importar no topo para os testes deste módulo)
@@ -105,16 +114,17 @@ class Avisos:
         self.cache = (time.time(), out)
         return out
 
-    def enviar(self, alvos, texto, tag):
-        """Manda o aviso para estes celulares (notify.mobile_app_*); devolve quantos o Home Assistant aceitou."""
+    def enviar(self, alvos, texto, tag, grupo="gerencia-dicas", canal="Dicas de economia"):
+        """Manda o aviso para estes celulares (notify.mobile_app_*); devolve quantos o Home Assistant aceitou. grupo e
+        canal separam os avisos no Android (as dicas de um lado, as faturas do e-mail do outro)."""
         url = endereco_app()
-        dados = {"tag": tag, "group": "gerencia-dicas", "channel": "Dicas de economia", **({"url": url, "clickAction": url} if url else {})}
+        dados = {"tag": tag, "group": grupo, "channel": canal, **({"url": url, "clickAction": url} if url else {})}
         n = 0
         for alvo in alvos:
             try:
                 self.rest("POST", f"/services/notify/{alvo}", {"title": texto["title"], "message": texto["message"], "data": dados})
                 n += 1
-                self.log(f"Aviso de dicas para {alvo}")
+                self.log(f"Aviso ({canal}) para {alvo}")
             except Exception as e:  # noqa: BLE001
-                self.log(f"Aviso de dicas para {alvo}:", e)
+                self.log(f"Aviso ({canal}) para {alvo}:", e)
         return n

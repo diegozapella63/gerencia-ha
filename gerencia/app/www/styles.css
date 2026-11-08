@@ -1260,5 +1260,25 @@ input[readonly] { opacity: .8; }
 .senha-l span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .senha-l b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .senha-l small { color: var(--muted); font-size: 13px; letter-spacing: .08em; }
+/* Faturas por e-mail (Mais › Configurações › Integrações) */
+#email .status { margin-bottom: 14px; }
+.email-campo { margin-bottom: 4px; }
+.email-de { margin: 0 0 10px; }
+.email-de .chip { gap: 6px; }
+.email-add { display: flex; gap: 10px; }
+.email-add .inp { flex: 1; min-width: 0; }
+.email-add .btn { flex: none; }
+.emails { display: flex; flex-direction: column; }
+.email-l { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.email-l:first-child { border-top: 0; padding-top: 2px; }
+.email-l span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.email-l b, .email-l small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.email-l b { font-weight: 600; }
+.email-l small { color: var(--muted); font-size: 13px; }
+.email-st { flex: none; font-style: normal; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--card-2); color: var(--text-2); }
+.email-st.st-conferir, .email-st.st-lendo { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.email-st.st-senha, .email-st.st-erro { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.email-st.st-feito { background: color-mix(in srgb, var(--entra) 16%, transparent); color: var(--entra); }
+.op .giro.peq { width: 18px; height: 18px; border-width: 2px; flex: none; }
 .ia-senha { margin-top: 14px; }
 .ia-senha + .linha-sw { padding-top: 6px; }

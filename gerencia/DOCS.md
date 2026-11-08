@@ -29,7 +29,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
-    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, uso da IA e sensores no Home Assistant.
+    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
@@ -137,6 +137,24 @@ Muitos bancos mandam a fatura num PDF com senha (de costume, parte do CPF). O ap
 - Depois de cadastrada, a senha não aparece mais: a lista mostra só o nome e o fim (••••45). Para trocar, apague e cadastre de novo.
 - As senhas ficam só neste Home Assistant, em `/data/senhas_pdf.json`: entram no backup do Home Assistant, mas não nas exportações nem nos backups da pasta share.
 - Abre as proteções comuns de PDF (RC4 e AES de 128 e 256 bits), com a senha de abrir ou a do dono. Se mesmo com a senha certa o app não conseguir abrir, ele avisa; mande um print da fatura.
+
+### Faturas por e-mail
+
+O app lê sozinho as faturas que chegam no seu e-mail, pelo Home Assistant. Nada é lançado sem você conferir.
+
+1. No Home Assistant, adicione a integração **IMAP** (Configurações › Dispositivos e serviços › Adicionar integração › IMAP) com o seu e-mail. No Gmail: ative a verificação em duas etapas, crie uma **senha de app** na sua Conta Google e use servidor `imap.gmail.com`, porta `993`, o seu e-mail como usuário e a senha de app (16 letras, sem espaços). A busca padrão (os não lidos) serve.
+2. No GerencIA, em **Mais › Configurações › Integrações › Faturas por e-mail**, ligue **Ler as faturas do e-mail**. A conta de e-mail do Home Assistant aparece logo abaixo.
+3. Em **De quem**, adicione os remetentes das faturas: o endereço (`fatura@bancoazul.com.br`) ou só o fim dele (`bancoazul.com.br`). Sem nenhum, valem os e-mails com PDF e "fatura" no assunto ou no nome do arquivo.
+
+Quando chega um e-mail com PDF de um desses remetentes, o app pega o PDF, abre com as **Senhas dos PDFs** e manda para a IA. A fatura lida aparece nos **Avisos** do **Início** ("Fatura Banco Azul · Por e-mail · 4 lançamentos"). Toque para conferir, como na leitura por IA: as compras que parecem já lançadas vêm desmarcadas. **Lançar** grava e o aviso some; **Ignorar** fecha sem lançar.
+
+- Se nenhuma senha cadastrada abrir o PDF, o aviso diz "o PDF tem senha": toque, digite a senha e leia. Com **Guardar para as próximas faturas**, ela entra nas senhas. Uma senha cadastrada depois abre sozinha as faturas que esperavam.
+- Se a leitura der erro (o Home Assistant não respondeu, por exemplo), tocar no aviso lê de novo.
+- **Recebidos**, no mesmo cartão, mostra os últimos 5 e-mails com PDF: **Para conferir**, **Precisa da senha**, **Lançada**, **Ignorada**, **Não é fatura**... Os que não pareciam fatura (ou foram ignorados) têm **Ler**.
+- **Avisar no celular**, em **Mais › Configurações › Opções › Faturas por e-mail** (vem desligado): quando uma fatura fica pronta para conferir, quem você marcar em **Quem recebe** ganha um aviso nos celulares ligados a essa pessoa no Home Assistant.
+- O Home Assistant avisa um e-mail por vez (o mais novo da busca). Se chegarem dois juntos, o mais antigo pode não aparecer: leia pelo **Ler com IA**.
+- Os e-mails ficam em `/data/emails.json` e os PDFs em `/data/emails`, só os últimos 30 e fora das exportações. Lançada ou ignorada, a cópia do PDF é apagada.
+- O mesmo e-mail não entra duas vezes (o Home Assistant manda o último de novo quando reinicia).
 
 ### Atualizar saldos
 
