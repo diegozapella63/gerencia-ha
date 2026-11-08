@@ -512,7 +512,8 @@ class TestIntegracoes(TelaMais):
 
     def janela_fechada(self):
         """Espera a janela fechar e o Voltar que ela deu no histórico chegar (antes dele, uma janela nova fecharia junto)."""
-        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA && !(history.state && history.state.g)")
+        # (até 15 s: a senha vai ao servidor antes de a janela fechar, e o GitHub às vezes demora mais que 5 s)
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA && !(history.state && history.state.g)", timeout=15000)
         self.esperar()
 
     def nova_senha(self, nome, senha):
