@@ -29,7 +29,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Invest**: índices de mercado e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
-    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), uso da IA e sensores no Home Assistant.
+    - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, uso da IA e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia no Início, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo e corrigir valores pelo rendimento. Valem para todos os aparelhos.
@@ -127,6 +127,16 @@ Não precisa dizer o que é: a IA separa sozinha os **gastos**, os **recebimento
 A **Situação** começa em **Automática**: o que a IA viu como conta, boleto ou parcela a pagar, ou valor que ainda vai receber, fica pendente; o resto segue a data. Compras no cartão seguem a fatura. Dá para trocar para **Tudo pago** ou **Tudo pendente**.
 
 Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais › Configurações › Integrações › Leitura por IA** dá para escolher qual IA usar e ver se ela está pronta.
+
+### Faturas com senha
+
+Muitos bancos mandam a fatura num PDF com senha (de costume, parte do CPF). O app abre o PDF com a senha antes de mandar para a IA, então a IA recebe o arquivo já aberto.
+
+- Em **Mais › Configurações › Integrações › Senhas dos PDFs**, toque em **Adicionar senha** e cadastre as senhas de sempre, com um nome para lembrar de quem é (até 20). Cada fatura com senha tenta todas sozinha.
+- Se nenhuma servir, a janela da leitura avisa e pede a **Senha do PDF**. Com **Guardar para as próximas faturas** (vem ligado), a senha que abriu entra na lista com o nome do arquivo.
+- Depois de cadastrada, a senha não aparece mais: a lista mostra só o nome e o fim (••••45). Para trocar, apague e cadastre de novo.
+- As senhas ficam só neste Home Assistant, em `/data/senhas_pdf.json`: entram no backup do Home Assistant, mas não nas exportações nem nos backups da pasta share.
+- Abre as proteções comuns de PDF (RC4 e AES de 128 e 256 bits), com a senha de abrir ou a do dono. Se mesmo com a senha certa o app não conseguir abrir, ele avisa; mande um print da fatura.
 
 ### Atualizar saldos
 
@@ -237,7 +247,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 
 ## Dados e backup
 
-- Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As imagens dos investimentos ficam em `/data/fotos`.
+- Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As imagens dos investimentos ficam em `/data/fotos`, e as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e dos backups da pasta share).
 - **Criar backup** (Mais › Configurações › Dados) salva um `.zip` em `share/gerencia`, com os dados e as imagens. Logo abaixo ficam os últimos backups da pasta, cada um com **Restaurar**.
 - **Importar** traz de volta um `.zip` ou `.json` exportado pelo GerencIA; antes, o app guarda uma cópia do que existe.
 - O app guarda uma versão a cada 10 minutos de uso e antes de importar ou restaurar, e fica com as 3 mais recentes, como os outros apps.

@@ -73,8 +73,13 @@ _FALSOS = r"""async () => {
     const ir = () => { try { ok(fim()); } catch (e) { erro(e); } };
     if (q.segura) q.soltar = ir; else setTimeout(ir, 0);
   });
-  const ia = window.__ia = { pedidos: [], resp: { lancamentos: [], investimentos: [] }, erro: '', segura: false, soltar: null };
-  T.api.iaLer = c => { ia.pedidos.push(JSON.parse(JSON.stringify(c))); return responder(ia, () => { if (ia.erro) throw new Error(ia.erro); return JSON.parse(JSON.stringify(ia.resp)); }); };
+  // erro: a próxima leitura falha com este texto; com codigo, como o servidor manda (ex.: senha_pdf, PDF com senha);
+  // erros: uma lista de [texto, codigo], um para cada leitura, em ordem (depois deles, a resposta)
+  const ia = window.__ia = { pedidos: [], resp: { lancamentos: [], investimentos: [] }, erro: '', codigo: '', erros: [], segura: false, soltar: null };
+  T.api.iaLer = c => { ia.pedidos.push(JSON.parse(JSON.stringify(c))); return responder(ia, () => {
+    const [msg, codigo] = ia.erros.length ? ia.erros.shift() : [ia.erro, ia.codigo];
+    if (msg) throw Object.assign(new Error(msg), codigo ? { codigo } : {});
+    return JSON.parse(JSON.stringify(ia.resp)); }); };
   const voz = window.__voz = { pedidos: [], texto: 'gastei 45 no mercado hoje', erro: '', segura: false, soltar: null };
   T.api.vozTexto = pcm => { voz.pedidos.push(pcm.length); return responder(voz, () => { if (voz.erro) throw new Error(voz.erro); return { texto: voz.texto, nome: 'Home Assistant Cloud' }; }); };
   const fotos = window.__fotos = [];
@@ -356,6 +361,102 @@ class TestJanelaLerComIA(TelaIA):
         self.clicar('#folhas .folha-cab [data-a="fechar"]')
         self.ir_mais("config", "integracoes")
         self.assertEqual(self.conta("#ia .linha-sw"), 1, "e lá está a Leitura por IA")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+class TestSenhaDoPdf(TelaIA):
+    """PDF com senha: quando nenhuma senha cadastrada abre, o servidor responde codigo senha_pdf e a janela pede a
+    senha (com o cursor nela) e oferece guardar para as próximas faturas."""
+
+    def pdf_com_senha(self, *erros):
+        """Escolhe um PDF no Ler com IA e lê; o servidor (falso) responde estes erros, um por leitura, e depois lê."""
+        self.abrir(base(bancos=BANCOS))
+        self.responder([FEIRA])
+        self.js("(window.__ia.erros = a, true)", [list(e) for e in erros])
+        self.ler_com_ia()
+        self.escolher('#folhas [data-a="ia-arq"]', PDF)
+        self.pg.wait_for_selector("#folhas .ia-prev")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+
+    def test_pede_a_senha_com_o_cursor_nela(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"))
+        self.assertEqual(self.folha(), "Ler com IA", "continua na entrada, com o PDF escolhido")
+        self.assertEqual(self.texto("#folhas .ia-prev b"), "recibo-teste.pdf")
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Este PDF tem senha.", "o aviso do servidor, sem o Não consegui ler")
+        self.pg.wait_for_function("document.activeElement && document.activeElement.id === 'ia-senha'")
+        self.assertEqual(self.texto('#folhas label[for="ia-senha"]'), "Senha do PDF")
+        self.assertIn("Guardar para as próximas faturas", self.folha_texto())
+        self.assertEqual(self.js("document.querySelector('#folhas [data-a=\"ias-guardar\"]').classList.contains('on')"), True, "guardar vem ligado")
+
+    def test_a_senha_digitada_vai_junto_com_o_nome_do_arquivo(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"))
+        self.preencher("#ia-senha", " 12345 ")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        p = self.pedidos()
+        self.assertNotIn("senha", p[0], "a primeira leitura vai sem senha (o servidor tenta as cadastradas)")
+        self.assertEqual((p[1]["senha"], p[1]["guardar_senha"], p[1]["nome_arquivo"]), ("12345", True, "recibo-teste.pdf"))
+        self.assertTrue(p[1]["anexo"]["b64"].startswith("data:application/pdf;base64,"), "o mesmo PDF de novo")
+        self.assertEqual(self.folha(), "Conferir lançamentos", "com a senha certa, lê")
+        self.assertTrue(self.js("T.S.senhas === undefined"), "a lista das senhas é pedida de novo (a nova entrou)")
+
+    def test_sem_guardar_a_senha_vai_so_desta_vez(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"))
+        self.clicar('#folhas [data-a="ias-guardar"]')
+        self.assertFalse(self.js("document.querySelector('#folhas [data-a=\"ias-guardar\"]').classList.contains('on')"))
+        self.preencher("#ia-senha", "12345")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        self.assertEqual(self.pedidos()[1]["guardar_senha"], False)
+
+    def test_senha_errada_avisa_e_o_aviso_sai_ao_digitar(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"), ("Senha errada para este PDF.", "senha_pdf"))
+        self.preencher("#ia-senha", "000")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Senha errada para este PDF.")
+        self.assertEqual(self.pg.input_value("#ia-senha"), "000", "a senha digitada continua lá para corrigir")
+        self.digitar("#ia-senha", "1")
+        self.assertEqual(self.conta("#folhas .msg-erro"), 0, "ao digitar, o aviso sai")
+        self.assertEqual(self.js("document.activeElement.id"), "ia-senha", "sem perder o cursor")
+
+    def test_sem_senha_digitada_le_de_novo_sem_senha(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"))
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        self.assertNotIn("senha", self.pedidos()[1], "campo vazio: nada de senha")
+
+    def test_trocar_o_pdf_esquece_a_senha(self):
+        self.pdf_com_senha(("Este PDF tem senha.", "senha_pdf"))
+        self.preencher("#ia-senha", "12345")
+        self.clicar('#folhas [data-a="ia-arq-rm"]')
+        self.assertEqual((self.conta("#ia-senha"), self.conta("#folhas .msg-erro")), (0, 0), "sem o PDF, some o campo e o aviso")
+        self.escolher('#folhas [data-a="ia-arq"]', PDF)
+        self.pg.wait_for_selector("#folhas .ia-prev")
+        self.assertEqual(self.conta("#ia-senha"), 0, "o PDF novo começa sem pedir a senha")
+
+    def test_outro_erro_continua_como_antes(self):
+        self.pdf_com_senha(("A IA do Home Assistant não respondeu.", ""))
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Não consegui ler. A IA do Home Assistant não respondeu.")
+        self.assertEqual(self.conta("#ia-senha"), 0, "só o erro de senha pede a senha")
+
+    def test_na_fatura_da_nova_despesa_tambem_pede(self):
+        self.abrir(base(bancos=BANCOS))
+        self.responder([FEIRA])
+        self.js("(window.__ia.erros = [['Nenhuma das senhas cadastradas abre este PDF.', 'senha_pdf']], true)")
+        self.nova_despesa()
+        self.escolher('#folhas [data-a="ia-de"][data-ini="arquivo"]', PDF)
+        self.pg.wait_for_selector("#folhas .ia-prev")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        self.assertEqual(self.folha(), "Fatura, print ou foto")
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Nenhuma das senhas cadastradas abre este PDF.")
+        self.preencher("#ia-senha", "12345")
+        self.clicar('#folhas [data-a="ia-ler"]')
+        self.esperar_ia()
+        self.assertEqual(self.pedidos()[1]["senha"], "12345")
+        self.assertEqual(self.folha(), "Conferir lançamentos")
 
 
 # ---------------------------------------------------------------------------------------------------------------

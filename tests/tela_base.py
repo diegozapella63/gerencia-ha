@@ -143,7 +143,8 @@ _ABRIR = """async (a) => {
   const u0 = JSON.parse(window.__UI0);
   for (const k of Object.keys(T.S.ui)) if (!(k in u0)) delete T.S.ui[k]; // o que um teste deixou (ex.: descAberto) não passa para o próximo
   Object.assign(T.S.ui, u0, a.ui || {});
-  Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, dicas: null, ia: null, uso: null, backups: null });
+  Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, dicas: null, ia: null, uso: null, backups: null, senhas: undefined, senhasPedido: null });
+  T.api._senhas = [];  // as senhas dos PDFs da prévia (na memória)
   T.S.d = T.normalizar(r);
   const t = document.getElementById('toast'); if (t) { t.classList.remove('on'); t.textContent = ''; }
   // o histórico começa sem janelas nem telas de Mais; uma tela de Mais aberta aqui ganha a entrada dela (o Voltar volta ao menu)

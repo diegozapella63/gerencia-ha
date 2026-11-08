@@ -1258,6 +1258,17 @@ input[readonly] { opacity: .8; }
 #op-dicas .nota { margin: 8px 0 0; }
 .op-testar { width: 100%; margin-top: 14px; }
 
+/* Senhas dos PDFs (Integrações) e a senha pedida na leitura por IA */
+.senhas { display: flex; flex-direction: column; }
+.senha-l { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.senha-l:first-child { border-top: 0; padding-top: 2px; }
+.senha-l > .ic { color: var(--muted); flex: none; }
+.senha-l span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.senha-l b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.senha-l small { color: var(--muted); font-size: 13px; letter-spacing: .08em; }
+.ia-senha { margin-top: 14px; }
+.ia-senha + .linha-sw { padding-top: 6px; }
+
 </style>
 <main id="app" aria-live="polite"></main>
 <nav id="nav" aria-label="Menu principal"><div class="in"></div></nav>
@@ -1592,7 +1603,7 @@ select:not([multiple]){pointer-events:none}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.34.0';
+const VERSAO = '1.35.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1989,9 +2000,9 @@ function gerarExemplo() {
 /* ------------------------------------------------------------------ API */
 async function jsonOk(r) {
   if (r.ok) return r.json();
-  let msg = `Erro ${r.status}`;
-  try { const j = await r.json(); msg = j.erro || msg; } catch (e) { /* sem corpo */ }
-  throw new Error(msg);
+  let msg = `Erro ${r.status}`, codigo = '';
+  try { const j = await r.json(); msg = j.erro || msg; codigo = j.codigo || ''; } catch (e) { /* sem corpo */ }
+  throw Object.assign(new Error(msg), { codigo });
 }
 const apiServidor = {
   state: () => fetch('api/state', { cache: 'no-store' }).then(jsonOk),
@@ -2019,6 +2030,9 @@ const apiServidor = {
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
   dicasConferir: () => fetch('api/dicas/conferir', { method: 'POST' }).then(jsonOk),
   avisoPessoas: () => fetch('api/avisos/pessoas', { cache: 'no-store' }).then(jsonOk),
+  senhas: () => fetch('api/senhas', { cache: 'no-store' }).then(jsonOk),
+  senhaNova: (nome, senha) => fetch('api/senhas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, senha }) }).then(jsonOk),
+  senhaApagar: id => fetch('api/senhas/apagar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
   avisoTestar: () => fetch('api/avisos/testar', { method: 'POST' }).then(jsonOk),
   chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
   chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
@@ -2092,6 +2106,10 @@ function apiDemo() {
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
     async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
     async avisoTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
+    // na prévia as senhas ficam só na memória (inventadas, nunca as de verdade)
+    async senhas() { return { senhas: (this._senhas || []).map(x => ({ id: x.id, nome: x.nome, fim: '••••' + (x.senha.length >= 4 ? x.senha.slice(-2) : '') })) }; },
+    async senhaNova(nome, senha) { if (!String(senha || '').trim()) throw new Error('Digite a senha.'); (this._senhas = this._senhas || []).push({ id: uid(), nome: nome || 'Senha', senha: String(senha).trim() }); return this.senhas(); },
+    async senhaApagar(id) { this._senhas = (this._senhas || []).filter(x => x.id !== id); return this.senhas(); },
     // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
     async chat() { return { mensagens: clone(CHAT_DEMO) }; },
     async chatEnviar(c) {
@@ -4456,7 +4474,7 @@ function montarIA() {
   if (s.so === 'arquivo') return {
     titulo: inv ? 'Imagem ou print' : 'Fatura, print ou foto',
     corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('image')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button>${botaoCam()}</div>`}
-      <p class="ajuda" style="margin:10px 0 0">Dá também para colar a imagem aqui.</p>${erro}`,
+      <p class="ajuda" style="margin:10px 0 0">Dá também para colar a imagem aqui.</p>${erro}${campoSenhaPdf()}`,
     pe };
   return {
     titulo: inv ? 'Ler investimento com IA' : 'Ler com IA',
@@ -4467,7 +4485,7 @@ function montarIA() {
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="${inv ? 'Ex.: “Apliquei 2 mil num CDB do Inter a 110% do CDI, vence em março de 2028”, e-mail da corretora, nota de aplicação ou extrato'
           : 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco'}">${esc(s.texto)}</textarea>
         <div class="ajuda">${inv ? 'Dá para colar um print aqui.' : 'Dá para colar um print aqui. A IA separa sozinha o que é cada coisa.'}</div></div>
-      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}${campoSenhaPdf()}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
@@ -4517,7 +4535,7 @@ async function iaPegarArquivo(file) {
   try {
     const dataUrl = pdf ? await lerArquivo(file) : await imagemJPG(file);
     IAS.arquivo = { nome: file.name || (pdf ? 'arquivo.pdf' : 'imagem.jpg'), pdf, dataUrl, foto: null };
-    IAS.erro = '';
+    IAS.erro = ''; IAS.pedeSenha = false; IAS.senha = '';
     pintarFolha();
   } catch (e) { toast(e.message); }
 }
@@ -4636,7 +4654,9 @@ async function iaLer() {
     if (s.ouvido && !s.arquivo) corpo.fala = true;
     if (s.arquivo && (s.arquivo.paginas || []).length > 1) corpo.anexos = s.arquivo.paginas.map(b64 => ({ b64 }));
     else if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
+    if (s.arquivo && s.arquivo.pdf && s.pedeSenha && (s.senha || '').trim()) Object.assign(corpo, { senha: s.senha.trim(), guardar_senha: s.guardarSenha !== false, nome_arquivo: s.arquivo.nome });
     const r = await api.iaLer(corpo);
+    if (s.pedeSenha && corpo.senha && corpo.guardar_senha) S.senhas = undefined;  // a senha nova entrou na lista
     if (!IAS) return;
     const lanc = s.saldos || s.soInvest ? [] : r.lancamentos || [], invs = r.investimentos || [];
     for (const it of invs) {
@@ -4652,8 +4672,18 @@ async function iaLer() {
     pintarFolha();
   } catch (e) {
     if (!IAS) return;
+    // PDF com senha: a folha pede a senha (e oferece guardar para as próximas faturas)
+    if (e.codigo === 'senha_pdf') { s.pedeSenha = true; s.etapa = 'entrada'; s.erro = e.message; pintarFolha(); setTimeout(() => { const i = $('#ia-senha'); if (i) i.focus(); }, 60); return; }
     s.etapa = 'entrada'; s.erro = 'Não consegui ler. ' + e.message; pintarFolha();
   }
+}
+// o campo da senha do PDF, quando o PDF tem senha e nenhuma cadastrada abriu
+function campoSenhaPdf() {
+  const s = IAS;
+  if (!s.pedeSenha || !s.arquivo || !s.arquivo.pdf) return '';
+  return `<div class="campo ia-senha"><label for="ia-senha">Senha do PDF</label>
+      <input id="ia-senha" class="inp" data-ias="senha" value="${esc(s.senha || '')}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ex.: os primeiros dígitos do CPF"></div>
+    ${linhaChave('ias-guardar', s.guardarSenha !== false, 'Guardar para as próximas faturas', 'Fica em Mais › Configurações › Integrações › Senhas dos PDFs.', 'ias-guardar')}`;
 }
 function prepararRevisaoCaixa() {
   const s = IAS;
@@ -5328,6 +5358,43 @@ function cardIA() {
     <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p></section>`;
 }
 
+/* Senhas dos PDFs: as faturas com senha (ex.: os dígitos do CPF) abrem sozinhas na leitura por IA. As senhas ficam
+   no servidor, fora das exportações; a tela só vê o nome e o fim (••••45). */
+function cardSenhas() {
+  if (S.senhas === undefined) carregarSenhas();
+  const L = S.senhas;
+  const linhas = !L ? `<div class="status manual">Carregando…</div>`
+    : !L.length ? `<p class="nota" style="margin:0">Nenhuma senha cadastrada.</p>`
+    : `<div class="senhas">${L.map(x => `<div class="senha-l">${ic('lock', 'ic-s')}<span><b>${esc(x.nome)}</b><small>${esc(x.fim)}</small></span>
+        <button class="icbtn" data-a="senha-apagar" data-v="${esc(x.id)}" aria-label="Apagar a senha ${esc(x.nome)}">${ic('trash')}</button></div>`).join('')}</div>`;
+  return `<section class="card" id="senhas-pdf">${maisCab('lock', 'Senhas dos PDFs')}
+    ${maisLead('As faturas com senha abrem sozinhas na leitura por IA.')}
+    ${linhas}
+    <button class="btn out" data-a="senha-nova" style="margin-top:12px">${ic('plus')}Adicionar senha</button></section>`;
+}
+function carregarSenhas() {
+  if (S.senhasPedido) return;
+  S.senhasPedido = api.senhas().then(r => r.senhas, () => null).then(l => { S.senhas = l || []; S.senhasPedido = null; if (S.ui.maisTela === 'config') render(); });
+}
+let FS = null;
+function abrirSenhaNova() {
+  FS = { nome: '', senha: '', erro: '' };
+  abrirFolha(() => ({
+    titulo: 'Nova senha',
+    corpo: `<div class="campo"><label for="sn-nome">Nome</label><input id="sn-nome" class="inp" data-fs="nome" value="${esc(FS.nome)}" placeholder="Ex.: CPF da Ana" autocomplete="off"></div>
+      <div class="campo"><label for="sn-senha">Senha</label><input id="sn-senha" class="inp${FS.erro ? ' erro' : ''}" data-fs="senha" value="${esc(FS.senha)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ex.: os 5 primeiros dígitos do CPF"></div>
+      ${FS.erro ? `<div class="msg-erro">${esc(FS.erro)}</div>` : ''}`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="senha-salvar">Salvar</button>`,
+  }), () => { FS = null; });
+  setTimeout(() => { const i = $('#sn-nome'); if (i) i.focus(); }, 60);
+}
+function salvarSenhaNova() {
+  if (!FS) return;
+  if (!FS.senha.trim()) { FS.erro = 'Digite a senha.'; pintarFolha(); return; }
+  api.senhaNova(FS.nome.trim(), FS.senha.trim()).then(r => { S.senhas = r.senhas; fecharFolha(); render(); toast('Senha guardada'); },
+    e => { if (FS) { FS.erro = e.message; pintarFolha(); } });
+}
+
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
 function resumoContas(b) {
   return (b.contas || []).map(c => (c.pessoa || 'Conta') + (c.cartao ? ' (cartão)' : '')).join(' · ');
@@ -5393,9 +5460,9 @@ const iaOn = () => S.d.ajustes.ia !== false;
 const rotIc = (icone, tom = '') => `<span class="rot-ic ${tom}" aria-hidden="true">${ic(icone)}</span>`;
 const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span class="mais-ic" aria-hidden="true">${ic(icone)}</span><h2>${titulo}</h2>${aside ? `<b class="mais-aside">${aside}</b>` : ''}</div>`;
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
-const chave = (k, on, rotulo) => `<button class="sw${on ? ' on' : ''}" data-a="ajuste" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
+const chave = (k, on, rotulo, acao = 'ajuste') => `<button class="sw${on ? ' on' : ''}" data-a="${acao}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
 const DESLIGADAS_PADRAO = new Set(['dicas_aviso']);
-const linhaChave = (k, on, titulo, texto) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo)}</div>`;
+const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
 function corAppAtual() {
@@ -5550,7 +5617,7 @@ function maisIntegracoes() {
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
   const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
     ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
-  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardUsoIA() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardUsoIA() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
@@ -6491,7 +6558,11 @@ document.addEventListener('click', ev => {
     case 'cam-luz': camLuz(); break;
     case 'cam-galeria': camGaleria(); break;
     case 'ia-arq': escolherArquivo('image/*,application/pdf').then(iaPegarArquivo); break;
-    case 'ia-arq-rm': IAS.arquivo = null; pintarFolha(); break;
+    case 'ia-arq-rm': IAS.arquivo = null; IAS.pedeSenha = false; IAS.senha = ''; IAS.erro = ''; pintarFolha(); break;
+    case 'ias-guardar': IAS.guardarSenha = IAS.guardarSenha === false; pintarFolha(); break;
+    case 'senha-nova': abrirSenhaNova(); break;
+    case 'senha-salvar': salvarSenhaNova(); break;
+    case 'senha-apagar': api.senhaApagar(v).then(r => { S.senhas = r.senhas; render(); toast('Senha apagada'); }, e => toast(e.message)); break;
     case 'ia-ler': iaLer(); break;
     case 'ia-voltar': IAS.etapa = 'entrada'; pintarFolha(); break;
     case 'ia-marca': { const it = IAS.itens[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
@@ -6711,6 +6782,13 @@ document.addEventListener('input', ev => {
   if (el.dataset.fb && FB) { FB[el.dataset.fb] = el.value; return; }
   if (el.dataset.fbc && FB) { FB.contas[+el.dataset.i][el.dataset.fbc] = el.dataset.fbc === 'pessoa' ? el.value : el.value.replace(/\D/g, '').slice(0, 2); if (el.dataset.fbc !== 'pessoa') el.value = FB.contas[+el.dataset.i][el.dataset.fbc]; return; }
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
+  if (el.dataset.fs && FS) {
+    FS[el.dataset.fs] = el.value;
+    // ao digitar, o aviso de antes sai (sem repintar, para não perder o cursor)
+    if (FS.erro) { FS.erro = ''; $('.folha .msg-erro')?.remove(); $('#sn-senha')?.classList.remove('erro'); }
+    return;
+  }
+  if (el.dataset.ias === 'senha' && IAS && IAS.erro) { IAS.erro = ''; $('.folha .msg-erro')?.remove(); }  // digitando a senha, o aviso de antes sai
   if (el.dataset.ias && IAS) { IAS[el.dataset.ias] = el.value; const b = $('[data-a="ia-ler"]'); if (b) b.disabled = !IAS.arquivo && !IAS.texto.trim(); return; }
   if (el.dataset.iai === 'contasel' && IAS) { const it = IAS.itens[+el.dataset.i], [c, cart] = el.value.split('|'); it.conta = c; it.noCartao = cart === 'c'; pintarFolha(); return; }
   if (el.dataset.iai && IAS) { IAS.itens[+el.dataset.i][el.dataset.iai] = el.value; return; }

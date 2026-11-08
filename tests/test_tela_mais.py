@@ -479,6 +479,87 @@ class TestIntegracoes(TelaMais):
         self.clicar('#nav [data-a="novo"]')
         self.assertFalse(self.visivel('.escolhas [data-a="ia"]'), "Ler com IA some do Adicionar")
 
+    # ---- Senhas dos PDFs (as senhas ficam no servidor; a tela só vê o nome e o fim escondido)
+    def senhas(self):
+        return self.js("[...document.querySelectorAll('#senhas-pdf .senha-l')].map(l => [l.querySelector('b').textContent, l.querySelector('small').textContent])")
+
+    def janela_fechada(self):
+        """Espera a janela fechar e o Voltar que ela deu no histórico chegar (antes dele, uma janela nova fecharia junto)."""
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA && !(history.state && history.state.g)")
+        self.esperar()
+
+    def nova_senha(self, nome, senha):
+        self.clicar('#senhas-pdf [data-a="senha-nova"]')
+        self.preencher("#sn-nome", nome)
+        self.preencher("#sn-senha", senha)
+        self.clicar('#folhas [data-a="senha-salvar"]')
+        self.janela_fechada()
+
+    def test_senhas_dos_pdfs_comeca_vazio_e_some_sem_ia(self):
+        self.abrir_int()
+        self.pg.wait_for_selector("#senhas-pdf .nota")
+        self.assertEqual(self.texto("#senhas-pdf h2"), "Senhas dos PDFs")
+        self.assertEqual(self.texto("#senhas-pdf .nota"), "Nenhuma senha cadastrada.")
+        self.assertEqual(self.conta('#senhas-pdf [data-a="senha-nova"]'), 1)
+        self.abrir(base(bancos=BANCOS, ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.assertEqual(self.conta("#senhas-pdf"), 0, "sem a IA, as senhas não servem para nada")
+
+    def test_cadastrar_senha_mostra_so_o_fim(self):
+        self.abrir_int()
+        self.clicar('#senhas-pdf [data-a="senha-nova"]')
+        self.assertEqual(self.folha(), "Nova senha")
+        self.pg.wait_for_function("document.activeElement && document.activeElement.id === 'sn-nome'")
+        self.preencher("#sn-nome", "CPF da Ana")
+        self.preencher("#sn-senha", "12345")
+        self.clicar('#folhas [data-a="senha-salvar"]')
+        self.janela_fechada()
+        self.assertEqual(self.esperar_aviso("Senha guardada"), "Senha guardada")
+        self.assertEqual(self.senhas(), [["CPF da Ana", "••••45"]])
+        self.assertNotIn("12345", self.js("document.body.innerHTML"), "a senha nunca vai para a tela")
+        self.nova_senha("Beto", "987")
+        self.assertEqual(self.senhas(), [["CPF da Ana", "••••45"], ["Beto", "••••"]], "curta: nada à mostra")
+        self.assertEqual(self.cortados("#senhas-pdf .senha-l b"), [])
+
+    def test_sem_senha_nao_salva_e_o_aviso_sai_ao_digitar(self):
+        self.abrir_int()
+        self.clicar('#senhas-pdf [data-a="senha-nova"]')
+        self.preencher("#sn-nome", "CPF da Ana")
+        self.clicar('#folhas [data-a="senha-salvar"]')
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Digite a senha.")
+        self.assertEqual(self.folha(), "Nova senha", "continua aberta")
+        self.assertEqual(self.pg.input_value("#sn-nome"), "CPF da Ana", "o nome não se perde")
+        self.digitar("#sn-senha", "1")
+        self.assertEqual(self.conta("#folhas .msg-erro"), 0, "ao digitar, o aviso sai")
+        self.assertEqual(self.js("document.activeElement.id"), "sn-senha", "sem perder o cursor")
+        self.assertEqual(self.senhas(), [])
+
+    def test_erro_do_servidor_aparece_na_janela(self):
+        self.abrir_int()
+        self.trocar_api("senhaNova", "async () => { throw new Error('Já são 20 senhas. Apague uma antes.'); }")
+        self.clicar('#senhas-pdf [data-a="senha-nova"]')
+        self.preencher("#sn-senha", "12345")
+        self.clicar('#folhas [data-a="senha-salvar"]')
+        self.pg.wait_for_selector("#folhas .msg-erro")
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Já são 20 senhas. Apague uma antes.")
+
+    def test_apagar_senha(self):
+        self.abrir_int()
+        self.nova_senha("CPF da Ana", "12345")
+        self.nova_senha("Beto", "98765")
+        self.clicar('#senhas-pdf [data-a="senha-apagar"]', 1)
+        self.esperar_aviso("Senha apagada")
+        self.assertEqual(self.senhas(), [["CPF da Ana", "••••45"]])
+        self.assertEqual(self.js("document.querySelector('#senhas-pdf [data-a=\"senha-apagar\"]').getAttribute('aria-label')"), "Apagar a senha CPF da Ana")
+
+    def test_voltar_do_celular_fecha_a_nova_senha_e_fica_nas_integracoes(self):
+        self.abrir_int()
+        self.clicar('#senhas-pdf [data-a="senha-nova"]')
+        self.preencher("#sn-senha", "12345")
+        self.voltar()
+        self.assertEqual(self.niveis(), 0, "fecha a janela")
+        self.assertEqual((self.js("T.S.ui.maisTela"), self.js("T.S.ui.maisAba")), ("config", "integracoes"), "continua nas Integrações")
+        self.assertEqual(self.senhas(), [], "sem salvar")
+
     def test_falar_so_aparece_com_a_ia_ligada(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
         self.addCleanup(lambda: self.js("(T.S.voz = null, true)"))
@@ -1090,7 +1171,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "uso-ia", "sensores"]),
+             "invest": ("Invest", ["indices"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "uso-ia", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

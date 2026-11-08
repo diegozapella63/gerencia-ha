@@ -31,9 +31,10 @@ import voz  # noqa: E402
 import bens  # noqa: E402
 import chat  # noqa: E402
 import avisos  # noqa: E402
+import pdfsenha  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.34.0"
+VERSAO = "1.35.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1565,6 +1566,85 @@ def pdf_texto(raw):
     return txt.strip()[:12000] if len(re.findall(r"[A-Za-z0-9]", txt)) > 60 else ""
 
 
+# ---------------------------------------------------------------- senhas dos PDFs (faturas com senha)
+
+SENHAS_ARQ = os.path.join(DATA_DIR, "senhas_pdf.json")  # fora do gerencia.json: não vai nas exportações nem para a tela
+_trava_senhas = threading.Lock()
+
+
+class ErroSenhaPdf(ValueError):
+    """O PDF tem senha e nenhuma abriu: a tela pede a senha (codigo senha_pdf)."""
+    codigo = "senha_pdf"
+
+
+def senhas_pdf():
+    try:
+        with open(SENHAS_ARQ, encoding="utf-8") as f:
+            lista = json.load(f).get("senhas") or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [x for x in lista if isinstance(x, dict) and isinstance(x.get("senha"), str) and x.get("id")]
+
+
+def _mascara(senha):
+    return "••••" + (senha[-2:] if len(senha) >= 4 else "")
+
+
+def senhas_listar():
+    """Para a tela: o nome e só o fim da senha (••••45)."""
+    return [{"id": x["id"], "nome": x.get("nome") or "Senha", "fim": _mascara(x["senha"])} for x in senhas_pdf()]
+
+
+def senha_nova(nome, senha):
+    nome, senha = str(nome or "").strip()[:40], str(senha or "").strip()[:64]
+    if not senha:
+        raise ValueError("Digite a senha.")
+    with _trava_senhas:
+        lista = senhas_pdf()
+        igual = next((x for x in lista if x["senha"] == senha), None)
+        if igual:  # a mesma senha: só troca o nome
+            igual["nome"] = nome or igual.get("nome") or "Senha"
+        else:
+            if len(lista) >= 20:
+                raise ValueError("Já são 20 senhas. Apague uma antes.")
+            lista.append({"id": secrets.token_hex(4), "nome": nome or f"Senha {len(lista) + 1}", "senha": senha})
+        gravar_arquivo(SENHAS_ARQ, json.dumps({"senhas": lista}, ensure_ascii=False, indent=1))
+    return senhas_listar()
+
+
+def senha_apagar(sid):
+    with _trava_senhas:
+        lista = [x for x in senhas_pdf() if x["id"] != sid]
+        gravar_arquivo(SENHAS_ARQ, json.dumps({"senhas": lista}, ensure_ascii=False, indent=1))
+    return senhas_listar()
+
+
+def abrir_pdf(bruto, digitada="", guardar=False, nome_arquivo=""):
+    """O PDF sem senha para a IA: tenta a senha digitada agora e as cadastradas. Com guardar, a digitada que abriu
+    entra nas senhas cadastradas (para as próximas faturas)."""
+    if not pdfsenha.tem_senha(bruto):
+        return bruto
+    digitada = str(digitada or "").strip()[:64]
+    cadastradas = [x["senha"] for x in senhas_pdf()]
+    try:
+        aberto = pdfsenha.abrir(bruto, ([digitada] if digitada else []) + cadastradas)
+    except pdfsenha.SenhaErrada:
+        if cadastradas or digitada:
+            log("PDF com senha: nenhuma senha serviu ·", pdfsenha.protecao(bruto))
+        raise ErroSenhaPdf("Senha errada para este PDF." if digitada else "Nenhuma das senhas cadastradas abre este PDF."
+                           if cadastradas else "Este PDF tem senha.") from None
+    except pdfsenha.PdfInvalido as e:
+        log("PDF com senha: não consegui abrir ·", pdfsenha.protecao(bruto), "·", e)
+        raise ValueError("Não consegui abrir este PDF com senha. Tente um print da fatura.") from None
+    if digitada and guardar and digitada not in cadastradas:
+        try:  # só guarda se foi ela que abriu (as cadastradas sozinhas podiam abrir)
+            pdfsenha.abrir(bruto, [digitada])
+            senha_nova(f"Da fatura {os.path.splitext(str(nome_arquivo))[0]}"[:40] if nome_arquivo else "", digitada)
+        except (pdfsenha.SenhaErrada, pdfsenha.PdfInvalido, ValueError):
+            pass
+    return aberto
+
+
 def ia_ler(corpo):
     d = ler()
     if not ia_ligada(d):
@@ -1594,6 +1674,8 @@ def ia_ler(corpo):
             arquivos.append((b, m))
     if len(arquivos) > 1 and any(m == "application/pdf" for _, m in arquivos):
         raise ValueError("Envie um PDF por vez.")
+    if arquivos and arquivos[0][1] == "application/pdf":  # fatura com senha: abre com a digitada ou as cadastradas
+        arquivos[0] = (abrir_pdf(arquivos[0][0], corpo.get("senha"), corpo.get("guardar_senha") is True, corpo.get("nome_arquivo")), "application/pdf")
     bruto, mime = arquivos[0] if arquivos else (None, None)
     if not bruto and not texto:
         raise ValueError("Envie uma imagem, um PDF ou cole um texto.")
@@ -2259,6 +2341,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_backups())
             if p == "/api/dicas":
                 return self.enviar(200, dicas_estado(ler()))
+            if p == "/api/senhas":
+                return self.enviar(200, {"senhas": senhas_listar()})
             if p == "/api/avisos/pessoas":
                 try:
                     return self.enviar(200, {"pessoas": pessoas_aviso(self.headers.get("X-Remote-User-Id"))})
@@ -2330,6 +2414,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, ia_ler(self.corpo_json()))
             if p == "/api/bens/atualizar":
                 return self.enviar(200, bens_estado(ler(), forcar=True))
+            if p == "/api/senhas":
+                c = self.corpo_json()
+                return self.enviar(200, {"senhas": senha_nova(c.get("nome"), c.get("senha"))})
+            if p == "/api/senhas/apagar":
+                return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
                 return self.enviar(200, testar_aviso(self.headers.get("X-Remote-User-Id")))
             if p == "/api/dicas/conferir":
@@ -2356,8 +2445,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(404, {"erro": "não encontrado"})
         except LookupError as e:
             return self.enviar(404, {"erro": str(e)})
-        except (ValueError, zipfile.BadZipFile) as e:
-            return self.enviar(400, {"erro": str(e)})
+        except (ValueError, zipfile.BadZipFile) as e:  # com o código, quando há (senha_pdf: a tela pede a senha do PDF)
+            return self.enviar(400, {"erro": str(e), **({"codigo": e.codigo} if getattr(e, "codigo", None) else {})})
         except Exception as e:  # noqa: BLE001
             log("Erro POST", p, e)
             return self.enviar(500, {"erro": str(e)})

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.35.0
+
+- **Faturas em PDF com senha**: a leitura por IA abre o PDF com a senha e só então manda para a IA. Em **Mais › Configurações › Integrações › Senhas dos PDFs** você cadastra as senhas de sempre (por exemplo, os dígitos do CPF), e cada fatura com senha abre sozinha. Se nenhuma servir, a janela pede a senha; com **Guardar para as próximas faturas** (vem ligado), ela entra na lista. A senha nunca aparece de novo na tela (só o fim, como ••••45) e não vai para as exportações nem para os backups da pasta share.
+
 ## 1.34.0
 
 - **Relatório de patrimônio**: no fim, a marca da **CorrerIA Code** como no **Sobre** (o raio na cor do app, CorrerIA Code e DESENVOLVIMENTO DE SOFTWARES), a mesma dos relatórios do ResolvIA e do InventarIA. No PDF, ela fica no pé de cada página, com o número da página.

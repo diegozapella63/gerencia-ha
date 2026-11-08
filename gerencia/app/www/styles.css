@@ -1251,3 +1251,14 @@ input[readonly] { opacity: .8; }
 .quem-p.on .ic { color: var(--accent); }
 #op-dicas .nota { margin: 8px 0 0; }
 .op-testar { width: 100%; margin-top: 14px; }
+
+/* Senhas dos PDFs (Integrações) e a senha pedida na leitura por IA */
+.senhas { display: flex; flex-direction: column; }
+.senha-l { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.senha-l:first-child { border-top: 0; padding-top: 2px; }
+.senha-l > .ic { color: var(--muted); flex: none; }
+.senha-l span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.senha-l b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.senha-l small { color: var(--muted); font-size: 13px; letter-spacing: .08em; }
+.ia-senha { margin-top: 14px; }
+.ia-senha + .linha-sw { padding-top: 6px; }

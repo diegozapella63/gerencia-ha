@@ -24,6 +24,8 @@ gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
+gerencia/app/pdfsenha.py      abre PDF com senha (RC4 e AES de 128 e 256 bits, só biblioteca padrão) para a leitura por IA; as
+                              senhas ficam em /data/senhas_pdf.json (fora das exportações e dos backups da pasta share)
 gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada, fotos JPG) para o Baixar PDF do Relatório de patrimônio;
                               o mesmo arquivo do InventarIA (inventario/app/pdf.py): ao mudar, copie para lá
 gerencia/app/avisos.py        avisos no celular: as pessoas da casa e os celulares delas (mesma regra do phones.js do ResolvIA), o envio
@@ -35,7 +37,7 @@ tests/                        testes (ver tests/README.md)
 docs/                         capturas de tela do README
 ```
 
-Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup) e backups em `/share/gerencia`.
+Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup), as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e do backup da pasta share; a tela só vê o fim, ••••45) e backups em `/share/gerencia`.
 
 ## Rodar no computador
 
