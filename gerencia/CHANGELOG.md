@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.34.0
+
+- **Relatório de patrimônio**: no fim, a marca da **CorrerIA Code** como no **Sobre** (o raio na cor do app, CorrerIA Code e DESENVOLVIMENTO DE SOFTWARES), a mesma dos relatórios do ResolvIA e do InventarIA. No PDF, ela fica no pé de cada página, com o número da página.
+
 ## 1.33.1
 
 - **Relatório de patrimônio › Baixar PDF** funciona no app do Home Assistant no celular: o PDF vai para a pasta Downloads (aparece nas notificações), e o botão diz **Baixando…**.

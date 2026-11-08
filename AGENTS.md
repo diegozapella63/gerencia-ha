@@ -24,7 +24,8 @@ gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/chat.py          Conversar com a IA: resumo dos dados para a IA, ações propostas (lançar, pagar, saldo) e a conversa guardada
-gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada) para o Baixar PDF do Relatório de patrimônio
+gerencia/app/pdf.py           PDF feito à mão (Helvetica, A4 em pé ou deitada, fotos JPG) para o Baixar PDF do Relatório de patrimônio;
+                              o mesmo arquivo do InventarIA (inventario/app/pdf.py): ao mudar, copie para lá
 gerencia/app/avisos.py        avisos no celular: as pessoas da casa e os celulares delas (mesma regra do phones.js do ResolvIA), o envio
 gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem build), styles.css, fontes
 gerencia/app/www/selectsheet.js  as caixas de seleção no visual do app: arquivo igual em todos os apps (no ResolvIA e no
@@ -74,7 +75,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - Interruptores de análise (Descontar IR, Ocultar bens) começam desligados toda vez; filtros e abas ficam guardados.
 - Em http (sem https) não há câmera nem microfone: explicar e oferecer escolher a foto.
 - Celular primeiro (390 px); com 1000 px ou mais, barra lateral. Tema claro e escuro.
-- Relatórios (a página e o PDF) com o cabeçalho dos apps, o mesmo do ResolvIA: um cartão com a faixa na cor do app, o ícone, Gerenc**IA** (o IA na cor) · finanças, o título, a contagem e quando (a hora só ali); lá embaixo, um cartão parecido com o raio da CorrerIA Code e "Correr**IA** Code · desenvolvimento de softwares" (no PDF, em cada folha, com a página). Nada repetido (sem o nome da casa). No app do Home Assistant no Android a página não imprime: o PDF é feito pelo servidor e baixado.
+- Relatórios (a página e o PDF) com o cabeçalho dos apps, o mesmo do ResolvIA: um cartão com a faixa na cor do app, o ícone, Gerenc**IA** (o IA na cor) · finanças, o título, a contagem e quando (a hora só ali); no fim, a marca da CorrerIA Code como no **Sobre**, a mesma do ResolvIA e do InventarIA (o raio no quadrado inclinado na cor do app, Correr**IA** Code e DESENVOLVIMENTO DE SOFTWARES; no PDF, no pé de cada folha, com a página). Nada repetido (sem o nome da casa). No app do Home Assistant no Android a página não imprime: o PDF é feito pelo servidor e baixado.
 - Dados de exemplo e de testes sempre inventados (Ana, Beto, bancos e valores fictícios): nunca nomes, bancos, investimentos ou valores reais do dono.
 
 ## Conversa com o dono

@@ -8,6 +8,7 @@ import csv
 import html
 import io
 import json
+import math
 import os
 import re
 import secrets
@@ -32,7 +33,7 @@ import chat  # noqa: E402
 import avisos  # noqa: E402
 import pdf  # noqa: E402
 
-VERSAO = "1.33.1"
+VERSAO = "1.34.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -602,9 +603,12 @@ ICONE_SVG = ('<svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><rect width
              '<text x="43.5" y="41.5" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="var(--a)">$</text>'
              '<rect x="10" y="31.3" width="44" height="1.4" fill="#05070a"/></svg>')
 FILTRO_SUB = {"todos": "", "meus": "Só os seus · ", "terceiros": "De terceiros · "}
-# o raio da CorrerIA Code (o mesmo do Mais › Sobre), num quadradinho na cor do app
-RAIO_SVG = ('<span class="raio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#0b0f14"/></svg></span>')
-RAIO = [(13, 2), (4, 14), (11, 14), (10, 22), (19, 10), (12, 10)]
+# no fim do relatório, a marca da CorrerIA Code como no Mais › Sobre (a mesma do ResolvIA e do InventarIA): o raio no
+# quadrado inclinado na cor do app, Correr IA Code e DESENVOLVIMENTO DE SOFTWARES
+RAIO = [(13, 2), (3, 14), (12, 14), (11, 22), (21, 10), (12, 10)]  # o zap do Lucide, numa caixa de 24
+MARCA = ('<footer class="marca"><span class="raio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M'
+         + "L".join(f"{x} {y}" for x, y in RAIO) + 'Z"/></svg></span><span><b class="nome">Correr<i>IA</i> Code</b>'
+         '<small>desenvolvimento de softwares</small></span></footer>')
 # Baixar PDF: a página fica num quadro da página do Home Assistant, e o app do Home Assistant no Android só baixa o que
 # a página de cima pede (o link do quadro não faz nada lá). O link vai para lá e é clicado, como o Home Assistant faz
 # com os backups (mesma origem, pelo ingress); sem isso (outra origem, sem quadro), o link baixa como sempre. O mesmo
@@ -726,16 +730,15 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 .n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
 .notas{{color:var(--mut);font-size:12px;margin-top:22px}}
 .notas p{{margin:0 0 4px}}
-main{{min-height:calc(100vh - 68px);display:flex;flex-direction:column}}
-.pe{{display:flex;align-items:center;gap:12px;margin-top:auto;background:var(--card);border:1px solid var(--linha);border-left:6px solid var(--a);border-radius:14px;padding:12px 16px;color:var(--mut);font-size:13px}}
-.notas{{margin-bottom:22px}}
-.pe .raio{{flex:none;width:30px;height:30px;border-radius:9px;background:var(--a);display:grid;place-items:center;transform:rotate(-8deg)}}
-.pe .raio svg{{width:17px;height:17px}}
-.pe b{{font:700 17px/1 "Barlow Condensed",Barlow,sans-serif;color:var(--fg);letter-spacing:.01em}}
-.pe b em{{font-style:normal;color:var(--a)}}
+.marca{{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--linha)}}
+.raio{{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:11px;background:var(--a);transform:rotate(-8deg);box-shadow:0 8px 18px -10px var(--a)}}
+.raio svg{{width:19px;height:19px;fill:#0b0f14}}
+.marca .nome{{display:block;font:700 20px/1 "Barlow Condensed",Barlow,sans-serif;color:var(--fg)}}
+.marca .nome i{{font-style:normal;color:var(--a)}}
+.marca small{{display:block;margin-top:4px;color:var(--mut);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}}
 .bm{{display:none}}
 @media (max-width:600px){{.inv th:nth-child(2),.inv td:nth-child(2),.inv th:nth-child(4),.inv td:nth-child(4){{display:none}} .bm{{display:inline}}}}
-@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}}}}
+@media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section,.marca{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}} .raio{{box-shadow:none}}}}
 </style></head><body><main>
 <nav class="filtro" aria-label="De quem">{filtro}</nav>
 <div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}" onclick="{BAIXAR}">Baixar PDF</a></div>
@@ -744,7 +747,7 @@ main{{min-height:calc(100vh - 68px);display:flex;flex-direction:column}}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
 {''.join(partes)}
 <div class="notas">{notas}</div>
-<footer class="pe">{RAIO_SVG}<span><b>Correr<em>IA</em> Code</b> · desenvolvimento de softwares</span></footer>
+{MARCA}
 </main></body></html>""".encode("utf-8")
 
 
@@ -901,25 +904,32 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
     for t in linhas:
         doc.texto(M, y[0], t, 8, False, MUT)
         y[0] += 11
-    # no pé de cada página, bem embaixo: o cartão de quem faz o app (como o do cabeçalho) e, com mais de uma página, o número dela
+    # no pé de cada página: a marca da CorrerIA Code como no Mais › Sobre (a mesma do ResolvIA e do InventarIA), com uma
+    # linha em cima e, com mais de uma página, o número dela
     n = len(doc.paginas)
+    oque = "DESENVOLVIMENTO DE SOFTWARES"
+    bloco = 16 + 8 + max(pdf.largura("CorrerIA Code", 10.5, True), pdf.largura(oque, 6, True) + 0.9 * (len(oque) - 1))
+    ang = math.radians(-8)
     for k in range(n):
         doc.ir_para(k)
-        t0 = doc.altura_pagina - 44
-        doc.retangulo(M, t0, W, 28, borda=LIN, fundo=CARTAO, raio=7)
-        doc.retangulo(M, t0, 4, 28, fundo=COR)
-        doc.retangulo(M + 14, t0 + 5, 18, 18, fundo=COR, raio=5)
-        doc.poligono([(M + 14 + 3 + x * 0.5, t0 + 5 + 3 + y * 0.5) for x, y in RAIO], (0.04, 0.06, 0.08))
-        tx = M + 40
-        doc.texto(tx, t0 + 18.5, "Correr", 11, True, TXT)
-        w1 = pdf.largura("Correr", 11, True)
-        doc.texto(tx + w1, t0 + 18.5, "IA", 11, True, COR)
-        w2 = pdf.largura("IA", 11, True)
-        doc.texto(tx + w1 + w2, t0 + 18.5, " Code", 11, True, TXT)
-        w3 = pdf.largura(" Code", 11, True)
-        doc.texto(tx + w1 + w2 + w3 + 5, t0 + 18.5, "· desenvolvimento de softwares", 8.5, False, MUT)
+        fy = doc.altura_pagina - 30
+        doc.linha(M, fy - 16, DIR, fy - 16, LIN, 0.8)
+        bx = doc.largura_pagina / 2 - bloco / 2
+        cx, cy = bx + 8, fy + 1
+
+        def gira(px, py):
+            return (cx + px * math.cos(ang) - py * math.sin(ang), cy + px * math.sin(ang) + py * math.cos(ang))
+        quadrado = [gira(ox + 4 * math.cos(math.radians(ini + j * 15)), oy + 4 * math.sin(math.radians(ini + j * 15)))
+                    for ox, oy, ini in ((4, 4, 0), (-4, 4, 90), (-4, -4, 180), (4, -4, 270)) for j in range(7)]
+        doc.poligono(quadrado, COR)
+        doc.poligono([gira((x - 12) * 0.46, (y - 12) * 0.46) for x, y in RAIO], (0.04, 0.06, 0.08))
+        tx = bx + 24
+        doc.texto(tx, fy, "Correr", 10.5, True, TXT)
+        doc.texto(tx + pdf.largura("Correr", 10.5, True), fy, "IA", 10.5, True, COR)
+        doc.texto(tx + pdf.largura("CorrerIA", 10.5, True), fy, " Code", 10.5, True, TXT)
+        doc.texto(tx, fy + 9, oque, 6, True, MUT, espaco=0.9)
         if n > 1:
-            doc.texto(DIR - 12, t0 + 18.5, f"página {k + 1} de {n}", 8.5, False, MUT, "direita")
+            doc.texto(DIR, fy + 4, f"página {k + 1} de {n}", 8, False, MUT, "direita")
     return doc.bytes()
 
 
