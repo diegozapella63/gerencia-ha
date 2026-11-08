@@ -174,6 +174,11 @@ class TestConta(unittest.TestCase):
         self.assertEqual(calc.passa_alvo({"indexador": "pre", "taxa": 20}, {}, INDICES, HOJE, invs), "", "sem prefixado seu")
         self.assertEqual(calc.passa_alvo({"indexador": "estimado"}, {}, INDICES, HOJE, invs), "")
 
+    def test_quanto_rende_em_um_ano(self):
+        self.assertEqual(calc.rende_um_ano("pos", 118, 10000, INDICES), round(10000 * 1.18 * 0.1365 * 0.825, 2))
+        self.assertEqual(calc.rende_um_ano("pre", 13.71, 10000, INDICES), round(10000 * 0.1371 * 0.825, 2))
+        self.assertEqual(calc.rende_um_ano("ipca", 7, 10000, INDICES), round(10000 * (1.045 * 1.07 - 1) * 0.825, 2))
+
     def test_alvo(self):
         cdb = {"indexador": "cdi_pct", "taxa": 120}
         self.assertTrue(calc.passa_alvo(cdb, {"op_cdi": 120}, INDICES, HOJE), "igual ao alvo passa")
@@ -249,7 +254,7 @@ class TestAjustes(unittest.TestCase):
     def test_padrao_e_limpeza(self):
         aj = S.vazio()["ajustes"]
         self.assertEqual({k: aj[k] for k in aj if k.startswith("op_")}, {"op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [],
-                                                                       "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1})
+                                                                       "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1, "op_simular": 10000})
         d = S.vazio()
         d["ajustes"].update(op_cdi=120.456, op_pre="15", op_ipca=31, op_aviso="sim", op_hora="7:00", op_para=["person.ana", "x", "person.ana"], op_dias=45,
                             op_paginas=["https://banco.exemplo/a", "javascript:alert(1)", "https://banco.exemplo/a"] + [f"https://b{k}.exemplo" for k in range(12)])
@@ -258,6 +263,11 @@ class TestAjustes(unittest.TestCase):
                          (120.46, None, None, False, "10:00", ["person.ana"]))
         self.assertEqual(aj["op_paginas"][:2], ["https://banco.exemplo/a", "https://b0.exemplo"])
         self.assertEqual(aj["op_dias"], 1, "de 1 a 30")
+        self.assertEqual(aj["op_simular"], 10000)
+        d["ajustes"]["op_simular"] = 50
+        self.assertEqual(S.normalizar(d)["ajustes"]["op_simular"], 10000, "a partir de R$ 100")
+        d["ajustes"]["op_simular"] = 25000.5
+        self.assertEqual(S.normalizar(d)["ajustes"]["op_simular"], 25000.5)
         d["ajustes"]["op_dias"] = 7
         self.assertEqual(S.normalizar(d)["ajustes"]["op_dias"], 7)
         self.assertEqual(len(aj["op_paginas"]), 10)

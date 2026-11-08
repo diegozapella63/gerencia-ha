@@ -258,6 +258,18 @@ def passa_alvo(x, ajustes, ind, hoje=None, investimentos=None):
     return "meus" if m and eq["valor"] > m["melhor"]["valor"] + 1e-9 else ""
 
 
+def anual_do_grupo(grupo, v, ind):
+    """A taxa anual (decimal) de um valor na unidade da família: pos, % do CDI; pre, % ao ano; ipca, IPCA + %."""
+    cdi, ipca = num(ind.get("cdi")) / 100, num(ind.get("ipca")) / 100
+    return v / 100 * cdi if grupo == "pos" else v / 100 if grupo == "pre" else (1 + ipca) * (1 + v / 100) - 1
+
+
+def rende_um_ano(grupo, v, valor, ind):
+    """Quanto valor rende em 1 ano, já sem o IR (o de um CDB de 1 ano, 17,5%), a v na unidade da família
+    (rendeUmAno no app.js). Com o equivalente em CDB, vale também para LCI e LCA (que não pagam IR)."""
+    return round(num(valor) * anual_do_grupo(grupo, v, ind) * (1 - aliquota("reg", 365)), 2)
+
+
 def comparar_meus(x, investimentos, ind, hoje=None):
     """A oportunidade perto dos seus investimentos da mesma família (os seus, não os de terceiros; compararMeus no
     app.js): {"n": quantos da família, "abaixo": quantos rendem menos que ela, "melhor": {"nome", "valor"}} ou None."""

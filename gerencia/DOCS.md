@@ -24,7 +24,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
 - O **olho** no alto esconde os valores no Início, no Caixa e no Invest (cada aparelho lembra a escolha).
 - No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado). Numa tela de Mais, arrastar para a direita volta ao menu.
 - **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
-  - **Bancos**: bancos, quem tem conta em cada um e quem tem cartão.
+  - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão e o nível da conta e do cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
@@ -69,6 +69,8 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 ### Cartão de crédito
 
 Em **Mais › Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
+
+Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e, com cartão, o **Cartão** (ex.: Gold), e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os seus investimentos; numa conta com o nome de um terceiro, os dele) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
@@ -217,8 +219,8 @@ Em **Mais › Invest › Oportunidades**, as taxas de hoje do **Tesouro Direto**
 
 - **Alvo**: ao lado do nome de cada família, a taxa que você quer (ex.: 120% do CDI, 15% ao ano, IPCA + 7,5%). O que chega ao alvo fica verde, com **No alvo**. Sem alvo, vale o que rende mais que o melhor dos seus investimentos daquela família (**Melhor que os seus**); sem investimento seu na família, nada.
 - **Como um CDB**: LCI e LCA não pagam IR, então aparecem também como o CDB que renderia o mesmo depois do IR do prazo até o vencimento (sem vencimento, 15%). Ex.: uma LCA de 94% do CDI que vence em pouco mais de um ano vale um CDB de 113,9%. O Tesouro Selic aparece também em % do CDI. O alvo compara com esse valor.
-- **Perto dos seus**: cada linha diz se rende mais ou menos que os seus investimentos da mesma família (os seus, não os de terceiros).
-- **Páginas de ofertas** (só com a IA ligada): toque numa página pronta (**Mercado Pago**, **Nubank**, **PagBank**, **Inter** e um comparativo de CDBs de liquidez diária) ou cole o endereço da página de um banco ou corretora (até 10). O app abre a página e a IA lista as ofertas; cada taxa só vale se estiver escrita na página. Entram CDB, RDB, LC, LCI, LCA e as caixinhas e cofrinhos das contas, com a condição de cada taxa (ex.: "clientes Ultravioleta"); fundos, debêntures, CRI e CRA ficam de fora. Páginas que só mostram as taxas dentro do app do banco, ou depois do login, não dão para ler.
+- **Quanto rende**: cada linha mostra quanto o valor de **Simular com** (R$ 10 mil de início) rende em 1 ano, já sem o IR (o de um CDB de 1 ano; LCI e LCA pelo equivalente em CDB), e a diferença para o seu melhor investimento da mesma família (os seus, não os de terceiros). Uma oferta de um banco onde você marcou um próximo nível (Mais › Bancos) mostra quanto falta para ele.
+- **Páginas de ofertas** (só com a IA ligada): toque numa página pronta (**Mercado Pago**, **Nubank**, **PagBank**, **Inter** e um **Comparativo de CDBs** de liquidez diária) ou cole o endereço da página de um banco ou corretora (até 10). O app abre a página e a IA lista as ofertas; cada taxa só vale se estiver escrita na página. Entram CDB, RDB, LC, LCI, LCA e as caixinhas e cofrinhos das contas, com a condição de cada taxa (ex.: "clientes Ultravioleta"); fundos, debêntures, CRI e CRA ficam de fora. Páginas que só mostram as taxas dentro do app do banco, ou depois do login, não dão para ler.
 - As taxas do Tesouro vêm da tabela **Investir** do site do Tesouro Direto (se ela não abrir, dos dados abertos do Tesouro Transparente, do dia útil anterior) e valem uma hora; as páginas são lidas uma vez por dia. **Conferir agora** busca tudo de novo.
 - **Avisar no celular** (Mais › Configurações › Opções › Oportunidades de investimento; vem desligado): no **Horário** escolhido (10:00 de início), todo dia ou **a cada** tantos dias (de 1 a 30), o que chegou ao alvo (ou, sem alvo, rende mais que os seus) vai para o celular de quem foi escolhido em **Quem recebe**, como o aviso de prazos do ResolvIA (os celulares ligados a cada pessoa no Home Assistant). Cada oportunidade é avisada uma vez; de novo só se a taxa subir (0,10 no prefixado e no IPCA+, 1 ponto no % do CDI) ou se ela sair e voltar ao alvo. **Testar** manda agora para o seu celular. Tocar no aviso abre as oportunidades.
 - Não é recomendação: confira prazo, liquidez e garantia (FGC até R$ 250 mil por banco e instituição).

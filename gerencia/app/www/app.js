@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.42.1';
+const VERSAO = '1.43.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -69,7 +69,7 @@ function taxaBem(k) {
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
 const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
-  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1 };
+  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1, op_simular: 10000 };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -115,6 +115,8 @@ const NF1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFr
 const pct1 = v => NF1.format(v);
 const brlS = (v, c = 2) => (v < -0.005 ? '−' : '') + brl(Math.abs(v), c);
 const compacto = v => S.oculto ? '•••' : NFC.format(v);
+// dinheiro digitado: "100.000", "100000", "1.234,56" ou "1234,5"
+const numDinheiro = t => { const s = String(t ?? '').trim().replace(/[\sR$]/g, ''); if (!s) return NaN; return parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, '') : s); };
 const parseNum = t => { const s = String(t ?? '').trim().replace(/\s/g, ''); if (!s) return NaN; return parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s); };
 const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
@@ -3952,8 +3954,28 @@ function salvarSenhaNova() {
 
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
 function resumoContas(b) {
-  return (b.contas || []).map(c => (c.pessoa || 'Conta') + (c.cartao ? ' (cartão)' : '')).join(' · ');
+  return (b.contas || []).map(c => {
+    const extra = [c.nivel, c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : ''].filter(Boolean).join(', ');
+    const m = metaNivel(c, b.id);
+    return (c.pessoa || 'Conta') + (extra ? ` (${extra})` : '') + (m && m.falta > 0 ? ` · faltam ${brlCurto(m.falta)} para ${m.nome}` : m ? ` · já dá para ${m.nome}` : '');
+  }).join(' · ');
 }
+// quanto a pessoa da conta tem investido no banco: os investimentos de um terceiro com o nome dela; senão, os seus
+function investidoNaConta(c, bancoId, d = S.d) {
+  const terc = new Set(d.investimentos.filter(i => i.titular === 'terceiros').map(i => semAcento(i.terceiro)));
+  const p = semAcento(c.pessoa), deTerc = p && terc.has(p);
+  return d.investimentos.filter(i => i.banco === bancoId && (deTerc ? i.titular === 'terceiros' && semAcento(i.terceiro) === p : i.titular !== 'terceiros'))
+    .reduce((s, i) => s + valorHoje(i), 0);
+}
+// o próximo nível da conta (o nome e quanto ele pede): {nome, pede, tem, falta} ou null
+function metaNivel(c, bancoId) {
+  const pede = +c.meta_valor || 0;
+  if (!c.meta_nivel || !(pede > 0)) return null;
+  const tem = investidoNaConta(c, bancoId);
+  return { nome: c.meta_nivel, pede, tem, falta: Math.max(0, pede - tem) };
+}
+const brlCurto = v => v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : v >= 1e4 ? `R$ ${Math.round(v / 1000)} mil` : brl(v, 0);
+const NIVEIS_SUG = ['Black', 'Platinum', 'Gold', 'Infinite', 'Signature', 'Ultravioleta', 'Personnalité', 'Prime', 'Select', 'Estilo', 'Exclusive', 'One', 'Win'];
 
 let FB = null;
 // sobre: aberto por cima de outra janela (o + Banco do Conferir lançamentos), volta para ela ao salvar ou cancelar
@@ -3979,9 +4001,15 @@ function abrirBanco(id, nome, sobre) {
             <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>
               <div><div class="lbl">Vence dia</div><div class="pref"><input inputmode="numeric" data-fbc="vencimento" data-i="${i}" value="${c.vencimento || ''}" placeholder="10"></div></div></div>` : ''}
+            <div class="duo nivel-l"><div><div class="lbl">Nível da conta</div><input class="inp" data-fbc="nivel" data-i="${i}" value="${esc(c.nivel || '')}" placeholder="Ex.: One" list="dl-niveis" autocomplete="off"></div>
+              ${c.cartao ? `<div><div class="lbl">Cartão</div><input class="inp" data-fbc="cartao_nivel" data-i="${i}" value="${esc(c.cartao_nivel || '')}" placeholder="Ex.: Black" list="dl-niveis" autocomplete="off"></div>` : '<div></div>'}</div>
+            <div class="duo nivel-l"><div><div class="lbl">Próximo nível</div><input class="inp" data-fbc="meta_nivel" data-i="${i}" value="${esc(c.meta_nivel || '')}" placeholder="Ex.: Black" list="dl-niveis" autocomplete="off"></div>
+              <div><div class="lbl">Pede investido</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="meta_valor" data-i="${i}" value="${typeof c.meta_valor === 'number' ? NF0.format(c.meta_valor) : esc(c.meta_valor || '')}" placeholder="0"></div></div></div>
+            <p class="ajuda nivel-meta" data-meta="${i}">${textoMeta(c, FB.id)}</p>
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
-          <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
+          <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+          <datalist id="dl-niveis">${NIVEIS_SUG.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
         <div class="campo"><label for="b-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
           <input id="b-obs" class="inp" data-fb="obs" value="${esc(FB.obs || '')}" placeholder="Agência, conta, gerente…" autocomplete="off"></div>
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'investimento usa', 'investimentos usam')} este banco.</p>` : ''}`,
@@ -4005,13 +4033,28 @@ function usarBancoNaRevisao(b) {
   if (c) Object.assign(s, { conta: c.id, cartao: s.cartaoMaioria && !!c.cartao });
   s.bancoNovo = '';
 }
+// "Você tem R$ 60 mil aqui; o Black pede R$ 100 mil. Faltam R$ 40 mil." (no formulário, enquanto digita)
+function textoMeta(c, bancoId) {
+  const pede = numDinheiro(c.meta_valor) || 0;
+  if (!bancoId || !c.meta_nivel || !(pede > 0)) return bancoId ? `Você tem ${brl(investidoNaConta(c, bancoId), 0)} investidos aqui.` : '';
+  const tem = investidoNaConta(c, bancoId), falta = pede - tem;
+  return `Você tem ${brl(tem, 0)} aqui; o ${esc(c.meta_nivel)} pede ${brl(pede, 0)}. ${falta > 0 ? `Faltam ${brl(falta, 0)}.` : 'Já dá.'}`;
+}
 function salvarBanco() {
   const nome = (FB.nome || '').trim();
   if (!nome) { FB.erro = 'Dê um nome ao banco.'; pintarFolha(); return; }
   if (S.d.bancos.some(b => b.id !== FB.id && b.nome.toLowerCase() === nome.toLowerCase())) { FB.erro = 'Já existe um banco com esse nome.'; pintarFolha(); return; }
   const dia = (v, p) => Math.min(31, Math.max(1, parseInt(v, 10) || p));
   const b = { id: FB.id || 'b-' + uid(), nome, cor: FB.cor, obs: (FB.obs || '').trim(),
-    contas: FB.contas.map(c => ({ id: c.id, pessoa: (c.pessoa || '').trim(), cartao: !!c.cartao, fechamento: dia(c.fechamento, 1), vencimento: dia(c.vencimento, 10) })) };
+    contas: FB.contas.map(c => {
+      const k = { id: c.id, pessoa: (c.pessoa || '').trim(), cartao: !!c.cartao, fechamento: dia(c.fechamento, 1), vencimento: dia(c.vencimento, 10) };
+      const txt = x => String(x || '').trim().slice(0, 30);
+      if (txt(c.nivel)) k.nivel = txt(c.nivel);
+      if (k.cartao && txt(c.cartao_nivel)) k.cartao_nivel = txt(c.cartao_nivel);
+      const pede = Math.round((numDinheiro(c.meta_valor) || 0) * 100) / 100;
+      if (txt(c.meta_nivel) && pede > 0) Object.assign(k, { meta_nivel: txt(c.meta_nivel), meta_valor: pede });
+      return k;
+    }) };
   const naRevisao = !FB.id && PILHA.length && PILHA[PILHA.length - 1].montar === montarIA && IAS;
   persistir(d => { const k = d.bancos.findIndex(x => x.id === b.id); if (k >= 0) d.bancos[k] = b; else d.bancos.push(b); }, FB.id ? 'Banco salvo' : 'Banco cadastrado')
     .then(ok => {
@@ -4226,6 +4269,10 @@ function compararMeus(x, invs = S.d.investimentos, I = S.d.indices, h = hoje()) 
   const melhor = meus.reduce((a, m) => m[0] > a[0] ? m : a);
   return { n: meus.length, abaixo: meus.filter(m => m[0] < eq.valor - 1e-9).length, melhor: { nome: melhor[1], valor: melhor[0] } };
 }
+// a taxa anual (decimal) de um valor na unidade da família, e quanto valor rende em 1 ano sem o IR de um CDB de 1 ano
+// (anual_do_grupo e rende_um_ano no calc.py)
+const anualGrupo = (grupo, v, I = S.d.indices) => { const cdi = (+I.cdi || 0) / 100, ipca = (+I.ipca || 0) / 100; return grupo === 'pos' ? v / 100 * cdi : grupo === 'pre' ? v / 100 : (1 + ipca) * (1 + v / 100) - 1; };
+const rendeUmAno = (grupo, v, valor, I = S.d.indices) => r2((+valor || 0) * anualGrupo(grupo, v, I) * (1 - aliquota('reg', 365)));
 // como o banco escreve (taxa_txt e valor_txt no oportunidades.py)
 // casas = 0: inteiro quando dá, senão uma casa (113,9% do CDI)
 const numOp = (v, casas = 2) => casas === 0 ? (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1).replace('.', ',')) : v.toFixed(casas).replace('.', ',');
@@ -4256,7 +4303,13 @@ function linhaOport(x) {
   const extra = x.isento ? `como CDB de ${eq.grupo === 'pos' ? numOp(eq.valor, 0) + '%' : valorOp(eq.grupo, eq.valor)}` : ['selic_mais', 'cdi_mais'].includes(x.indexador) ? valorOp('pos', eq.valor) : '';
   const meus = !m ? '' : m.abaixo === m.n ? (m.n === 1 ? 'Mais que o seu' : `Mais que os seus ${m.n}`) : !m.abaixo ? (m.n === 1 ? 'Menos que o seu' : 'Menos que os seus')
     : `Mais que ${m.abaixo} dos seus ${m.n}`;
-  return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus ? `<span class="op-meus">${meus}</span>` : ''}</div>
+  // quanto o valor da simulação rende em 1 ano aqui, perto do seu melhor; e a meta de nível no banco da oferta
+  const valor = +S.d.ajustes.op_simular || 10000, ganho = rendeUmAno(eq.grupo, eq.valor, valor), dif = m ? ganho - rendeUmAno(eq.grupo, m.melhor.valor, valor) : 0;
+  const ganhoTxt = `${brlCurto(valor)} rendem ${brl(ganho, 0)} em 1 ano${m && Math.abs(dif) >= 1 ? `, ${brl(Math.abs(dif), 0)} ${dif > 0 ? 'a mais' : 'a menos'} que o seu melhor` : ''}`;
+  const b = x.origem === 'pagina' ? bancoPorNome(x.emissor) : null;
+  const meta = b && (b.contas || []).map(c => metaNivel(c, b.id)).find(z => z && z.falta > 0);
+  return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus && !m ? `<span class="op-meus">${meus}</span>` : ''}
+    <span class="op-ganho">${esc(ganhoTxt)}</span>${meta ? `<span class="op-nivel">${ic('trend', 'ic-s')}Faltam ${esc(brlCurto(meta.falta))} para o ${esc(meta.nome)} no ${esc(b.nome)}</span>` : ''}</div>
     <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}${passa === 'meus' ? 'Melhor que os seus' : 'No alvo'}</em>` : ''}</div></div>`;
 }
 function inputAlvo(grupo) {
@@ -4269,7 +4322,8 @@ function cardOportunidades() {
   if (O === undefined) carregarOport();
   const ops = O ? [...(O.titulos || []), ...(iaOn() ? O.ofertas || [] : [])] : [];
   let h = `<section class="card" id="oportunidades">${maisCab('target', 'Oportunidades')}
-    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}`;
+    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}
+    <label class="op-sim"><span>Simular com</span><span class="pref mini larga"><span>R$</span><input data-op-simular inputmode="decimal" value="${NF0.format(+S.d.ajustes.op_simular || 10000)}" aria-label="Valor da simulação, em reais"></span></label>`;
   let escondidas = 0;
   for (const [g, nome] of GRUPOS_OP) {
     const lista = ops.map(x => [x, equivalente(x)]).filter(([, e]) => e && e.grupo === g).sort((a, b) => b[1].valor - a[1].valor || a[0].nome.localeCompare(b[0].nome)).map(([x]) => x);
@@ -5534,7 +5588,15 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.fb && FB) { FB[el.dataset.fb] = el.value; return; }
-  if (el.dataset.fbc && FB) { FB.contas[+el.dataset.i][el.dataset.fbc] = el.dataset.fbc === 'pessoa' ? el.value : el.value.replace(/\D/g, '').slice(0, 2); if (el.dataset.fbc !== 'pessoa') el.value = FB.contas[+el.dataset.i][el.dataset.fbc]; return; }
+  if (el.dataset.fbc && FB) {
+    const k = el.dataset.fbc, c = FB.contas[+el.dataset.i];
+    if (['pessoa', 'nivel', 'cartao_nivel', 'meta_nivel', 'meta_valor'].includes(k)) c[k] = el.value;
+    else { c[k] = el.value.replace(/\D/g, '').slice(0, 2); el.value = c[k]; }
+    // a meta do nível muda enquanto digita (sem redesenhar a janela, para não perder o teclado)
+    const m = document.querySelector(`.nivel-meta[data-meta="${el.dataset.i}"]`);
+    if (m && ['pessoa', 'meta_nivel', 'meta_valor'].includes(k)) m.innerHTML = textoMeta(c, FB.id);
+    return;
+  }
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
   if (el.dataset.fs && FS) {
     FS[el.dataset.fs] = el.value;
@@ -5696,7 +5758,7 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
   if (ev.key === 'Enter' && ev.target.id === 'op-url') { ev.preventDefault(); adicionarPaginaOport(); return; }
-  if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.opAlvo) { ev.preventDefault(); ev.target.blur(); return; }
+  if (ev.key === 'Enter' && ev.target.dataset && (ev.target.dataset.opAlvo || ev.target.matches('[data-op-simular], [data-op-dias]'))) { ev.preventDefault(); ev.target.blur(); return; }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
 document.addEventListener('change', ev => {
@@ -5709,6 +5771,12 @@ document.addEventListener('change', ev => {
     return;
   }
   if (el.dataset.opAlvo) { salvarAlvoOport(el); return; }
+  if (el.matches('[data-op-simular]')) {
+    const v = Math.round((numDinheiro(el.value) || 0) * 100) / 100;
+    if (!(v >= 100 && v <= 1e8)) { toast('Use um valor a partir de R$ 100.'); el.value = NF0.format(+S.d.ajustes.op_simular || 10000); return; }
+    if (v !== +S.d.ajustes.op_simular) persistir(d => { d.ajustes.op_simular = v; }, 'Simulação com ' + brl(v, 0));
+    return;
+  }
   if (el.matches('[data-op-dias]')) {
     const n = parseInt(el.value, 10);
     if (!(n >= 1 && n <= 30)) { toast('Use de 1 a 30 dias.'); el.value = S.d.ajustes.op_dias || 1; return; }
@@ -5833,7 +5901,7 @@ function oportDemo() {
   });
   // as páginas prontas (no app, a lista vem do servidor: oportunidades.SUGESTOES)
   const sugestoes = [['Mercado Pago', 'https://www.mercadopago.com.br/cofrinhos'], ['Nubank', 'https://nubank.com.br/nu/caixinhas'], ['PagBank', 'https://pagbank.com.br/cdb'],
-    ['Inter', 'https://inter.co/pra-voce/investimentos/meu-porquinho/'], ['CDBs de liquidez diária (iDinheiro)', 'https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/']]
+    ['Inter', 'https://inter.co/pra-voce/investimentos/meu-porquinho/'], ['Comparativo de CDBs', 'https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/']]
     .filter(([, url]) => !pags.includes(url)).map(([nome, url]) => ({ nome, url }));
   return { titulos, ofertas, paginas, sugestoes: iaOn() ? sugestoes : [], tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
 }

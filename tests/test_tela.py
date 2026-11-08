@@ -109,6 +109,8 @@ class TestIgualAoServidor(Tela):
                 self.assertEqual(self.js("T.taxaOp(a)", x), O.taxa_txt(x))
         for g, v in (("pos", 113.94), ("pos", 120.0), ("pos", 101.02), ("pre", 13.2), ("ipca", 6.88)):
             self.assertEqual(self.js("T.valorOp(a[0], a[1])", [g, v]), O.valor_txt(g, v), (g, v))
+            for valor in (100, 10000, 123456.78):
+                self.assertAlmostEqual(self.js("T.rendeUmAno(a[0], a[1], a[2])", [g, v, valor]), calc.rende_um_ano(g, v, valor, INDICES), places=6)
 
     def test_totais(self):
         self.usar(base(investimentos=self.INVS))

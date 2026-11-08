@@ -1316,3 +1316,11 @@ input[readonly] { opacity: .8; }
 .op-hora-l .btn { flex: 1; justify-content: center; }
 .op-sug { margin: 10px 0 0; }
 .op-dias { width: 132px; }
+.nivel-l { margin-top: 10px; }
+.nivel-l .inp { width: 100%; }
+.nivel-meta { margin: 8px 0 0; }
+.op-row .op-t .op-ganho { color: var(--text-2); font-size: 13px; margin-top: 2px; white-space: normal; }
+.op-row .op-t .op-nivel { display: flex; align-items: center; gap: 5px; color: var(--accent-text); font-size: 13px; margin-top: 2px; white-space: normal; }
+.op-sim { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 2px; }
+.op-sim > span:first-child { color: var(--text-2); font-size: 14px; }
+.op-sim .pref.mini.larga { width: 150px; }

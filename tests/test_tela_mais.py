@@ -318,6 +318,33 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.esperar_aviso("Banco"), "Banco cadastrado")
         self.assertIsNotNone(self.linha(".banco-row", "Banco Roxo"), "já aparece na lista")
 
+    def test_nivel_da_conta_do_cartao_e_o_proximo(self):
+        # Banco Azul: Ana tem 10.000 (CDB Azul, dela); o próximo nível pede 25.000
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 investidos aqui.")
+        self.preencher('[data-fbc="nivel"][data-i="0"]', "One")
+        self.preencher('[data-fbc="cartao_nivel"][data-i="0"]', "Gold")
+        self.preencher('[data-fbc="meta_nivel"][data-i="0"]', "Black")
+        self.preencher('[data-fbc="meta_valor"][data-i="0"]', "25.000")
+        self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 aqui; o Black pede R$ 25.000. Faltam R$ 15.000.", "muda enquanto digita")
+        self.clicar('[data-a="b-salvar"]')
+        c = self.banco("b-azul")["contas"][0]
+        self.assertEqual({k: c.get(k) for k in ("nivel", "cartao_nivel", "meta_nivel", "meta_valor")},
+                         {"nivel": "One", "cartao_nivel": "Gold", "meta_nivel": "Black", "meta_valor": 25000})
+        self.assertNotIn("nivel", self.banco("b-azul")["contas"][1], "o vazio não é gravado")
+        self.assertEqual(self.linha(".banco-row", "Banco Azul"),
+                         "B Banco Azul Ana (One, cartão Gold) · faltam R$ 15 mil para Black · Beto (cartão) · 1 investimento · R$ 10.000")
+
+    def test_meta_de_um_terceiro_conta_os_investimentos_dele(self):
+        bancos = [{"id": "b-verde", "nome": "Banco Verde", "cor": "#4CD3A5", "contas": [
+            {"id": "k-verde", "pessoa": "Ana", "cartao": False, "fechamento": 1, "vencimento": 10, "meta_nivel": "Prime", "meta_valor": 3000},
+            {"id": "k-carla", "pessoa": "Carla", "cartao": False, "fechamento": 1, "vencimento": 10, "meta_nivel": "Prime", "meta_valor": 3000}]}]
+        self.abrir_bancos(base(bancos=bancos, investimentos=INVS))
+        self.assertEqual(self.linha(".banco-row", "Banco Verde"),
+                         "B Banco Verde Ana · já dá para Prime · Carla · faltam R$ 500 para Prime · 2 investimentos · R$ 6.500",
+                         "Ana: o Tesouro Verde (4.000, dela); Carla: a poupança dela (2.500)")
+
     def test_banco_sem_nome_nao_salva(self):
         self.abrir_bancos()
         self.clicar('.btn[data-a="banco"]')

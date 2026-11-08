@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.43.0
+
+- **Nível da conta e do cartão** (Mais › Bancos): em cada conta, o **Nível da conta** (ex.: One, Black) e, com cartão, o **Cartão** (ex.: Gold). E o **Próximo nível**, com quanto ele pede investido.
+- O app soma o que a pessoa tem investido naquele banco e mostra quanto falta: "Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000." Na lista de Bancos aparece "faltam R$ 40 mil para Black". Para um terceiro, contam os investimentos dele.
+- **Oportunidades: quanto rende**. Cada linha mostra quanto o valor da simulação rende em 1 ano, já sem o IR, e a diferença para o seu melhor investimento da mesma família: "R$ 10 mil rendem R$ 1.329 em 1 ano, R$ 158 a mais que o seu melhor". O valor você escolhe em **Simular com**.
+- Uma oferta de um banco onde você tem um próximo nível mostra também "Faltam R$ 40 mil para o Black no Banco X".
+- A página pronta do comparativo agora se chama **Comparativo de CDBs**.
+
 ## 1.42.1
 
 - **Oportunidades**: na primeira vez que a tela abre, as taxas do Tesouro aparecem sozinhas assim que chegam (às vezes ficava em "Ainda sem as taxas" até abrir de novo).

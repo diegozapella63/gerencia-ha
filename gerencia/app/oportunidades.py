@@ -33,7 +33,7 @@ SUGESTOES = [
     {"nome": "Nubank", "url": "https://nubank.com.br/nu/caixinhas"},
     {"nome": "PagBank", "url": "https://pagbank.com.br/cdb"},
     {"nome": "Inter", "url": "https://inter.co/pra-voce/investimentos/meu-porquinho/"},
-    {"nome": "CDBs de liquidez diária (iDinheiro)", "url": "https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/"},
+    {"nome": "Comparativo de CDBs", "url": "https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/"},
 ]
 ISENTOS = {"lci", "lca"}
 # a taxa que faz sentido em cada indexador (fora disso, a IA leu errado)

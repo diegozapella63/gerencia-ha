@@ -23,10 +23,10 @@ class TelaOport(TelaMais):
         self.pg.wait_for_selector("#oportunidades .op-row")
 
     def grupo(self, g):
-        """[(nome, taxa, o que vem embaixo da taxa, comparação, no alvo)] de uma família."""
+        """[(nome, taxa, o que vem embaixo da taxa, quanto rende perto do seu melhor, no alvo)] de uma família."""
         return self.js("""[...document.querySelectorAll(`#oportunidades .op-grupo[data-grupo="${a}"] .op-row`)].map(r => [
             r.querySelector('.op-t b').textContent, r.querySelector('.op-v b').textContent,
-            (r.querySelector('.op-v small') || {}).textContent || '', (r.querySelector('.op-meus') || {}).textContent || '',
+            (r.querySelector('.op-v small') || {}).textContent || '', ((r.querySelector('.op-ganho') || {}).textContent || '').replace(/^.* em 1 ano,? ?/, ''),
             r.classList.contains('passa')])""", g)
 
 
@@ -35,13 +35,13 @@ class TestCartao(TelaOport):
         self.abrir_invest()
         self.assertEqual(self.texto("#oportunidades h2"), "Oportunidades")
         self.assertEqual(self.textos("#oportunidades .op-grupo-cab > b"), ["Pós-fixado", "Prefixado", "IPCA+"])
-        self.assertEqual(self.grupo("pos"), [["Tesouro Selic 2031", "Selic + 0,09%", "101,5% do CDI", "Menos que o seu", False],
-                                             ["Tesouro Reserva 2036", "Selic", "100,7% do CDI", "Menos que o seu", False]],
-                         "a de terceiros não conta como sua")
+        self.assertEqual(self.grupo("pos"), [["Tesouro Selic 2031", "Selic + 0,09%", "101,5% do CDI", "R$ 28 a menos que o seu melhor", False],
+                                             ["Tesouro Reserva 2036", "Selic", "100,7% do CDI", "R$ 37 a menos que o seu melhor", False]],
+                         "perto do seu CDB de 104% (o de terceiros, de 200%, não conta como seu)")
         self.assertEqual(self.grupo("pre"), [["Tesouro Prefixado 2032", "13,71% ao ano", "", "", False],
                                              ["Tesouro Prefixado 2029", "13,42% ao ano", "", "", False]], "sem prefixado seu: sem comparação")
         self.assertEqual([r[0] for r in self.grupo("ipca")], ["Tesouro IPCA+ 2032", "Tesouro IPCA+ 2040", "Tesouro IPCA+ com Juros Semestrais 2045"])
-        self.assertEqual(self.grupo("ipca")[0][3], "Mais que o seu")
+        self.assertTrue(self.grupo("ipca")[0][3].endswith("a mais que o seu melhor"))
         self.assertIn("Tesouro Direto: taxas de hoje", self.texto("#oportunidades .dica-quando"))
         self.assertIn("Não é recomendação", self.texto("#oportunidades .op-nota"))
 
@@ -82,7 +82,8 @@ class TestCartao(TelaOport):
     def test_ofertas_das_paginas_com_o_equivalente_em_cdb(self):
         self.abrir_invest(op_paginas=[PAGINA], op_cdi=110)
         pos = self.grupo("pos")
-        self.assertEqual(pos[0], ["CDB Banco Sol", "118% do CDI", "", "Mais que o seu", True])
+        self.assertEqual(pos[0][:3] + pos[0][4:], ["CDB Banco Sol", "118% do CDI", "", True])
+        self.assertTrue(pos[0][3].endswith("a mais que o seu melhor"))
         self.assertEqual(pos[1][:3], ["LCA Banco Sol", "94% do CDI", "como CDB de 113,9%"], "isenta: a LCA de 94% vale um CDB de 113,9% (IR de 17,5% até o vencimento)")
         self.assertIn("bancosol.exemplo · vence 06/11/2028", self.linha("#oportunidades .op-row", "CDB Banco Sol"))
         self.assertEqual(self.textos("#oportunidades .op-pag b"), ["bancosol.exemplo"])
@@ -103,13 +104,34 @@ class TestCartao(TelaOport):
 
     def test_paginas_prontas(self):
         self.abrir_invest()
-        self.assertEqual(self.textos("#oportunidades .op-sug .chip"), ["+ Mercado Pago", "+ Nubank", "+ PagBank", "+ Inter", "+ CDBs de liquidez diária (iDinheiro)"])
+        self.assertEqual(self.textos("#oportunidades .op-sug .chip"), ["+ Mercado Pago", "+ Nubank", "+ PagBank", "+ Inter", "+ Comparativo de CDBs"])
         self.clicar('#oportunidades .op-sug [data-v="https://nubank.com.br/nu/caixinhas"]')
         self.esperar()
         self.assertEqual(self.dados()["ajustes"]["op_paginas"], ["https://nubank.com.br/nu/caixinhas"])
         self.pg.wait_for_function("() => document.querySelectorAll('#oportunidades .op-sug .chip').length === 4")
         self.abrir_invest(ia=False)
         self.assertEqual(self.conta("#oportunidades .op-sug"), 0, "sem a IA, sem páginas")
+
+    def test_quanto_rende_e_o_nivel_no_banco_da_oferta(self):
+        bancos = [dict(BANCOS[0]), {"id": "b-sol", "nome": "Banco Sol", "cor": "#FFA23E", "contas": [
+            {"id": "k-sol", "pessoa": "Ana", "cartao": False, "fechamento": 1, "vencimento": 10, "meta_nivel": "Black", "meta_valor": 50000}]}]
+        self.abrir(base(bancos=bancos, investimentos=INVS, ajustes={"corrigir": True, "op_paginas": [PAGINA]}), ui=INVEST)
+        self.pg.wait_for_selector("#oportunidades .op-row")
+        self.assertEqual(self.pg.input_value("[data-op-simular]"), "10.000")
+        cdb = self.linha("#oportunidades .op-row", "CDB Banco Sol")
+        # 118% do CDI de 13,65% = 16,107% ao ano; menos 17,5% de IR = R$ 1.329 em 1 ano; o seu CDB de 104% renderia R$ 1.171
+        self.assertIn("R$ 10 mil rendem R$ 1.329 em 1 ano, R$ 158 a mais que o seu melhor", cdb)
+        self.assertIn("Faltam R$ 50 mil para o Black no Banco Sol", cdb, "a oferta é do banco onde você tem uma meta de nível")
+        self.assertNotIn("Faltam", self.linha("#oportunidades .op-row", "Tesouro Prefixado 2032"), "no Tesouro, não")
+        self.pg.fill("[data-op-simular]", "50.000")
+        self.pg.locator("[data-op-simular]").dispatch_event("change")
+        self.esperar()
+        self.assertEqual(self.dados()["ajustes"]["op_simular"], 50000)
+        self.assertIn("R$ 50 mil rendem R$ 6.644 em 1 ano", self.linha("#oportunidades .op-row", "CDB Banco Sol"))
+        self.pg.fill("[data-op-simular]", "5")
+        self.pg.locator("[data-op-simular]").dispatch_event("change")
+        self.assertEqual(self.esperar_aviso("Use um valor"), "Use um valor a partir de R$ 100.")
+        self.assertEqual(self.dados()["ajustes"]["op_simular"], 50000)
 
     def test_com_a_ia_desligada_so_o_tesouro(self):
         self.abrir_invest(op_paginas=[PAGINA], ia=False)
