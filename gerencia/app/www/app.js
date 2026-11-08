@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.44.0';
+const VERSAO = '1.44.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4155,7 +4155,7 @@ const PRODUTOS = [
   ['InventarIA', 'inventario-ha', 'package', 'Inventário da casa: cômodos, itens e valores.'],
   ['EconomIA', 'economia-ha', 'receipt', 'Lista de compras com o melhor preço perto de casa.'],
   ['MemorIA', 'memoria-ha', 'book-open', 'Cadernos de anotação que abrem na hora certa.'],
-  ['CorrerIA', 'correria-ha', 'chat', 'O contato no WhatsApp: os apps respondem por lá.'],
+  ['CorrerIA', 'correria-ha', 'chat', 'Pergunte e peça a qualquer app, no chat ou no WhatsApp.'],
 ];
 // "GerencIA" com o "IA" na cor de destaque, numa peça só (o nome não quebra)
 const marcaNome = n => `<span class="sb-wm">${n.slice(0, -2)}<span>${n.slice(-2)}</span></span>`;

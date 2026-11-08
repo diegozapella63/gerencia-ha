@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.44.1
+
+- **Mais › Sobre**: a CorrerIA agora é descrita como o chat com todos os apps (pergunte e peça, também pelo WhatsApp).
+
 ## 1.44.0
 
 - **Benefícios** (nova linha no Mais): o que você ganha por pagar um plano ou ter um cartão, ligado ao fixo ou à conta que o sustenta.
