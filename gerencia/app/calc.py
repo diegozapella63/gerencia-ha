@@ -2,9 +2,10 @@
 
 Taxas são guardadas em porcentagem (13.65 = 13,65% a.a.) e convertidas aqui.
 """
+import calendar
 import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 INDEXADORES = {
     "cdi_pct": "% do CDI",
@@ -569,3 +570,65 @@ def caixa(data, hoje=None):
         else:
             r["saiu_mes" if pago else "a_pagar_mes"] += v
     return {k: round(x, 2) for k, x in r.items()}
+
+
+# ---------------------------------------------------------------- benefícios (Mais › Benefícios)
+
+def mais_meses(d, n):
+    """A mesma data n meses depois; o dia vai até o último do mês (31/01 + 1 mês = 28/02)."""
+    m = d.month - 1 + n
+    a, m = d.year + m // 12, m % 12 + 1
+    return date(a, m, min(d.day, calendar.monthrange(a, m)[1]))
+
+
+def ciclo_beneficio(b, hoje=None):
+    """O período de agora de um benefício (cicloBeneficio no app.js): começa em "desde" e renova todo mês, todo ano ou
+    nunca. {"inicio", "fim" (a próxima renovação, ou None), "usado" (os usos do período), "restante" (contagem e
+    saldo; vantagem: None), "ate" (o último dia para usar o que sobrou: antes de renovar ou da validade), "vencido"}."""
+    hoje = hoje or date.today()
+    ancora = parse_data(b.get("desde")) or hoje
+    passo = {"mes": 1, "ano": 12}.get(b.get("renova"))
+    if passo:
+        k = 0
+        while mais_meses(ancora, (k + 1) * passo) <= hoje:
+            k += 1
+        inicio, fim = mais_meses(ancora, k * passo), mais_meses(ancora, (k + 1) * passo)
+    else:
+        inicio, fim = ancora, None
+    usado = 0.0
+    for u in b.get("usos") or []:
+        d = parse_data((u or {}).get("data")) if isinstance(u, dict) else None
+        if d and d >= inicio and (fim is None or d < fim):
+            usado += num(u.get("qtd"))
+    validade = parse_data(b.get("validade"))
+    ates = [x for x in (fim - timedelta(days=1) if fim else None, validade) if x]
+    ate = min(ates) if ates else None
+    conta = b.get("tipo") in ("contagem", "saldo")
+    return {"inicio": inicio.isoformat(), "fim": fim.isoformat() if fim else None, "usado": round(usado, 2),
+            "restante": round(max(0.0, num(b.get("total")) - usado), 2) if conta else None,
+            "ate": ate.isoformat() if ate else None, "vencido": bool(validade and validade < hoje)}
+
+
+def origem_beneficio(b, data, hoje=None):
+    """De onde vem o benefício (origemBeneficio no app.js): {"tipo": "fixo" | "conta" | "", "nome", "ativa"}. Um fixo
+    que não acontece mais nos próximos 12 meses, ou uma conta que saiu de Bancos, não está mais ativa."""
+    hoje = hoje or date.today()
+    o = str(b.get("origem") or "")
+    if o.startswith("fixo:"):
+        r = next((x for x in data.get("recorrencias") or [] if x.get("id") == o[5:]), None)
+        if not r:
+            return {"tipo": "fixo", "nome": "Fixo apagado", "ativa": False}
+        ym = hoje.isoformat()[:7]
+        a, m = int(ym[:4]), int(ym[5:7])
+        proximos = [f"{a + (m - 1 + k) // 12:04d}-{(m - 1 + k) % 12 + 1:02d}" for k in range(1, 13)]
+        return {"tipo": "fixo", "nome": r.get("descricao") or "Fixo", "ativa": any(ativa_em(r, y) for y in proximos)}
+    if o.startswith("conta:"):
+        for bc in data.get("bancos") or []:
+            for c in bc.get("contas") or []:
+                if c.get("id") == o[6:]:
+                    nome = bc.get("nome") or "Banco"
+                    nome += f" · {c['pessoa']}" if c.get("pessoa") else ""
+                    nome += f" · {c['cartao_nivel']}" if c.get("cartao") and c.get("cartao_nivel") else f" · {c['nivel']}" if c.get("nivel") else ""
+                    return {"tipo": "conta", "nome": nome, "ativa": True}
+        return {"tipo": "conta", "nome": "Conta apagada", "ativa": False}
+    return {"tipo": "", "nome": "", "ativa": True}

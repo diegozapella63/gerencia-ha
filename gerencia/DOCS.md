@@ -27,6 +27,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão e o nível da conta e do cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
+  - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
     - *Integrações*: contas no CronologIA, bens no InventarIA, leitura por IA (com a chave **Usar IA**), senhas dos PDFs, faturas por e-mail, CorrerIA (WhatsApp, Claude e Gemini), uso da IA e sensores no Home Assistant.
@@ -212,6 +213,16 @@ Investimentos podem guardar imagens (comprovante, print do banco, extrato): no f
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.
 
 Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais › Invest › Índices de mercado**.
+
+## Benefícios
+
+Em **Mais › Benefícios**, o que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, seguro viagem… Cada benefício fica ligado ao que o sustenta: um **fixo** (a assinatura) ou uma **conta** de Mais › Bancos (com o nível da conta ou do cartão), e a lista fica agrupada assim.
+
+- **Tipo**: **Quantidade** (ex.: 6 salas VIP por ano; **Usei 1** desconta e mostra "restam 5"), **Saldo** (ex.: US$ 100 de créditos por mês; **Usei** pergunta quanto) ou **Vantagem** (sem contagem).
+- **Renova** todo mês, todo ano ou não renova, a partir da data em **Renova a partir de** (o aniversário do plano ou do cartão): no dia, o que foi usado zera. **Vale até** (opcional) é o último dia do benefício.
+- Toque no nome para editar: aparecem os usos do período, e dá para tirar um que foi lançado por engano.
+- **No Início**: "Benefício para usar" quando o que sobrou vence em até 30 dias (antes de renovar ou da validade), e "Benefício que vai parar" quando o fixo acabou ou a conta saiu de Bancos.
+- Os fixos (Mais › Caixa) e os bancos mostram quantos benefícios têm.
 
 ## Oportunidades de investimento
 

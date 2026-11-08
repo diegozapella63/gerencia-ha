@@ -273,6 +273,26 @@ class TestAjustes(unittest.TestCase):
         self.assertEqual(len(aj["op_paginas"]), 10)
 
 
+class TestBeneficiosNoServidor(unittest.TestCase):
+    def test_a_lista_fica_guardada(self):
+        d = S.vazio()
+        self.assertEqual(d["beneficios"], [])
+        d["beneficios"] = [{"id": "bn-1", "nome": "Sala VIP", "tipo": "contagem", "total": 6}, "lixo"]
+        self.assertEqual(S.normalizar(d)["beneficios"], [{"id": "bn-1", "nome": "Sala VIP", "tipo": "contagem", "total": 6}])
+        self.assertIn("beneficios", S.CAMPOS_USUARIO, "o PUT da tela grava os benefícios")
+
+    def test_periodo(self):
+        b = {"tipo": "contagem", "total": 6, "renova": "ano", "desde": "2026-03-15", "usos": [{"data": "2026-04-10", "qtd": 1}, {"data": "2026-01-10", "qtd": 1}]}
+        self.assertEqual(calc.ciclo_beneficio(b, HOJE), {"inicio": "2026-03-15", "fim": "2027-03-15", "usado": 1.0, "restante": 5.0, "ate": "2027-03-14", "vencido": False})
+        mes = calc.ciclo_beneficio(dict(b, renova="mes", desde="2026-01-31"), date(2026, 3, 1))
+        self.assertEqual((mes["inicio"], mes["fim"]), ("2026-02-28", "2026-03-31"), "31/01 + 1 mês = 28/02")
+        saldo = calc.ciclo_beneficio({"tipo": "saldo", "total": 100, "renova": "nunca", "desde": "2026-10-01", "validade": "2026-12-31",
+                                      "usos": [{"data": "2026-10-05", "qtd": 30.5}]}, HOJE)
+        self.assertEqual((saldo["restante"], saldo["ate"], saldo["fim"]), (69.5, "2026-12-31", None))
+        self.assertTrue(calc.ciclo_beneficio({"tipo": "vantagem", "validade": "2026-10-01"}, HOJE)["vencido"])
+        self.assertIsNone(calc.ciclo_beneficio({"tipo": "vantagem"}, HOJE)["restante"])
+
+
 class ComServidor(unittest.TestCase):
     def setUp(self):
         for p in (S.OPORT_ARQ, S.ARQ):

@@ -37,7 +37,7 @@ import emails  # noqa: E402
 import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 
-VERSAO = "1.43.1"
+VERSAO = "1.44.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -89,7 +89,7 @@ OP_FAIXA = {"op_cdi": (50.0, 300.0), "op_pre": (1.0, 60.0), "op_ipca": (0.0, 30.
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
 DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias")
+LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias", "beneficios")
 
 
 def log(*a):
@@ -115,6 +115,7 @@ def vazio():
         "lancamentos": [],
         "recorrencias": [],
         "categorias": calc.categorias_padrao(),
+        "beneficios": [],  # Mais › Benefícios: salas VIP, créditos… ligados a um fixo ou a uma conta (calc.ciclo_beneficio)
     }
 
 
@@ -2544,7 +2545,7 @@ TIPOS_MIME = {
     ".txt": "text/plain; charset=utf-8",
 }
 
-CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias")
+CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias", "beneficios")
 
 
 CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)

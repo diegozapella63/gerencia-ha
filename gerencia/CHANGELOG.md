@@ -1,5 +1,15 @@
 # Mudanças
 
+## 1.44.0
+
+- **Benefícios** (nova linha no Mais): o que você ganha por pagar um plano ou ter um cartão, ligado ao fixo ou à conta que o sustenta.
+  - **Quantidade**, como 6 salas VIP por ano: **Usei 1** desconta e mostra "restam 5".
+  - **Saldo**, como US$ 100 de créditos por mês: **Usei** pergunta quanto.
+  - **Vantagem**, como o seguro viagem, sem contagem.
+- Cada um renova todo mês, todo ano ou não renova, a partir da data escolhida, e pode ter **Vale até**. Ao editar, aparecem os usos do período (dá para tirar um).
+- **No Início**: "Benefício para usar" quando o que sobrou vence em até 30 dias, e "Benefício que vai parar" quando o fixo acabou ou a conta saiu de Bancos.
+- Os fixos (Mais › Caixa) e os bancos mostram quantos benefícios têm.
+
 ## 1.43.1
 
 - **Mais › Sobre**: a **CorrerIA** (o contato no WhatsApp) entra na lista dos apps.

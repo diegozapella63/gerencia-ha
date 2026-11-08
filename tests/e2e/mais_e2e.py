@@ -9,11 +9,12 @@ SP=sys.argv[1]; erros=[]
 B='http://localhost:8099/'
 def st(): return json.loads(urllib.request.urlopen(B+'api/state').read())
 def get(p): return json.loads(urllib.request.urlopen(B+p).read())
-LINHAS = ['Bancos', 'Caixa', 'Invest', 'Relatório de patrimônio', 'Configurações', 'Sobre']
+LINHAS = ['Bancos', 'Caixa', 'Invest', 'Benefícios', 'Relatório de patrimônio', 'Configurações', 'Sobre']
 TELAS = {  # tela: (título, as seções)
     'bancos': ('Bancos', []),
     'caixa': ('Caixa', ['Fixos', 'Categorias', 'Dicas de economia']),
     'invest': ('Invest', ['Índices de mercado', 'Oportunidades']),
+    'beneficios': ('Benefícios', []),
 }
 ABAS = {
     'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'Leitura por IA', 'Senhas dos PDFs', 'Faturas por e-mail', 'CorrerIA', 'Uso da IA', 'Sensores no Home Assistant'],

@@ -1207,7 +1207,7 @@ class TestAtalhosParaMais(TelaMais):
 
     def test_ancora_desconhecida_abre_o_menu(self):
         self.assertEqual(self.atalho("outra"), ["", "aparencia"])
-        self.assertEqual(self.conta("#app .menu-row"), 6)
+        self.assertEqual(self.conta("#app .menu-row"), 7)
 
 
 class TestMenuMais(TelaMais):
@@ -1215,11 +1215,12 @@ class TestMenuMais(TelaMais):
     Numa tela, "‹ Mais" no alto, o Voltar do celular e arrastar para a direita voltam ao menu; Mais fica marcado embaixo."""
 
     LINHAS = [("Bancos", "Quem tem conta e os cartões."), ("Caixa", "Fixos, categorias e dicas de economia."),
-              ("Invest", "Índices de mercado e oportunidades."), ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
+              ("Invest", "Índices de mercado e oportunidades."), ("Benefícios", "Salas VIP, créditos e vantagens dos seus planos e cartões."),
+              ("Relatório de patrimônio", "Para imprimir ou salvar em PDF."),
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):
@@ -1235,8 +1236,8 @@ class TestMenuMais(TelaMais):
         linhas = self.js("[...document.querySelectorAll('#app .menu-row')].map(r => [r.querySelector('b').textContent, r.querySelector('.mb > span').textContent])")
         self.assertEqual([tuple(x) for x in linhas], self.LINHAS)
         self.assertEqual(self.js("[...document.querySelectorAll('#app .menu-row')].map(r => r.dataset.v || r.dataset.a)"),
-                         ["bancos", "caixa", "invest", "relatorio", "config", "sobre"])
-        self.assertEqual(self.conta("#app .menu-row .mais-ic svg"), 6, "cada linha com o ícone no quadradinho")
+                         ["bancos", "caixa", "invest", "beneficios", "relatorio", "config", "sobre"])
+        self.assertEqual(self.conta("#app .menu-row .mais-ic svg"), 7, "cada linha com o ícone no quadradinho")
         self.assertEqual(self.conta("#app .uplink"), 0, "no menu não há ‹ Mais")
         self.assertEqual(self.conta("#app .sync"), 0, "nem a linha embaixo do título")
         self.assertEqual(self.conta("#app .mais-abas"), 0, "as abas ficaram em Configurações")

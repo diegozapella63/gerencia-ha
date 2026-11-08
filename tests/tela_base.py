@@ -137,7 +137,7 @@ _ABRIR = """async (a) => {
   let rev = 0;
   try { await T.api.save({ rev: -1 }); } catch (e) { rev = e.d.rev; }
   const d = a.d;
-  let r = await T.api.save(Object.assign({ bancos: [], investimentos: [], lancamentos: [], recorrencias: [], ajustes: {}, exemplo: false,
+  let r = await T.api.save(Object.assign({ bancos: [], investimentos: [], lancamentos: [], recorrencias: [], beneficios: [], ajustes: {}, exemplo: false,
     categorias: T.clone(T.CATEGORIAS_PADRAO) }, d, { rev, substituir_historico: true, historico: d.historico || [] }));
   if (d.indices) r = await T.api.indices({ cdi: d.indices.cdi, selic: d.indices.selic, ipca: d.indices.ipca, tr: d.indices.tr });
   const u0 = JSON.parse(window.__UI0);

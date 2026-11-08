@@ -45,7 +45,7 @@ tests/                        testes (ver tests/README.md)
 docs/                         capturas de tela do README
 ```
 
-Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup), as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e do backup da pasta share; a tela só vê o fim, ••••45), as faturas por e-mail em `/data/emails.json` e os PDFs delas em `/data/emails` (os últimos 30; fora das exportações), as taxas do Tesouro, as ofertas das páginas e o que já foi avisado em `/data/oportunidades.json` e backups em `/share/gerencia`.
+Os dados ficam em `/data/gerencia.json` (com `rev`: um PUT com revisão velha recebe 409 e o estado atual), versões automáticas em `/data/versoes` (as 3 últimas), imagens dos investimentos em `/data/fotos`, a conversa com a IA em `/data/chat.json` (as últimas 60 mensagens; fora do backup), as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e do backup da pasta share; a tela só vê o fim, ••••45), as faturas por e-mail em `/data/emails.json` e os PDFs delas em `/data/emails` (os últimos 30; fora das exportações), as taxas do Tesouro, as ofertas das páginas e o que já foi avisado em `/data/oportunidades.json` (os benefícios ficam no próprio `gerencia.json`, em `beneficios`: `{id, nome, origem: fixo:<id>|conta:<id>, tipo: contagem|saldo|vantagem, total, moeda, renova: mes|ano|nunca, desde, validade, usos}`; a conta do período em `calc.ciclo_beneficio`, igual ao app.js) e backups em `/share/gerencia`.
 
 ## Rodar no computador
 

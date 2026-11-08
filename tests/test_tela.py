@@ -96,6 +96,25 @@ class TestIgualAoServidor(Tela):
            {"indexador": "ipca_mais", "taxa": 7.04}, {"indexador": "ipca_mais", "taxa": 6.4, "isento": True, "vencimento": "2029-08-15"},
            {"indexador": "estimado", "taxa": 9}]
 
+    def test_beneficios_periodo_e_origem(self):
+        bens = [{"tipo": "contagem", "total": 6, "renova": "ano", "desde": "2026-03-15", "usos": [{"data": "2026-04-10", "qtd": 1}, {"data": "2026-01-10", "qtd": 1}]},
+                {"tipo": "saldo", "total": 100, "renova": "mes", "desde": "2026-01-31", "usos": [{"data": "2026-10-31", "qtd": 30.5}, {"data": "2026-11-01", "qtd": 2}]},
+                {"tipo": "saldo", "total": 50, "renova": "nunca", "desde": "2026-12-01", "validade": "2027-01-31", "usos": []},
+                {"tipo": "vantagem", "renova": "nunca", "desde": "2025-01-01", "validade": "2026-10-01"},
+                {"tipo": "contagem", "total": 2, "renova": "mes"}]
+        self.usar(base())
+        for b in bens:
+            with self.subTest(b=b):
+                self.assertEqual(self.js("T.cicloBeneficio(a)", b), calc.ciclo_beneficio(b, HOJE))
+        import copy
+        d = base(bancos=copy.deepcopy(BANCOS), recorrencias=[{"id": "r1", "descricao": "Plano Sol", "freq": "mensal", "inicio": "2026-01"},
+                                             {"id": "r2", "descricao": "Velho", "freq": "mensal", "inicio": "2025-01", "fim": "2026-10"}])
+        d["bancos"][0]["contas"][0].update(cartao_nivel="Black")
+        self.usar(d)
+        for o in ("fixo:r1", "fixo:r2", "fixo:sumiu", "conta:k-ana", "conta:k-verde", "conta:sumiu", ""):
+            with self.subTest(o=o):
+                self.assertEqual(self.js("T.origemBeneficio({ origem: a })", o), calc.origem_beneficio({"origem": o}, d, HOJE))
+
     def test_oportunidades_equivalente_alvo_e_comparacao(self):
         import oportunidades as O
         aj = {"op_cdi": 110, "op_pre": 13.71, "op_ipca": 7.5}
@@ -194,7 +213,8 @@ class TestIgualAoServidor(Tela):
     def test_despesa_ligada_ao_recebimento(self):
         """Um plano descontado do salário (vínculo): sai no dia em que o salário entra, nos dois lados.
         Aqui o salário de novembro entrou adiantado (01/11) e o plano é do dia 20: já saiu do caixa."""
-        d = base(bancos=BANCOS, recorrencias=[
+        import copy
+        d = base(bancos=copy.deepcopy(BANCOS), recorrencias=[
             {"id": "r-sal", "tipo": "receita", "descricao": "Salário", "valor": 5000, "dia": 5, "inicio": "2026-01"},
             {"id": "r-plano", "tipo": "despesa", "descricao": "Plano", "valor": 400, "dia": 20, "inicio": "2026-01", "vinculo": "r-sal"}],
             lancamentos=[{"id": "l-sal", "tipo": "receita", "descricao": "Salário", "valor": 5000, "data": "2026-11-01", "pago": True, "recorrencia": "r-sal", "competencia": "2026-11"},
