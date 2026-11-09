@@ -12,6 +12,10 @@ with sync_playwright() as p:
     pg = b.new_page(viewport={'width': 412, 'height': 900}, color_scheme='dark')
     pg.on('pageerror', lambda e: erros.append('PAGEERROR ' + str(e)))
     pg.on('console', lambda m: erros.append(m.text) if m.type == 'error' else None)
+    # a verificação sozinha é a partir do horário escolhido (8h): à meia-noite, para o teste valer a qualquer hora
+    st = get('api/state')
+    corpo = json.dumps({'rev': st['rev'], 'ajustes': {**st['ajustes'], 'dicas_hora': '00:00'}}).encode()
+    urllib.request.urlopen(urllib.request.Request(B + 'api/state', data=corpo, method='PUT', headers={'Content-Type': 'application/json'})).read()
     # sem dados: dicas_estado marca a verificação do dia
     at1 = get('api/dicas').get('atualizado') or ''
     tem(at1, date.today().isoformat() + 'T', 'sem assinaturas: a verificação de hoje fica marcada')
