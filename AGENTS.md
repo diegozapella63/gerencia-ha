@@ -25,7 +25,8 @@ gerencia/app/bens.py          bens do InventarIA, depreciados por categoria
 gerencia/app/voz.py           Falar: fala para texto do Home Assistant (WebSocket feito à mão)
 gerencia/app/assinaturas.py   dicas de economia com preços conferidos na página oficial
 gerencia/app/oportunidades.py oportunidades de investimento: as taxas do Tesouro Direto (tabela Investir do site; reserva:
-                              dados abertos do Tesouro Transparente), as ofertas das páginas escolhidas lidas pela IA (o trecho
+                              dados abertos do Tesouro Transparente), as ofertas dos bancos cadastrados lidas pela IA (a página
+                              pronta pelo nome do banco, PAGINAS_BANCOS, ou a Página de ofertas do banco, `ofertas`; o trecho
                               conferido, só com FGC), o que avisar e os textos; a conta (equivalente, passa_alvo, comparar_meus)
                               fica no calc.py, igual à do app.js
 gerencia/app/beneficios.py    benefícios lidos pela IA (print, foto, PDF, texto ou a página oficial): o pedido, o trecho conferido

@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.46.0
+
+- **Oportunidades: quanto rende em destaque**. Em cada linha, o rendimento em 1 ano aparece em verde e numa linha só dele, sem quebrar: **+R$ 1.209** em 1 ano com R$ 10 mil. Embaixo, a diferença para o seu melhor investimento, em verde quando é a mais.
+- **As ofertas vêm dos seus bancos**: a lista **Páginas de ofertas** saiu. O app lê sozinho a página de ofertas de cada banco cadastrado em Mais › Bancos. Mercado Pago, Nubank, PagBank e Inter já têm página pronta, achada pelo nome do banco.
+  - Para outro banco, coloque a **Página de ofertas** no próprio banco (Mais › Bancos › o banco). Nas Oportunidades, "Sem página de ofertas" mostra quais faltam, e tocar no nome abre o banco.
+  - Uma página que você tinha posto à mão vai para o banco do mesmo endereço; a de um banco que não está cadastrado sai.
+
 ## 1.45.0
 
 - **Benefícios › Ler com IA**: em vez de cadastrar um por um, mande um print ou uma foto da tela de benefícios do banco, o PDF do regulamento, o texto ou o endereço da página oficial do cartão ou do plano. A IA lista o que achou e você confere: desmarque o que não quiser e toque em **Cadastrar**.

@@ -27,13 +27,13 @@ TRANSPARENTE_URL = ("https://www.tesourotransparente.gov.br/ckan/dataset/df56aa4
 FAMILIAS = ("selic", "pre", "ipca")
 INDEXADOR_FAMILIA = {"selic": "selic_mais", "pre": "pre", "ipca": "ipca_mais", "renda": "ipca_mais", "educa": "ipca_mais"}
 PRODUTOS = {"cdb": "CDB", "rdb": "RDB", "lc": "LC", "lci": "LCI", "lca": "LCA", "conta": "Caixinha"}
-# páginas públicas conferidas (a taxa está escrita no texto da página): um toque põe na lista
-SUGESTOES = [
-    {"nome": "Mercado Pago", "url": "https://www.mercadopago.com.br/cofrinhos"},
-    {"nome": "Nubank", "url": "https://nubank.com.br/nu/caixinhas"},
-    {"nome": "PagBank", "url": "https://pagbank.com.br/cdb"},
-    {"nome": "Inter", "url": "https://inter.co/pra-voce/investimentos/meu-porquinho/"},
-    {"nome": "Comparativo de CDBs", "url": "https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/"},
+# as ofertas vêm dos bancos cadastrados (Mais › Bancos): a página pronta do banco (pública e conferida: a taxa está
+# escrita no texto da página), achada pelo nome; para outro banco, a Página de ofertas do próprio banco. Igual ao app.js.
+PAGINAS_BANCOS = [
+    {"nome": "Mercado Pago", "nomes": ("mercado pago", "mercadopago"), "url": "https://www.mercadopago.com.br/cofrinhos"},
+    {"nome": "Nubank", "nomes": ("nubank", "nu", "nu pagamentos", "nu bank"), "url": "https://nubank.com.br/nu/caixinhas"},
+    {"nome": "PagBank", "nomes": ("pagbank", "pag bank", "pagseguro", "pag seguro"), "url": "https://pagbank.com.br/cdb"},
+    {"nome": "Inter", "nomes": ("inter",), "url": "https://inter.co/pra-voce/investimentos/meu-porquinho/"},
 ]
 ISENTOS = {"lci", "lca"}
 # a taxa que faz sentido em cada indexador (fora disso, a IA leu errado)
@@ -279,6 +279,60 @@ def taxa_txt(x):
 def valor_txt(grupo, v):
     """O valor na unidade da família: "112% do CDI", "13,20% ao ano", "IPCA + 6,10%"."""
     return {"pos": f"{num_txt(v, 0)}% do CDI", "pre": f"{num_txt(v)}% ao ano", "ipca": f"IPCA + {num_txt(v)}%"}.get(grupo, "")
+
+
+def _nome_banco(nome):
+    """O nome do banco para achar a página pronta: sem acento, sem pontuação e sem o "banco" do começo."""
+    n = re.sub(r"[^a-z0-9]+", " ", normal(nome)).strip()
+    return re.sub(r"^banco ", "", n)
+
+
+def pagina_pronta(nome):
+    """A página pronta do banco com este nome ("Nubank", "Banco Inter", "Nubank Ultravioleta"), ou ""."""
+    n = _nome_banco(nome)
+    for x in PAGINAS_BANCOS:
+        if any(n == a or n.startswith(a + " ") for a in x["nomes"]):
+            return x["url"]
+    return ""
+
+
+def paginas_dos_bancos(d):
+    """As páginas de ofertas dos bancos cadastrados: [{banco, url}] (a do banco ou a pronta, sem repetir, até 10) e os
+    nomes dos bancos sem página."""
+    paginas, sem, vistas = [], [], set()
+    for b in d.get("bancos") or []:
+        if not isinstance(b, dict) or not str(b.get("nome") or "").strip():
+            continue
+        url = limpar_url(b.get("ofertas")) or pagina_pronta(b.get("nome"))
+        if not url:
+            sem.append(str(b["nome"]).strip())
+        elif url not in vistas and len(paginas) < MAX_PAGINAS:
+            vistas.add(url)
+            paginas.append({"banco": str(b["nome"]).strip(), "url": url})
+    return paginas, sem
+
+
+def migrar_paginas(d, antigas):
+    """As páginas que a pessoa tinha posto à mão (antes da 1.46.0) vão para o banco do mesmo endereço, se ele não tiver
+    uma página e a pronta não for a mesma: bancocoral.com.br vai para o Banco Coral."""
+    for url in (antigas if isinstance(antigas, list) else []):
+        url = limpar_url(url)
+        if not url:
+            continue
+        dom = re.sub(r"[^a-z0-9]", "", dominio(url))
+        for b in d.get("bancos") or []:
+            if not isinstance(b, dict) or b.get("ofertas") or _mesma_pronta(b, url):
+                continue
+            n = _nome_banco(b.get("nome")).replace(" ", "")
+            if len(n) >= 3 and n in dom:
+                b["ofertas"] = url
+                break
+
+
+def _mesma_pronta(b, url):
+    """A página é a pronta do banco (já vale sem pôr nada)?"""
+    p = pagina_pronta(b.get("nome"))
+    return bool(p) and dominio(p) == dominio(url)
 
 
 def todas(cache, paginas):

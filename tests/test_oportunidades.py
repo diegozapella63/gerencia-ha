@@ -115,8 +115,32 @@ class TestOfertas(unittest.TestCase):
                          "Caixinha Turbo (Banco Lua): 120% do CDI (clientes Lua Prime)")
 
     def test_paginas_prontas(self):
-        self.assertTrue(all(O.limpar_url(x["url"]) == x["url"] and x["nome"] for x in O.SUGESTOES))
-        self.assertEqual(len({x["url"] for x in O.SUGESTOES}), len(O.SUGESTOES))
+        self.assertTrue(all(O.limpar_url(x["url"]) == x["url"] and x["nome"] and x["nomes"] for x in O.PAGINAS_BANCOS))
+        self.assertEqual(len({x["url"] for x in O.PAGINAS_BANCOS}), len(O.PAGINAS_BANCOS))
+        casos = {"Nubank": "nubank.com.br", "Nu": "nubank.com.br", "NuBank Ultravioleta": "nubank.com.br", "Banco Inter": "inter.co", "inter": "inter.co",
+                 "Mercado Pago": "mercadopago.com.br", "PagSeguro": "pagbank.com.br", "Pag Bank": "pagbank.com.br",
+                 "Interamericano": "", "Banco Coral": "", "Nuvem": "", "": ""}
+        for nome, dom in casos.items():
+            with self.subTest(nome=nome):
+                self.assertEqual(O.dominio(O.pagina_pronta(nome)), dom)
+
+    def test_paginas_dos_bancos(self):
+        d = {"bancos": [{"id": "b1", "nome": "Nubank"}, {"id": "b2", "nome": "Banco Coral", "ofertas": "https://bancocoral.exemplo/cdb"},
+                        {"id": "b3", "nome": "Banco Lua"}, {"id": "b4", "nome": "Nu Pagamentos"}, {"id": "b5", "nome": "Inter", "ofertas": "https://inter.co/outra"},
+                        {"id": "b6", "nome": " "}, "lixo"]}
+        pags, sem = O.paginas_dos_bancos(d)
+        self.assertEqual(pags, [{"banco": "Nubank", "url": "https://nubank.com.br/nu/caixinhas"}, {"banco": "Banco Coral", "url": "https://bancocoral.exemplo/cdb"},
+                                {"banco": "Inter", "url": "https://inter.co/outra"}], "a página do banco vale sobre a pronta; a mesma página uma vez só")
+        self.assertEqual(sem, ["Banco Lua"])
+        muitos = {"bancos": [{"id": f"b{k}", "nome": f"Banco {k}", "ofertas": f"https://b{k}.exemplo"} for k in range(12)]}
+        self.assertEqual(len(O.paginas_dos_bancos(muitos)[0]), O.MAX_PAGINAS)
+
+    def test_as_paginas_postas_a_mao_vao_para_o_banco(self):
+        d = {"bancos": [{"id": "b1", "nome": "Banco Coral"}, {"id": "b2", "nome": "Nubank"}, {"id": "b3", "nome": "Lua", "ofertas": "https://lua.exemplo/a"}]}
+        O.migrar_paginas(d, ["https://www.bancocoral.exemplo/cdb", "https://nubank.com.br/nu/caixinhas", "https://lua.exemplo/b",
+                             "https://www.mercadopago.com.br/cofrinhos", "javascript:alert(1)"])
+        self.assertEqual([b.get("ofertas") for b in d["bancos"]], ["https://www.bancocoral.exemplo/cdb", None, "https://lua.exemplo/a"],
+                         "a pronta do Nubank já vale; o banco com página fica com a dele; a do Mercado Pago, sem o banco, sai")
 
     def test_so_o_que_a_pagina_confirma(self):
         texto = self.texto()
@@ -253,15 +277,19 @@ class TestAvisarQuais(unittest.TestCase):
 class TestAjustes(unittest.TestCase):
     def test_padrao_e_limpeza(self):
         aj = S.vazio()["ajustes"]
-        self.assertEqual({k: aj[k] for k in aj if k.startswith("op_")}, {"op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [],
+        self.assertEqual({k: aj[k] for k in aj if k.startswith("op_")}, {"op_cdi": None, "op_pre": None, "op_ipca": None,
                                                                        "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1, "op_simular": 10000})
         d = S.vazio()
         d["ajustes"].update(op_cdi=120.456, op_pre="15", op_ipca=31, op_aviso="sim", op_hora="7:00", op_para=["person.ana", "x", "person.ana"], op_dias=45,
-                            op_paginas=["https://banco.exemplo/a", "javascript:alert(1)", "https://banco.exemplo/a"] + [f"https://b{k}.exemplo" for k in range(12)])
-        aj = S.normalizar(d)["ajustes"]
+                            op_paginas=["https://bancocoral.exemplo/a", "https://b0.exemplo"])
+        d["bancos"] = [{"id": "b1", "nome": "Banco Coral"}, {"id": "b2", "nome": "Banco Lua", "ofertas": "javascript:alert(1)"}, {"id": "b3", "nome": "Sol", "ofertas": " "}]
+        n = S.normalizar(d)
+        aj = n["ajustes"]
         self.assertEqual((aj["op_cdi"], aj["op_pre"], aj["op_ipca"], aj["op_aviso"], aj["op_hora"], aj["op_para"]),
                          (120.46, None, None, False, "10:00", ["person.ana"]))
-        self.assertEqual(aj["op_paginas"][:2], ["https://banco.exemplo/a", "https://b0.exemplo"])
+        self.assertNotIn("op_paginas", aj, "as páginas postas à mão saem (antes da 1.46.0)")
+        self.assertEqual(n["bancos"], [{"id": "b1", "nome": "Banco Coral", "ofertas": "https://bancocoral.exemplo/a"}, {"id": "b2", "nome": "Banco Lua"}, {"id": "b3", "nome": "Sol"}],
+                         "a do banco vai para ele; um endereço que não é http(s) sai")
         self.assertEqual(aj["op_dias"], 1, "de 1 a 30")
         self.assertEqual(aj["op_simular"], 10000)
         d["ajustes"]["op_simular"] = 50
@@ -270,7 +298,6 @@ class TestAjustes(unittest.TestCase):
         self.assertEqual(S.normalizar(d)["ajustes"]["op_simular"], 25000.5)
         d["ajustes"]["op_dias"] = 7
         self.assertEqual(S.normalizar(d)["ajustes"]["op_dias"], 7)
-        self.assertEqual(len(aj["op_paginas"]), 10)
 
 
 class TestBeneficiosNoServidor(unittest.TestCase):
@@ -305,9 +332,11 @@ class ComServidor(unittest.TestCase):
                TESOURO_URL=self.falso.url + "/tesouro.csv", TESOURO_DADOS_URL=self.falso.url + "/dados.csv")
         S._oport_conferindo.clear()
 
-    def salvar(self, **aj):
+    def salvar(self, bancos=None, **aj):
         with S.TRAVA:
             d = S.ler()
+            if bancos is not None:
+                d["bancos"] = bancos
             d["indices"].update(INDICES)
             d["ajustes"].update(aj)
             S.salvar(d, versao=False)
@@ -369,13 +398,15 @@ class TestPaginas(ComServidor):
 class TestConferirEEstado(ComServidor):
     def test_conferir_e_o_que_a_tela_ve(self):
         url = self.falso.url + "/pagina"
-        d = self.salvar(op_paginas=[url])
+        bancos = [{"id": "b-lua", "nome": "Banco Lua", "ofertas": url}, {"id": "b-sol", "nome": "Banco Sol"}]
+        d = self.salvar(bancos=bancos)
         S.iniciar_oport(esperar=True)
         e = S.oport_estado(S.ler(), disparar=False)
         self.assertEqual([x["nome"] for x in e["titulos"]][:2], ["Tesouro Selic 2031", "Tesouro Reserva 2036"])
         self.assertEqual(len(e["ofertas"]), 4)
-        self.assertEqual(e["paginas"], [{"url": url, "dominio": "127.0.0.1", "status": "ok", "ofertas": 4, "em": e["paginas"][0]["em"]}])
-        self.assertEqual([x["nome"] for x in e["sugestoes"]], [x["nome"] for x in O.SUGESTOES], "as páginas prontas que ainda não estão na lista")
+        self.assertEqual(e["paginas"], [{"banco": "Banco Lua", "url": url, "dominio": "127.0.0.1", "status": "ok", "ofertas": 4, "em": e["paginas"][0]["em"]}])
+        self.assertEqual(e["sem_pagina"], ["Banco Sol"])
+        self.assertNotIn("sugestoes", e)
         self.assertEqual((e["tesouro"]["fonte"], e["conferindo"]), ("investir", False))
         # de novo, sem forçar: nada é buscado (o Tesouro vale uma hora; a página, o dia)
         n = len(self.falso.pedidos)
@@ -383,14 +414,14 @@ class TestConferirEEstado(ComServidor):
         self.assertEqual(len(self.falso.pedidos), n)
         S.iniciar_oport(forcar=True, esperar=True)
         self.assertEqual(len(self.falso.pedidos), n + 2, "Conferir agora busca tudo")
-        # a página tirada da lista sai do que foi guardado; com a IA desligada, as páginas somem da tela
-        self.salvar(op_paginas=[])
+        # o banco que saiu (ou ficou sem página) sai do que foi guardado; com a IA desligada, as páginas somem da tela
+        self.salvar(bancos=[{"id": "b-sol", "nome": "Banco Sol"}])
         S.iniciar_oport(esperar=True)
         self.assertEqual(S.oport_ler()["paginas"], {})
-        self.salvar(op_paginas=[url], ia=False)
+        self.salvar(bancos=bancos, ia=False)
         e = S.oport_estado(S.ler(), disparar=False)
-        self.assertEqual((e["ofertas"], e["paginas"], e["sugestoes"]), ([], [], []))
-        self.assertEqual(d["ajustes"]["op_paginas"], [url])
+        self.assertEqual((e["ofertas"], e["paginas"], e["sem_pagina"]), ([], [], []))
+        self.assertEqual(d["bancos"][0]["ofertas"], url)
 
     def test_olhar_busca_o_que_esta_velho(self):
         with mock.patch.object(S, "iniciar_oport", return_value=True) as ini:

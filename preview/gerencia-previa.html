@@ -1300,7 +1300,7 @@ input[readonly] { opacity: .8; }
 .op-alvo .pref.mini { width: auto; min-width: 120px; }
 .op-alvo .pref.mini input { width: 58px; flex: none; }
 .op-alvo .pref.mini > span { font-size: 13px; }
-.op-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.op-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .op-row:last-child { border-bottom: 0; }
 .op-row .op-meus { color: var(--text-2); font-size: 13px; margin-top: 2px; }
 .op-v { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 48%; text-align: right; }
@@ -1311,22 +1311,20 @@ input[readonly] { opacity: .8; }
 .op-row.passa .op-v b { color: var(--good); }
 .op-todas { display: block; margin: 8px 0 0; }
 .dica-quando.erro { color: var(--danger); }
-.op-paginas { margin-top: 18px; }
-.op-pag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.op-add { display: flex; gap: 8px; margin-top: 10px; }
-.op-add .inp { flex: 1; min-width: 0; }
-.op-add .btn { flex: none; }
 .op-nota { margin: 12px 0 0; }
 .op-hora-l { display: flex; gap: 8px; }
 .op-hora-l .inp { flex: 1; min-width: 0; }
 .op-hora-l .btn { flex: 1; justify-content: center; }
-.op-sug { margin: 10px 0 0; }
 .op-dias { width: 132px; }
 .nivel-l { margin-top: 10px; }
 .nivel-l .inp { width: 100%; }
 .nivel-meta { margin: 8px 0 0; }
-.op-row .op-t .op-ganho { color: var(--text-2); font-size: 13px; margin-top: 2px; white-space: normal; }
-.op-row .op-t .op-nivel { display: flex; align-items: center; gap: 5px; color: var(--accent-text); font-size: 13px; margin-top: 2px; white-space: normal; }
+.op-ganho { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.op-ganho b { font: 600 17px/1.2 var(--font-d); font-variant-numeric: tabular-nums; color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); border-radius: 8px; padding: 3px 8px; }
+.op-ganho > span { color: var(--text-2); font-size: 14px; }
+.op-ganho .op-dif { flex: 1 0 100%; color: var(--muted); font-size: 13px; }
+.op-ganho .op-dif.mais { color: var(--good); font-weight: 600; }
+.op-row .op-nivel { flex: 1 0 100%; display: flex; align-items: center; gap: 5px; color: var(--accent-text); font-size: 13px; margin-top: -2px; }
 .op-sim { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 2px; }
 .op-sim > span:first-child { color: var(--text-2); font-size: 14px; }
 .op-sim .pref.mini.larga { width: 150px; }
@@ -1361,6 +1359,9 @@ input[readonly] { opacity: .8; }
 .bler-t b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bler-t > span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .bler-t em { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--font); font-style: normal; color: var(--text-2); background: var(--card-2); border-radius: 999px; padding: 4px 8px; }
+/* Oportunidades: as ofertas dos bancos cadastrados e os bancos sem página (o nome abre o banco) */
+.dica-quando.op-bancos, .dica-quando.op-sem { align-items: flex-start; }
+.op-bancos .ic-s, .op-sem .ic-s { flex: none; margin-top: 2px; }
 
 </style>
 <main id="app" aria-live="polite"></main>
@@ -1722,7 +1723,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.45.0';
+const VERSAO = '1.46.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1788,7 +1789,7 @@ function taxaBem(k) {
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
 const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
-  op_cdi: null, op_pre: null, op_ipca: null, op_paginas: [], op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1, op_simular: 10000 };
+  op_cdi: null, op_pre: null, op_ipca: null, op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1, op_simular: 10000 };
 
 /* ------------------------------------------------------------------ util */
 const $ = (s, el = document) => el.querySelector(s);
@@ -5724,7 +5725,7 @@ function abrirBanco(id, nome, sobre) {
   const eu = S.usuario ? S.usuario.split(' ')[0] : (pessoasContas()[0] || '');
   FB = b ? clone(b) : { id: null, nome: nome || '', cor: CORES_BANCO.find(c => !usadas.includes(c)) || CORES_BANCO[0], obs: '', contas: [] };
   if (!FB.contas || !FB.contas.length) FB.contas = [{ id: 'k-' + uid(), pessoa: eu, cartao: false, fechamento: '', vencimento: '' }];
-  FB.erro = '';
+  FB.erro = ''; FB.erroOf = '';
   abrirFolha(() => {
     const n = FB.id ? S.d.investimentos.filter(i => i.banco === FB.id).length : 0;
     return {
@@ -5751,6 +5752,10 @@ function abrirBanco(id, nome, sobre) {
           <datalist id="dl-niveis">${NIVEIS_SUG.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
         <div class="campo"><label for="b-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
           <input id="b-obs" class="inp" data-fb="obs" value="${esc(FB.obs || '')}" placeholder="Agência, conta, gerente…" autocomplete="off"></div>
+        ${iaOn() ? `<div class="campo"><label for="b-ofertas">Página de ofertas <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+          <input id="b-ofertas" class="inp${FB.erroOf ? ' erro' : ''}" data-fb="ofertas" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(FB.ofertas || '')}"
+            placeholder="${paginaPronta(FB.nome) ? 'Automática: ' + esc(dominioUrl(paginaPronta(FB.nome))) : 'https://…'}">
+          ${FB.erroOf ? `<div class="msg-erro">${FB.erroOf}</div>` : '<p class="ajuda">As taxas desta página entram nas Oportunidades.</p>'}</div>` : ''}
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'investimento usa', 'investimentos usam')} este banco.</p>` : ''}`,
       pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="b-salvar">Salvar</button>`,
     };
@@ -5783,6 +5788,11 @@ function salvarBanco() {
   const nome = (FB.nome || '').trim();
   if (!nome) { FB.erro = 'Dê um nome ao banco.'; pintarFolha(); return; }
   if (S.d.bancos.some(b => b.id !== FB.id && b.nome.toLowerCase() === nome.toLowerCase())) { FB.erro = 'Já existe um banco com esse nome.'; pintarFolha(); return; }
+  // a página de ofertas do banco (o endereço sem o https:// ganha o https://)
+  let ofertas = String(FB.ofertas || '').trim();
+  if (ofertas && !/^[a-z]+:/i.test(ofertas) && /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(ofertas)) ofertas = 'https://' + ofertas;
+  FB.erroOf = ofertas && !(URL_OFERTAS.test(ofertas) && ofertas.length <= 400) ? 'Use o endereço da página, começando com https://' : '';
+  if (FB.erroOf) { pintarFolha(); return; }
   const dia = (v, p) => Math.min(31, Math.max(1, parseInt(v, 10) || p));
   const b = { id: FB.id || 'b-' + uid(), nome, cor: FB.cor, obs: (FB.obs || '').trim(),
     contas: FB.contas.map(c => {
@@ -5794,11 +5804,13 @@ function salvarBanco() {
       if (txt(c.meta_nivel) && pede > 0) Object.assign(k, { meta_nivel: txt(c.meta_nivel), meta_valor: pede });
       return k;
     }) };
+  if (ofertas) b.ofertas = ofertas;
   const naRevisao = !FB.id && PILHA.length && PILHA[PILHA.length - 1].montar === montarIA && IAS;
   persistir(d => { const k = d.bancos.findIndex(x => x.id === b.id); if (k >= 0) d.bancos[k] = b; else d.bancos.push(b); }, FB.id ? 'Banco salvo' : 'Banco cadastrado')
     .then(ok => {
       if (!ok) return;
       if (naRevisao) { usarBancoNaRevisao(b); fecharFolha(false, true); } else fecharFolha();
+      if (S.oport !== undefined) carregarOport();  // um banco novo ou outra página: as ofertas dele
     });
 }
 
@@ -6039,8 +6051,34 @@ function carregarOport(forcar) {
     .finally(() => { oportPedido = null; });
   return oportPedido;
 }
-const ST_PAGINA = { ok: '', sem_ofertas: 'Nenhuma oferta com taxa na página', nao_confere: 'As taxas não bateram com a página', sem_acesso: 'A página não abriu',
-  erro_ia: 'A IA não respondeu', sem_ia: 'Sem IA no Home Assistant', ia_desligada: 'Com a IA desligada, não é lida', pendente: 'Ainda não lida' };
+const ST_PAGINA = { ok: '', sem_ofertas: 'nenhuma oferta', nao_confere: 'as taxas não bateram', sem_acesso: 'a página não abriu',
+  erro_ia: 'a IA não respondeu', sem_ia: 'sem IA no Home Assistant', ia_desligada: 'IA desligada', pendente: 'ainda não lida' };
+// as ofertas vêm dos bancos cadastrados: a página pronta do banco, achada pelo nome, ou a Página de ofertas dele
+// (igual ao oportunidades.py: PAGINAS_BANCOS, pagina_pronta e paginas_dos_bancos)
+const PAGINAS_BANCOS = [
+  ['Mercado Pago', ['mercado pago', 'mercadopago'], 'https://www.mercadopago.com.br/cofrinhos'],
+  ['Nubank', ['nubank', 'nu', 'nu pagamentos', 'nu bank'], 'https://nubank.com.br/nu/caixinhas'],
+  ['PagBank', ['pagbank', 'pag bank', 'pagseguro', 'pag seguro'], 'https://pagbank.com.br/cdb'],
+  ['Inter', ['inter'], 'https://inter.co/pra-voce/investimentos/meu-porquinho/'],
+];
+const URL_OFERTAS = /^https?:\/\/[^\s/$.?#][^\s]*$/i;
+function paginaPronta(nome) {
+  const n = semAcento(nome).replace(/[^a-z0-9]+/g, ' ').trim().replace(/^banco /, '');
+  const x = PAGINAS_BANCOS.find(([, nomes]) => nomes.some(a => n === a || n.startsWith(a + ' ')));
+  return x ? x[2] : '';
+}
+function paginasDosBancos(d = S.d) {
+  const paginas = [], sem = [], vistas = new Set();
+  for (const b of d.bancos || []) {
+    const nome = String(b.nome || '').trim();
+    if (!nome) continue;
+    const proprio = String(b.ofertas || '').trim(), url = URL_OFERTAS.test(proprio) && proprio.length <= 400 ? proprio : paginaPronta(nome);
+    if (!url) sem.push({ id: b.id, nome });
+    else if (!vistas.has(url) && paginas.length < 10) { vistas.add(url); paginas.push({ banco: nome, url }); }
+  }
+  return { paginas, sem };
+}
+const dominioUrl = url => String(url || '').replace(/^https?:\/\/(www\.)?/i, '').split(/[/?#]/)[0];
 function linhaOport(x) {
   const eq = equivalente(x), passa = passaAlvo(x), m = compararMeus(x);
   const sub = [x.origem === 'tesouro' ? 'Tesouro Direto' : x.fonte, x.vencimento ? `vence ${fData(pData(x.vencimento))}` : '',
@@ -6050,12 +6088,14 @@ function linhaOport(x) {
     : `Mais que ${m.abaixo} dos seus ${m.n}`;
   // quanto o valor da simulação rende em 1 ano aqui, perto do seu melhor; e a meta de nível no banco da oferta
   const valor = +S.d.ajustes.op_simular || 10000, ganho = rendeUmAno(eq.grupo, eq.valor, valor), dif = m ? ganho - rendeUmAno(eq.grupo, m.melhor.valor, valor) : 0;
-  const ganhoTxt = `${brlCurto(valor)} rendem ${brl(ganho, 0)} em 1 ano${m && Math.abs(dif) >= 1 ? `, ${brl(Math.abs(dif), 0)} ${dif > 0 ? 'a mais' : 'a menos'} que o seu melhor` : ''}`;
+  // o rendimento em destaque (o foco da linha), na largura toda; embaixo, a diferença para o seu melhor
+  const ganhoH = `<div class="op-ganho"><b>+${esc(brl(ganho, 0))}</b><span>em 1 ano com ${esc(brlCurto(valor))}</span>${m && Math.abs(dif) >= 1
+    ? `<span class="op-dif${dif > 0 ? ' mais' : ''}">${esc(brl(Math.abs(dif), 0))} ${dif > 0 ? 'a mais' : 'a menos'} que o seu melhor</span>` : ''}</div>`;
   const b = x.origem === 'pagina' ? bancoPorNome(x.emissor) : null;
   const meta = b && (b.contas || []).map(c => metaNivel(c, b.id)).find(z => z && z.falta > 0);
-  return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus && !m ? `<span class="op-meus">${meus}</span>` : ''}
-    <span class="op-ganho">${esc(ganhoTxt)}</span>${meta ? `<span class="op-nivel">${ic('trend', 'ic-s')}Faltam ${esc(brlCurto(meta.falta))} para o ${esc(meta.nome)} no ${esc(b.nome)}</span>` : ''}</div>
-    <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}${passa === 'meus' ? 'Melhor que os seus' : 'No alvo'}</em>` : ''}</div></div>`;
+  return `<div class="op-row${passa ? ' passa' : ''}"><div class="op-t"><b>${esc(x.nome)}</b><span>${esc(sub)}</span>${meus && !m ? `<span class="op-meus">${meus}</span>` : ''}</div>
+    <div class="op-v"><b>${esc(taxaOp(x))}</b>${extra ? `<small>${esc(extra)}</small>` : ''}${passa ? `<em class="op-tag">${ic('check', 'ic-s')}${passa === 'meus' ? 'Melhor que os seus' : 'No alvo'}</em>` : ''}</div>
+    ${ganhoH}${meta ? `<div class="op-nivel">${ic('trend', 'ic-s')}Faltam ${esc(brlCurto(meta.falta))} para o ${esc(meta.nome)} no ${esc(b.nome)}</div>` : ''}</div>`;
 }
 function inputAlvo(grupo) {
   const k = ALVO_GRUPO[grupo], v = alvoDe(grupo), val = v == null ? '' : String(v).replace('.', ',');
@@ -6067,7 +6107,7 @@ function cardOportunidades() {
   if (O === undefined) carregarOport();
   const ops = O ? [...(O.titulos || []), ...(iaOn() ? O.ofertas || [] : [])] : [];
   let h = `<section class="card" id="oportunidades">${maisCab('target', 'Oportunidades')}
-    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e das páginas que você escolher' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}
+    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e dos seus bancos' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}
     <label class="op-sim"><span>Simular com</span><span class="pref mini larga"><span>R$</span><input data-op-simular inputmode="decimal" value="${NF0.format(+S.d.ajustes.op_simular || 10000)}" aria-label="Valor da simulação, em reais"></span></label>`;
   let escondidas = 0;
   for (const [g, nome] of GRUPOS_OP) {
@@ -6083,13 +6123,13 @@ function cardOportunidades() {
       : T.dia && T.dia !== iso(hoje()) ? `Tesouro Direto: taxas de ${fData(pData(T.dia))}.` : `Tesouro Direto: taxas de hoje, às ${quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
   h += `<p class="dica-quando${T.erro ? ' erro' : ''}">${ic(T.erro ? 'alert' : 'clock', 'ic ic-s')}<span>${esc(st)}</span></p>`;
   if (iaOn()) {
-    const pags = (O && O.paginas) || S.d.ajustes.op_paginas.map(url => ({ url, dominio: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0], status: 'pendente', ofertas: 0 }));
-    h += `<div class="campo op-paginas"><div class="lbl">Páginas de ofertas</div>${pags.map(p => {
-      const txt = p.status === 'ok' ? plural(p.ofertas, 'oferta', 'ofertas') : p.status === 'pendente' && O && O.conferindo ? 'Lendo…' : ST_PAGINA[p.status] || '';
-      return `<div class="op-pag"><div class="op-t"><b>${esc(p.dominio)}</b><span>${esc(txt)}</span></div><button class="icbtn" data-a="op-pagina-tirar" data-v="${esc(p.url)}" aria-label="Tirar ${esc(p.dominio)}">${ic('trash', 'ic-s')}</button></div>`;
-    }).join('')}
-      ${pags.length < 10 && O && (O.sugestoes || []).length ? `<div class="chips op-sug">${O.sugestoes.map(x => `<button class="chip" data-a="op-pagina-sug" data-v="${esc(x.url)}">+ ${esc(x.nome)}</button>`).join('')}</div>` : ''}
-      ${pags.length < 10 ? `<div class="op-add"><input id="op-url" class="inp" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…" aria-label="Endereço da página de ofertas"><button class="btn out" data-a="op-pagina-add">Adicionar</button></div>` : ''}</div>`;
+    // as ofertas dos bancos cadastrados (Mais › Bancos): quantas cada um tem; o banco sem página abre o formulário dele
+    const { paginas, sem } = paginasDosBancos(), lidas = (O && O.paginas) || [];
+    const st = p => { const l = lidas.find(x => x.url === p.url) || { status: 'pendente', ofertas: 0 };
+      return l.status === 'ok' ? plural(l.ofertas, 'oferta', 'ofertas') : l.status === 'pendente' && O && O.conferindo ? 'lendo…' : ST_PAGINA[l.status] || ''; };
+    if (paginas.length) h += `<p class="dica-quando op-bancos">${ic('bank', 'ic ic-s')}<span>Ofertas dos seus bancos: ${paginas.map(p => `${esc(p.banco)} (${esc(st(p))})`).join(', ')}.</span></p>`;
+    if (sem.length) h += `<p class="dica-quando op-sem">${ic('bank', 'ic ic-s')}<span>Sem página de ofertas: ${sem.map(b => `<button class="link-in" data-a="banco" data-id="${esc(b.id)}">${esc(b.nome)}</button>`).join(', ')}.</span></p>`;
+    if (!paginas.length && !sem.length) h += `<p class="dica-quando op-bancos">${ic('bank', 'ic ic-s')}<span>As ofertas vêm dos seus bancos (Mais › Bancos).</span></p>`;
   }
   h += `<button class="btn out" data-a="op-conferir"${O && O.conferindo ? ' disabled' : ''}>${ic('refresh')}${O && O.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
     <p class="nota op-nota">Não é recomendação: confira prazo, liquidez e garantia (FGC até R$ 250 mil por banco).</p>`;
@@ -7250,9 +7290,6 @@ document.addEventListener('click', ev => {
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
     case 'op-conferir': if (S.oport) S.oport.conferindo = true; render(); carregarOport(true); break;
     case 'op-todas': OP_TODAS = !OP_TODAS; render(); break;
-    case 'op-pagina-add': adicionarPaginaOport(); break;
-    case 'op-pagina-sug': adicionarPaginaOport(v); break;
-    case 'op-pagina-tirar': persistir(d => { d.ajustes.op_paginas = (d.ajustes.op_paginas || []).filter(u => u !== v); }, 'Página tirada').then(ok => { if (ok) carregarOport(); }); break;
     case 'op-testar': api.oportTestar().then(r => toast(r.passam ? 'Aviso enviado para o seu celular.' : 'Aviso enviado para o seu celular (nada no alvo agora).'), e => toast(e.message)); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
     case 'dicas-freq': persistir(d => { d.ajustes.dicas_freq = v; }); break;
@@ -7771,7 +7808,6 @@ document.addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
-  if (ev.key === 'Enter' && ev.target.id === 'op-url') { ev.preventDefault(); adicionarPaginaOport(); return; }
   if (ev.key === 'Enter' && ev.target.dataset && (ev.target.dataset.opAlvo || ev.target.matches('[data-op-simular], [data-op-dias]'))) { ev.preventDefault(); ev.target.blur(); return; }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });
@@ -7811,14 +7847,6 @@ function salvarAlvoOport(el) {
   if (v != null && !(v >= lo && v <= hi)) { toast(`Use um número de ${numOp(lo, 0)} a ${numOp(hi, 0)}.`); el.value = S.d.ajustes[k] == null ? '' : String(S.d.ajustes[k]).replace('.', ','); return; }
   if (v === (S.d.ajustes[k] ?? null)) return;
   persistir(d => { d.ajustes[k] = v; }, v == null ? 'Alvo tirado' : 'Alvo salvo');
-}
-function adicionarPaginaOport(sug) {
-  const inp = $('#op-url'), url = String(sug || (inp ? inp.value : '')).trim();
-  if (!/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]+$/i.test(url)) { toast('Escreva o endereço da página, começando com https://'); return; }
-  const pags = S.d.ajustes.op_paginas || [];
-  if (pags.includes(url)) { toast('Essa página já está na lista.'); return; }
-  if (pags.length >= 10) { toast('Até 10 páginas.'); return; }
-  persistir(d => { d.ajustes.op_paginas = [...(d.ajustes.op_paginas || []), url]; }, 'Página adicionada').then(ok => { if (ok) carregarOport(false); });
 }
 // a % por ano de uma categoria de bens (negativa: valoriza, como um imóvel); vale também para os bens cadastrados aqui
 function salvarTaxaBem(k, v) {
@@ -7898,26 +7926,22 @@ function montarBens() {
   };
 }
 // prévia: bens inventados (nenhum dado real)
-// a prévia: taxas inventadas do Tesouro Direto e, para cada página escolhida, duas ofertas de um banco inventado
+// a prévia: taxas inventadas do Tesouro Direto e, para cada banco com página de ofertas, três ofertas do Banco Sol (inventado)
 function oportDemo() {
   const t = (nome, indexador, taxa, vencimento) => ({ id: 'td:' + semAcento(nome).replace(/[^a-z0-9]+/g, '-'), nome, origem: 'tesouro', fonte: 'Tesouro Direto', produto: 'tesouro',
     indexador, taxa, isento: false, vencimento, liquidez: 'diaria', minimo: 0 });
   const titulos = [t('Tesouro Selic 2031', 'selic_mais', 0.09, '2031-03-01'), t('Tesouro Reserva 2036', 'selic_mais', 0, '2036-01-01'),
     t('Tesouro Prefixado 2029', 'pre', 13.42, '2029-01-01'), t('Tesouro Prefixado 2032', 'pre', 13.71, '2032-01-01'),
     t('Tesouro IPCA+ 2032', 'ipca_mais', 7.04, '2032-08-15'), t('Tesouro IPCA+ 2040', 'ipca_mais', 6.88, '2040-08-15'), t('Tesouro IPCA+ com Juros Semestrais 2045', 'ipca_mais', 6.81, '2045-05-15')];
-  const pags = S.d.ajustes.op_paginas || [], ofertas = [];
-  const paginas = pags.map((url, k) => {
-    const dominio = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+  const ofertas = [];
+  const paginas = paginasDosBancos().paginas.map(({ banco, url }, k) => {
+    const dominio = dominioUrl(url);
     ofertas.push({ id: 'of:demo' + k + 'a', nome: 'CDB Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'cdb', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 118, isento: false, vencimento: '2028-11-06', liquidez: 'vencimento', minimo: 1000 },
       { id: 'of:demo' + k + 'b', nome: 'LCA Banco Sol', origem: 'pagina', fonte: dominio, url, produto: 'lca', emissor: 'Banco Sol', indexador: 'cdi_pct', taxa: 94, isento: true, vencimento: '2027-11-08', liquidez: 'vencimento', minimo: 1000 },
       { id: 'of:demo' + k + 'c', nome: 'Caixinha (Banco Sol)', origem: 'pagina', fonte: dominio, url, produto: 'conta', emissor: 'Banco Sol', condicao: 'clientes Sol Mais', indexador: 'cdi_pct', taxa: 112, isento: false, vencimento: '', liquidez: 'diaria', minimo: 0 });
-    return { url, dominio, status: 'ok', ofertas: 3, em: new Date().toISOString() };
+    return { banco, url, dominio, status: 'ok', ofertas: 3, em: new Date().toISOString() };
   });
-  // as páginas prontas (no app, a lista vem do servidor: oportunidades.SUGESTOES)
-  const sugestoes = [['Mercado Pago', 'https://www.mercadopago.com.br/cofrinhos'], ['Nubank', 'https://nubank.com.br/nu/caixinhas'], ['PagBank', 'https://pagbank.com.br/cdb'],
-    ['Inter', 'https://inter.co/pra-voce/investimentos/meu-porquinho/'], ['Comparativo de CDBs', 'https://www.idinheiro.com.br/investimentos/melhor-cdb-liquidez-diaria-hoje/']]
-    .filter(([, url]) => !pags.includes(url)).map(([nome, url]) => ({ nome, url }));
-  return { titulos, ofertas, paginas, sugestoes: iaOn() ? sugestoes : [], tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
+  return { titulos, ofertas: iaOn() ? ofertas : [], paginas: iaOn() ? paginas : [], tesouro: { dia: iso(hoje()), em: new Date().toISOString(), erro: null, fonte: 'investir' }, conferindo: false, atualizado: new Date().toISOString() };
 }
 function bensDemo() {
   const cats = [['eletronicos', 'Eletrônicos', 20, 14200, 6], ['moveis', 'Móveis', 10, 18600, 9], ['cozinha', 'Cozinha e bar', 10, 5400, 12], ['decoracao', 'Decoração e arte', 5, 3900, 7]];

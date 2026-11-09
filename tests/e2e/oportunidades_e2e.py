@@ -1,9 +1,12 @@
 """Oportunidades de investimento com o servidor de verdade (tema escuro e claro, celular e computador): as taxas do
-Tesouro Direto (a tabela de exemplo em fixtures/tesouro-investir.csv), o alvo de cada família, uma página de ofertas de
-um banco inventado (servida aqui mesmo) lida pela IA simulada, o equivalente em CDB da LCA, o Conferir agora e, em
+Tesouro Direto (a tabela de exemplo em fixtures/tesouro-investir.csv), o alvo de cada família, a página de ofertas de
+um banco cadastrado (inventado, servida aqui mesmo) lida pela IA simulada, o equivalente em CDB da LCA, quanto rende em
+destaque, o Conferir agora e, em
 Opções, o aviso no celular com o horário, o Testar e quem recebe. Bancos, taxas e pessoas inventados."""
+import json
 import sys
 import threading
+import urllib.request
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from playwright.sync_api import sync_playwright
@@ -34,6 +37,12 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 URL = f"http://127.0.0.1:{srv.server_address[1]}/renda-fixa"
 
 
+def req(caminho, corpo=None, metodo="GET"):
+    r = urllib.request.Request("http://localhost:8099/" + caminho, data=json.dumps(corpo).encode() if corpo is not None else None, method=metodo,
+                               headers={"Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(r).read())
+
+
 def linhas(pg, g):
     return pg.evaluate("""g => [...document.querySelectorAll(`#oportunidades .op-grupo[data-grupo="${g}"] .op-row`)].map(r => [
         r.querySelector('.op-t b').textContent, r.querySelector('.op-v b').textContent, r.classList.contains('passa'),
@@ -61,14 +70,28 @@ with sync_playwright() as p:
     igual(estado(pg)["ajustes"]["op_ipca"], 7, "o alvo fica gravado no servidor")
     igual([(x[0], x[2]) for x in linhas(pg, "ipca")], [("Tesouro IPCA+ 2032", True), ("Tesouro IPCA+ 2040", False)], "IPCA + 7,04% passou do alvo de 7%")
 
-    # uma página de ofertas: a IA simulada lê, o fundo fica de fora, a LCA vem com o equivalente em CDB
-    pg.fill("#op-url", URL)
-    pg.click('#oportunidades [data-a="op-pagina-add"]')
-    pg.wait_for_function("() => [...document.querySelectorAll('#oportunidades .op-pag span')].some(s => s.textContent === '2 ofertas')", timeout=30000)
+    # as ofertas vêm dos bancos cadastrados: sem página, o banco aparece em "Sem página de ofertas"
+    d = req("api/state")
+    d["bancos"] = [{"id": "b-sol", "nome": "Banco Sol", "cor": "#FFA23E", "contas": [{"id": "k-sol", "pessoa": "Ana", "cartao": False, "fechamento": 1, "vencimento": 10}]}]
+    req("api/state", d, "PUT")
+    pg.reload()
+    pg.wait_for_selector("#oportunidades .op-sem", timeout=30000)
+    igual(pg.inner_text("#oportunidades .op-sem"), "Sem página de ofertas: Banco Sol.", "o banco sem página")
+    igual(pg.locator("#op-url, #oportunidades .op-pag").count(), 0, "sem lista de páginas para pôr à mão")
+    # a página do banco: a IA simulada lê, o fundo fica de fora, a LCA vem com o equivalente em CDB
+    pg.click('#oportunidades .op-sem [data-a="banco"]')
+    pg.fill("#b-ofertas", URL)
+    pg.click('#folhas [data-a="b-salvar"]')
+    pg.wait_for_function("() => (document.querySelector('#oportunidades .op-bancos') || {}).textContent === 'Ofertas dos seus bancos: Banco Sol (2 ofertas).'", timeout=30000)
+    igual(estado(pg)["bancos"][0].get("ofertas"), URL, "a página gravada no banco")
     pos = linhas(pg, "pos")
     igual(pos[0][:2], ["CDB Banco Sol", "125% do CDI"], "a melhor do pós-fixado é a oferta da página")
     sim(pos[1][0] == "LCA Banco Sol" and pos[1][3].startswith("como CDB de 11"), "a LCA com o equivalente em CDB", pos[1])
     sim(all("Fundo" not in x[0] for x in pos), "o fundo não entra (sem FGC)")
+    g = pg.evaluate("""(() => { const r = document.querySelector('#oportunidades .op-row'), g = r.querySelector('.op-ganho'), b = g.querySelector('b');
+        return [Math.round(g.getBoundingClientRect().width) === Math.round(r.getBoundingClientRect().width), b.textContent, getComputedStyle(b).color, getComputedStyle(g.querySelector('span')).color,
+                g.querySelector('span').textContent]; })()""")
+    sim(g[0] and g[1].startswith("+R$ ") and g[2] != g[3] and g[4] == "em 1 ano com R$ 10 mil", "quanto rende em destaque, na largura toda", g)
     pg.locator("#oportunidades").screenshot(path=f"{SP}/shots/op-invest-escuro.png")
 
     # Conferir agora

@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.45.0"
+VERSAO = "1.46.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -84,7 +84,7 @@ AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir":
                   "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False,
                   # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
                   # % ao ano, IPCA + %; None = não escolheu), as páginas de ofertas e o aviso no celular no horário
-                  "op_cdi": None, "op_pre": None, "op_ipca": None, "op_paginas": [], "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1, "op_simular": 10000}
+                  "op_cdi": None, "op_pre": None, "op_ipca": None, "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1, "op_simular": 10000}
 # o que faz sentido em cada Avisar quando passar de (fora disso, não escolheu)
 OP_FAIXA = {"op_cdi": (50.0, 300.0), "op_pre": (1.0, 60.0), "op_ipca": (0.0, 30.0)}
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
@@ -155,12 +155,17 @@ def normalizar(d):
     aj["email_de"] = list(dict.fromkeys(x for x in (emails.limpar_remetente(r) for r in de if isinstance(r, str)) if x))[:20]
     para = aj.get("email_para") if isinstance(aj.get("email_para"), list) else []
     aj["email_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
-    # Oportunidades de investimento: os alvos, as páginas (http/https, até 10) e o aviso no celular (como o das dicas)
+    # Oportunidades de investimento: os alvos e o aviso no celular (como o das dicas); as páginas de ofertas são as dos
+    # bancos cadastrados (a Página de ofertas do banco: http/https). As que eram postas à mão vão para o banco delas.
     for k, (lo, hi) in OP_FAIXA.items():
         v = aj.get(k)
         aj[k] = round(float(v), 2) if isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi else None
-    pags = aj.get("op_paginas") if isinstance(aj.get("op_paginas"), list) else []
-    aj["op_paginas"] = list(dict.fromkeys(u for u in (oportunidades.limpar_url(x) for x in pags) if u))[:oportunidades.MAX_PAGINAS]
+    for b in base["bancos"]:
+        if isinstance(b, dict) and "ofertas" in b:
+            b["ofertas"] = oportunidades.limpar_url(b["ofertas"])
+            if not b["ofertas"]:
+                del b["ofertas"]
+    oportunidades.migrar_paginas(base, aj.pop("op_paginas", None))
     aj["op_aviso"] = aj.get("op_aviso") is True
     aj["op_hora"] = aj.get("op_hora") if HORA_RE.match(str(aj.get("op_hora") or "")) else AJUSTES_PADRAO["op_hora"]
     dias = aj.get("op_dias")
@@ -2466,12 +2471,12 @@ def _conferir_oport(forcar=False, manual=False, avisar=False):
         c = oport_ler()
         if forcar or _idade_s((c.get("tesouro") or {}).get("em")) >= TESOURO_VALE_S and _idade_s((c.get("tesouro") or {}).get("em_erro")) >= 600:
             c = atualizar_tesouro(c)
-        paginas = dict(c.get("paginas") or {})
-        for url in d["ajustes"]["op_paginas"]:
+        paginas, urls = dict(c.get("paginas") or {}), urls_oport(d)
+        for url in urls:
             if ia_ligada(d) and _pagina_velha(paginas.get(url), forcar):
                 paginas[url] = ler_pagina_ofertas(url, d)
                 log("Ofertas:", oportunidades.dominio(url), paginas[url]["status"], len(paginas[url]["ofertas"]))
-        c["paginas"] = {u: p for u, p in paginas.items() if u in d["ajustes"]["op_paginas"]}
+        c["paginas"] = {u: p for u, p in paginas.items() if u in urls}
         c["atualizado"] = agora_iso()
         if avisar:
             c["dia"] = date.today().isoformat()
@@ -2518,6 +2523,11 @@ def dia_do_aviso_oport(d, ultimo, hoje=None):
         return True
 
 
+def urls_oport(d):
+    """As páginas de ofertas de agora: as dos bancos cadastrados."""
+    return [p["url"] for p in oportunidades.paginas_dos_bancos(d)[0]]
+
+
 def oport_estado(d, disparar=True):
     """Para a tela: os títulos do Tesouro, as ofertas e a situação de cada página (a conta fica na tela, igual ao
     calc.py). Olhando, as taxas do Tesouro com mais de uma hora são buscadas de novo (em segundo plano)."""
@@ -2525,24 +2535,27 @@ def oport_estado(d, disparar=True):
     t = c.get("tesouro") or {}
     paginas = c.get("paginas") or {}
     ia = ia_ligada(d)
+    dos_bancos, sem_pagina = oportunidades.paginas_dos_bancos(d)
+    urls = [p["url"] for p in dos_bancos]
     velho = (_idade_s(t.get("em")) >= TESOURO_VALE_S and _idade_s(t.get("em_erro")) >= 600
-             or ia and any(_pagina_velha(paginas.get(u), False) for u in d["ajustes"]["op_paginas"]))
+             or ia and any(_pagina_velha(paginas.get(u), False) for u in urls))
     # disparou: a resposta diz "conferindo" mesmo que a busca já tenha terminado (a tela pergunta de novo e vê as taxas)
     disparou = bool(disparar and velho and not _oport_conferindo.is_set() and iniciar_oport())
     return {"titulos": oportunidades.do_tesouro(t.get("titulos")),
-            "ofertas": [o for u in d["ajustes"]["op_paginas"] if ia for o in (paginas.get(u) or {}).get("ofertas") or []],
-            "paginas": [{"url": u, "dominio": oportunidades.dominio(u), "status": (paginas.get(u) or {}).get("status") or "pendente",
-                         "ofertas": len((paginas.get(u) or {}).get("ofertas") or []), "em": (paginas.get(u) or {}).get("em")}
-                        for u in d["ajustes"]["op_paginas"]] if ia else [],
+            "ofertas": [o for u in urls if ia for o in (paginas.get(u) or {}).get("ofertas") or []],
+            "paginas": [{"banco": p["banco"], "url": p["url"], "dominio": oportunidades.dominio(p["url"]),
+                         "status": (paginas.get(p["url"]) or {}).get("status") or "pendente",
+                         "ofertas": len((paginas.get(p["url"]) or {}).get("ofertas") or []), "em": (paginas.get(p["url"]) or {}).get("em")}
+                        for p in dos_bancos] if ia else [],
+            "sem_pagina": sem_pagina if ia else [],
             "tesouro": {"dia": t.get("dia"), "em": t.get("em"), "erro": t.get("erro"), "fonte": t.get("fonte")},
-            "sugestoes": [x for x in oportunidades.SUGESTOES if x["url"] not in d["ajustes"]["op_paginas"]] if ia else [],
             "conferindo": disparou or _oport_conferindo.is_set(), "atualizado": c.get("atualizado")}
 
 
 def oport_passam(d, c=None):
     """As oportunidades de agora que passam do que a pessoa quer (as das páginas só com a IA ligada)."""
     c = c if c is not None else oport_ler()
-    ops = oportunidades.todas(c, d["ajustes"]["op_paginas"] if ia_ligada(d) else [])
+    ops = oportunidades.todas(c, urls_oport(d) if ia_ligada(d) else [])
     return [x for x in oportunidades.avaliar(ops, d) if x["passa"]]
 
 
@@ -2564,7 +2577,7 @@ def avisar_oport(d, silencioso=False):
         c = oport_ler()
         antes = c.get("avisadas") or {}
         novas, avisadas = oportunidades.para_avisar(oportunidades.avaliar(
-            oportunidades.todas(c, aj["op_paginas"] if ia_ligada(d) else []), d), antes)
+            oportunidades.todas(c, urls_oport(d) if ia_ligada(d) else []), d), antes)
         enviados = 0
         if novas and not silencioso:
             try:

@@ -1294,7 +1294,7 @@ input[readonly] { opacity: .8; }
 .op-alvo .pref.mini { width: auto; min-width: 120px; }
 .op-alvo .pref.mini input { width: 58px; flex: none; }
 .op-alvo .pref.mini > span { font-size: 13px; }
-.op-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.op-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .op-row:last-child { border-bottom: 0; }
 .op-row .op-meus { color: var(--text-2); font-size: 13px; margin-top: 2px; }
 .op-v { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 48%; text-align: right; }
@@ -1305,22 +1305,20 @@ input[readonly] { opacity: .8; }
 .op-row.passa .op-v b { color: var(--good); }
 .op-todas { display: block; margin: 8px 0 0; }
 .dica-quando.erro { color: var(--danger); }
-.op-paginas { margin-top: 18px; }
-.op-pag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.op-add { display: flex; gap: 8px; margin-top: 10px; }
-.op-add .inp { flex: 1; min-width: 0; }
-.op-add .btn { flex: none; }
 .op-nota { margin: 12px 0 0; }
 .op-hora-l { display: flex; gap: 8px; }
 .op-hora-l .inp { flex: 1; min-width: 0; }
 .op-hora-l .btn { flex: 1; justify-content: center; }
-.op-sug { margin: 10px 0 0; }
 .op-dias { width: 132px; }
 .nivel-l { margin-top: 10px; }
 .nivel-l .inp { width: 100%; }
 .nivel-meta { margin: 8px 0 0; }
-.op-row .op-t .op-ganho { color: var(--text-2); font-size: 13px; margin-top: 2px; white-space: normal; }
-.op-row .op-t .op-nivel { display: flex; align-items: center; gap: 5px; color: var(--accent-text); font-size: 13px; margin-top: 2px; white-space: normal; }
+.op-ganho { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.op-ganho b { font: 600 17px/1.2 var(--font-d); font-variant-numeric: tabular-nums; color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); border-radius: 8px; padding: 3px 8px; }
+.op-ganho > span { color: var(--text-2); font-size: 14px; }
+.op-ganho .op-dif { flex: 1 0 100%; color: var(--muted); font-size: 13px; }
+.op-ganho .op-dif.mais { color: var(--good); font-weight: 600; }
+.op-row .op-nivel { flex: 1 0 100%; display: flex; align-items: center; gap: 5px; color: var(--accent-text); font-size: 13px; margin-top: -2px; }
 .op-sim { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 2px; }
 .op-sim > span:first-child { color: var(--text-2); font-size: 14px; }
 .op-sim .pref.mini.larga { width: 150px; }
@@ -1355,3 +1353,6 @@ input[readonly] { opacity: .8; }
 .bler-t b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bler-t > span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .bler-t em { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--font); font-style: normal; color: var(--text-2); background: var(--card-2); border-radius: 999px; padding: 4px 8px; }
+/* Oportunidades: as ofertas dos bancos cadastrados e os bancos sem página (o nome abre o banco) */
+.dica-quando.op-bancos, .dica-quando.op-sem { align-items: flex-start; }
+.op-bancos .ic-s, .op-sem .ic-s { flex: none; margin-top: 2px; }
