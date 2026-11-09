@@ -16,13 +16,13 @@ FONTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "e2e", "fixtur
 
 # o Home Assistant: a Ana tem um Pixel (rastreador com outro nome) e um relógio; o Beto, só o rastreador do roteador
 ESTADOS = [
-    {"entity_id": "person.ana", "attributes": {"friendly_name": "Ana", "user_id": "u-ana", "device_trackers": ["device_tracker.goku_phone", "device_tracker.relogio"]}},
+    {"entity_id": "person.ana", "attributes": {"friendly_name": "Ana", "user_id": "u-ana", "device_trackers": ["device_tracker.meu_celular", "device_tracker.relogio"]}},
     {"entity_id": "person.beto", "attributes": {"friendly_name": "Beto", "user_id": "u-beto", "device_trackers": ["device_tracker.roteador_beto"]}},
     {"entity_id": "sensor.qualquer", "attributes": {}},
 ]
 SERVICOS = [{"domain": "light", "services": {"turn_on": {}}},
             {"domain": "notify", "services": {"mobile_app_pixel_8": {}, "mobile_app_relogio_da_ana": {}, "notify": {}, "mobile_app_outro": {}}}]
-ENTIDADES = {"entities": [{"ei": "device_tracker.goku_phone", "di": "d1"}, {"ei": "device_tracker.relogio", "di": "d2"},
+ENTIDADES = {"entities": [{"ei": "device_tracker.meu_celular", "di": "d1"}, {"ei": "device_tracker.relogio", "di": "d2"},
                           {"ei": "device_tracker.roteador_beto", "di": "d3"}, {"ei": "light.sala", "di": "d4"}]}
 APARELHOS = [{"id": "d1", "name": "Pixel 8", "identifiers": [["mobile_app", "abc"]]},
              {"id": "d2", "name": "Relógio da Ana", "identifiers": [["mobile_app", "def"]]},
@@ -68,16 +68,16 @@ class TestCelulares(unittest.TestCase):
 
     def test_aparelho_de_cada_rastreador(self):
         ap = A.aparelhos(ENTIDADES, APARELHOS)
-        self.assertEqual(ap["device_tracker.goku_phone"], {"nome": "Pixel 8", "app": True})
+        self.assertEqual(ap["device_tracker.meu_celular"], {"nome": "Pixel 8", "app": True})
         self.assertEqual(ap["device_tracker.roteador_beto"], {"nome": "Roteador", "app": False})
         self.assertNotIn("light.sala", ap)
         self.assertIsNone(A.aparelhos(None, APARELHOS), "sem os registros")
         self.assertEqual(A.aparelhos({"entities": [{"ei": "device_tracker.x"}]}, []), {"device_tracker.x": None})
 
     def test_o_celular_pelo_aparelho_nao_pelo_rastreador(self):
-        servicos = {"mobile_app_pixel_8", "mobile_app_relogio_da_ana", "mobile_app_goku_phone"}
+        servicos = {"mobile_app_pixel_8", "mobile_app_relogio_da_ana", "mobile_app_meu_celular"}
         ap = A.aparelhos(ENTIDADES, APARELHOS)
-        self.assertEqual(A.celulares(["device_tracker.goku_phone", "device_tracker.relogio"], servicos, ap),
+        self.assertEqual(A.celulares(["device_tracker.meu_celular", "device_tracker.relogio"], servicos, ap),
                          ["mobile_app_pixel_8", "mobile_app_relogio_da_ana"])
         self.assertEqual(A.celulares(["device_tracker.roteador_beto"], servicos | {"mobile_app_roteador_beto"}, ap), [],
                          "o rastreador do roteador não é celular")
@@ -123,7 +123,7 @@ class TestPessoas(unittest.TestCase):
             raise OSError("fora")
         log = []
         av = A.Avisos(ha_falso(), ws_quebrado, lambda *a: log.append(a))
-        self.assertEqual(av.pessoas()[0]["celulares"], [], "goku_phone não tem mobile_app_goku_phone")
+        self.assertEqual(av.pessoas()[0]["celulares"], [], "meu_celular não tem mobile_app_meu_celular")
         self.assertTrue(log)
 
     def test_enviar(self):

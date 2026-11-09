@@ -1,7 +1,7 @@
 """Avisos no celular (Mais › Configurações › Opções › Dicas de economia › Avisar no celular), como o aviso de prazos do
 ResolvIA: o app olha para a pessoa, nunca para um aparelho escolhido aqui. Os celulares de uma pessoa são os apps do
 Home Assistant (no celular ou no relógio) entre os rastreadores dela (Configurações › Pessoas); o serviço de aviso de
-cada um (notify.mobile_app_*) tem o nome do aparelho, não o do rastreador (device_tracker.goku_phone pode ser
+cada um (notify.mobile_app_*) tem o nome do aparelho, não o do rastreador (device_tracker.meu_celular pode ser
 notify.mobile_app_pixel_8). A mesma regra do phones.js do ResolvIA e da CronologIA. Só biblioteca padrão do Python.
 """
 import os
@@ -15,7 +15,7 @@ CACHE_S = 60
 
 
 def slug(s):
-    """Como o Home Assistant nomeia as coisas: "Relógio Diego" -> "relogio_diego"."""
+    """Como o Home Assistant nomeia as coisas: "Relógio Davi" -> "relogio_davi"."""
     s = unicodedata.normalize("NFD", str(s or ""))
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
     return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
