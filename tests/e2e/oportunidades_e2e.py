@@ -28,6 +28,7 @@ class Pagina(BaseHTTPRequestHandler):
         self.wfile.write(PAGINA)
 
 
+# as taxas e as ofertas vêm do servidor em segundo plano: até 30 s (no GitHub, com a bateria toda, 15 s já não bastou)
 srv = ThreadingHTTPServer(("127.0.0.1", 0), Pagina)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 URL = f"http://127.0.0.1:{srv.server_address[1]}/renda-fixa"
@@ -48,7 +49,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(600)
     pg.click('#nav [data-a="tab"][data-v="mais"]')
     pg.click('[data-a="mais-tela"][data-v="invest"]')
-    pg.wait_for_selector("#oportunidades .op-row", timeout=15000)
+    pg.wait_for_selector("#oportunidades .op-row", timeout=30000)
     igual([x[0] for x in linhas(pg, "pre")], ["Tesouro Prefixado 2032", "Tesouro Prefixado 2029"], "Tesouro: os prefixados, do maior para o menor")
     igual([x[0] for x in linhas(pg, "ipca")], ["Tesouro IPCA+ 2032", "Tesouro IPCA+ 2040"], "Tesouro: Renda+ e Educa+ ficam de fora")
     tem(pg.inner_text("#oportunidades .dica-quando"), "Tesouro Direto: taxas de hoje", "a hora das taxas")
@@ -63,7 +64,7 @@ with sync_playwright() as p:
     # uma página de ofertas: a IA simulada lê, o fundo fica de fora, a LCA vem com o equivalente em CDB
     pg.fill("#op-url", URL)
     pg.click('#oportunidades [data-a="op-pagina-add"]')
-    pg.wait_for_function("() => [...document.querySelectorAll('#oportunidades .op-pag span')].some(s => s.textContent === '2 ofertas')", timeout=15000)
+    pg.wait_for_function("() => [...document.querySelectorAll('#oportunidades .op-pag span')].some(s => s.textContent === '2 ofertas')", timeout=30000)
     pos = linhas(pg, "pos")
     igual(pos[0][:2], ["CDB Banco Sol", "125% do CDI"], "a melhor do pós-fixado é a oferta da página")
     sim(pos[1][0] == "LCA Banco Sol" and pos[1][3].startswith("como CDB de 11"), "a LCA com o equivalente em CDB", pos[1])
@@ -72,7 +73,7 @@ with sync_playwright() as p:
 
     # Conferir agora
     pg.click('#oportunidades [data-a="op-conferir"]')
-    pg.wait_for_function("() => !document.querySelector('#oportunidades [data-a=\"op-conferir\"]').disabled", timeout=15000)
+    pg.wait_for_function("() => !document.querySelector('#oportunidades [data-a=\"op-conferir\"]').disabled", timeout=30000)
     sim(len(linhas(pg, "pos")) >= 3, "depois do Conferir agora, as linhas continuam")
 
     # Opções: o aviso no celular (fora do Home Assistant não há pessoas: a nota diz o porquê)
@@ -106,7 +107,7 @@ with sync_playwright() as p:
         else:
             pg.click('[data-a="tab"][data-v="mais"] >> visible=true')
         pg.click('[data-a="mais-tela"][data-v="invest"]')
-        pg.wait_for_selector("#oportunidades .op-row", timeout=15000)
+        pg.wait_for_selector("#oportunidades .op-row", timeout=30000)
         largura = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]")
         sim(largura[0] <= largura[1], f"{nome}: nada passa da largura", largura)
         pg.locator("#oportunidades").screenshot(path=f"{SP}/shots/op-invest-{nome}.png")
