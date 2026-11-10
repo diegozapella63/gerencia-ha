@@ -902,6 +902,7 @@ details summary { list-style-position: inside; }
 .uso-ult li b { color: var(--text); font-weight: 600; }
 .uso-ult li .r-erro { color: var(--danger); font-weight: 600; }
 .uso-ult li .t { flex-basis: 100%; font-size: 13px; }
+.uso-ult li .uso-motivo { flex-basis: 100%; font-size: 13px; line-height: 1.35; color: var(--danger); overflow-wrap: anywhere; }
 .card .nota a { color: var(--accent-text); }
 @media (prefers-reduced-motion: reduce) { .uso-bar i, .uso-ult summary .ic-s { transition: none; } }
 

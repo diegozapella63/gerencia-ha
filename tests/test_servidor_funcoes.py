@@ -216,6 +216,22 @@ class TestUso(unittest.TestCase):
         self.assertEqual(len(u["days"]), 7)
         self.assertEqual(u["days"][-1]["day"], S.uso_dia())
 
+    def test_o_motivo_do_erro_fica_na_chamada(self):
+        from unittest import mock
+        with mock.patch.object(S, "ha_request", side_effect=S.ErroHA("O Home Assistant recusou o pedido: Error generating data:\n  arquivo grande demais")):
+            with self.assertRaises(S.ErroHA):
+                S.ia_chamar("caixa", {"task_name": "x", "instructions": "y"}, 1)
+        c = S.resumo_uso()["recent"][0]
+        self.assertEqual((c["kind"], c["result"], c["error"]), ("caixa", "erro", "O Home Assistant recusou o pedido: Error generating data: arquivo grande demais"))
+        S.registrar_uso("caixa", "", 10, 10, 0, 0.1, "ok", "não guarda")
+        self.assertNotIn("error", S.resumo_uso()["recent"][0], "só a chamada com erro guarda o motivo")
+
+    def test_o_tempo_esgotado_em_portugues(self):
+        from unittest import mock
+        with mock.patch.object(S, "TOKEN", "x"), mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(S.ErroHA, "^O Home Assistant não respondeu em 180 s.$"):
+                S.ha_request("POST", "/services/ai_task/generate_data", {}, timeout=180)
+
 
 if __name__ == "__main__":
     unittest.main()

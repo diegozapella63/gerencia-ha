@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.46.0';
+const VERSAO = '1.46.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -562,7 +562,8 @@ function apiDemo() {
     async iaUso() {
       const dia = k => iso(new Date(hoje().getTime() - (6 - k) * 864e5));
       const rec = [['fala', 'ok', 3.4, 1100, 0], ['caixa', 'ok', 9.2, 2400, 1], ['holerite', 'ok', 7.8, 2100, 1], ['precos', 'ok', 4.1, 1500, 0], ['invest', 'cota', 1.3, 900, 1]]
-        .map(([kind, result, seconds, tokens, images], k) => ({ at: new Date(Date.now() - (k * 37 + 6) * 60000).toISOString(), kind, entity: 'ai_task.google_ai_task', result, seconds, tokens, images }));
+        .map(([kind, result, seconds, tokens, images], k) => ({ at: new Date(Date.now() - (k * 37 + 6) * 60000).toISOString(), kind, entity: 'ai_task.google_ai_task', result, seconds, tokens, images,
+          ...(result === 'ok' ? {} : { error: 'O Home Assistant recusou o pedido: 429 Too Many Requests: limite de uso atingido' }) }));
       return { today: { calls: 5, errors: 0, quota: 1, tokens: 8000, images: 3, kinds: { fala: 1, caixa: 1, holerite: 1, precos: 1, invest: 1 }, entities: {} },
         week: { calls: 16, errors: 1, quota: 1, tokens: 29100, images: 9, kinds: { caixa: 6, precos: 4, fala: 2, holerite: 2, invest: 2 }, entities: { 'ai_task.google_ai_task': 15 } },
         month: { calls: 38, errors: 2, quota: 1, tokens: 71000, images: 22, kinds: {}, entities: { 'ai_task.google_ai_task': 38 } },
@@ -4734,7 +4735,7 @@ function cardUsoIA() {
     const recentes = (u.recent || []).map(c => {
       const res = USO_RES[c.result] ?? c.result;
       return `<li><b>${esc(USO_TIPO[c.kind] || c.kind)}</b><span>${esc(nomeIA(c.entity))}</span>${res ? `<span class="r-erro">${esc(res)}</span>` : ''}
-        <span class="t">${esc(String(c.seconds).replace('.', ','))} s · ≈ ${milTokens(c.tokens)} tokens${c.images ? ` · ${plural(c.images, 'anexo', 'anexos')}` : ''} · ${esc(quandoCurto(c.at))}</span></li>`;
+        <span class="t">${esc(String(c.seconds).replace('.', ','))} s · ≈ ${milTokens(c.tokens)} tokens${c.images ? ` · ${plural(c.images, 'anexo', 'anexos')}` : ''} · ${esc(quandoCurto(c.at))}</span>${c.error ? `<span class="uso-motivo">${esc(c.error)}</span>` : ''}</li>`;
     }).join('');
     corpo = `<div class="uso-tiles">${tile('Hoje', u.today)}${tile('7 dias', u.week)}${tile('Este mês', u.month)}</div>
       <div class="uso-chart" role="group" aria-label="Chamadas de IA nos últimos 7 dias">${barras}</div>

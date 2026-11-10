@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.46.0"
+VERSAO = "1.46.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1073,6 +1073,8 @@ def ha_request(method, path, body=None, timeout=20):
             pass
         raise ErroHA(f"O Home Assistant recusou o pedido: {det}")
     except (urllib.error.URLError, TimeoutError) as e:
+        if isinstance(e, TimeoutError) or "timed out" in str(e):
+            raise ErroHA(f"O Home Assistant não respondeu em {timeout} s.")
         raise ErroHA(f"Sem resposta do Home Assistant ({e}).")
 
 
@@ -1100,7 +1102,7 @@ def e_cota(msg):
     return "429" in t or "quota" in t or "resource_exhausted" in t or "rate limit" in t
 
 
-def registrar_uso(tipo, entidade, chars_in, chars_out, imagens, segundos, resultado):
+def registrar_uso(tipo, entidade, chars_in, chars_out, imagens, segundos, resultado, erro=""):
     tokens = round((chars_in + chars_out) / 4)  # estimativa: uns 4 caracteres por token, só o texto
     dia = uso_dia()
     with USO_TRAVA:
@@ -1123,6 +1125,8 @@ def registrar_uso(tipo, entidade, chars_in, chars_out, imagens, segundos, result
         rec = u.setdefault("recent", [])
         rec.insert(0, {"at": agora_iso(), "kind": tipo, "entity": nome, "result": resultado,
                        "seconds": round(segundos, 1), "tokens": tokens, "images": imagens})
+        if resultado != "ok" and erro:
+            rec[0]["error"] = re.sub(r"\s+", " ", str(erro)).strip()[:300]  # o motivo, para a tela mostrar
         del rec[40:]
         os.makedirs(DATA_DIR, exist_ok=True)
         gravar_arquivo(USO_ARQ, json.dumps(u, ensure_ascii=False))
@@ -1181,7 +1185,7 @@ def publicar_uso_sensor():
 
 def ia_chamar(tipo, payload, imagens=0, timeout=180):
     """Chama a ação ai_task.generate_data e registra a chamada no uso da IA."""
-    t0, resultado, saida = time.time(), "ok", 0
+    t0, resultado, saida, erro = time.time(), "ok", 0, ""
     try:
         res = ha_request("POST", "/services/ai_task/generate_data?return_response", payload, timeout=timeout)
         dados = ((res or {}).get("service_response") or {}).get("data")
@@ -1191,11 +1195,11 @@ def ia_chamar(tipo, payload, imagens=0, timeout=180):
             saida = 0
         return res
     except Exception as e:
-        resultado = "cota" if e_cota(e) else "erro"
+        resultado, erro = "cota" if e_cota(e) else "erro", str(e) or type(e).__name__
         raise
     finally:
         try:
-            registrar_uso(tipo, payload.get("entity_id", ""), len(payload.get("instructions") or ""), saida, imagens, time.time() - t0, resultado)
+            registrar_uso(tipo, payload.get("entity_id", ""), len(payload.get("instructions") or ""), saida, imagens, time.time() - t0, resultado, erro)
         except Exception as e:  # noqa: BLE001
             log("Uso da IA:", e)
 

@@ -627,6 +627,9 @@ class TestIntegracoes(TelaMais):
         self.assertEqual(self.js("document.querySelector('#uso-ia .uso-cap').textContent"), "Hoje: 5 chamadas, 1 sem cota.")
         self.clicar("#uso-ia .uso-bar", 3)
         self.assertEqual(self.js("document.querySelector('#uso-ia .uso-cap').textContent"), "Sex, 30/10: 2 chamadas, 1 com erro.", "tocar num dia mostra o dele")
+        # a chamada com erro diz o motivo, embaixo dela
+        self.assertEqual(self.js("[...document.querySelectorAll('#uso-ia .uso-ult li')].map(li => (li.querySelector('.uso-motivo') || {}).textContent || '')"),
+                         ["", "", "", "", "O Home Assistant recusou o pedido: 429 Too Many Requests: limite de uso atingido"])
 
     def test_ligar_os_sensores(self):
         self.abrir_int()

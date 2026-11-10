@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.46.1
+
+- **Uso da IA › Últimas chamadas**: a chamada com erro agora diz o motivo, embaixo dela, em vermelho (ex.: o que o Home Assistant ou a IA respondeu, ou "O Home Assistant não respondeu em 180 s.").
+
 ## 1.46.0
 
 - **Oportunidades: quanto rende em destaque**. Em cada linha, o rendimento em 1 ano aparece em verde e numa linha só dele, sem quebrar: **+R$ 1.209** em 1 ano com R$ 10 mil. Embaixo, a diferença para o seu melhor investimento, em verde quando é a mais.
