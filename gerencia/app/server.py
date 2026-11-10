@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.46.1"
+VERSAO = "1.47.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -81,7 +81,7 @@ INDICES_PADRAO = {
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
 AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
-                  "email": False, "email_de": [], "email_aviso": False, "email_para": [], "correria": False,
+                  "email": False, "email_de": [], "email_remetentes": [], "email_aviso": False, "email_para": [], "correria": False,
                   # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
                   # % ao ano, IPCA + %; None = não escolheu), as páginas de ofertas e o aviso no celular no horário
                   "op_cdi": None, "op_pre": None, "op_ipca": None, "op_aviso": False, "op_para": [], "op_hora": "10:00", "op_dias": 1, "op_simular": 10000}
@@ -153,6 +153,16 @@ def normalizar(d):
     aj["email_aviso"] = aj.get("email_aviso") is True
     de = aj.get("email_de") if isinstance(aj.get("email_de"), list) else []
     aj["email_de"] = list(dict.fromkeys(x for x in (emails.limpar_remetente(r) for r in de if isinstance(r, str)) if x))[:20]
+    # as regras por remetente: Sempre é um fixo (lido todo mês, o valor vai para o fixo) ou Nunca considerar
+    regras = []
+    for r in aj.get("email_remetentes") if isinstance(aj.get("email_remetentes"), list) else []:
+        if not isinstance(r, dict) or r.get("acao") not in ("fixo", "nunca"):
+            continue
+        de_r = emails.limpar_remetente(r.get("de"))
+        if not de_r or (r["acao"] == "fixo" and not (isinstance(r.get("fixo"), str) and r["fixo"].strip())):
+            continue
+        regras = [x for x in regras if x["de"] != de_r] + [dict({"de": de_r, "acao": r["acao"]}, **({"fixo": r["fixo"].strip()[:40]} if r["acao"] == "fixo" else {}))]
+    aj["email_remetentes"] = regras[-50:]
     para = aj.get("email_para") if isinstance(aj.get("email_para"), list) else []
     aj["email_para"] = list(dict.fromkeys(p for p in para if isinstance(p, str) and avisos.PESSOA_RE.match(p)))[:20]
     # Oportunidades de investimento: os alvos e o aviso no celular (como o das dicas); as páginas de ofertas são as dos
@@ -1264,7 +1274,7 @@ IA_REGRAS_CAIXA = """Para cada gasto ou recebimento, devolva:
 - "banco": banco ou cartão citado; "" se não aparecer.
 - "situacao": "feito" se já foi pago ou recebido; "pendente" se é conta, boleto ou parcela a pagar, ou valor que ainda vai receber; "" se não der para saber.
 - "confianca": "alta", "media" ou "baixa".
-Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas.
+Em fatura, o pagamento da própria fatura ("pagamento recebido", "pagamento online", "pagamento da fatura", "pagto", débito automático) entra como receita com "pagamento_fatura": true (só nele); ignore "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas.
 Em conversas (WhatsApp, anotações), cada valor citado como gasto ou ganho vira um item. Não invente números.
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
 {{"itens":[{{"tipo":"despesa","descricao":"","valor":0,"data":"","categoria":"","parcela_atual":0,"parcelas_total":0,"cartao":false,"banco":"","situacao":"","confianca":"media"}}]}}"""
@@ -1284,7 +1294,7 @@ IA_REGRAS_AUTO = """Separe tudo em dois grupos. Um mesmo conteúdo pode ter os d
 - "banco": banco ou cartão citado; "" se não aparecer.
 - "situacao": "feito" se já foi pago ou recebido; "pendente" se é conta, boleto ou parcela a pagar, ou valor que ainda vai receber; "" se não der para saber.
 - "confianca": "alta", "media" ou "baixa".
-Em fatura, ignore "pagamento recebido", "pagamento da fatura", "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas. Em conversas, cada valor citado como gasto, conta ou ganho vira um item.
+Em fatura, o pagamento da própria fatura ("pagamento recebido", "pagamento online", "pagamento da fatura", "pagto", débito automático) entra como receita com "pagamento_fatura": true (só nele); ignore "saldo anterior", créditos de estorno do próprio cartão e totais. Juros, IOF, anuidade e multa entram como despesa na categoria de impostos e taxas. Em conversas, cada valor citado como gasto, conta ou ganho vira um item.
 Uma aplicação nova ("apliquei 3 mil no CDB", "investi", "guardei 500 na caixinha") entra nos dois grupos: aqui, como despesa na categoria de investimentos, já feita; e em "investimentos", com o "aporte".
 
 "investimentos": aplicações e saldos em investimentos (CDB, LCI, LCA, Tesouro, poupança, caixinha, fundo, ações, FII, previdência), como num print de app de banco ou corretora, extrato, nota de aplicação ou mensagem do gerente. Para cada um:
@@ -1470,6 +1480,8 @@ def ia_limpar_caixa(parsed, d):
             "situacao": it.get("situacao") if it.get("situacao") in ("feito", "pendente") else "",
             "confianca": it.get("confianca") if it.get("confianca") in ("alta", "media", "baixa") else "media",
         })
+        if it.get("pagamento_fatura") is True and tipo == "receita":
+            saida[-1]["pagamento_fatura"] = True  # o pagamento da própria fatura: a tela deixa desmarcado, no fim
     return saida
 
 
@@ -1705,6 +1717,19 @@ def mime_anexo(b):
     return None
 
 
+# a resposta da IA passou do limite de tamanho (no Claude do Home Assistant: "reached the output token limit")
+_LIMITE_RE = re.compile(r"output token limit|max_tokens|maximum (number of )?tokens|token limit|limite de tokens", re.I)
+PEDIDO_CURTO = ("Responda de forma bem curta: o JSON numa linha só, sem espaços, só os campos com valor, a descrição com até "
+                "30 caracteres e sem explicar nada.")
+MSG_LIMITE = ("A resposta da IA passou do limite de tamanho dela no Home Assistant. No Claude: Configurações › Dispositivos e "
+              "serviços › Anthropic › a tarefa de IA › engrenagem; desligue as configurações recomendadas e aumente o máximo "
+              "de tokens da resposta (o raciocínio também gasta desse limite).")
+
+
+def e_limite_saida(e):
+    return bool(_LIMITE_RE.search(str(e)))
+
+
 def ia_ler(corpo):
     d = ler()
     if not ia_ligada(d):
@@ -1761,8 +1786,12 @@ def ia_ler(corpo):
                 "entidade": "ai_task.simulada"}
     ent = d["ajustes"].get("ia_entidade") or ""
 
+    compacta = [False]
+
     def chamar(com_anexo, txt):
         instr = ia_prompt(d, modo, com_anexo, txt, saldos, pessoa, so_invest)
+        if compacta[0]:
+            instr += "\n" + PEDIDO_CURTO
         if com_anexo and len(arquivos) > 1:
             instr += "\nAs imagens anexadas são páginas do mesmo documento, em ordem: leia todas e não repita o que aparecer em duas."
         payload = {"task_name": "GerencIA: " + ("atualizar saldos" if saldos else "ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento", "auto": "lançamentos e investimentos"}.get(modo, "investimentos")),
@@ -1797,7 +1826,18 @@ def ia_ler(corpo):
         return dados
 
     try:
-        dados = chamar(bool(bruto), texto)
+        try:
+            dados = chamar(bool(bruto), texto)
+        except ErroHA as e:
+            if not e_limite_saida(e):
+                raise
+            # a resposta passou do limite de tamanho da IA (no Claude, o máximo de tokens): de novo, pedindo curta
+            log("IA: a resposta passou do limite; tentando de novo, mais curta")
+            compacta[0] = True
+            try:
+                dados = chamar(bool(bruto), texto)
+            except ErroHA as e2:
+                raise ValueError(MSG_LIMITE if e_limite_saida(e2) else str(e2)) from None
     except ErroHA as e:
         # IA que não aceita PDF: tenta de novo só com o texto tirado do arquivo
         extra = pdf_texto(bruto) if mime == "application/pdf" else ""
@@ -3325,7 +3365,15 @@ def emails_estado(forcar=False):
             "conectada": ligado and (_email_simulado() or bool(ESCUTA and ESCUTA.conectada)),
             "contas": contas_imap(forcar) if ligado else None,
             "procura": dict(PROCURA),
-            "itens": [email_publico(x) for x in emails_ler()["itens"]]}
+            "itens": [email_publico(x) for x in emails_ler()["itens"] if not _email_nunca(x, d)]}
+
+
+def _email_nunca(it, d):
+    """O e-mail é de um remetente marcado Nunca considerar (os que chegaram antes da regra somem também)."""
+    if it.get("origem") == "whatsapp":
+        return False
+    rg = emails.regra(it.get("de"), d["ajustes"].get("email_remetentes"))
+    return bool(rg and rg["acao"] == "nunca")
 
 
 def email_chegou(ev, avisar=True):
@@ -3340,12 +3388,17 @@ def email_chegou(ev, avisar=True):
     if parte is None or not ev.get("uid") or not ev.get("entry_id"):
         return None
     k = emails.chave(ev)
-    fatura = emails.e_fatura(ev.get("sender"), ev.get("subject"), arquivo, aj.get("email_de"))
+    rg = emails.regra(ev.get("sender"), aj.get("email_remetentes"))
+    fatura = emails.e_fatura(ev.get("sender"), ev.get("subject"), arquivo, aj.get("email_de"), aj.get("email_remetentes"))
     with _trava_emails:
         e = emails_ler()
         if k in e["vistos"]:
             return None
         e["vistos"] = (e["vistos"] + [k])[-EMAILS_VISTOS:]
+        if rg and rg["acao"] == "nunca":  # Nunca considerar: nem entra nos Recebidos
+            _emails_gravar(e)
+            log(f"E-mail de {emails.endereco(ev.get('sender'))}: nunca considerar")
+            return None
         it = {"id": secrets.token_hex(6), "chave": k, "entry": str(ev["entry_id"]), "uid": str(ev["uid"]), "parte": parte,
               "de": str(ev.get("sender") or "")[:200], "assunto": str(ev.get("subject") or "")[:200],
               "data": str(ev.get("date") or "")[:25], "recebido_em": agora_iso(), "arquivo": str(arquivo)[:120],

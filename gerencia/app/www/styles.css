@@ -1357,3 +1357,10 @@ input[readonly] { opacity: .8; }
 /* Oportunidades: as ofertas dos bancos cadastrados e os bancos sem página (o nome abre o banco) */
 .dica-quando.op-bancos, .dica-quando.op-sem { align-items: flex-start; }
 .op-bancos .ic-s, .op-sem .ic-s { flex: none; margin-top: 2px; }
+/* Faturas por e-mail: o fixo ligado ao remetente e as regras (Sempre é um fixo, Nunca considerar) */
+.email-l small.email-fixo { display: flex; align-items: center; gap: 4px; color: var(--accent-text); }
+.email-l .icbtn { flex: none; }
+.email-regras { margin-top: 6px; }
+.ia-item-t .ia-fixo, .ia-item-t .ia-fixar { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; color: var(--accent-text); font-size: 13px; font-weight: 600; margin-top: 4px; padding: 2px 0; }
+.ia-item-t .ia-fixar { color: var(--muted); font-weight: 500; }
+.ia-fixos .op { width: 100%; }

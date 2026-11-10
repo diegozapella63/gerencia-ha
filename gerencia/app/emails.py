@@ -74,15 +74,37 @@ def limpar_remetente(texto):
     return t[:80]
 
 
-def e_fatura(remetente, assunto, arquivo, remetentes):
-    """É e-mail de fatura? Com remetentes cadastrados, o endereço de quem mandou tem um deles (o endereço inteiro ou
-    o fim, como bancoazul.com.br); sem nenhum, a palavra fatura ou boleto no assunto ou no nome do PDF."""
+# o que no assunto (ou no nome do PDF) diz que é conta: fatura, boleto, recibo, cobrança, nota fiscal e assinatura
+PALAVRAS = ("fatura", "boleto", "recibo", "receipt", "invoice", "cobranca", "nota fiscal", "assinatura", "subscription",
+            "renovacao", "renewal", "mensalidade")
+
+
+def casa(de, r):
+    """O endereço é o remetente r: o endereço inteiro ou o fim dele (bancoazul.com.br, ou um subdomínio)."""
+    return bool(r) and (de == r or de.endswith("@" + r) or de.endswith("." + r))
+
+
+def regra(remetente, regras):
+    """A regra do remetente (Sempre é um fixo ou Nunca considerar), ou None; a mais precisa vale (o endereço inteiro
+    sobre o domínio)."""
     de = endereco(remetente)
-    regras = [limpar_remetente(r) for r in remetentes or [] if str(r or "").strip()]
-    if regras:
-        return any(de == r or de.endswith("@" + r) or de.endswith("." + r) for r in regras)
+    achadas = [r for r in regras or [] if isinstance(r, dict) and casa(de, r.get("de"))]
+    return max(achadas, key=lambda r: len(r["de"]), default=None)
+
+
+def e_fatura(remetente, assunto, arquivo, remetentes, regras=None):
+    """É e-mail de conta? A regra do remetente vale primeiro (Sempre é um fixo: sim; Nunca considerar: não). Com
+    remetentes cadastrados, o endereço de quem mandou tem um deles (o endereço inteiro ou o fim, como bancoazul.com.br);
+    sem nenhum, uma das PALAVRAS no assunto ou no nome do PDF."""
+    rg = regra(remetente, regras)
+    if rg:
+        return rg.get("acao") == "fixo"
+    de = endereco(remetente)
+    lista = [limpar_remetente(r) for r in remetentes or [] if str(r or "").strip()]
+    if lista:
+        return any(casa(de, r) for r in lista)
     t = _sem_acento(f"{assunto} {arquivo}")
-    return "fatura" in t or "boleto" in t
+    return any(p in t for p in PALAVRAS)
 
 
 def chave(ev):

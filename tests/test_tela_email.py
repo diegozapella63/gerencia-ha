@@ -213,7 +213,7 @@ class TestCartaoIntegracoes(TelaEmail):
         self.pg.wait_for_selector("#email .status")
         self.assertEqual(self.texto("#email .status"), "ana@exemplo.com")
         self.assertIn("Ligado: recebendo os e-mails pelo Home Assistant.", self.cartao())
-        self.assertIn("Sem nenhum, os e-mails com PDF e “fatura” ou “boleto” no assunto.", self.cartao())
+        self.assertIn("Sem nenhum, os e-mails com PDF e “fatura”, “boleto”, “recibo” ou “assinatura” no assunto.", self.cartao())
 
     def test_some_sem_a_ia(self):
         self.abrir_com([], ui=INTEG, ia=False)
@@ -302,6 +302,161 @@ class TestCartaoIntegracoes(TelaEmail):
         self.abrir_com([], ui=INTEG)
         self.assertEqual(self.js("[...document.querySelectorAll('#app section.card')].map(s => s.id)"),
                          ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"])
+
+
+class TestRemetente(TelaEmail):
+    """Recebidos › ⋯: Sempre é um fixo (lido sempre; o valor vai para o fixo do mês, que pode ser criado ali) e Nunca
+    considerar (some dos Recebidos e do Início); as regras ficam listadas e saem pela lixeira."""
+    FIXO = {"id": "r-nuvem", "tipo": "despesa", "descricao": "Nuvem Sol", "valor": 30, "dia": 5, "categoria": "c-assinaturas", "conta": "k-verde", "cartao": False,
+            "obs": "", "inicio": "2026-01", "fim": None}
+
+    def abrir_rem(self, itens, regras=(), recorrencias=(), ui=INTEG):
+        self.js("(T.api._emails = a, T.S.emails = undefined, T.S.emailsPedido = null, clearTimeout(T.S.emailsTimer), true)", list(itens))
+        self.abrir(base(bancos=BANCOS, recorrencias=list(recorrencias), ajustes={"email": True, "email_de": [], "email_remetentes": list(regras)}), ui=ui)
+        self.js("T.carregarEmails()")
+        self.esperar()
+
+    def test_nunca_considerar(self):
+        self.abrir_rem([email(1, "conferir"), email(2, "fora", "Loja Lua", "Seu boleto")])
+        self.clicar('#email [data-a="email-remetente"][data-v="e00000000002"]')
+        self.assertEqual(self.folha(), "E-mails deste remetente")
+        self.assertEqual(self.textos("#folhas .chips .chip"), ["fatura@lojalua.com.br", "Todo o lojalua.com.br"])
+        self.assertEqual(self.textos("#folhas .seg button"), ["Normal", "É um fixo", "Nunca"])
+        self.clicar('#folhas [data-a="frem-de"][data-v="lojalua.com.br"]')
+        self.clicar('#folhas [data-a="frem-acao"][data-v="nunca"]')
+        self.assertEqual(self.texto("#folhas .ajuda"), "Não entra, mesmo com fatura ou boleto no assunto.")
+        self.clicar('#folhas [data-a="frem-salvar"]')
+        self.assertEqual(self.aviso(), "Os e-mails de lojalua.com.br não entram mais")
+        self.assertEqual(self.dados()["ajustes"]["email_remetentes"], [{"de": "lojalua.com.br", "acao": "nunca"}])
+        self.pg.wait_for_function("() => document.querySelectorAll('#email .emails .email-l').length === 1")
+        self.assertEqual(self.textos("#email .email-regras .email-l b"), ["lojalua.com.br"])
+        self.assertEqual(self.textos("#email .email-regras .email-l small"), ["Nunca considerar"])
+        # tirar a regra: o e-mail volta
+        self.clicar('#email [data-a="email-regra-rm"][data-v="lojalua.com.br"]')
+        self.pg.wait_for_function("() => document.querySelectorAll('#email .emails .email-l').length === 2")
+        self.assertEqual(self.dados()["ajustes"]["email_remetentes"], [])
+
+    def test_sempre_um_fixo_novo_le_e_lanca_no_fixo(self):
+        res = {"lancamentos": [lanc("Nuvem assinatura", 32.5, "c-outros-gastos", "2026-11-03")], "investimentos": []}
+        self.abrir_rem([email(1, "fora", "Nuvem", "Subscription receipt")])
+        self.clicar('#email [data-a="email-remetente"]')
+        self.clicar('#folhas [data-a="frem-acao"][data-v="fixo"]')
+        self.clicar('#folhas [data-a="frem-salvar"]')
+        self.assertEqual(self.texto("#folhas .msg-erro"), "Escolha o fixo.")
+        self.pg.select_option("#frem-fixo", "novo")
+        self.assertEqual(self.pg.input_value("#frem-nome"), "Nuvem")
+        self.assertEqual(self.texto("#folhas .frem-novo .ajuda"), "Todo dia 1, em Assinaturas. O valor vem da leitura do e-mail.")
+        self.preencher("#frem-nome", "Nuvem Sol")
+        # ao salvar, o e-mail que não parecia fatura já é lido (na prévia, a IA simulada devolve o recibo)
+        self.trocar_api("emailAcao", "async function (acao, id) { const it = this._emails.find(x => x.id === id); it.estado = 'conferir'; it.resultado = " + __import__("json").dumps(res) + "; return this.emails(); }")
+        self.clicar('#folhas [data-a="frem-salvar"]')
+        self.assertEqual(self.aviso(), "Os e-mails de fatura@nuvem.com.br vão para Nuvem Sol")
+        d = self.dados()
+        fx = [r for r in d["recorrencias"] if r["descricao"] == "Nuvem Sol"][0]
+        self.assertEqual({k: fx[k] for k in ("tipo", "valor", "dia", "categoria", "inicio", "fim")},
+                         {"tipo": "despesa", "valor": 0, "dia": 1, "categoria": "c-assinaturas", "inicio": "2026-11", "fim": None})
+        self.assertEqual(d["ajustes"]["email_remetentes"], [{"de": "fatura@nuvem.com.br", "acao": "fixo", "fixo": fx["id"]}])
+        self.pg.wait_for_function("() => (document.querySelector('#email .email-fixo') || {}).textContent === 'Nuvem Sol'")
+        # a conferência: a despesa vai para o fixo do mês
+        self.ir("inicio")
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.texto("#folhas .ia-fixo"), "Fixo Nuvem Sol · nov/26")
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA")
+        self.esperar()
+        d = self.dados()
+        fx = [r for r in d["recorrencias"] if r["id"] == fx["id"]][0]
+        self.assertEqual(fx["valor"], 32.5, "o fixo sem valor fica com o valor lido")
+        lc = [l for l in d["lancamentos"] if l.get("recorrencia") == fx["id"]]
+        self.assertEqual([(l["descricao"], l["valor"], l["competencia"], l["categoria"]) for l in lc], [("Nuvem Sol", 32.5, "2026-11", "c-assinaturas")])
+        self.assertEqual([l for l in d["lancamentos"] if l["descricao"] == "Nuvem assinatura"], [], "sem lançamento solto")
+
+    def test_fixo_ja_lancado_muda_o_valor_e_regra_listada(self):
+        res = {"lancamentos": [lanc("Nuvem", 31.9, "c-outros-gastos", "2026-11-05")], "investimentos": []}
+        mes = {"id": "l-nv", "tipo": "despesa", "descricao": "Nuvem Sol", "valor": 30, "data": "2026-11-05", "categoria": "c-assinaturas", "conta": "k-verde",
+               "cartao": False, "pago": False, "recorrencia": "r-nuvem", "competencia": "2026-11", "obs": ""}
+        self.js("(T.api._emails = a, T.S.emails = undefined, T.S.emailsPedido = null, clearTimeout(T.S.emailsTimer), true)", [email(1, "conferir", "Nuvem", resultado=res)])
+        self.abrir(base(bancos=BANCOS, recorrencias=[self.FIXO], lancamentos=[mes],
+                        ajustes={"email": True, "email_de": [], "email_remetentes": [{"de": "nuvem.com.br", "acao": "fixo", "fixo": "r-nuvem"}]}), ui=INTEG)
+        self.js("T.carregarEmails()")
+        self.esperar()
+        self.assertEqual(self.textos("#email .email-regras small"), ["Fixo: Nuvem Sol"])
+        self.clicar('#email [data-a="email-remetente"]')
+        self.assertEqual(self.js("[T.FREM.de, T.FREM.acao, T.FREM.fixo]"), ["nuvem.com.br", "fixo", "r-nuvem"], "abre com a regra que vale")
+        self.voltar()
+        self.ir("inicio")
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.texto("#folhas .ia-fixo"), "Fixo Nuvem Sol · nov/26")
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA")
+        self.esperar()
+        lc = [l for l in self.dados()["lancamentos"] if l.get("recorrencia") == "r-nuvem"]
+        self.assertEqual([(l["id"], l["valor"], l["conta"]) for l in lc], [("l-nv", 31.9, "k-verde")], "o mês já lançado muda o valor, na conta do fixo")
+
+    def test_na_conferencia_uma_despesa_vira_fixo(self):
+        # (pedido do dono: da conferência, criar uma despesa fixa ou ligar a linha a um fixo que já existe)
+        self.js("(T.api._emails = a, T.S.emails = undefined, T.S.emailsPedido = null, clearTimeout(T.S.emailsTimer), true)", [email(1, "conferir")])
+        self.abrir(base(bancos=BANCOS, recorrencias=[self.FIXO], ajustes={"email": True, "email_de": []}))
+        self.js("T.carregarEmails()")
+        self.esperar()
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.textos("#folhas .ia-fixar"), ["Fixo", "Fixo"])
+        # Mercado Bom: um fixo novo, feito da linha
+        self.clicar('#folhas [data-a="ia-fixo"][data-i="0"]')
+        self.assertEqual(self.folha(), "Despesa fixa")
+        self.assertEqual(self.textos("#folhas .ia-fixos .op-t b"), ["Novo fixo", "Nuvem Sol"])
+        self.assertEqual(self.textos("#folhas .ia-fixos .op-t span")[0], "Mercado Bom · R$ 123,45 todo dia 1")
+        self.clicar('#folhas [data-a="ia-fixo-usar"][data-v="novo"]')
+        self.assertEqual(self.folha(), "Conferir lançamentos", "volta para a conferência")
+        self.assertEqual(self.texto('#folhas [data-a="ia-fixo"][data-i="0"]'), "Novo fixo · todo dia 1")
+        # Farmácia Sol: no fixo que já existe; depois, Não é fixo e de novo
+        self.clicar('#folhas [data-a="ia-fixo"][data-i="1"]')
+        self.clicar('#folhas [data-a="ia-fixo-usar"][data-v="r-nuvem"]')
+        self.assertEqual(self.texto('#folhas [data-a="ia-fixo"][data-i="1"]'), "Fixo Nuvem Sol · nov/26")
+        self.clicar('#folhas [data-a="ia-fixo"][data-i="1"]')
+        self.assertEqual(self.textos("#folhas .ia-fixos .op-t b")[-1], "Não é fixo")
+        self.clicar('#folhas [data-a="ia-fixo-usar"][data-v=""]')
+        self.assertEqual(self.texto('#folhas [data-a="ia-fixo"][data-i="1"]'), "Fixo")
+        self.clicar('#folhas [data-a="ia-fixo"][data-i="1"]')
+        self.clicar('#folhas [data-a="ia-fixo-usar"][data-v="r-nuvem"]')
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA")
+        self.esperar()
+        d = self.dados()
+        novo = [r for r in d["recorrencias"] if r["descricao"] == "Mercado Bom"]
+        self.assertEqual([(r["valor"], r["dia"], r["inicio"], r["categoria"], r["fim"]) for r in novo], [(123.45, 1, "2026-11", "c-mercado", None)])
+        mes = sorted((l["descricao"], l["valor"], l.get("recorrencia"), l.get("competencia")) for l in d["lancamentos"] if l.get("recorrencia"))
+        self.assertEqual(mes, [("Mercado Bom", 123.45, novo[0]["id"], "2026-11"), ("Nuvem Sol", 45.9, "r-nuvem", "2026-11")])
+        self.assertEqual([l for l in d["lancamentos"] if not l.get("recorrencia")], [], "nada solto")
+
+    def test_pagamento_da_fatura_fica_no_fim_desmarcado(self):
+        # (pedido do dono: o Pagamento online da fatura entrava como recebimento; agora fica numa seção no fim, desmarcado)
+        pag = dict(lanc("Pagamento online", 1200, "c-outros-receb", "2026-10-09", "receita"), cartao=False)
+        flag = dict(lanc("Crédito recebido", 50, "c-outros-receb", "2026-10-10", "receita"), pagamento_fatura=True)
+        pix = dict(lanc("Pagamento recebido de Beto", 80, "c-outros-receb", "2026-10-11", "receita"), cartao=False)
+        res = {"lancamentos": [lanc("Mercado Bom", 123.45), pag, flag, lanc("Farmácia Sol", 45.9, "c-saude")], "investimentos": []}
+        self.abrir_com([email(1, "conferir", resultado=res)])
+        self.clicar('[data-a="email-abrir"]')
+        secoes = self.js("[...document.querySelectorAll('#folhas .ia-itens')].map(g => [...g.querySelectorAll('.ia-item-t > b')].map(b => b.textContent))")
+        self.assertEqual(secoes, [["Mercado Bom", "Farmácia Sol"], ["Pagamento online", "Crédito recebido"]])
+        self.assertEqual(self.texto("#folhas .ia-fora"), "Pagamentos desconsiderados")
+        self.assertEqual(self.js("[...document.querySelectorAll('#folhas .ia-itens')][1].querySelectorAll('.ia-check.on').length"), 0, "desmarcados")
+        self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 2 · −R$ 169")
+        self.clicar('#folhas .ia-itens:last-of-type [data-a="ia-marca"]')
+        self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 3 · R$ 1.031", "marcado, entra")
+        # fora de uma fatura de cartão, um recebimento com "pagamento" no nome continua normal
+        res2 = {"lancamentos": [dict(lanc("Aluguel", 900), cartao=False), pix], "investimentos": []}
+        self.abrir_com([email(2, "conferir", resultado=res2)])
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.conta("#folhas .ia-fora"), 0)
+        self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 2 · −R$ 820")
+
+    def test_igual_ao_servidor(self):
+        import emails as E  # o tela_base põe gerencia/app no caminho
+        regras = [{"de": "nuvem.com.br", "acao": "fixo", "fixo": "r1"}, {"de": "fatura@nuvem.com.br", "acao": "nunca"}, {"de": "lua.com", "acao": "nunca"}]
+        casos = ["fatura@nuvem.com.br", "outro@nuvem.com.br", "x@mail.nuvem.com.br", "x@nuvem.com.br.falso", "x@lua.com", "x@sol.com", ""]
+        self.abrir_rem([])
+        self.assertEqual(self.js("a[0].map(e => T.regraEmail(e, a[1]))", [casos, regras]), [E.regra(c, regras) for c in casos])
 
 
 class TestAvisoNoCelular(TelaEmail):

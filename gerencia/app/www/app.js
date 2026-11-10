@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.46.1';
+const VERSAO = '1.47.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -538,7 +538,7 @@ function apiDemo() {
     async senhaNova(nome, senha) { if (!String(senha || '').trim()) throw new Error('Digite a senha.'); (this._senhas = this._senhas || []).push({ id: uid(), nome: nome || 'Senha', senha: String(senha).trim() }); return this.senhas(); },
     async senhaApagar(id) { this._senhas = (this._senhas || []).filter(x => x.id !== id); return this.senhas(); },
     // faturas por e-mail na prévia: sem Home Assistant, a lista fica na memória (vazia; os testes põem e-mails inventados)
-    async emails() { const ligado = S.d.ajustes.email === true && iaOn(); return { ligado, conectada: ligado, contas: ligado ? [{ id: 'imap-previa', nome: 'ana@exemplo.com', ok: true }] : null, itens: clone(this._emails || []) }; },
+    async emails() { const ligado = S.d.ajustes.email === true && iaOn(); return { ligado, conectada: ligado, contas: ligado ? [{ id: 'imap-previa', nome: 'ana@exemplo.com', ok: true }] : null, itens: clone((this._emails || []).filter(it => (regraEmail(it.endereco) || {}).acao !== 'nunca')) }; },
     async emailPdf() { throw new Error('Na prévia não há PDF.'); },
     async emailProcurar() { throw new Error('Na prévia não há caixa de entrada.'); },
     async emailAcao(acao, id) { const it = (this._emails || []).find(x => x.id === id); if (!it) throw new Error('Esse e-mail não está mais aqui.'); it.estado = acao === 'ler' ? 'lendo' : acao === 'feito' ? 'feito' : 'ignorado'; it.erro = ''; if (acao !== 'ler') delete it.resultado; return this.emails(); },
@@ -849,20 +849,7 @@ function telaInicio() {
     <div class="hl-v">${apM ? `Com aporte de ${brl(apM, 0)} por mês` : 'Sem novos aportes'}</div></div><div class="hl-n">${brl(pr[12].valor, 0)}<small>+${brl(ganho, 0)}</small></div></button>`);
   html += `<div class="hl">${rows.join('')}</div><div class="ini-gb">`;
 
-  // terceiros
-  const ps = pessoas();
-  if (ps.length) {
-    html += `<div class="card flush"><div class="rot">${rotIc('users', 'terc')}<span class="rot-t">Dinheiro de terceiros</span><b>${brl(t.terc, 0)}</b></div>`;
-    for (const p of ps) {
-      const l = d.investimentos.filter(i => i.titular === 'terceiros' && dono(i) === p);
-      const v = l.reduce((s, i) => s + valorHoje(i), 0);
-      const bs = [...new Set(l.map(i => bancoDe(i.banco)?.nome).filter(Boolean))].join(', ');
-      html += `<button class="op" data-a="pessoa" data-v="${esc(p)}"><div class="op-ic terc">${esc(p.slice(0, 1).toUpperCase())}</div>
-        <div class="op-t"><b>${esc(p)}</b><span>${plural(l.length, 'investimento', 'investimentos')}${bs ? ' · ' + esc(bs) : ''}</span></div>
-        <div class="op-n terc">${brl(v, 0)}</div>${ic('chev', 'chev')}</button>`;
-    }
-    html += '</div>';
-  }
+  // o dinheiro de terceiros fica no Invest (filtro Terceiros), fora do Início (desde a 1.47.0)
 
   // avisos
   const av = avisosCaixa(h);
@@ -3136,6 +3123,8 @@ function nomeBancoVisto(nome) {
   const n = semAcento(nome);
   return BANCOS_COMUNS.find(x => n.includes(semAcento(x))) || String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 }
+// o crédito na fatura que é o pagamento dela (não é recebimento): Pagamento online, pagamento recebido, pagto, débito automático
+const RE_PAG_FATURA = /^(pagamento|pagto|pgto)\b|debito automatico|pagamento (recebido|online|da fatura|de fatura|efetuado)/;
 function prepararRevisaoCaixa() {
   const s = IAS;
   const cartao = s.itens.filter(i => i.cartao).length > s.itens.length / 2;
@@ -3162,6 +3151,19 @@ function prepararRevisaoCaixa() {
       Math.abs(diasEntre(pData(l.data) || hoje(), pData(it.data) || hoje())) <= 2 && semAcento(l.descricao).slice(0, 4) === semAcento(it.descricao).slice(0, 4));
     it.dup = dup;
     if (dup) it.marcado = false;
+    // o pagamento da própria fatura (a IA marca, ou o nome diz: Pagamento online, pagamento recebido...): fica desmarcado, no fim
+    it.desconsiderado = it.pagamento_fatura === true || (it.tipo === 'receita' && (!!it.cartao || cartao) && RE_PAG_FATURA.test(semAcento(it.descricao)));
+    if (it.desconsiderado) it.marcado = false;
+  }
+  // a fatura de um remetente ligado a um fixo (Sempre é um fixo): a primeira despesa vai para o fixo do mês, na
+  // conta e na categoria dele; já lançada e paga com o mesmo valor, parece já lançada
+  const r = s.fixoEmail && S.d.recorrencias.find(x => x.id === s.fixoEmail), alvo = r && s.itens.find(i => i.tipo === 'despesa');
+  if (alvo) {
+    const ym = ymDe(alvo.data), m = S.d.lancamentos.find(l => l.recorrencia === r.id && l.competencia === ym && !l.pulado);
+    Object.assign(alvo, { fixo: r.id, fixoNome: r.descricao, fixoMes: ym, dup: !!(m && m.pago && Math.abs((+m.valor || 0) - alvo.valor) < 0.01) });
+    if (r.categoria && S.d.categorias.some(c => c.id === r.categoria)) alvo.categoria = r.categoria;
+    if (r.conta && contaDe(r.conta)) { alvo.conta = r.conta; alvo.noCartao = !!r.cartao && !!contaDe(r.conta).cartao; }
+    alvo.marcado = !alvo.dup;
   }
 }
 // Conferir o que a IA leu: lançamentos e investimentos juntos, um botão salva tudo o que estiver marcado
@@ -3217,17 +3219,26 @@ function revisaoCaixa() {
       <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">Tudo pendente</button></div>
       ${s.situacao === 'auto' ? `<div class="ajuda">Contas a pagar e a receber ficam pendentes; o resto, pela data.</div>` : ''}</div>
     ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div><b>Lançar as próximas parcelas</b><span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
-    <div class="ia-itens">${s.itens.map((it, k) => {
+    ${(() => {
+    // os pagamentos da própria fatura (Pagamento online, pagamento recebido...) ficam no fim, desmarcados: não são recebimento
+    const linha = (it, k) => {
       const cats = S.d.categorias.filter(c => c.tipo === it.tipo);
       return `<div class="ia-item${it.marcado ? '' : ' off'}">
         <button class="ia-check${it.marcado ? ' on' : ''}" data-a="ia-marca" data-i="${k}" aria-label="${it.marcado ? 'Desmarcar' : 'Marcar'}">${it.marcado ? ic('check', 'ic-s') : ''}</button>
         <div class="ia-item-t"><b>${esc(it.descricao)}</b>
-          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${iaNoCartao(it) ? ' · na fatura' : iaPago(it, it.data) ? '' : ` · <b class="ia-pend">${it.tipo === 'receita' ? 'a receber' : 'a pagar'}</b>`}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span></div>
+          <span>${fDataC(pData(it.data))}${it.parcelas_total ? ` · parcela ${it.parcela_atual}/${it.parcelas_total}` : ''}${iaNoCartao(it) ? ' · na fatura' : iaPago(it, it.data) ? '' : ` · <b class="ia-pend">${it.tipo === 'receita' ? 'a receber' : 'a pagar'}</b>`}${it.dup ? ' · <em>parece já lançado</em>' : ''}${it.confianca === 'baixa' ? ' · <em>confira</em>' : ''}</span>
+          ${it.fixo ? `<button class="ia-fixo" data-a="ia-fixo" data-i="${k}">${ic('repeat', 'ic-s')}${it.fixo === 'novo' ? `Novo fixo · todo dia ${diaDe(it.data)}` : `Fixo ${esc(it.fixoNome)} · ${nomeMes(it.fixoMes, true)}`}</button>`
+            : it.tipo === 'despesa' && !it.parcelas_total ? `<button class="ia-fixar" data-a="ia-fixo" data-i="${k}">${ic('repeat', 'ic-s')}Fixo</button>` : ''}</div>
         <b class="${it.tipo === 'receita' ? 'ent' : 'sai'}">${it.tipo === 'receita' ? '+' : '−'} ${brl(it.valor)}</b>
         <div class="ia-item-x dois">
           <select class="ia-cat" data-iai="categoria" data-i="${k}" aria-label="Categoria">${cats.map(c => `<option value="${c.id}"${c.id === it.categoria ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
           <select class="ia-cat" data-iai="contasel" data-i="${k}" aria-label="Conta">${opcoesContaIA(it)}</select></div></div>`;
-    }).join('')}</div>`;
+    };
+    const ks = s.itens.map((it, k) => k), fora = ks.filter(k => s.itens[k].desconsiderado);
+    return `<div class="ia-itens">${ks.filter(k => !s.itens[k].desconsiderado).map(k => linha(s.itens[k], k)).join('')}</div>`
+      + (fora.length ? `<h3 class="ia-sec ia-fora">Pagamentos desconsiderados</h3><div class="ajuda" style="margin:-4px 0 8px">O pagamento da fatura não é recebimento. Marque se quiser lançar.</div>
+        <div class="ia-itens">${fora.map(k => linha(s.itens[k], k)).join('')}</div>` : '');
+    })()}`;
 }
 // salva o que estiver marcado nos dois grupos de uma vez
 async function salvarIA() {
@@ -3262,6 +3273,15 @@ function aplicarIACaixa(d, itens) {
       // aplicação nos investimentos vira uma saída do tipo Aporte
       if (it.tipo === 'despesa' && it.categoria === 'c-investimentos') Object.assign(base, { aporte: true, cartao: false });
       const pago = data => iaPago(it, data);
+      if (it.fixo === 'novo') {
+        // o fixo novo, feito da linha: todo mês no dia da data, desde o mês dela
+        const r = { id: 'r-' + uid(), tipo: 'despesa', descricao: String(it.descricao).slice(0, 60), valor: it.valor, categoria: it.categoria, conta: it.conta || '', cartao,
+          obs: '', dia: diaDe(it.data), inicio: ymDe(it.data), fim: null };
+        d.recorrencias.push(r);
+        lancarNoFixo(d, Object.assign({}, it, { fixo: r.id }), cartao, pago);
+        continue;
+      }
+      if (it.fixo && d.recorrencias.some(r => r.id === it.fixo)) { lancarNoFixo(d, it, cartao, pago); continue; }
       if (it.parcelas_total && it.parcela_atual) {
         const g = 'g-' + uid();
         const ultimo = s.futuras ? it.parcelas_total : it.parcela_atual;
@@ -3875,7 +3895,7 @@ function abrirEmail(id) {
   if (!it || it.estado === 'lendo') return;
   if (it.estado === 'erro') { emailAcao('ler', id, 'Lendo de novo'); return; }
   abrirIA('caixa');
-  Object.assign(IAS, { email: id, so: 'arquivo' });
+  Object.assign(IAS, { email: id, so: 'arquivo', fixoEmail: fixoDoEmail(it) });
   if (it.estado === 'conferir') { iaResultado(clone(it.resultado)); return; }
   IAS.erro = 'Abrindo o PDF…';
   pintarFolha();
@@ -3905,7 +3925,11 @@ function cardEmail() {
   h += `<div class="campo email-campo"><label for="email-de">De quem</label>
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
     <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
-    <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura” ou “boleto” no assunto.'}</div></div>`;
+    <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura”, “boleto”, “recibo” ou “assinatura” no assunto.'}</div></div>`;
+  const R = a.email_remetentes || [];
+  if (R.length) h += `<div class="campo email-regras"><div class="lbl">Remetentes</div>${R.map(r => `<div class="email-l"><span><b>${esc(r.de)}</b>
+      <small>${r.acao === 'nunca' ? 'Nunca considerar' : 'Fixo: ' + esc((S.d.recorrencias.find(x => x.id === r.fixo) || {}).descricao || 'que saiu')}</small></span>
+      <button class="icbtn" data-a="email-regra-rm" data-v="${esc(r.de)}" aria-label="Tirar a regra de ${esc(r.de)}">${ic('trash', 'ic-s')}</button></div>`).join('')}</div>`;
   const L = ((E && E.itens) || []).filter(doEmail).slice(0, 5);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
   return h + '</section>';
@@ -3925,9 +3949,116 @@ function procurarEmail(E) {
 }
 function linhaEmail(it) {
   const ler = ['fora', 'erro', 'ignorado'].includes(it.estado);
-  const dt = pData(String(it.data || it.recebido_em || '').slice(0, 10));
-  return `<div class="email-l"><span><b>${esc(it.de || it.endereco)}</b><small>${esc(it.assunto || it.arquivo)}${dt ? ' · ' + fDataC(dt) : ''}</small></span>
-    ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}</div>`;
+  const dt = pData(String(it.data || it.recebido_em || '').slice(0, 10)), rg = regraEmail(it.endereco), fx = rg && rg.acao === 'fixo' && S.d.recorrencias.find(r => r.id === rg.fixo);
+  return `<div class="email-l"><span><b>${esc(it.de || it.endereco)}</b><small>${esc(it.assunto || it.arquivo)}${dt ? ' · ' + fDataC(dt) : ''}</small>${fx ? `<small class="email-fixo">${ic('repeat', 'ic-s')}${esc(fx.descricao)}</small>` : ''}</span>
+    ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}
+    ${it.endereco ? `<button class="icbtn" data-a="email-remetente" data-v="${esc(it.id)}" aria-label="E-mails de ${esc(it.endereco)}">${ic('dots')}</button>` : ''}</div>`;
+}
+/* As regras por remetente (Recebidos › ⋯): Sempre é um fixo (lido todo mês; o valor vai para o fixo do mês, que pode
+   ser criado ali) ou Nunca considerar (nem entra). Iguais ao emails.regra do servidor: a mais precisa vale. */
+function regraEmail(endereco, regras = S.d.ajustes.email_remetentes || []) {
+  const de = String(endereco || '').toLowerCase();
+  const casa = r => !!r && (de === r || de.endsWith('@' + r) || de.endsWith('.' + r));
+  return regras.filter(r => r && casa(r.de)).sort((a, b) => b.de.length - a.de.length)[0] || null;
+}
+let FREM = null;
+function abrirRemetente(id) {
+  const it = ((S.emails && S.emails.itens) || []).find(x => x.id === id);
+  if (!it || !it.endereco) return;
+  const end = it.endereco, dom = end.includes('@') ? end.split('@')[1] : '', rg = regraEmail(end);
+  // o nome do fixo novo: o do remetente ("Nabu Casa <...>") ou o do domínio (nabucasa.com → Nabucasa)
+  const nome = it.de && it.de !== end ? it.de : (dom.split('.')[0] || end).replace(/^./, c => c.toUpperCase());
+  FREM = { id, end, dom, estado: it.estado, de: rg ? rg.de : end, acao: rg ? rg.acao : '', fixo: (rg && rg.fixo) || '', novoNome: nome.slice(0, 60), novoValor: '', erro: '',
+    dia: +(pData(String(it.data || it.recebido_em || '').slice(0, 10)) || hoje()).getDate(), ym: ymDe(String(it.data || it.recebido_em || '')) || ymHoje() };
+  abrirFolha(montarRemetente, () => { FREM = null; });
+}
+function montarRemetente() {
+  const f = FREM, fixos = fixosAtivos().filter(r => r.tipo !== 'receita');
+  const txt = { '': 'Lido quando o assunto fala de fatura, boleto, recibo ou assinatura.', fixo: 'Lido sempre, e o valor vai para o fixo do mês.', nunca: 'Não entra, mesmo com fatura ou boleto no assunto.' }[f.acao];
+  return {
+    titulo: 'E-mails deste remetente',
+    corpo: `<div class="campo"><div class="lbl">Vale para</div><div class="chips" style="margin:0">
+        <button class="chip${f.de === f.end ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.end)}">${esc(f.end)}</button>
+        ${f.dom ? `<button class="chip${f.de === f.dom ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.dom)}">Todo o ${esc(f.dom)}</button>` : ''}</div></div>
+      <div class="campo"><div class="seg" style="margin:0" role="radiogroup">
+        ${[['', 'Normal'], ['fixo', 'É um fixo'], ['nunca', 'Nunca']].map(([v, t]) => `<button class="${f.acao === v ? 'on' : ''}" data-a="frem-acao" data-v="${v}" role="radio" aria-checked="${f.acao === v}">${t}</button>`).join('')}</div>
+        <div class="ajuda">${txt}</div></div>
+      ${f.acao === 'fixo' ? `<div class="campo"><label for="frem-fixo">Fixo</label><select id="frem-fixo" class="inp" data-frem="fixo">
+          <option value=""${f.fixo ? '' : ' selected'}>Escolha o fixo</option>${fixos.map(r => `<option value="${esc(r.id)}"${r.id === f.fixo ? ' selected' : ''}>${esc(r.descricao)}${+r.valor ? ' · ' + brl(+r.valor) : ''}</option>`).join('')}
+          <option value="novo"${f.fixo === 'novo' ? ' selected' : ''}>+ Novo fixo</option></select></div>
+        ${f.fixo === 'novo' ? `<div class="campo frem-novo"><label for="frem-nome">Nome do fixo</label><input id="frem-nome" class="inp" data-frem="novoNome" value="${esc(f.novoNome)}" autocomplete="off" maxlength="60">
+          <div class="ajuda">Todo dia ${f.dia}, em Assinaturas. O valor vem da leitura do e-mail.</div></div>` : ''}` : ''}
+      ${f.erro ? `<div class="msg-erro">${esc(f.erro)}</div>` : ''}`,
+    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="frem-salvar">Salvar</button>`,
+  };
+}
+function salvarRemetente() {
+  const f = FREM;
+  if (f.acao === 'fixo' && !f.fixo) { f.erro = 'Escolha o fixo.'; pintarFolha(); return; }
+  if (f.acao === 'fixo' && f.fixo === 'novo' && !f.novoNome.trim()) { f.erro = 'Escreva o nome do fixo.'; pintarFolha(); return; }
+  // o fixo novo: uma despesa de todo mês, em Assinaturas, no dia do e-mail; o valor vem da primeira leitura
+  const novo = f.acao === 'fixo' && f.fixo === 'novo' ? { id: 'r-' + uid(), tipo: 'despesa', descricao: f.novoNome.trim().slice(0, 60), valor: 0,
+    categoria: S.d.categorias.some(c => c.id === 'c-assinaturas') ? 'c-assinaturas' : (S.d.categorias.find(c => c.tipo === 'despesa') || {}).id || '',
+    conta: '', cartao: false, obs: '', dia: f.dia, inicio: /^\d{4}-\d{2}$/.test(f.ym) ? f.ym : ymHoje(), fim: null } : null;
+  const fixo = novo ? novo.id : f.fixo, nomeFx = novo ? novo.descricao : (S.d.recorrencias.find(r => r.id === fixo) || {}).descricao || '';
+  const regra = f.acao === 'fixo' ? { de: f.de, acao: 'fixo', fixo } : f.acao === 'nunca' ? { de: f.de, acao: 'nunca' } : null;
+  const ler = f.acao === 'fixo' && ['fora', 'erro', 'ignorado'].includes(f.estado), id = f.id;
+  const msg = f.acao === 'nunca' ? `Os e-mails de ${f.de} não entram mais` : f.acao === 'fixo' ? `Os e-mails de ${f.de} vão para ${nomeFx}` : 'Pronto';
+  persistir(d => {
+    if (novo) d.recorrencias.push(novo);
+    d.ajustes.email_remetentes = (d.ajustes.email_remetentes || []).filter(r => r.de !== f.end && r.de !== f.dom);
+    if (regra) d.ajustes.email_remetentes.push(regra);
+  }, msg).then(ok => {
+    if (!ok) return;
+    fecharFolha();
+    if (ler) emailAcao('ler', id, ''); else carregarEmails(true);
+  });
+}
+// Conferência: uma despesa vira fixo (o Fixo da linha): um fixo que já existe (o mês dele recebe o valor) ou um novo,
+// feito da própria linha (nome, valor, categoria, conta e o dia da data); Não é fixo desfaz
+const diaDe = data => +String(data || '').slice(8, 10) || 1;
+function abrirFixoIA(k) {
+  const it = IAS && IAS.itens[k];
+  if (!it) return;
+  const fixos = fixosAtivos().filter(r => r.tipo !== 'receita'), perto = semAcento(it.descricao).slice(0, 5);
+  // o fixo de nome parecido vem primeiro
+  fixos.sort((a, b) => (semAcento(b.descricao).startsWith(perto) ? 1 : 0) - (semAcento(a.descricao).startsWith(perto) ? 1 : 0));
+  const op = (v, icone, t, sub) => `<button class="op" data-a="ia-fixo-usar" data-i="${k}" data-v="${esc(v)}"><div class="op-ic">${ic(icone)}</div><div class="op-t"><b>${t}</b><span>${sub}</span></div>${it.fixo === v ? ic('check', 'chev') : ''}</button>`;
+  abrirFolha(() => ({
+    titulo: 'Despesa fixa',
+    corpo: `<p class="da-intro" style="margin:0 0 8px">${esc(it.descricao)} · ${brl(it.valor)}</p><div class="ia-fixos">
+      ${op('novo', 'plus', 'Novo fixo', `${esc(it.descricao)} · ${brl(it.valor)} todo dia ${diaDe(it.data)}`)}
+      ${fixos.map(r => op(r.id, 'repeat', esc(r.descricao), `${+r.valor ? brl(+r.valor) + ' · ' : ''}todo dia ${r.dia}`)).join('')}
+      ${it.fixo ? op('', 'x', 'Não é fixo', 'Lança só este.') : ''}</div>`,
+  }), null, true);
+}
+function usarFixoIA(k, v) {
+  const it = IAS && IAS.itens[k];
+  if (!it) return;
+  const r = v && v !== 'novo' && S.d.recorrencias.find(x => x.id === v);
+  if (!v) { delete it.fixo; delete it.fixoNome; delete it.fixoMes; }
+  else Object.assign(it, { fixo: r ? r.id : 'novo', fixoNome: r ? r.descricao : it.descricao, fixoMes: ymDe(it.data) });
+  if (r && r.categoria && S.d.categorias.some(c => c.id === r.categoria)) it.categoria = r.categoria;
+  if (r && r.conta && contaDe(r.conta)) { it.conta = r.conta; it.noCartao = !!r.cartao && !!contaDe(r.conta).cartao; }
+  fecharFolha(false, true);
+}
+// a fatura de um remetente ligado a um fixo: o fixo (se ainda existe e está ativo)
+function fixoDoEmail(it) {
+  const rg = it && it.endereco ? regraEmail(it.endereco) : null;
+  return rg && rg.acao === 'fixo' && fixosAtivos().some(r => r.id === rg.fixo) ? rg.fixo : '';
+}
+// o que a IA leu vai para o fixo do mês: o mês já lançado muda o valor (e fica pago, se for); senão, o mês é lançado.
+// Um fixo sem valor (criado pelo e-mail) fica com o valor lido, e sem conta, com a conta do lançamento.
+function lancarNoFixo(d, it, cartao, pago) {
+  const r = d.recorrencias.find(x => x.id === it.fixo), ym = it.fixoMes || ymDe(it.data), pg = pago(it.data);
+  if (!(+r.valor > 0)) r.valor = it.valor;
+  if (!r.conta && it.conta) Object.assign(r, { conta: it.conta, cartao });
+  const m = d.lancamentos.find(l => l.recorrencia === r.id && l.competencia === ym);
+  if (m) {
+    Object.assign(m, { valor: it.valor, conta: it.conta || m.conta, cartao, categoria: it.categoria || m.categoria });
+    if (!m.pago) Object.assign(m, { pago: pg, data: it.data });
+    delete m.pulado;
+  } else d.lancamentos.push(materializar(Object.assign({}, r, { valor: it.valor, data: it.data, recorrencia: r.id, competencia: ym, pago: pg, conta: it.conta || '', cartao, categoria: it.categoria || r.categoria })));
 }
 function emailDeAdicionar() {
   const i = $('#email-de'), v = String(i ? i.value : '').trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1').replace(/\s+/g, '').replace(/^@/, '');
@@ -5581,6 +5712,11 @@ document.addEventListener('click', ev => {
     case 'email-procurar': el.disabled = true; api.emailProcurar().then(aplicarEmails, e => { el.disabled = false; toast(e.message); }); break;
     case 'email-de-add': emailDeAdicionar(); break;
     case 'email-de-rm': persistir(d => { d.ajustes.email_de = (d.ajustes.email_de || []).filter(x => x !== v); }); break;
+    case 'email-remetente': abrirRemetente(v); break;
+    case 'email-regra-rm': persistir(d => { d.ajustes.email_remetentes = (d.ajustes.email_remetentes || []).filter(r => r.de !== v); }, 'Regra tirada').then(ok => { if (ok) carregarEmails(true); }); break;
+    case 'frem-de': if (FREM) { FREM.de = v; pintarFolha(); } break;
+    case 'frem-acao': if (FREM) { FREM.acao = v; FREM.erro = ''; pintarFolha(); } break;
+    case 'frem-salvar': if (FREM) salvarRemetente(); break;
     case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
     case 'da-ok': confirmarDicaAnual(); break;
     case 'categoria': abrirCategoria(id); break;
@@ -5678,6 +5814,8 @@ document.addEventListener('click', ev => {
     case 'ia-marca': { const it = IAS.itens[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
     case 'ia-marca-inv': { const it = IAS.invs[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
     case 'ia-salvar': salvarIA(); break;
+    case 'ia-fixo': abrirFixoIA(+el.dataset.i); break;
+    case 'ia-fixo-usar': usarFixoIA(+el.dataset.i, v); break;
     case 'iac-conta': IAS.conta = v; if (!contaDe(v)?.cartao) IAS.cartao = false;
       for (const it of IAS.itens) { it.conta = v; it.noCartao = it.tipo === 'despesa' && IAS.cartao && !!contaDe(v)?.cartao && it.cartao !== false; }
       pintarFolha(); break;
@@ -5913,6 +6051,11 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.fb && FB) { FB[el.dataset.fb] = el.value; return; }
+  if (el.dataset.frem && FREM) {
+    FREM[el.dataset.frem] = el.value; FREM.erro = '';
+    if (el.dataset.frem === 'fixo') pintarFolha();
+    return;
+  }
   if (el.dataset.bler && BLER) {
     BLER[el.dataset.bler] = el.value;
     const b = $('[data-a="bler-ler"]'); if (b) b.disabled = !BLER.arquivo && !BLER.texto.trim();

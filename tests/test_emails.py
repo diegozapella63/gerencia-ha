@@ -91,6 +91,21 @@ class TestModulo(unittest.TestCase):
         self.assertTrue(E.e_fatura("Imobiliária Sol <boletos@imobsol.com.br>", "Boleto de aluguel - novembro", "doc.pdf", []), "boleto também vale")
         self.assertTrue(E.e_fatura("x@condominio.com.br", "Cobrança", "Boleto_Condominio.pdf", []))
 
+    def test_recibos_e_assinaturas_tambem_contam(self):
+        for assunto in ("Home Assistant Cloud subscription receipt", "Recibo de pagamento", "Your invoice #123", "Cobrança de novembro",
+                        "Nota fiscal eletrônica", "Renovação da sua assinatura", "Mensalidade de dezembro", "Your renewal"):
+            with self.subTest(assunto=assunto):
+                self.assertTrue(E.e_fatura("Nuvem <suporte@nuvem.exemplo>", assunto, "doc.pdf", []))
+        self.assertFalse(E.e_fatura("Aérea <noreply@checkin.aerea.exemplo>", "Seu cartão de embarque está pronto!", "embarque.pdf", []))
+
+    def test_regras_por_remetente(self):
+        regras = [{"de": "nuvem.exemplo", "acao": "fixo", "fixo": "r1"}, {"de": "promo@nuvem.exemplo", "acao": "nunca"}, {"de": "lojalua.exemplo", "acao": "nunca"}]
+        self.assertEqual(E.regra("Nuvem <suporte@nuvem.exemplo>", regras)["acao"], "fixo")
+        self.assertEqual(E.regra("promo@nuvem.exemplo", regras)["acao"], "nunca", "o endereço inteiro vale sobre o domínio")
+        self.assertIsNone(E.regra("x@outranuvem.exemplo", regras))
+        self.assertTrue(E.e_fatura("suporte@nuvem.exemplo", "Olá", "doc.pdf", ["bancoazul.com.br"], regras), "um fixo é lido sempre, mesmo fora do De quem")
+        self.assertFalse(E.e_fatura("Loja Lua <boleto@lojalua.exemplo>", "Seu boleto", "boleto.pdf", [], regras), "nunca, mesmo com boleto")
+
     def test_chave(self):
         self.assertEqual(E.chave(evento()), "imap-ana|101|Sua fatura de novembro")
 
@@ -281,6 +296,27 @@ class TestEmailChegou(ComServidor):
         S.email_chegou(evento("1", de="Banco Verde <x@bancoverde.com.br>", assunto="Promoção", arquivo="folheto.pdf"))
         S.email_chegou(evento("2", de="Banco Verde <x@bancoverde.com.br>", assunto="Sua fatura chegou"))
         self.assertEqual([x["estado"] for x in self.itens()], ["conferir", "fora"], "o mais novo primeiro")
+
+    def test_regras_do_remetente(self):
+        self.ajustar(email_remetentes=[{"de": "lojalua.exemplo", "acao": "nunca"}, {"de": "nuvem.exemplo", "acao": "fixo", "fixo": "r-nuvem"}])
+        self.assertIsNone(S.email_chegou(evento("1", de="Loja Lua <boleto@lojalua.exemplo>", assunto="Seu boleto")))
+        self.assertEqual(self.itens(), [], "nunca considerar: nem entra")
+        self.assertIsNone(S.email_chegou(evento("1", de="Loja Lua <boleto@lojalua.exemplo>", assunto="Seu boleto")), "e não volta")
+        S.email_chegou(evento("2", de="Nuvem <suporte@nuvem.exemplo>", assunto="Olá", arquivo="doc.pdf"))
+        self.assertEqual(self.itens()[0]["estado"], "conferir", "sempre é um fixo: lido mesmo fora do De quem e sem fatura no assunto")
+        # os que chegaram antes da regra somem da lista
+        S.email_chegou(evento("3", de="Loja Sol <x@lojasol.exemplo>", assunto="Fatura"))
+        self.assertEqual(len(S.emails_estado()["itens"]), 2)
+        self.ajustar(email_remetentes=[{"de": "lojasol.exemplo", "acao": "nunca"}])
+        self.assertEqual([x["endereco"] for x in S.emails_estado()["itens"]], ["suporte@nuvem.exemplo"])
+
+    def test_regras_limpas(self):
+        d = S.ler()
+        d["ajustes"]["email_remetentes"] = [{"de": "Nuvem <Suporte@Nuvem.exemplo>", "acao": "fixo", "fixo": "r1"}, {"de": "x.exemplo", "acao": "outra"},
+                                            {"de": "y.exemplo", "acao": "fixo"}, {"de": "", "acao": "nunca"}, "lixo",
+                                            {"de": "suporte@nuvem.exemplo", "acao": "nunca"}]
+        self.assertEqual(S.normalizar(d)["ajustes"]["email_remetentes"], [{"de": "suporte@nuvem.exemplo", "acao": "nunca"}],
+                         "a última regra do mesmo remetente vale; sem fixo ou com ação desconhecida, sai")
 
     def test_sem_pdf_desligado_ou_sem_ia_nao_faz_nada(self):
         self.assertIsNone(S.email_chegou(evento(pdf=False)))
@@ -656,3 +692,46 @@ class TestRotas(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLimiteDaResposta(ComServidor):
+    """A resposta da IA passou do limite (no Claude: "reached the output token limit"): tenta de novo pedindo curta; não
+    deu, explica onde aumentar o limite."""
+    def ler(self, respostas):
+        pedidos = []
+
+        def ia(tipo, payload, imagens=0, timeout=180):
+            pedidos.append(payload["instructions"])
+            r = respostas.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return {"service_response": {"data": r}}
+        with mock.patch.object(S, "IA_MOCK", False), mock.patch.object(S, "ia_chamar", ia):
+            return S.ia_ler({"modo": "caixa", "texto": "Mercado Bom 45,90 em 01/11/2026"}), pedidos
+
+    def test_de_novo_mais_curta(self):
+        lim = S.ErroHA("O Home Assistant recusou o pedido: Claude reached the output token limit before completing the response")
+        ok = '{"lancamentos":[{"tipo":"despesa","descricao":"Mercado Bom","valor":45.9,"data":"2026-11-01","categoria":"Mercado"}]}'
+        r, pedidos = self.ler([lim, ok])
+        self.assertEqual(len(pedidos), 2)
+        self.assertNotIn(S.PEDIDO_CURTO, pedidos[0])
+        self.assertTrue(pedidos[1].endswith(S.PEDIDO_CURTO))
+        self.assertIn("itens", r, "a segunda resposta vale")
+        with self.assertRaises(ValueError) as c:
+            self.ler([lim, lim])
+        self.assertEqual(str(c.exception), S.MSG_LIMITE)
+        self.assertIn("aumente o máximo de tokens da resposta", S.MSG_LIMITE)
+        with self.assertRaisesRegex(ValueError, "^Outro erro$"):
+            self.ler([S.ErroHA("Outro erro")])
+
+
+class TestPagamentoDaFatura(unittest.TestCase):
+    def test_a_ia_marca_e_o_servidor_guarda_so_no_recebimento(self):
+        d = S.ler()
+        r = S.ia_limpar_caixa({"itens": [{"tipo": "receita", "descricao": "Pagamento online", "valor": 1200, "pagamento_fatura": True},
+                                         {"tipo": "despesa", "descricao": "Mercado", "valor": 10, "pagamento_fatura": True},
+                                         {"tipo": "receita", "descricao": "Pix", "valor": 5, "pagamento_fatura": "sim"}]}, d)
+        self.assertEqual([x.get("pagamento_fatura") for x in r], [True, None, None])
+        self.assertIn('"pagamento online"', S.ia_prompt(d, "caixa", False, "x"))
+        self.assertIn('"pagamento_fatura": true', S.ia_prompt(d, "auto", False, "x"))
+

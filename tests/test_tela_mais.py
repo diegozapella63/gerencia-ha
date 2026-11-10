@@ -218,11 +218,11 @@ class TestInicio(TelaMais):
         self.assertEqual(self.rotulo_placar(), "Patrimônio de R$ 14.000", "10.000 + 4.000; os 2.500 da Carla ficam de fora")
         self.assertEqual(self.pares(".placar-cols > div"), [["Investimentos", "2"], ["Bancos", "2"], ["Por mês", "+" + brl0(RENDE_MEU)]])
 
-    def test_dinheiro_de_terceiros_por_pessoa(self):
+    # (até a 1.46.1, o Início tinha o cartão Dinheiro de terceiros; o dono pediu para tirar: fica no Invest, filtro Terceiros)
+    def test_dinheiro_de_terceiros_fora_do_inicio(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS))
-        card = self.linha("#app .card.flush", "Dinheiro de terceiros")
-        self.assertIn("Dinheiro de terceiros R$ 2.500", card)
-        self.assertIn("Carla 1 investimento · Banco Verde R$ 2.500", card)
+        self.assertNotIn("Dinheiro de terceiros", self.texto("#app"))
+        self.assertEqual(self.conta('#app [data-a="pessoa"]'), 0)
 
     def test_destaques_batem_com_os_investimentos(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS))

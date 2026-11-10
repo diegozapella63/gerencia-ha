@@ -1,5 +1,17 @@
 # Mudanças
 
+## 1.47.0
+
+- **Faturas por e-mail: o que fazer com cada remetente.** Em Recebidos, o **⋯** de cada e-mail abre as opções para aquele endereço ou para o domínio todo:
+  - **É um fixo**: os e-mails dele são lidos sempre, e o valor vai para o fixo do mês, como uma assinatura que chega todo mês. Escolha um fixo que já existe ou crie um **Novo fixo** ali mesmo. O fixo novo fica com o valor da primeira leitura.
+  - **Nunca**: os e-mails dele não entram mais, mesmo com fatura ou boleto no assunto. Os que já estavam em Recebidos somem.
+  - As regras ficam listadas em **Remetentes**, no mesmo cartão, e saem pela lixeira.
+- **Conferência: uma despesa vira fixo**. Cada despesa tem um **Fixo**: ligue a linha a uma despesa fixa que já existe (o mês dela recebe o valor lido) ou crie um **Novo fixo** a partir dela, com o mesmo nome, valor, categoria e conta, todo mês no dia da compra (o seguro, por exemplo). **Não é fixo** desfaz.
+- **Conferência: pagamentos desconsiderados**. O pagamento da própria fatura (Pagamento online, pagamento recebido, débito automático) não entra mais como recebimento. Ele aparece numa seção **Pagamentos desconsiderados**, no fim da conferência, desmarcado. Se quiser lançar, é só marcar.
+- **Mais e-mails reconhecidos**: além de fatura e boleto, agora valem recibo, cobrança, nota fiscal, assinatura e mensalidade (e *receipt*, *invoice*, *subscription* e *renewal*), como o recibo de uma assinatura.
+- **Resposta grande demais para a IA**: quando a fatura tem tantos lançamentos que a resposta passa do limite da IA (no Claude: "reached the output token limit"), o app tenta de novo pedindo uma resposta mais curta. Se ainda não couber, explica onde aumentar o limite no Home Assistant.
+- **Início**: o cartão **Dinheiro de terceiros** saiu. Esse dinheiro continua em **Invest**, no filtro **Terceiros**.
+
 ## 1.46.1
 
 - **Uso da IA › Últimas chamadas**: a chamada com erro agora diz o motivo, embaixo dela, em vermelho (ex.: o que o Home Assistant ou a IA respondeu, ou "O Home Assistant não respondeu em 180 s.").

@@ -167,7 +167,7 @@ class TestCarteira(_TelaInvest):
                 self.assertTrue(txt.startswith(f"{n} investimentos · rende ≈ "), txt)
         self.ir("inicio")
         self.assertEqual(self.pg.get_attribute(".placar-num", "aria-label"), f"Patrimônio de {brl(t['meu'], 0)}", "o patrimônio é só o seu")
-        self.assertEqual(self.texto('#app .card:has-text("Dinheiro de terceiros") .rot b'), brl(t["terc"], 0))
+        self.assertEqual(self.conta('#app .card:has-text("Dinheiro de terceiros")'), 0, "o dinheiro de terceiros fica no Invest, fora do Início")
 
     def test_filtros_todos_meus_e_terceiros(self):
         self.invest()
