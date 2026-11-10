@@ -298,6 +298,25 @@ class TestConexaoComOCronologIA(unittest.TestCase):
         self.assertEqual((p["app"], p["url"]), ("gerencia", self.s.url))
         self.assertGreaterEqual(len(p["chave"]), 32)
 
+    def test_a_depreciacao_dos_bens_para_o_inventaria(self):
+        # 1.55.0: a perda por ano de cada categoria (a padrão e a mudada em Mais › Invest) vai no arquivo; sem Bens, sai
+        ler = lambda: json.load(open(os.path.join(self.s.dirs["share"], "integracao.json"), encoding="utf-8"))
+        self.assertEqual((ler()["depreciacao"]["eletronicos"], ler()["depreciacao"]["imoveis"]), (20, 0))
+        _, _, d = self.s.get("/api/state")
+        d["ajustes"]["bens_taxas"] = {"eletronicos": 30, "imoveis": -3}
+        self.assertEqual(self.s.put("/api/state", d)[0], 200)
+        try:
+            self.assertEqual((ler()["depreciacao"]["eletronicos"], ler()["depreciacao"]["imoveis"], ler()["chave"]), (30, -3, self.chave), "a taxa mudada, a mesma chave")
+            _, _, d = self.s.get("/api/state")
+            d["ajustes"]["bens"] = False
+            self.s.put("/api/state", d)
+            self.assertNotIn("depreciacao", ler(), "sem Bens da casa, nada")
+        finally:
+            _, _, d = self.s.get("/api/state")
+            d["ajustes"].update(bens=True, bens_taxas={})
+            self.s.put("/api/state", d)
+        self.assertEqual(ler()["depreciacao"]["eletronicos"], 20)
+
     def test_sem_chave_nao_entra(self):
         for cab in ({}, {"Authorization": "Bearer errada"}):
             st, _, r = self.s.get("/api/integracao/contas", cabecalhos=cab)

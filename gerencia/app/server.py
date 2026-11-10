@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.54.1"
+VERSAO = "1.55.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2749,6 +2749,19 @@ def integracao_ligada(d=None):
     return (d or ler()).get("ajustes", {}).get("integracao", True) is not False
 
 
+def depreciacao(d):
+    """A perda de valor por ano, em %, de cada categoria do InventarIA (Mais › Invest › Bens da casa; negativa: valoriza),
+    no integracao.json: com a opção de lá, o InventarIA mostra o valor de hoje com a mesma conta (bens.valor_hoje).
+    Com Bens da casa desligado, nada."""
+    return None if d.get("ajustes", {}).get("bens") is False else bens.taxas(d.get("ajustes"))
+
+
+def publicar_integracao(d=None):
+    d = d or ler()
+    dep = depreciacao(d)
+    CONEXAO.publicar(integracao_ligada(d), {"depreciacao": dep} if dep is not None else None)
+
+
 def correria_ligada(d=None):
     """As ferramentas (ler e gravar pelo WhatsApp, pelo Claude e pelo Gemini): só a opção, sem precisar da IA daqui."""
     d = d or ler()
@@ -3179,7 +3192,7 @@ class Handler(BaseHTTPRequestHandler):
             atual = ler()
             if int(corpo.get("rev", -1)) != atual["rev"]:
                 return self.enviar(409, atual)
-            ligada_antes, correria_antes = integracao_ligada(atual), correria_estado(atual)
+            ligada_antes, correria_antes, dep_antes = integracao_ligada(atual), correria_estado(atual), depreciacao(atual)
             for k in CAMPOS_USUARIO:
                 if k in corpo:
                     atual[k] = corpo[k]
@@ -3188,8 +3201,8 @@ class Handler(BaseHTTPRequestHandler):
             d = normalizar(atual)
             d["rev"] = atual["rev"] + 1
             salvar(d)
-        if integracao_ligada(d) != ligada_antes:
-            CONEXAO.publicar(integracao_ligada(d))
+        if integracao_ligada(d) != ligada_antes or depreciacao(d) != dep_antes:
+            publicar_integracao(d)
         if correria_estado(d) != correria_antes:
             publicar_correria(d)
         return self.enviar(200, d)
@@ -3703,7 +3716,7 @@ def rotina():
             else:
                 publicar_sensores_async(d)
             limpar_fotos(d)
-            CONEXAO.publicar(integracao_ligada(d))
+            publicar_integracao(d)
             publicar_correria(d)
             dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
@@ -3715,7 +3728,7 @@ def rotina():
 
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
-    CONEXAO.publicar(integracao_ligada())
+    publicar_integracao()
     publicar_correria()
     threading.Thread(target=rotina, daemon=True).start()
     threading.Thread(target=rotina_oport, daemon=True).start()  # oportunidades: o aviso no horário escolhido

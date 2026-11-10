@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.55.0
+
+- As taxas de **Valor dos bens por ano** (Mais › Invest) também valem no **InventarIA** (1.46.0 ou mais novo): ligando lá **Valor de hoje** (Mais › Configurações › Integrações › GerencIA), o patrimônio, os cômodos e o relatório de lá mostram o valor de hoje, com a mesma conta daqui. Mudou uma taxa aqui, muda lá.
+
 ## 1.54.1
 
 - **Faturas por e-mail**: a mesma fatura não aparece mais duas vezes. O aviso do Home Assistant e o **Procurar faturas agora** davam números diferentes ao mesmo e-mail. Agora ele é reconhecido pela conta, pelo remetente, pela data e pelo assunto. As que já estavam repetidas viram uma só, a que andou mais. Se o PDF não abriu por um dos números, o app tenta pelo outro, no mesmo lugar.
