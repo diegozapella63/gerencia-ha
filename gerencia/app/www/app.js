@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.56.0';
+const VERSAO = '1.56.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1009,16 +1009,20 @@ function telaInicio() {
       <div class="op-t"><b>Atualize os valores</b><span>${velhos.length === 1 ? esc(velhos[0].nome) + ' está' : velhos.length + ' investimentos estão'} sem atualizar há mais de 2 meses</span></div>
       <div class="op-n">${velhos.length}</div>${ic('chev', 'chev')}</button>`);
   }
-  const I = d.indices;
-  const quando = I.atualizado_em ? fDataC(new Date(I.atualizado_em)) : '—';
-  const fonte = I.erro ? 'sem conexão' : I.fonte === 'manual' ? 'manual' : I.fonte === 'bcb' ? 'Banco Central' : 'padrão';
-  av.push(`<button class="op" data-a="tab" data-v="mais" data-ancora="indices"><div class="op-ic${I.erro ? ' alerta' : ''}">${ic('trend')}</div>
-    <div class="op-t"><b>Índices</b><span>CDI ${pct(I.cdi)}% · Selic ${pct(I.selic)}% · IPCA ${pct(I.ipca)}%</span></div>
-    <div class="op-n">${quando}<small>${fonte}</small></div>${ic('chev', 'chev')}</button>`);
-  html += `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>`;
+  // Avisos são só o que pede uma ação (1.56.1): os índices ficam em Mais › Invest e só entram aqui parados há mais de
+  // 3 dias (o Banco Central sem responder), para conferir ou digitar à mão; sem nada a fazer, nenhum cartão
+  const avI = avisoIndices(d.indices, h);
+  if (avI) av.push(avI);
+  if (av.length) html += `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>`;
   return html + '</div></div>';
 }
 
+function avisoIndices(I, h) {
+  const em = I && I.fonte === 'bcb' && I.auto !== false && I.atualizado_em ? new Date(I.atualizado_em) : null;
+  if (!em || isNaN(em) || diasEntre(em, h) <= 3) return '';
+  return `<button class="op" data-a="tab" data-v="mais" data-ancora="indices"><div class="op-ic alerta">${ic('trend')}</div>
+    <div class="op-t"><b>Índices sem atualizar</b><span>${I.erro ? 'O Banco Central não responde' : 'Sem os do Banco Central'} desde ${fDataC(em)}</span></div>${ic('chev', 'chev')}</button>`;
+}
 function cardCaixaInicio() {
   const ym = ymHoje();
   return `<div class="card cx-card"><div class="rot">${rotIc('fluxo')}<span class="rot-t">Caixa de ${MESES_LONGOS[+ym.slice(5) - 1]}</span></div>${resumoCaixaHTML(ym)}

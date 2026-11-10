@@ -13,7 +13,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
 
 ## Telas
 
-- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Configurações › Aparência › Cor do app, ou a Cor do dia), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos e os avisos (fatura atrasada, contas que vencem em até 5 dias, vencimentos, valores desatualizados, índices).
+- **Início**: o placar com plaquinhas que viram, como num painel de cotações (patrimônio, ou o saldo em caixa se ainda não houver investimentos). O patrimônio é só o seu: seus investimentos e os bens do InventarIA; o dinheiro de terceiros fica de fora. O placar fica na cor do app (Mais › Configurações › Aparência › Cor do app, ou a Cor do dia), com as plaquinhas escuras no tema escuro e brancas no tema claro. Abaixo, o caixa do mês (entrou, saiu, a pagar), as dicas de economia, os destaques dos investimentos e os avisos: só o que pede uma ação (fatura atrasada, contas que vencem em até 5 dias, faturas por e-mail para conferir, vencimentos, valores desatualizados e os índices só quando estão parados há mais de 3 dias). Sem nada a fazer, o cartão de avisos não aparece.
 - **Caixa**: seu próprio dinheiro, mês a mês.
   - *Lançamentos*: o mês escolhido dia a dia, com filtro Tudo, Entradas, Saídas e A pagar e receber (no mês de hoje, o que ficou sem pagar nos dois meses anteriores aparece primeiro; é para onde leva o aviso de contas atrasadas). Compras no cartão aparecem juntas na fatura, no dia em que ela vence. Como no CronologIA, o que já foi pago ou recebido fica **verde, com o visto**; o que falta tem um **círculo do lado**: toque nele para dar baixa (Paguei, Recebi, Apliquei).
   - *Fluxo*: entradas e saídas por mês, o que sobrou e o saldo em caixa, com 12 meses atrás, 6 + 6, 12 à frente ou **Outro** (por exemplo 24 atrás, 12 + 12 ou o número de meses que quiser, até 60 de cada lado). A média do que sobrou começa no primeiro mês com lançamentos.
@@ -226,7 +226,7 @@ Investimentos podem guardar imagens (comprovante, print do banco, extrato): no f
 
 O valor de hoje é estimado a partir do último valor informado, contando dias úteis (base 252). Atualize o valor de vez em quando com o saldo do banco; o app avisa quando passa de 2 meses.
 
-Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas. Dá para digitar à mão em **Mais › Invest › Índices de mercado**.
+Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 horas e ficam em **Mais › Invest › Índices de mercado**, onde também dá para digitar à mão. Eles só aparecem nos Avisos do Início se o Banco Central passar mais de 3 dias sem responder (**Índices sem atualizar**).
 
 ## Benefícios
 

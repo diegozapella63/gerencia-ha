@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.56.1
+
+- **Avisos do Início**: só o que pede uma ação. Os **Índices** saíram (ficam em Mais › Invest › Índices de mercado) e só voltam como **Índices sem atualizar** se o Banco Central passar mais de 3 dias sem responder. Sem nada a fazer, o cartão de avisos não aparece.
+
 ## 1.56.0
 
 - **Atalho no celular**, em **Mais › Configurações › Opções**: o caminho do GerencIA no Home Assistant, com **Copiar**, e como criar um ícone na tela inicial do celular que abre o app direto (no app do Home Assistant: Configurações › Aplicativo complementar › Gerenciar atalhos). O mesmo vale em todos os apps da família.

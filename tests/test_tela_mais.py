@@ -257,7 +257,8 @@ class TestInicio(TelaMais):
     # (era bug até a 1.24.0: o aviso Índices abria a aba de Mais que estivesse aberta)
     def test_tocar_nos_indices_abre_mais_invest_nos_indices(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]), ui={"maisTela": "bancos"})
-        self.assertIn("CDI 13,65% · Selic 13,75% · IPCA 4,5%", self.linha("#app .op", "Índices"))
+        self.js("(Object.assign(T.S.d.indices, {fonte: 'bcb', auto: true, atualizado_em: '2026-10-28T09:00:00-03:00'}), T.render(), true)")  # parados: no aviso (1.56.1)
+        self.assertIn("Índices sem atualizar", self.linha("#app .op", "Índices"))
         self.pg.locator("#app .op", has_text="Índices").first.click()
         self.esperar()
         self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "invest"])
@@ -1464,6 +1465,7 @@ class TestMenuMais(TelaMais):
 
     def test_atalho_do_inicio_volta_para_o_inicio_e_mais_no_alto_vai_ao_menu(self):
         self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB]))
+        self.js("(Object.assign(T.S.d.indices, {fonte: 'bcb', auto: true, atualizado_em: '2026-10-28T09:00:00-03:00'}), T.render(), true)")  # parados: no aviso (1.56.1)
         self.pg.locator("#app .op", has_text="Índices").first.click()
         self.esperar()
         self.assertEqual(self.texto("#app .cab h1"), "Invest")

@@ -1232,6 +1232,25 @@ class TestAvisos(Caixa):
         self.assertEqual(self.textos('[data-a="cx-filtro"].on'), ["A pagar e receber"])
         self.assertEqual(self.ids(), ["l-net"])
 
+    def test_1_56_1_os_indices_so_quando_pedem_uma_acao(self):
+        # os índices não são um aviso: ficam em Mais › Invest; sem nada a fazer, nenhum cartão de Avisos
+        self.inicio(investimentos=[{"id": "cdb-azul", "nome": "CDB Azul", "banco": "b-azul", "valor": 1000, "indexador": "parado", "tipo": "cdb", "data_valor": "2026-11-01", "titular": "meu"}])
+        indices = lambda **x: self.js("(Object.assign(T.S.d.indices, a), T.render(), true)", x)
+        indices(fonte="bcb", auto=True, atualizado_em="2026-11-02T09:00:00-03:00", erro=None)
+        self.assertEqual(self.conta('#app .op[data-ancora="indices"]'), 0, "índices em dia: fora dos Avisos")
+        self.assertNotIn("Avisos", self.textos("#app .rot-t"), "nada a fazer: sem o cartão")
+        indices(atualizado_em="2026-10-31T09:00:00-03:00")
+        self.assertEqual(self.conta('#app .op[data-ancora="indices"]'), 0, "há 2 dias: ainda em dia")
+        # do Banco Central, mas parados há mais de 3 dias: aí sim, para conferir
+        indices(atualizado_em="2026-10-28T09:00:00-03:00", erro="Sem resposta do Banco Central")
+        self.assertEqual(self.textos('#app .op[data-ancora="indices"]'), ["Índices sem atualizar\nO Banco Central não responde desde 28/10"])
+        self.assertIn("Avisos", self.textos("#app .rot-t"))
+        self.clicar('#app .op[data-ancora="indices"]')
+        self.assertEqual(self.js("T.S.ui.maisTela"), "invest", "toca e abre Mais › Invest, nos índices")
+        self.inicio(investimentos=[{"id": "cdb-azul", "nome": "CDB Azul", "banco": "b-azul", "valor": 1000, "indexador": "parado", "tipo": "cdb", "data_valor": "2026-11-01", "titular": "meu"}])
+        indices(fonte="manual", atualizado_em="2026-09-01T09:00:00-03:00", erro=None)
+        self.assertEqual(self.conta('#app .op[data-ancora="indices"]'), 0, "digitados à mão: nunca")
+
     # (era bug até a 1.24.0: o aviso abria o mês de hoje, sem a conta atrasada do mês passado)
     def test_tocar_no_aviso_mostra_a_conta_atrasada_do_mes_passado(self):
         self.inicio(lancamentos=[desp("l-luz", "Luz", 150, "2026-10-30", False)])
