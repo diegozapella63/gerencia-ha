@@ -1397,9 +1397,11 @@ class TestBens(TelaSistema):
         self.assertEqual(self.conta("#bens .status"), 0)
 
     def perda(self, k, texto):
-        sel = f'#perda-bens [data-bens-taxa="{k}"]'
-        self.pg.fill(sel, texto)
-        self.pg.locator(sel).dispatch_event("change")
+        # digitar e sair do campo num passo só: um redesenho no meio (o que a tela ainda buscava) trocaria o campo, e a
+        # mudança iria para o campo de antes, fora da tela (aconteceu no GitHub, que é mais lento)
+        self.esperar()
+        self.pg.locator(f'#perda-bens [data-bens-taxa="{k}"]').evaluate(
+            "(e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }", texto)
         self.esperar()
 
     def test_perda_de_valor_lista_as_categorias_pelo_valor(self):
