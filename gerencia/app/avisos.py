@@ -57,8 +57,9 @@ def celulares(rastreadores, servicos, aparelhos_=None):
 
 def endereco_app(host=None):
     """O endereço deste app no Home Assistant, para o toque no aviso abrir o app: /app/<slug> desde o HA 2026.2.
-    Hostname a1b2c3d4-gerencia -> /app/a1b2c3d4_gerencia; fora do Home Assistant, None."""
-    host = host if host is not None else os.uname().nodename
+    Hostname a1b2c3d4-gerencia -> /app/a1b2c3d4_gerencia; fora do Home Assistant, None. É também o caminho do Atalho no
+    celular (Configurações › Opções); GERENCIA_HOST troca o nome do contêiner (testes)."""
+    host = host if host is not None else (os.environ.get("GERENCIA_HOST") or os.uname().nodename)
     return "/app/" + host.replace("-", "_", 1) if re.fullmatch(r"[a-z0-9]+-gerencia", host or "") else None
 
 

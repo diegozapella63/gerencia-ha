@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.55.1';
+const VERSAO = '1.56.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5406,7 +5406,28 @@ function maisOpcoes() {
         : 'Desligado: só fixos, parcelas e faturas.')}</section>
     <section class="card" id="op-invest">${maisCab('wallet', 'Investimentos')}
       ${linhaChave('corrigir', a.corrigir !== false, 'Corrigir valores pelo rendimento', 'Estima o valor de hoje desde o último informado. Renda variável não muda.')}</section>
-    ${opcoesOport()}`;
+    ${opcoesOport()}
+    ${opcoesAtalho()}`;
+}
+// Atalho no celular (igual em todos os apps da família): o caminho do app no Home Assistant, para um ícone na tela inicial
+// que abre o app direto (Atalho fixado do app do Home Assistant no Android). Fora do Home Assistant, não aparece.
+function opcoesAtalho() {
+  if (!S.atalho) return '';
+  return `<section class="card" id="op-atalho">${maisCab('smartphone', 'Atalho no celular')}
+    ${maisLead('Um ícone na tela inicial do celular que abre o GerencIA direto.')}
+    <ol class="passos"><li>No app do Home Assistant: <b>Configurações › Aplicativo complementar › Gerenciar atalhos</b>.</li><li>Em <b>Atalho fixado</b>, escolha o tipo <b>Painel</b> e cole o <b>Caminho</b> abaixo.</li></ol>
+    <div class="campo"><label class="lbl" for="op-atalho-c">Caminho</label><div class="copiar"><input id="op-atalho-c" class="inp" readonly value="${esc(S.atalho)}"><button class="btn out" data-a="copiar" data-v="op-atalho-c">${ic('copy', 'ic-s')}Copiar</button></div></div></section>`;
+}
+// Copiar: em http o navegador não deixa (sem área de transferência): o texto fica selecionado e o aviso explica
+async function copiarCampo(id) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  inp.focus(); inp.select();
+  try {
+    if (!navigator.clipboard) throw new Error('sem área de transferência');
+    await navigator.clipboard.writeText(inp.value);
+    toast('Copiado');
+  } catch (e) { toast('Toque e segure no texto para copiar'); }
 }
 
 /* Dicas de economia: conferir sozinho (todo dia, no horário) e avisar no celular, como o aviso de prazos do ResolvIA:
@@ -6324,6 +6345,7 @@ document.addEventListener('click', ev => {
       persistir(d => { d.bancos = ex.bancos; d.investimentos = ex.investimentos; d.lancamentos = ex.lancamentos; d.recorrencias = ex.recorrencias; d.categorias = ex.categorias; d.exemplo = true; d._hist = ex.historico; }, 'Exemplo carregado');
       break;
     }
+    case 'copiar': copiarCampo(v); break;
     case 'apagar-exemplo':
       confirmar({ titulo: 'Apagar exemplo?', texto: 'Os dados de demonstração saem.', botao: 'Apagar exemplo', perigo: true,
         acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.beneficios = []; d.categorias = clone(CATEGORIAS_PADRAO); d.exemplo = false; d._hist = []; }, 'Exemplo apagado') });
@@ -6920,6 +6942,7 @@ async function iniciar() {
     S.integracaoUltimo = st.integracao_ultimo || null;
     S.correriaUltimo = st.correria_ultimo || null;
     S.correriaUso = st.correria_uso || null;
+    S.atalho = st.atalho || null;
     S.d = normalizar(st);
   } catch (e) {
     $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.56.0
+
+- **Atalho no celular**, em **Mais › Configurações › Opções**: o caminho do GerencIA no Home Assistant, com **Copiar**, e como criar um ícone na tela inicial do celular que abre o app direto (no app do Home Assistant: Configurações › Aplicativo complementar › Gerenciar atalhos). O mesmo vale em todos os apps da família.
+
 ## 1.55.1
 
 - **Avisos no celular**: o título começa com **GerencIA** ("GerencIA · 💡 Dica de economia") e o ícone pequeno é o do app. Como todos os apps chegam como Home Assistant, agora dá para ver de qual app é cada aviso. Vale para todos os apps da família.

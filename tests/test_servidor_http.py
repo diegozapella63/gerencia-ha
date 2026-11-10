@@ -292,6 +292,10 @@ class TestConexaoComOCronologIA(unittest.TestCase):
     def tearDownClass(cls):
         cls.s.parar()
 
+    def test_o_caminho_do_atalho_no_celular(self):
+        # fora do Home Assistant (o nome desta máquina), o /api/state não tem caminho
+        self.assertIsNone(self.s.get("/api/state")[2].get("atalho"))
+
     def test_publica_o_endereco_e_a_chave(self):
         with open(os.path.join(self.s.dirs["share"], "integracao.json"), encoding="utf-8") as f:
             p = json.load(f)

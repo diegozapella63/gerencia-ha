@@ -1395,6 +1395,24 @@ class TestMenuMais(TelaMais):
         self.assertEqual(self.js("T.S.ui.maisAba"), "opcoes", "volta na última aba")
         self.assertEqual(self.guardado()["maisAba"], "opcoes")
 
+    def test_atalho_no_celular(self):
+        # Opções › Atalho no celular: o caminho do app no Home Assistant e o Copiar; fora do Home Assistant, nada
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
+        self.assertEqual(self.conta("#op-atalho"), 0, "fora do Home Assistant, sem o cartão")
+        self.js("(T.S.atalho = '/app/a1b2c3d4_gerencia', T.render(), true)")
+        self.addCleanup(lambda: self.js("(T.S.atalho = null, true)"))
+        self.assertEqual(self.js("document.querySelector('#op-atalho-c').value"), "/app/a1b2c3d4_gerencia")
+        self.assertIn("Gerenciar atalhos", self.texto("#op-atalho .passos"))
+        self.assertEqual(self.js("[...document.querySelectorAll('#app .mais-painel > section.card')].map(s => s.id).pop()"), "op-atalho", "por último")
+        self.clicar('#op-atalho [data-a="copiar"]')
+        self.pg.wait_for_function("() => /Copiado|Toque e segure/.test(document.querySelector('#toast') ? document.querySelector('#toast').textContent : '')")
+        self.assertEqual(self.js("document.activeElement.id"), "op-atalho-c", "o texto fica selecionado")
+        self.assertFalse(self.js("document.documentElement.scrollWidth > innerWidth"), "nada sai da tela")
+        self.addCleanup(lambda: self.pg.set_viewport_size({"width": self.LARGURA, "height": self.ALTURA}))
+        for w in (390, 320):  # o caminho inteiro à vista, sem cortar
+            self.pg.set_viewport_size({"width": w, "height": 844})
+            self.assertTrue(self.js("(e => e.scrollWidth <= e.clientWidth)(document.querySelector('#op-atalho-c'))"), f"{w} px: o caminho cortado")
+
     def test_versoes_anteriores_explicam_quando_guardam(self):
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.assertEqual(self.texto("#versoes .painel-lead"), "Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.")

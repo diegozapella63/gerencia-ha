@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.55.1"
+VERSAO = "1.56.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2995,6 +2995,7 @@ class Handler(BaseHTTPRequestHandler):
                 d["integracao_ultimo"] = CONEXAO.ultimo
                 d["correria_ultimo"] = CORRERIA.ultimo
                 d["correria_uso"] = CORRERIA_USO["ultimo"]
+                d["atalho"] = avisos.endereco_app()  # o caminho do app no Home Assistant, para o Atalho no celular
                 return self.enviar(200, d)
             if p == "/api/rev":
                 return self.enviar(200, {"rev": ler()["rev"], "integracao_ultimo": CONEXAO.ultimo, "correria_ultimo": CORRERIA.ultimo,

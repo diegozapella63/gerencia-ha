@@ -90,6 +90,8 @@ class TestCelulares(unittest.TestCase):
     def test_endereco_do_app_para_o_toque(self):
         self.assertEqual(A.endereco_app("a1b2c3d4-gerencia"), "/app/a1b2c3d4_gerencia")
         self.assertIsNone(A.endereco_app("meu-computador"))
+        with mock.patch.dict(os.environ, {"GERENCIA_HOST": "e5f6a7b8-gerencia"}):
+            self.assertEqual(A.endereco_app(), "/app/e5f6a7b8_gerencia", "o mesmo caminho do Atalho no celular (GERENCIA_HOST nos testes)")
 
     def test_texto_do_aviso(self):
         um = A.texto_dicas([{"nome": "Spotify", "real": 31.4}])
