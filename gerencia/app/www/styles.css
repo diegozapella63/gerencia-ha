@@ -628,6 +628,7 @@ details summary { list-style-position: inside; }
 .conta-l { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
 .conta-l .inp { flex: 1; }
 .conta-ed .linha-sw b { font-size: 15px; }
+.conta-ed .linha-sw + .linha-sw { margin-top: 10px; } /* Tem cartão de débito? e Tem cartão de crédito? */
 
 /* ---------- imagens */
 .fotos { display: flex; flex-wrap: wrap; gap: 10px; }

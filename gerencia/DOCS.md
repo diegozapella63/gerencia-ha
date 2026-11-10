@@ -24,7 +24,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
 - O **olho** no alto esconde os valores no Início, no Caixa e no Invest (cada aparelho lembra a escolha).
 - No celular, **arrastar para o lado** troca de aba: Início ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado). Numa tela de Mais, arrastar para a direita volta ao menu.
 - **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
-  - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão e o nível da conta e do cartão.
+  - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão de débito e de crédito e o nível da conta e do cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
   - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova, e as oportunidades: o que falta para ganhar mais.
@@ -72,6 +72,8 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 ### Cartão de crédito
 
 Em **Mais › Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
+
+**Tem cartão de débito?** vem ligado em cada conta. Numa conta sem cartão de débito (desligado), a despesa fora do cartão de crédito aparece como **Pix** em vez de **Débito ou Pix**, e a lista de Bancos mostra "sem débito".
 
 Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os investimentos escolhidos nessa conta; os de antes, sem conta escolhida, vão para a conta de quem é dono) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".
 

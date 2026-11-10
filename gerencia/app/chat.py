@@ -104,6 +104,8 @@ def resumo(d, hoje=None):
         L.append("\nContas no banco (id | banco · pessoa | cartão de crédito):")
         for cid, c in contas.items():
             cart = f"cartão, fecha dia {c.get('fechamento')}, vence dia {c.get('vencimento')}" if c.get("cartao") else "sem cartão"
+            if c.get("debito") is False:
+                cart += "; sem cartão de débito (só Pix)"
             L.append(f"{cid} | {calc.nome_conta(c) or c.get('banco_nome', '')} | {cart}")
 
     cx = calc.caixa(d, hoje)

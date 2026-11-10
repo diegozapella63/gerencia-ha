@@ -116,8 +116,11 @@ class TestLeitura(unittest.TestCase):
         i2 = next(i for i in r["investimentos"] if i["id"] == "i2")
         self.assertEqual((i2["de_quem"], i2["banco"], i2["liquidez"]), ("Beto", "Banco Azul", "diária"))
         c = json_de("cadastros", {}, d)
-        self.assertEqual(c["contas"], [{"id": "cc", "nome": "Banco Azul · Ana", "banco": "Banco Azul", "pessoa": "Ana",
+        self.assertEqual(c["contas"], [{"id": "cc", "nome": "Banco Azul · Ana", "banco": "Banco Azul", "pessoa": "Ana", "cartao_de_debito": True,
                                         "cartao_de_credito": {"fecha_dia": 5, "vence_dia": 10}}])
+        d["bancos"][0]["contas"][0]["debito"] = False
+        self.assertFalse(json_de("cadastros", {}, d)["contas"][0]["cartao_de_debito"], "1.57.0: sem cartão de débito")
+        del d["bancos"][0]["contas"][0]["debito"]
         self.assertEqual(c["pessoas_terceiros"], ["Beto"])
         d["bancos"][0]["contas"][0].update(limite=5000, adicionais=[{"id": "a1", "pessoa": "Beto", "limite": 1500}, {"id": "a2", "pessoa": ""}])
         cc = json_de("cadastros", {}, d)["contas"][0]["cartao_de_credito"]

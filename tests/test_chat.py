@@ -115,6 +115,9 @@ class TestOQueAIARecebe(unittest.TestCase):
     def test_contas_e_cartoes(self):
         self.assertIn("k-ana | Banco Azul · Ana | cartão, fecha dia 5, vence dia 12", self.r)
         self.assertIn("k-beto | Banco Azul · Beto | sem cartão", self.r)
+        d = dados()
+        d["bancos"][0]["contas"][1]["debito"] = False
+        self.assertIn("k-beto | Banco Azul · Beto | sem cartão; sem cartão de débito (só Pix)", C.resumo(d, HOJE), "1.57.0")
 
     def test_caixa_do_mes(self):
         self.assertIn("Caixa: saldo de hoje R$ 4.909,00. Neste mês: entrou R$ 5.000,00, saiu R$ 90,00", self.r)

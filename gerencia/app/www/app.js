@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.56.1';
+const VERSAO = '1.57.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2269,7 +2269,7 @@ function montarFormLanc() {
     <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">Sem conta</button>
     ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
   if (!rec && !apo && conta?.cartao) {
-    c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">Débito ou Pix</button>
+    c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">${semCartao(conta)}</button>
       <button class="${f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>`;
     if (noCartao) c += `<div class="ajuda">Entra na fatura que vence em <b>${fData(pData(dc))}</b> (fecha dia ${conta.fechamento}, vence dia ${conta.vencimento}).</div>`;
   }
@@ -3348,7 +3348,7 @@ function iaNoCartao(it) {
 function opcoesContaIA(it) {
   const v = it.conta ? it.conta + (iaNoCartao(it) ? '|c' : '') : '';
   const op = (val, txt) => `<option value="${val}"${val === v ? ' selected' : ''}>${esc(txt)}</option>`;
-  return op('', 'Sem conta') + contas().map(c => op(c.id, nomeConta(c) + (c.cartao && it.tipo === 'despesa' ? ' · débito' : '')) + (c.cartao && it.tipo === 'despesa' ? op(c.id + '|c', nomeConta(c) + ' · crédito') : '')).join('');
+  return op('', 'Sem conta') + contas().map(c => op(c.id, nomeConta(c) + (c.cartao && it.tipo === 'despesa' ? (c.debito === false ? ' · Pix' : ' · débito') : '')) + (c.cartao && it.tipo === 'despesa' ? op(c.id + '|c', nomeConta(c) + ' · crédito') : '')).join('');
 }
 function revisaoCaixa() {
   const s = IAS;
@@ -3362,7 +3362,7 @@ function revisaoCaixa() {
       ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}
       <button class="chip add" data-a="iac-banco-novo">${ic('plus', 'ic-s')}${esc(s.bancoNovo || 'Banco')}</button></div>
       ${s.bancoNovo ? `<div class="ajuda">${esc(s.bancoNovo)} não está nos seus bancos.</div>` : ''}
-      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">Débito ou Pix</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
+      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">${semCartao(conta)}</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
       <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
       <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">Tudo pago</button>
@@ -4261,11 +4261,13 @@ function salvarSenhaNova() {
     e => { if (FS) { FS.erro = e.message; pintarFolha(); } });
 }
 
+// sem o cartão de crédito: Débito ou Pix; numa conta sem cartão de débito (Mais › Bancos), só Pix
+const semCartao = k => (k && k.debito === false ? 'Pix' : 'Débito ou Pix');
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
 function resumoContas(b) {
   return (b.contas || []).map(c => {
     const adic = c.cartao ? (c.adicionais || []).map(a => a.pessoa).filter(Boolean) : [];
-    const extra = [c.nivel, c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : ''].filter(Boolean).join(', ');
+    const extra = [c.nivel, c.debito === false ? 'sem débito' : '', c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : ''].filter(Boolean).join(', ');
     const m = metaNivel(c, b.id);
     return (c.pessoa || 'Conta') + (extra ? ` (${extra})` : '') + (m && m.falta > 0 ? ` · faltam ${brlCurto(m.falta)} para ${m.nome}` : m ? ` · já dá para ${m.nome}` : '');
   }).join(' · ');
@@ -4393,6 +4395,7 @@ function abrirBanco(id, nome, sobre) {
             <div class="duo nivel-l"><div><div class="lbl">Próximo nível</div>${campoNivel(c, i, 'meta_nivel', 'Próximo nível')}</div>
               <div><div class="lbl">Pede investido</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="meta_valor" data-i="${i}" value="${typeof c.meta_valor === 'number' ? NF0.format(c.meta_valor) : esc(c.meta_valor || '')}" placeholder="0"></div></div></div>
             <p class="ajuda nivel-meta" data-meta="${i}">${textoMeta(c, FB.id)}</p>
+            <div class="linha-sw"><div><b>Tem cartão de débito?</b></div><button class="sw${c.debito !== false ? ' on' : ''}" data-a="bc-debito" data-i="${i}" aria-label="Tem cartão de débito"></button></div>
             <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>
               <div><div class="lbl">Vence dia</div><div class="pref"><input inputmode="numeric" data-fbc="vencimento" data-i="${i}" value="${c.vencimento || ''}" placeholder="10"></div></div></div>
@@ -4467,6 +4470,7 @@ function salvarBanco() {
   const b = { id: FB.id || 'b-' + uid(), nome, cor: FB.cor, obs: (FB.obs || '').trim(),
     contas: FB.contas.map(c => {
       const k = { id: c.id, pessoa: (c.pessoa || '').trim(), cartao: !!c.cartao, fechamento: dia(c.fechamento, 1), vencimento: dia(c.vencimento, 10) };
+      if (c.debito === false) k.debito = false; // sem cartão de débito (de começo, tem: como antes da 1.57.0)
       const txt = x => String(x || '').trim().slice(0, 30);
       if (txt(c.nivel)) k.nivel = txt(c.nivel);
       if (k.cartao && txt(c.cartao_nivel)) k.cartao_nivel = txt(c.cartao_nivel);
@@ -6490,6 +6494,7 @@ document.addEventListener('click', ev => {
     case 'bc-add': FB.contas.push({ id: 'k-' + uid(), pessoa: '', cartao: false, fechamento: '', vencimento: '' }); pintarFolha(); break;
     case 'bc-rm': FB.contas.splice(+el.dataset.i, 1); pintarFolha(); break;
     case 'bc-cartao': { const c = FB.contas[+el.dataset.i]; c.cartao = !c.cartao; pintarFolha(); break; }
+    case 'bc-debito': { const c = FB.contas[+el.dataset.i]; if (c.debito === false) delete c.debito; else c.debito = false; pintarFolha(); break; }
     case 'bc-adic': { const c = FB.contas[+el.dataset.i]; c.adicionais = (c.adicionais || []).length ? [] : [{ id: 'a-' + uid(), pessoa: '', limite: '' }]; pintarFolha(); break; }
     case 'bc-adic-add': { const c = FB.contas[+el.dataset.i]; (c.adicionais = c.adicionais || []).push({ id: 'a-' + uid(), pessoa: '', limite: '' }); pintarFolha(); break; }
     case 'bc-adic-rm': { const c = FB.contas[+el.dataset.i]; c.adicionais.splice(+el.dataset.j, 1); pintarFolha(); break; }

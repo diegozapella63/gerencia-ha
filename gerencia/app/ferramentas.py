@@ -385,6 +385,7 @@ def _cadastros(d):
         it = {"id": k, "nome": calc.nome_conta(c), "banco": c.get("banco_nome", "")}
         if c.get("pessoa"):
             it["pessoa"] = c["pessoa"]
+        it["cartao_de_debito"] = c.get("debito") is not False
         if c.get("cartao"):
             it["cartao_de_credito"] = {"fecha_dia": c.get("fechamento"), "vence_dia": c.get("vencimento")}
             if calc.num(c.get("limite"), 0) > 0:

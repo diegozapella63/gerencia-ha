@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.57.0
+
+- **Mais › Bancos › Editar banco**: em cada conta, **Tem cartão de débito?** (ligado de início). Sem cartão de débito, a despesa fora do cartão de crédito aparece como **Pix** em vez de **Débito ou Pix**, e a lista de Bancos mostra "sem débito". A conversa com a IA e o CorrerIA também sabem disso.
+
 ## 1.56.1
 
 - **Avisos do Início**: só o que pede uma ação. Os **Índices** saíram (ficam em Mais › Invest › Índices de mercado) e só voltam como **Índices sem atualizar** se o Banco Central passar mais de 3 dias sem responder. Sem nada a fazer, o cartão de avisos não aparece.

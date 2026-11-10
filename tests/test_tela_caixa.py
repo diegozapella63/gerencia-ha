@@ -215,6 +215,15 @@ class TestNovoLancamento(Caixa):
         self.assertEqual(self.marcados('[data-a="lf-conta"]'), ["Banco Azul · Beto"], "a conta da última Padaria Sol")
         self.assertEqual(self.marcados('[data-a="lf-cartao"]'), ["Cartão de crédito"], "no cartão, como da outra vez")
 
+    def test_1_57_sem_cartao_de_debito_e_pix(self):
+        bancos = [dict(BANCOS[0], contas=[dict(BANCOS[0]["contas"][0], debito=False), BANCOS[0]["contas"][1]]), BANCOS[1]]
+        self.abrir(base(bancos=bancos), ui={"tab": "caixa"})
+        self.nova()
+        self.clicar('.folha [data-a="lf-conta"][data-v="k-ana"]')
+        self.assertEqual(self.textos('.folha [data-a="lf-cartao"]'), ["Pix", "Cartão de crédito"], "a conta da Ana não tem cartão de débito")
+        self.clicar('.folha [data-a="lf-conta"][data-v="k-beto"]')
+        self.assertEqual(self.textos('.folha [data-a="lf-cartao"]'), ["Débito ou Pix", "Cartão de crédito"], "a do Beto tem")
+
     def test_categoria_nova_criada_no_formulario(self):
         self.caixa()
         self.nova()

@@ -319,6 +319,30 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.esperar_aviso("Banco"), "Banco cadastrado")
         self.assertIsNotNone(self.linha(".banco-row", "Banco Roxo"), "já aparece na lista")
 
+    def test_1_57_tem_cartao_de_debito(self):
+        # cada conta diz se tem cartão de débito (de começo, tem); sem ele, a despesa sem o cartão de crédito é Pix
+        self.abrir_bancos()
+        self.clicar('.btn[data-a="banco"]')
+        self.preencher("#b-nome", "Banco Roxo")
+        deb = '.folha [data-a="bc-debito"][data-i="0"]'
+        self.assertIn("on", self.pg.get_attribute(deb, "class"), "de começo, com cartão de débito")
+        self.assertEqual(self.js("[...document.querySelectorAll('.folha .conta-ed .linha-sw b')].map(b => b.textContent)")[:2],
+                         ["Tem cartão de débito?", "Tem cartão de crédito?"], "o débito antes do crédito")
+        self.clicar(deb)
+        self.assertNotIn("on", self.pg.get_attribute(deb, "class"))
+        self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
+        self.clicar('[data-a="b-salvar"]')
+        roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")
+        self.assertEqual([(c["debito"], c["cartao"]) for c in roxo["contas"]], [(False, True)])
+        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (sem débito, cartão)")
+        azul = next(b for b in self.dados()["bancos"] if b["id"] == "b-azul")
+        self.assertNotIn("debito", azul["contas"][0], "as de antes continuam com débito, sem nada gravado")
+        # ligado de novo, volta a não gravar nada
+        self.clicar(f'.banco-row[data-id="{roxo["id"]}"]')
+        self.clicar(deb)
+        self.clicar('[data-a="b-salvar"]')
+        self.assertNotIn("debito", next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0])
+
     def test_nivel_da_conta_do_cartao_e_o_proximo(self):
         # Banco Azul: Ana tem 10.000 (CDB Azul, dela); o próximo nível pede 25.000
         self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
