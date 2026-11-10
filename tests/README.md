@@ -4,7 +4,7 @@ Três camadas, rodando a cada push no GitHub (aba Actions):
 
 | Camada | Onde | Como rodar | O que confere |
 |---|---|---|---|
-| Unitários e servidor | `tests/test_*.py` (fora `test_tela*`) | `python3 -m unittest discover -s tests -t .` | cada parte do servidor (`calc.py`, `bens.py`, `voz.py`, `integracao.py`, `ferramentas.py`, `assinaturas.py`, `oportunidades.py`, `beneficios.py`, `pdf.py`, `pdfsenha.py`, `emails.py`, `server.py`), funções e rotas HTTP, com a IA, a fala, o Banco Central e o Home Assistant de mentira |
+| Unitários e servidor | `tests/test_*.py` (fora `test_tela*`) | `tests/run.sh` (o mesmo que `python3 -m unittest discover -s tests -t .`; `tests/run.sh test_calc.py` roda só um) | cada parte do servidor (`calc.py`, `bens.py`, `voz.py`, `integracao.py`, `ferramentas.py`, `assinaturas.py`, `oportunidades.py`, `beneficios.py`, `pdf.py`, `pdfsenha.py`, `emails.py`, `avisos.py`, `chat.py`, `server.py`), a versão igual nos três lugares (`test_versao.py`), funções e rotas HTTP, com a IA, a fala, o Banco Central e o Home Assistant de mentira |
 | Tela | `tests/test_tela*.py` | o mesmo comando (precisa do playwright) | o `app.js` de verdade num Chromium, sem servidor: os cálculos um a um (iguais ao `calc.py`) e o que a pessoa faz em cada área: caixa, investimentos, aplicar/transferir/gráficos, IA/câmera/fala, início/mais/navegação, chat e sistema (o caminho do servidor com um fetch falso, o microfone de verdade do Chromium, arrastar, tema, opções) |
 | Visuais | `tests/e2e/*.py` | `tests/e2e/run.sh` (ou `tests/e2e/run.sh fluxo2 bens_e2e`) | o app inteiro com o servidor de verdade: clica, digita, confere e grava capturas |
 
@@ -18,7 +18,7 @@ O relógio fica parado em 02/11/2026 10:00 (São Paulo) e a tela tem 390 px. A c
 
 ## Visuais (`tests/e2e`)
 
-Cada script confere com `tests/e2e/_confere.py` (`igual`, `tem`, `sim`, `perto`, `valores`...): cada verificação imprime `ok ...` ou `FALHOU ...`. O `run.sh` dá o script como falho se aparecer `FALHOU`, uma exceção ou erro de JavaScript (linha `ERROS [...]` não vazia), e mostra quantas verificações passaram. Usa as portas 8099 (GerencIA) e 8098 (InventarIA, para os testes de bens, a partir de `../inventario-ha`): não rode duas baterias ao mesmo tempo. As capturas ficam em `$E2E_TMP/shots`. Valores que dependem do dia (juros, datas) são conferidos por relação (antes + aporte = depois) ou calculados a partir de hoje.
+Cada script confere com `tests/e2e/_confere.py` (`igual`, `tem`, `sim`, `perto`, `valores`...): cada verificação imprime `ok ...` ou `FALHOU ...`. O `run.sh` dá o script como falho se aparecer `FALHOU`, uma exceção ou erro de JavaScript (linha `ERROS [...]` não vazia), e mostra quantas verificações passaram. Usa as portas 8099 (GerencIA) e 8098 (InventarIA, para os testes de bens, a partir de `../inventario-ha`): não rode duas baterias ao mesmo tempo, nem junto com as dos outros apps da família (que usam as mesmas portas). Para rodar ao lado de outra, isole a rede: `unshare -n` com o loopback ligado. As capturas ficam em `$E2E_TMP/shots`. Valores que dependem do dia (juros, datas) são conferidos por relação (antes + aporte = depois) ou calculados a partir de hoje.
 
 ## Peças que ajudam (`tests/base.py`)
 
@@ -29,7 +29,7 @@ Cada script confere com `tests/e2e/_confere.py` (`igual`, `tem`, `sim`, `perto`,
 
 ## Cobertura
 
-`python3 tools/cobertura.py` roda os testes e mostra quanto de cada arquivo do servidor foi percorrido (inclusive o `server.py` que os testes HTTP sobem em outro processo) e do `app.js` nos testes da tela (pelo Profiler do Chromium: linhas e funções); `--faltando server.py` ou `--faltando app.js` lista as linhas que nenhum teste passou. Só biblioteca padrão (e o playwright, para a tela). Os testes visuais não entram nessa conta (Aplicar, Transferir e a conversa com o servidor de verdade estão neles).
+`python3 tools/cobertura.py` roda os testes (e diz quais deram problema) e mostra quanto de cada arquivo do servidor foi percorrido (inclusive o `server.py` que os testes HTTP sobem em outro processo) e do `app.js` nos testes da tela (pelo Profiler do Chromium: linhas e funções); `--faltando server.py` ou `--faltando app.js` lista as linhas que nenhum teste passou. Só biblioteca padrão (e o playwright, para a tela). Os testes visuais não entram nessa conta (Aplicar, Transferir e a conversa com o servidor de verdade estão neles). A meta é pelo menos 95% das linhas em cada arquivo, com testes que conferem o resultado (não só passam pela linha).
 
 ## Variáveis do servidor para testar
 

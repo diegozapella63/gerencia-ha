@@ -7,7 +7,7 @@ import os
 import unittest
 from unittest import mock
 
-from tests.base import ServidorFalso, Servidor, importar_servidor
+from tests.base import ServidorFalso, Servidor, importar_servidor, pasta_temp
 from tests.test_avisos import Trocar
 S = importar_servidor()
 import beneficios as B  # noqa: E402  (o importar_servidor põe gerencia/app no caminho)
@@ -153,6 +153,94 @@ class TestLerNoServidor(unittest.TestCase):
         with mock.patch.object(S, "_abrir_url", side_effect=abrir), self.assertRaises(ValueError):
             S.beneficios_ler({"texto": "www.bancoazul.exemplo/black"})
         self.assertEqual(abertos, ["https://www.bancoazul.exemplo/black"])
+
+
+class TestIaDeVerdade(unittest.TestCase):
+    """Fora da IA simulada: os anexos vão pela pasta media do Home Assistant (e são apagados depois), a entidade escolhida
+    vai no pedido, e uma IA que não aceita PDF recebe o texto tirado do arquivo."""
+
+    def setUp(self):
+        if os.path.exists(S.ARQ):
+            os.remove(S.ARQ)
+        self.media = pasta_temp()
+        Trocar(self, IA_MOCK=False, MEDIA_ROOT=self.media, ia_disponivel=lambda d: True)
+        self.pedidos = []
+        with S.TRAVA:
+            d = S.ler()
+            d.update({k: v for k, v in D.items()})
+            d["ajustes"]["ia_entidade"] = "ai_task.claude"
+            S.salvar(d, versao=False)
+
+    def ia(self, *respostas):
+        """ia_chamar falso: guarda o pedido (e os arquivos que estavam na pasta) e devolve as respostas na ordem."""
+        fila = list(respostas)
+
+        def chamar(tipo, payload, n, timeout=None):
+            pasta = os.path.join(self.media, S.IA_TMP_REL)
+            self.pedidos.append((tipo, payload, n, sorted(os.listdir(pasta)) if os.path.isdir(pasta) else []))
+            r = fila.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return {"service_response": {"data": r}}
+        Trocar(self, ia_chamar=chamar)
+
+    def test_print_vai_pela_pasta_media_e_e_apagado(self):
+        self.ia({"beneficios": [{"nome": "Sala VIP", "tipo": "contagem", "total": 4, "renova": "ano", "trecho": "4 acessos"}]})
+        r = S.beneficios_ler({"origem": "conta:k1", "anexo": {"b64": JPG}})
+        self.assertEqual([b["nome"] for b in r["beneficios"]], ["Sala VIP"])
+        tipo, payload, n, na_pasta = self.pedidos[0]
+        self.assertEqual((tipo, n, payload["entity_id"], payload["task_name"]), ("beneficios", 1, "ai_task.claude", "GerencIA: ler benefícios"))
+        self.assertEqual(len(na_pasta), 1, "o print estava na pasta durante a leitura")
+        self.assertEqual(payload["attachments"][0]["media_content_type"], "image/jpeg")
+        self.assertTrue(payload["attachments"][0]["media_content_id"].startswith("media-source://media_source/local/gerencia/ia-temp/"))
+        self.assertEqual(os.listdir(os.path.join(self.media, S.IA_TMP_REL)), [], "e saiu depois")
+
+    def test_apagado_mesmo_quando_a_ia_falha(self):
+        self.ia(S.ErroHA("A IA caiu."))
+        with self.assertRaisesRegex(ValueError, "A IA caiu."):
+            S.beneficios_ler({"anexo": {"b64": JPG}})
+        self.assertEqual(os.listdir(os.path.join(self.media, S.IA_TMP_REL)), [])
+
+    def test_ia_que_nao_aceita_pdf_recebe_o_texto(self):
+        pdf = base64.b64encode(b"%PDF-1.4 fatura").decode()
+        self.ia(S.ErroHA("Formato não aceito."), {"beneficios": [{"nome": "Frete grátis", "tipo": "vantagem", "trecho": "Frete grátis"}]})
+        with mock.patch.object(S, "pdf_texto", return_value="Frete grátis em todas as compras"):
+            r = S.beneficios_ler({"anexo": {"b64": pdf}})
+        self.assertEqual([b["nome"] for b in r["beneficios"]], ["Frete grátis"])
+        self.assertEqual([p[2] for p in self.pedidos], [1, 0], "a segunda vez sem anexo")
+        self.assertIn("Frete grátis em todas as compras", self.pedidos[1][1]["instructions"])
+        self.ia(S.ErroHA("Formato não aceito."), S.ErroHA("De novo não."))
+        with mock.patch.object(S, "pdf_texto", return_value="Frete grátis"), self.assertRaisesRegex(ValueError, "De novo não."):
+            S.beneficios_ler({"anexo": {"b64": pdf}})
+        self.ia(S.ErroHA("Formato não aceito."))
+        with mock.patch.object(S, "pdf_texto", return_value=""), self.assertRaisesRegex(ValueError, "Formato não aceito."):
+            S.beneficios_ler({"anexo": {"b64": pdf}})
+
+    def test_texto_vai_sem_anexo_e_sem_resposta_avisa(self):
+        self.ia(None)
+        with self.assertRaisesRegex(ValueError, "A IA não devolveu resposta"):
+            S.beneficios_ler({"texto": "Frete grátis\nCashback de 2%"})
+        self.assertNotIn("attachments", self.pedidos[0][1])
+
+    def test_sem_a_pasta_media(self):
+        Trocar(self, MEDIA_ROOT=os.path.join(self.media, "nao-existe"))
+        self.ia({"beneficios": []})
+        with self.assertRaisesRegex(ValueError, "pasta media do Home Assistant não está disponível"):
+            S.beneficios_ler({"anexo": {"b64": JPG}})
+        self.assertEqual(self.pedidos, [], "nem chamou a IA")
+
+    def test_sem_ia_no_home_assistant(self):
+        Trocar(self, ia_disponivel=lambda d: False)
+        with self.assertRaisesRegex(ValueError, "Nenhuma IA configurada"):
+            S.beneficios_ler({"texto": "Frete grátis"})
+
+    def test_anexos_ruins(self):
+        casos = [({"anexo": {"b64": "não é base64!"}}, "Arquivo inválido"),
+                 ({"anexos": [{"b64": JPG}, {"b64": base64.b64encode(b"%PDF-1.4 x").decode()}]}, "Envie um PDF por vez")]
+        for corpo, msg in casos:
+            with self.subTest(msg=msg), self.assertRaisesRegex(ValueError, msg):
+                S._anexos(corpo)
+        self.assertEqual([m for _, m in S._anexos({"anexos": [{"b64": JPG}, {"b64": JPG}, {}, "lixo"]})], ["image/jpeg", "image/jpeg"])
 
 
 class TestRota(unittest.TestCase):

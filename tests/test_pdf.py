@@ -1,6 +1,7 @@
 """O PDF feito à mão (pdf.py), usado pelo Relatório de patrimônio: a estrutura (objetos, xref, páginas) que os leitores
 de PDF exigem, os acentos em WinAnsi, os caracteres que precisam de escape, as medidas do texto (largura, cortar com
 "…", quebrar linhas), as formas e as páginas. Textos inventados."""
+import os
 import re
 import shutil
 import subprocess
@@ -237,6 +238,80 @@ class TestPaginas(unittest.TestCase):
         self.assertIn("40.00 495.28 Td (Ana)", c, "y conta de cima na página deitada (595.28 - 100)")
         self.assertIn("0.00 585.28 m 50.00 585.28 l", c)
         self.assertIn("0.00 585.28 10.00 10.00 re f", c)
+
+
+def jpg(larg, alt, comp=3, marcador=0xC0, extras=b""):
+    """Um JPG mínimo (só os cabeçalhos que o pdf.py lê): SOI, segmentos extras, o SOF com as medidas e EOI."""
+    sof = bytes([0xFF, marcador]) + (8 + 3 * comp).to_bytes(2, "big") + b"\x08" + alt.to_bytes(2, "big") + larg.to_bytes(2, "big") + bytes([comp]) + b"\x01\x11\x00" * comp
+    return b"\xff\xd8" + extras + sof + b"\x00" * 8 + b"\xff\xd9"
+
+
+class TestFotos(unittest.TestCase):
+    """As fotos do relatório (o mesmo pdf.py do InventarIA): só JPG, cobrindo a caixa, com os cantos arredondados."""
+    APP0 = b"\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+
+    def test_medidas_do_jpg(self):
+        self.assertEqual(pdf.jpeg_info(jpg(40, 30)), (40, 30, 3))
+        self.assertEqual(pdf.jpeg_info(jpg(40, 30, comp=1, marcador=0xC2, extras=self.APP0)), (40, 30, 1), "progressivo, depois de um APP0")
+        self.assertEqual(pdf.jpeg_info(b"\xff\xd8\x00\x00" + jpg(8, 6)[2:]), (8, 6, 3), "pula o que não é marcador")
+        self.assertEqual(pdf.jpeg_info(b"\xff\xd8\xff\xff" + jpg(8, 6)[2:]), (8, 6, 3), "o enchimento 0xFF também")
+        self.assertEqual(pdf.jpeg_info(b"\xff\xd8\xff\xd0" + jpg(8, 6)[2:]), (8, 6, 3), "os marcadores sem tamanho (RST)")
+
+    def test_o_que_nao_e_jpg(self):
+        for nada in (None, b"", b"\x89PNG\r\n\x1a\n" + b"\x00" * 20, b"\xff\xd8\xff\xd9"):
+            with self.subTest(nada=nada[:4] if nada else nada):
+                self.assertIsNone(pdf.jpeg_info(nada))
+        self.assertIsNone(pdf.jpeg_info(jpg(0, 30)), "sem largura")
+        self.assertIsNone(pdf.jpeg_info(jpg(40, 30, comp=2)), "nem cinza, nem RGB, nem CMYK")
+        self.assertIsNone(pdf.jpeg_info(jpg(40, 30, marcador=0xC4)), "C4 é a tabela de Huffman, não as medidas")
+
+    def test_foto_cobre_a_caixa_e_entra_uma_vez(self):
+        d = pdf.Documento()
+        foto = jpg(200, 100)
+        self.assertTrue(d.imagem(10, 20, 50, 50, foto, raio=6))
+        self.assertTrue(d.imagem(70, 20, 50, 50, foto), "a mesma foto de novo")
+        self.assertFalse(d.imagem(0, 0, 10, 10, b"nada"))
+        c = conteudo(d)
+        # 200x100 numa caixa 50x50: escala 0,5 pela altura, 100 de largura, centrada (sobra 25 de cada lado)
+        self.assertIn("100.00 0 0 50.00 -15.00 771.89 cm /Im1 Do Q", c)
+        self.assertIn("100.00 0 0 50.00 45.00 771.89 cm /Im1 Do Q", c, "a mesma imagem, sem copiar")
+        self.assertRegex(c, r"q 16\.00 771\.89 m .* c h W n", "o recorte com os cantos arredondados (raio 6)")
+        self.assertIn("q 70.00 771.89 50.00 50.00 re W n", c, "sem raio, um retângulo")
+        b = d.bytes()
+        self.assertEqual(b.count(b"/Subtype /Image"), 1)
+        self.assertIn(b"/Width 200 /Height 100 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode", b)
+        self.assertIn(b"/XObject << /Im1 ", b)
+        self.assertIn(foto, b, "o JPG vai inteiro")
+
+    def test_cinza_e_cmyk(self):
+        d = pdf.Documento()
+        d.imagem(0, 0, 10, 10, jpg(4, 4, comp=1))
+        d.imagem(0, 0, 10, 10, jpg(4, 4, comp=4))
+        b = d.bytes()
+        self.assertIn(b"/ColorSpace /DeviceGray", b)
+        self.assertIn(b"/ColorSpace /DeviceCMYK /Decode [1 0 1 0 1 0 1 0]", b, "o CMYK do Photoshop vem invertido")
+
+    def test_foto_de_verdade(self):
+        with open(os.path.join(os.path.dirname(__file__), "e2e", "fixtures", "print.jpg"), "rb") as f:
+            foto = f.read()
+        larg, alt, comp = pdf.jpeg_info(foto)
+        self.assertTrue(larg > 0 and alt > 0 and comp in (1, 3))
+        d = pdf.Documento()
+        d.imagem(40, 40, 120, 80, foto, raio=8)
+        if shutil.which("qpdf"):
+            arq = os.path.join(pasta_temp(), "foto.pdf")
+            with open(arq, "wb") as f:
+                f.write(d.bytes())
+            r = subprocess.run(["qpdf", "--check", arq], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_poligono(self):
+        d = pdf.Documento()
+        d.poligono([(0, 0), (10, 0)])
+        d.poligono([(0, 0), (10, 0), (5, 8)], fundo=(1, 0, 0))
+        c = conteudo(d)
+        self.assertEqual(c.count(" h f"), 1, "com menos de 3 pontos, nada")
+        self.assertIn("1.000 0.000 0.000 rg 0.00 841.89 m 10.00 841.89 l 5.00 833.89 l h f", c)
 
 
 if __name__ == "__main__":

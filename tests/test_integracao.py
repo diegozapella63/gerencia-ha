@@ -166,6 +166,14 @@ class TestPagar(unittest.TestCase):
         I.pagar(d, "v:r-net:2026-11", pago=False)
         self.assertEqual((len(d["lancamentos"]), novo["pago"]), (n + 1, False), "desfazer usa o lançamento que já existe")
 
+    def test_fixo_com_mes_que_nao_existe_e_recusado(self):
+        d = dados()
+        n = len(d["lancamentos"])
+        for cid in ("v:r-net:2026-13", "v:r-net:2026-00", "v:r-net:2026-1"):
+            with self.subTest(cid=cid), self.assertRaises(ValueError):
+                I.pagar(d, cid)
+        self.assertEqual(len(d["lancamentos"]), n, "nada lançado")
+
     def test_desfazer_fixo_nao_lancado_nao_cria_nada(self):
         d = dados()
         n = len(d["lancamentos"])

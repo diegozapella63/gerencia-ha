@@ -72,6 +72,8 @@ for nome in os.listdir(pasta):
     for k, v in json.load(open(os.path.join(pasta, nome))).items():
         vistos.setdefault(k, set()).update(v)
 print(f"{r.testsRun} testes, {len(r.failures) + len(r.errors)} com problema")
+for teste, _ in r.failures + r.errors:
+    print(f"   com problema: {teste.id()}")
 
 faltando = sys.argv[sys.argv.index("--faltando") + 1] if "--faltando" in sys.argv else None
 tot_e = tot_v = 0

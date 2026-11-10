@@ -10,6 +10,8 @@ Seu dinheiro no Home Assistant: o caixa do dia a dia e os investimentos, com flu
 - Investimentos com rendimento no padrão de mercado, de quem é o dinheiro e evolução projetada
 - Bens da casa do InventarIA no patrimônio, perdendo valor por categoria
 - Leitura por IA de fatura em PDF, prints, papel, câmera e WhatsApp, Falar pelo microfone e Conversar com a IA
+- Oportunidades de investimento (Tesouro Direto e as ofertas dos seus bancos) e benefícios dos cartões e planos
+- Faturas por e-mail, PDF com senha e as finanças no WhatsApp, no Claude e no Gemini pelo CorrerIA
 - Contas a pagar na agenda do CronologIA, com o Paguei que dá baixa aqui
 - No computador, barra lateral e telas em duas colunas
-- Sensores, backup, exportação, tema claro e escuro e Cor do dia
+- Sensores, backup, exportação, Relatório de patrimônio em PDF, tema claro e escuro e Cor do dia

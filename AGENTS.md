@@ -12,6 +12,8 @@ GerencIA é um app (add-on) do Home Assistant para as finanças da casa: caixa (
 
 O Home Assistant instala direto do GitHub (`repository.yaml` + `gerencia/config.yaml`), a partir da branch `main`: o que está em `main` é o que os usuários recebem.
 
+No `config.yaml`, `url` aponta para o repositório e o `panel_admin` fica no padrão do Home Assistant (o painel só para administradores): são as finanças da casa (saldos, investimentos, senhas dos PDFs, exportar e Começar do zero); abrir para todos é decisão do dono.
+
 ## Estrutura
 
 ```
@@ -44,7 +46,10 @@ gerencia/app/www/             a tela: index.html, app.js (JavaScript puro, sem b
 gerencia/app/www/selectsheet.js  as caixas de seleção no visual do app: arquivo igual em todos os apps (no ResolvIA e no
                               CronologIA, frontend/src/selectsheet.js); ao mudar, copie para os outros
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
-tests/                        testes (ver tests/README.md)
+tools/versao.py               sobe a versão nos três lugares de uma vez (patch, minor ou a versão inteira)
+tools/cobertura.py            roda os testes e mostra a cobertura do servidor e do app.js (--faltando arquivo: as linhas)
+tools/capturas_docs.py        refaz as capturas do README (docs/*.png) a partir da prévia
+tests/                        testes (ver tests/README.md): tests/run.sh (servidor e tela), tests/e2e/run.sh (visuais)
 docs/                         capturas de tela do README
 ```
 
@@ -62,8 +67,8 @@ Abra `http://localhost:8099`. Em **Carregar exemplo** aparecem dados inventados.
 ## Checklist de toda mudança
 
 1. Implementar. Servidor: só biblioteca padrão do Python. Tela: `gerencia/app/www/app.js` (um IIFE; ações por `data-a`, janelas de baixo com `abrirFolha`/`pintarFolha`/`fecharFolha`, gravação com `persistir`). Cálculo novo vale nos dois lados (`calc.py` e `app.js`).
-2. Testar: `python3 -m unittest discover -s tests -t .` (servidor e tela; a tela precisa do playwright) e os visuais ligados à mudança (`tests/e2e/run.sh nome ...`). Toda mudança ou bug corrigido vem com o teste dele: na tela, em `tests/test_tela_<área>.py` (ver `tests/README.md`); no servidor, no `tests/test_*.py` da parte; num visual, com verificações do `_confere.py`.
-3. Subir a versão nos três lugares (iguais): `gerencia/config.yaml` (`version:`), `gerencia/app/server.py` (`VERSAO`) e `gerencia/app/www/app.js` (`const VERSAO`). Correção = patch (1.23.0 → 1.23.1); novidade = minor (1.23.x → 1.24.0).
+2. Testar: `tests/run.sh` (servidor e tela; a tela precisa do playwright) e os visuais ligados à mudança (`tests/e2e/run.sh nome ...`). Toda mudança ou bug corrigido vem com o teste dele: na tela, em `tests/test_tela_<área>.py` (ver `tests/README.md`); no servidor, no `tests/test_*.py` da parte; num visual, com verificações do `_confere.py`.
+3. Subir a versão: `python3 tools/versao.py patch` (correção, 1.23.0 → 1.23.1) ou `minor` (novidade, 1.23.x → 1.24.0). Ela fica escrita em três lugares, `gerencia/config.yaml` (`version:`), `gerencia/app/server.py` (`VERSAO`) e `gerencia/app/www/app.js` (`const VERSAO`), porque cada um é lido sozinho (a imagem só leva a pasta app/; a tela abre direto do arquivo nos testes e na prévia); o `tests/test_versao.py` confere que estão iguais e que o CHANGELOG começa por ela. A cobertura (`python3 tools/cobertura.py`) fica em pelo menos 95% das linhas de cada arquivo.
 4. `gerencia/CHANGELOG.md`: nova seção no topo, em português, do ponto de vista de quem usa (o que mudou na tela, não no código).
 5. `gerencia/DOCS.md` quando muda o comportamento ou aparece algo novo.
 6. `python3 tools/montar_previa.py` e commit também de `preview/gerencia-previa.html`.

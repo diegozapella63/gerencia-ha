@@ -14,6 +14,7 @@ Rotas:
 import hmac
 import json
 import os
+import re
 import secrets
 import socket
 import time
@@ -250,6 +251,8 @@ def _marcar(d, l, pago, valor=None):
 def _achar(d, cid):
     if cid.startswith("v:"):
         _, rid, ym = cid.split(":", 2)
+        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", ym):
+            raise ValueError("Id inválido.")
         r = next((x for x in d.get("recorrencias", []) if x.get("id") == rid), None)
         if not r:
             raise LookupError("Fixo não encontrado.")

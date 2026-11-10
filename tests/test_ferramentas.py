@@ -285,5 +285,101 @@ class TestInvestimentos(unittest.TestCase):
             chamar("novo_fixo", {"tipo": "despesa", "descricao": "X", "valor": 1}, d)
 
 
+class TestBordas(unittest.TestCase):
+    """O que a IA pode mandar torto: cada erro diz o que vale e nada é gravado pela metade."""
+
+    def erro(self, nome, args, msg, d=None):
+        d = d if d is not None else dados()
+        antes = json.dumps(d, sort_keys=True)
+        with self.assertRaisesRegex(F.ErroFerramenta, msg):
+            chamar(nome, args, d)
+        self.assertEqual(json.dumps(d, sort_keys=True), antes, f"{nome} {args}: nada gravado")
+
+    def test_datas_e_valores(self):
+        d = dados()
+        chamar("lancar", {"tipo": "despesa", "descricao": "Pão", "valor": "12,50", "data": "amanhã"}, d)
+        self.assertEqual((d["lancamentos"][-1]["data"], d["lancamentos"][-1]["valor"]), ("2026-11-16", 12.5))
+        self.erro("lancar", {"tipo": "despesa", "descricao": "a", "valor": 2e10}, "Valor grande demais")
+
+    def test_lancamentos_do_periodo_e_detalhes(self):
+        d = dados()
+        d["lancamentos"] += [{"id": "l-d", "tipo": "despesa", "descricao": "Desconto da luz", "valor": 5, "data": "2026-11-21", "desconto": True, "pai": "l-luz"},
+                             {"id": "l-tv", "tipo": "despesa", "descricao": "TV", "valor": 50, "data": "2026-11-08", "parcela": "2/10", "obs": "loja"}]
+        r = json_de("lancamentos", {"de": "2026-11-10", "ate": "2026-11-30"}, d)
+        nomes = {x["descricao"] for x in r["lancamentos"]}
+        self.assertNotIn("Água", nomes, "dia 3: fora do período, mesmo sendo do mês")
+        desc = next(x for x in r["lancamentos"] if x["descricao"] == "Desconto da luz")
+        self.assertEqual((desc["de"], "id" in desc), ("l-luz", False), "o desconto diz de quem é e não tem id próprio")
+        tv = json_de("lancamentos", {"busca": "tv"}, d)["lancamentos"][0]
+        self.assertEqual((tv["parcela"], tv["obs"]), ("2/10", "loja"))
+        r = json_de("lancamentos", {"categoria": "cas"}, d)
+        self.assertEqual({x["descricao"] for x in r["lancamentos"]}, {"Luz", "Internet"}, "sem tipo, também pelo começo do nome")
+        self.erro("lancamentos", {"categoria": "Viagem"}, "Categoria não encontrada: Viagem")
+
+    def test_contas_a_pagar_periodo_invalido(self):
+        self.erro("contas_a_pagar", {"de": "2026-12-01", "ate": "2026-11-01"}, "Período inválido")
+
+    def test_investimentos_e_fixos_com_detalhes(self):
+        d = dados()
+        d["investimentos"][0].update(vencimento="2028-01-10", obs="para a reforma")
+        d["recorrencias"][0]["fim"] = "2027-06"
+        i1 = json_de("investimentos", {}, d)["investimentos"][0]
+        self.assertEqual((i1["vencimento"], i1["obs"]), ("2028-01-10", "para a reforma"))
+        self.assertEqual(json_de("cadastros", {}, d)["fixos"][0]["ate"], "2027-06")
+
+    def test_parcelas_fora_do_limite(self):
+        base = {"tipo": "despesa", "descricao": "Sofá", "valor": 1200}
+        self.erro("lancar", dict(base, parcelas=1), "parcelas: de 2 a 120")
+        self.erro("lancar", dict(base, parcelas=121), "parcelas: de 2 a 120")
+        self.erro("lancar", dict(base, parcelas=3, parcela_atual=4), "parcela_atual: de 1 até o total")
+
+    def test_ids_ruins(self):
+        self.erro("editar_lancamento", {"id": " ", "valor": 1}, "Falta o id")
+        for lid in ("v:", "v:r-net", "v:r-net:2026-13", "v:r-net:26-1"):
+            with self.subTest(lid=lid):
+                self.erro("editar_lancamento", {"id": lid, "valor": 1}, "Id inválido")
+
+    def test_editar_cada_campo(self):
+        d = dados()
+        t, _ = chamar("editar_lancamento", {"id": "l-luz", "descricao": "Conta de luz", "data": "2026-11-22", "pago": True}, d)
+        l = next(x for x in d["lancamentos"] if x["id"] == "l-luz")
+        self.assertEqual((l["descricao"], l["data"], l["pago"]), ("Conta de luz", "2026-11-22", True))
+        chamar("editar_lancamento", {"id": "l-luz", "descricao": "  "}, d)
+        self.assertEqual(l["descricao"], "Conta de luz", "descrição vazia: fica a de antes")
+        self.erro("editar_lancamento", {"id": "l-luz", "cartao": True}, "Essa conta não tem cartão de crédito", d)
+        self.erro("editar_lancamento", {"id": "l-pulado", "valor": 2}, "apagado deste mês", d)
+        d["lancamentos"].append({"id": "l-ap", "tipo": "despesa", "descricao": "Aplicação", "valor": 500, "data": "2026-11-09", "aporte": True,
+                                 "categoria": "c-investimentos"})
+        chamar("editar_lancamento", {"id": "l-ap", "conta": "cc", "cartao": True}, d)
+        self.assertIs(d["lancamentos"][-1]["cartao"], False, "aporte nunca vai no cartão")
+
+    def test_marcar_pago_bordas(self):
+        d = dados()
+        self.erro("marcar_pago", {"id": "l-pulado"}, "apagado deste mês", d)
+        t, mudou = chamar("marcar_pago", {"id": "v:r-net:2026-12", "pago": False}, d)
+        self.assertTrue(t.startswith("Já estava a pagar: Internet"))
+        self.assertFalse(any(l.get("competencia") == "2026-12" for l in d["lancamentos"]), "nada criado")
+
+    def test_novo_investimento_bordas(self):
+        self.erro("novo_investimento", {"nome": " ", "valor": 1, "tipo": "cdb"}, "Falta o nome")
+        self.erro("novo_investimento", {"nome": "X", "valor": 1, "tipo": "cdb", "indexador": "bitcoin"}, "Rendimento inválido")
+        d = dados()
+        t, _ = chamar("novo_investimento", {"nome": "Reserva", "valor": 100, "tipo": "cdb", "de_quem": "Meu"}, d)
+        self.assertEqual((d["investimentos"][-1]["titular"], d["investimentos"][-1]["terceiro"]), ("meu", ""))
+        self.assertNotIn(" · de ", t)
+
+    def test_novo_fixo_bordas(self):
+        base = {"tipo": "despesa", "descricao": "Academia", "valor": 99, "data": "2026-11-20"}
+        self.erro("novo_fixo", dict(base, tipo="gasto"), "tipo: despesa")
+        self.erro("novo_fixo", dict(base, descricao=""), "Falta a descrição")
+        self.erro("novo_fixo", dict(base, cartao=True), "Diga a conta do cartão de crédito")
+        d = dados()
+        d["bancos"][0]["contas"].append({"id": "cd", "pessoa": "Beto"})
+        self.erro("novo_fixo", dict(base, cartao=True, conta="cd"), "Essa conta não tem cartão de crédito", d)
+        chamar("novo_fixo", dict(base, descricao="Aplicação mensal", categoria="c-investimentos", cartao=True, conta="cc"), d)
+        r = d["recorrencias"][-1]
+        self.assertEqual((r["aporte"], r["cartao"]), (True, False), "aporte: sem cartão, como na tela")
+
+
 if __name__ == "__main__":
     unittest.main()

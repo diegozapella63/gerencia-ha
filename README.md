@@ -48,11 +48,16 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Conversar com a IA**: o balão ao lado do microfone. Pergunte sobre o que está na tela ou sobre o seu dinheiro, ou peça para lançar, pagar uma conta ou atualizar um saldo: a IA mostra e você confirma.
 - **Usar IA**: uma chave liga e desliga tudo o que usa IA; o **Uso da IA** mostra as chamadas de cada dia.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
+- **Oportunidades de investimento**: as taxas do Tesouro Direto e as ofertas dos bancos que você cadastrou (a IA lê a página de ofertas de cada um), comparadas com o que você já tem, com aviso no celular no horário escolhido.
+- **Benefícios** dos cartões e planos (salas VIP, créditos, vantagens): quanto ainda resta no período. A IA lê o regulamento, um print ou a página oficial e cadastra.
+- **Faturas por e-mail**: com a integração IMAP do Home Assistant, as faturas, recibos e assinaturas em PDF que chegam por e-mail aparecem no Início para conferir. Cada remetente pode virar **Nunca considerar**, **É um fixo** ou **Novo fixo**.
+- **PDF com senha**: as senhas das faturas ficam guardadas aqui e abrem as próximas sozinhas.
+- **CorrerIA**: com o [CorrerIA](https://github.com/diegozapella63/CorrerIA-ha), as finanças no WhatsApp, no Claude e no Gemini (perguntar, lançar, pagar, atualizar saldos).
 - **Imagens** nos investimentos (comprovante, print do banco).
 - **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens e uso da IA.
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
-- **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices e perda de valor dos bens), Relatório de patrimônio, Configurações e Sobre.
-- **Tema claro e escuro** e **Cor do dia**: a cor do app muda todo dia, ou fica a que você escolher.
+- **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices, oportunidades e perda de valor dos bens), Benefícios, Relatório de patrimônio (com **Baixar PDF**), Configurações e Sobre, na mesma ordem dos outros apps da família.
+- **Tema claro e escuro** (escolhido em cada aparelho) e **Cor do dia**: a cor do app muda todo dia, ou fica a que você escolher entre as 12 cores da família.
 - **No computador**, uma barra lateral com as seções, os bancos e as pessoas, as telas em duas colunas e as janelas no meio da tela, como nos outros apps.
 - **Backup** em `share/gerencia`, exportação em CSV, JSON e ZIP, relatório e versões anteriores.
 
@@ -74,9 +79,18 @@ gerencia/app/integracao.py    contas a pagar para o CronologIA
 gerencia/app/bens.py          bens do InventarIA
 gerencia/app/voz.py           Falar (fala para texto do Home Assistant)
 gerencia/app/chat.py          Conversar com a IA (o que a IA vê, as ações e a conversa guardada)
+gerencia/app/oportunidades.py oportunidades de investimento (Tesouro Direto e as ofertas dos bancos)
+gerencia/app/beneficios.py    benefícios lidos pela IA
+gerencia/app/emails.py        faturas por e-mail (o evento imap_content do Home Assistant)
+gerencia/app/pdfsenha.py      abre PDF com senha (só biblioteca padrão)
+gerencia/app/pdf.py           o PDF do Relatório de patrimônio
+gerencia/app/avisos.py        avisos no celular das pessoas da casa
+gerencia/app/ferramentas.py   as ferramentas do CorrerIA
 gerencia/app/www/             interface (HTML, CSS e JavaScript, sem etapa de build)
 tools/montar_previa.py        gera preview/gerencia-previa.html (o app num arquivo só, com dados de exemplo)
 tools/capturas_docs.py        refaz as imagens de docs/ a partir da prévia
+tools/versao.py               sobe a versão nos três lugares de uma vez
+tools/cobertura.py            roda os testes e mostra a cobertura do servidor e da tela
 tests/                        testes unitários, do servidor e visuais
 docs/                         imagens deste README
 ```
@@ -91,7 +105,7 @@ GERENCIA_DEV=1 GERENCIA_DATA=./.data GERENCIA_SHARE=./.share GERENCIA_MEDIA=./.m
 
 Fora do Home Assistant, `GERENCIA_IA_MOCK=1` simula a IA, `GERENCIA_FONTES_MOCK=<pasta>` usa páginas de preço salvas (`<serviço>.html`) e `GERENCIA_DOLAR=5.04` fixa o dólar.
 
-Testes: `python3 -m unittest discover -s tests -t .` e `tests/e2e/run.sh` (ver [tests/README.md](tests/README.md)). Como trabalhar no projeto (checklist de cada mudança, versão, testes e como os apps conversam): [AGENTS.md](AGENTS.md).
+Testes: `tests/run.sh` (servidor e tela) e `tests/e2e/run.sh` (visuais) (ver [tests/README.md](tests/README.md)). Como trabalhar no projeto (checklist de cada mudança, versão, testes e como os apps conversam): [AGENTS.md](AGENTS.md).
 
 ## Créditos
 
