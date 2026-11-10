@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.57.1
+
+- **Campos de texto** (Observação, Colar mensagem, a página dos benefícios): dá para aumentar puxando o canto, e o tamanho fica guardado no aparelho. Aberto de novo, o campo volta do tamanho que você deixou. O mesmo vale em todos os apps da família.
+
 ## 1.57.0
 
 - **Mais › Bancos › Editar banco**: em cada conta, **Tem cartão de débito?** (ligado de início). Sem cartão de débito, a despesa fora do cartão de crédito aparece como **Pix** em vez de **Débito ou Pix**, e a lista de Bancos mostra "sem débito". A conversa com a IA e o CorrerIA também sabem disso.

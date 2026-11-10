@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.57.0';
+const VERSAO = '1.57.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2828,7 +2828,7 @@ function montarChat() {
   const ph = on ? 'Ouvindo… toque no visto quando terminar' : s.rec === 'starting' ? 'Abrindo o microfone…' : s.rec === 'transcrevendo' ? 'Transcrevendo…' : 'Escreva para a IA';
   const pe = `<div class="ch-pe">${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
         ${vozPronta() ? `<button class="icbtn ch-mic${on ? ' on' : ''}" data-a="ch-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Falar'}"${s.rec === 'transcrevendo' || s.enviando ? ' disabled' : ''}>${ic(on ? 'check' : 'mic')}</button>` : ''}
-        <textarea id="ch-txt" data-ch="texto" rows="1" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
+        <textarea id="ch-txt" data-ch="texto" rows="1" data-size="off" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
         <button class="icbtn ch-env" data-a="ch-enviar" aria-label="Enviar"${s.enviando || ocupado || !s.texto.trim() ? ' disabled' : ''}>${ic('send')}</button></div></div>`;
   return {
     titulo: 'Conversar com a IA',

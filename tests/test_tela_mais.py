@@ -1438,6 +1438,18 @@ class TestMenuMais(TelaMais):
             self.pg.set_viewport_size({"width": w, "height": 844})
             self.assertTrue(self.js("(e => e.scrollWidth <= e.clientWidth)(document.querySelector('#op-atalho-c'))"), f"{w} px: o caminho cortado")
 
+    def test_1_57_1_campos_de_texto_guardam_o_tamanho(self):
+        # textareas.js (o mesmo arquivo dos outros apps): aumentado, o campo volta do mesmo tamanho na próxima vez
+        self.abrir(base(bancos=BANCOS))
+        self.js("""(() => { const t = document.createElement('textarea'); t.id = 'tz-teste'; document.body.append(t); return true; })()""")
+        self.pg.wait_for_function("document.getElementById('tz-teste').style.resize === 'vertical'")
+        self.js("(document.getElementById('tz-teste').style.height = '230px', true)")
+        self.pg.wait_for_timeout(700)
+        self.js("(document.getElementById('tz-teste').remove(), true)")
+        self.js("""(() => { const t = document.createElement('textarea'); t.id = 'tz-teste'; document.body.append(t); return true; })()""")
+        self.pg.wait_for_function("document.getElementById('tz-teste').style.height === '230px'")
+        self.js("(document.getElementById('tz-teste').remove(), true)")
+
     def test_versoes_anteriores_explicam_quando_guardam(self):
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
         self.assertEqual(self.texto("#versoes .painel-lead"), "Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.")

@@ -1809,12 +1809,85 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 </script>
 <script>
+// Os campos de texto aberto (textarea) de todos os apps da família: dá para aumentar puxando o canto, e o tamanho fica
+// guardado no aparelho, para cada campo: aberto de novo, o campo volta do tamanho que a pessoa deixou. Vale também dentro
+// do Shadow DOM (as telas em Lit). Um campo que cresce sozinho (a conversa) fica de fora com data-size="off".
+// Arquivo igual em todos os apps (tools/iguais.py): ao mudar, copie para os outros.
+(() => {
+  if (window.__textareas) return;
+  // as telas de todos os apps abrem no mesmo endereço do Home Assistant (o mesmo localStorage): cada app com o seu nome
+  const prefix = () => `textareas:${(document.title || "app").split(/[·|-]/)[0].trim()}:`;
+  const keyOf = (ta) => ta.dataset.size || ta.id || ta.name || ta.getAttribute("aria-label") || ta.placeholder || "";
+  const read = (k) => {
+    try {
+      return Number(localStorage.getItem(prefix() + k)) || 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+  const write = (k, h) => {
+    try {
+      localStorage.setItem(prefix() + k, String(Math.round(h)));
+    } catch (e) {
+      /* navegação privada: só não fica guardado */
+    }
+  };
+  // a pessoa puxou o canto: o navegador põe a altura no style do campo; outra mudança de tamanho (a largura da tela, o
+  // texto) não mexe nela e não conta
+  const saving = new WeakMap();
+  const ro = typeof ResizeObserver === "function" ? new ResizeObserver((list) => list.forEach(({ target: ta }) => {
+    const h = parseFloat(ta.style.height);
+    if (!h || h === ta.__tsSet) return;
+    clearTimeout(saving.get(ta));
+    saving.set(ta, setTimeout(() => {
+      const k = keyOf(ta), now = parseFloat(ta.style.height);
+      if (k && now) write(k, now);
+      ta.__tsSet = now;
+    }, 400));
+  })) : null;
+  const fit = (ta) => {
+    if (!(ta instanceof HTMLTextAreaElement) || ta.dataset.size === "off" || ta.__tsDone) return;
+    ta.__tsDone = true;
+    ta.style.resize = "vertical";
+    const k = keyOf(ta);
+    const h = k && read(k);
+    if (h) {
+      ta.style.height = `${h}px`;
+      ta.__tsSet = h;
+    }
+    if (ro) ro.observe(ta);
+  };
+  const watched = new WeakSet();
+  const scan = (node) => {
+    if (!node || node.nodeType !== 1) return;
+    if (node.tagName === "TEXTAREA") fit(node);
+    if (node.shadowRoot) watch(node.shadowRoot);
+    if (node.querySelectorAll) {
+      node.querySelectorAll("textarea").forEach(fit);
+      node.querySelectorAll("*").forEach((el) => el.shadowRoot && watch(el.shadowRoot));
+    }
+  };
+  function watch(root) {
+    if (watched.has(root)) return;
+    watched.add(root);
+    new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(scan))).observe(root, { childList: true, subtree: true });
+    root.querySelectorAll("textarea").forEach(fit);
+    root.querySelectorAll("*").forEach((el) => el.shadowRoot && watch(el.shadowRoot));
+  }
+  window.__textareas = { fit, keyOf };
+  const start = () => watch(document.body || document.documentElement);
+  if (document.body) start();
+  else document.addEventListener("DOMContentLoaded", start);
+})();
+
+</script>
+<script>
 /* GerencIA · controle de investimentos dentro do Home Assistant */
 (() => {
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.57.0';
+const VERSAO = '1.57.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4639,7 +4712,7 @@ function montarChat() {
   const ph = on ? 'Ouvindo… toque no visto quando terminar' : s.rec === 'starting' ? 'Abrindo o microfone…' : s.rec === 'transcrevendo' ? 'Transcrevendo…' : 'Escreva para a IA';
   const pe = `<div class="ch-pe">${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
         ${vozPronta() ? `<button class="icbtn ch-mic${on ? ' on' : ''}" data-a="ch-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Falar'}"${s.rec === 'transcrevendo' || s.enviando ? ' disabled' : ''}>${ic(on ? 'check' : 'mic')}</button>` : ''}
-        <textarea id="ch-txt" data-ch="texto" rows="1" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
+        <textarea id="ch-txt" data-ch="texto" rows="1" data-size="off" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
         <button class="icbtn ch-env" data-a="ch-enviar" aria-label="Enviar"${s.enviando || ocupado || !s.texto.trim() ? ' disabled' : ''}>${ic('send')}</button></div></div>`;
   return {
     titulo: 'Conversar com a IA',

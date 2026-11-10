@@ -13,7 +13,9 @@ css = open(os.path.join(W, "styles.css"), encoding="utf-8").read()
 js = open(os.path.join(W, "app.js"), encoding="utf-8").read()
 # as caixas de seleção no visual do app (o mesmo arquivo dos outros apps), antes do app: o Voltar dela vem primeiro
 caixas = open(os.path.join(W, "selectsheet.js"), encoding="utf-8").read()
-assert "</script" not in js and "</script" not in caixas
+# os campos de texto que a pessoa aumenta (o mesmo arquivo dos outros apps)
+campos = open(os.path.join(W, "textareas.js"), encoding="utf-8").read()
+assert "</script" not in js and "</script" not in caixas and "</script" not in campos
 
 
 def embute(m):
@@ -39,6 +41,9 @@ html = f'''<!doctype html>
 <script>window.GERENCIA_DEMO = true;</script>
 <script>
 {caixas}
+</script>
+<script>
+{campos}
 </script>
 <script>
 {js}
