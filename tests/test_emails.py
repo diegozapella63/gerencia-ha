@@ -109,6 +109,18 @@ class TestModulo(unittest.TestCase):
     def test_chave(self):
         self.assertEqual(E.chave(evento()), "imap-ana|101|Sua fatura de novembro")
 
+    def test_chave_pelo_conteudo(self):
+        """1.54.1: o mesmo e-mail com outro número (o aviso e o Procurar faturas agora numeram diferente) tem a mesma chave."""
+        k = E.chave_conteudo("imap-ana", "Banco Azul <Fatura@BancoAzul.com.br>", "2026-11-07T08:30:00-03:00", "Sua Fatura de Novembro", "fatura-nov.pdf")
+        self.assertEqual(k, "c|imap-ana|fatura@bancoazul.com.br|2026-11-07T08:30:00|sua fatura de novembro")
+        for data in ("Sat, 07 Nov 2026 08:30:00 -0300", "2026-11-07T08:30:00.123456-03:00"[:25], "Sat, 07 Nov 2026 08:30:00 -0300"[:25]):
+            with self.subTest(data=data):
+                self.assertEqual(E.chave_conteudo("imap-ana", "fatura@bancoazul.com.br", data, "Sua fatura de novembro"), k, "a data em outro jeito, ou cortada")
+        self.assertNotEqual(E.chave_conteudo("imap-ana", "fatura@bancoazul.com.br", "2026-12-07T08:30:00", "Sua fatura de novembro"), k, "outro e-mail")
+        self.assertEqual(E.chave_conteudo("imap-ana", "x@y.com", "", "Fatura", "a.pdf"), "c|imap-ana|x@y.com|a:a.pdf|fatura", "sem a data, o anexo")
+        self.assertEqual(E.chave_conteudo("imap-ana", "x@y.com", "lixo", "Fatura"), "c|imap-ana|x@y.com|lixo|fatura")
+        self.assertEqual(E.chave_conteudo("", "x@y.com", "2026-11-07", "Fatura"), "", "sem a conta, não há como saber")
+
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestEscuta(unittest.TestCase):
@@ -287,6 +299,47 @@ class TestEmailChegou(ComServidor):
         self.assertEqual(len(self.itens()), 1)
         self.assertEqual(len(self.pedidos), 1)
 
+    def test_o_mesmo_email_com_outro_numero_nao_entra_duas_vezes(self):
+        """1.54.1: o aviso do Home Assistant e o Procurar faturas agora davam números diferentes ao mesmo e-mail, e ele
+        entrava duas vezes (e o PDF de um deles não abria)."""
+        S.email_chegou(evento("9001"))
+        self.assertIsNone(S.email_chegou(dict(evento("40"), date="Sat, 07 Nov 2026 08:30:00 -0300")), "o mesmo, achado pelo Procurar")
+        self.assertEqual((len(self.itens()), len(self.pedidos)), (1, 1))
+        self.assertIsNotNone(S.email_chegou(evento("41", assunto="Sua fatura de dezembro")), "outro e-mail do mesmo remetente entra")
+
+    def test_o_que_nao_abriu_por_um_numero_tenta_pelo_outro(self):
+        """Se o PDF não abriu pelo número de um jeito (o anexo vinha de outro e-mail), o mesmo e-mail com o outro número
+        lê de novo no mesmo lugar, sem criar outro."""
+        ruim, self.resposta = self.resposta, {"service_response": {"part_data": "", "content_transfer_encoding": "base64"}}
+        eid = S.email_chegou(evento("9001"))
+        self.assertEqual((self.itens()[0]["estado"], self.itens()[0]["erro"]), ("erro", "O anexo do e-mail não é um PDF."))
+        self.resposta = ruim
+        self.assertEqual(S.email_chegou(evento("40")), eid, "o mesmo, pelo número do Procurar")
+        it = self.itens()
+        self.assertEqual((len(it), it[0]["estado"], it[0]["uid"]), (1, "conferir", "40"))
+        self.assertIsNone(S.email_chegou(evento("40")), "e não lê uma terceira vez")
+
+    def test_os_repetidos_de_antes_viram_um(self):
+        """Os que já tinham entrado duas vezes ficam um só (o que andou mais, como o que espera a conferência), e o PDF
+        do outro sai. Os do WhatsApp não têm conta nem data: ficam todos."""
+        base = {"entry": "imap-ana", "de": "Banco Azul <fatura@bancoazul.com.br>", "assunto": "Sua fatura de novembro", "data": "2026-11-07T08:30:00-03:00",
+                "arquivo": "fatura-nov.pdf", "parte": "1", "erro": "", "recebido_em": "2026-11-07T09:00:00"}
+        itens = [dict(base, id="aaaaaaaaaaaa", uid="40", estado="erro", erro="O anexo do e-mail não é um PDF."),
+                 dict(base, id="bbbbbbbbbbbb", uid="9001", estado="conferir"),
+                 dict(base, id="cccccccccccc", uid="39", estado="erro", erro="O anexo do e-mail não é um PDF."),
+                 dict(base, id="dddddddddddd", uid="12", estado="fora", assunto="Outro"),
+                 {"id": "eeeeeeeeeeee", "origem": "whatsapp", "chave": "", "de": "Ana", "assunto": "foto", "estado": "conferir"},
+                 {"id": "ffffffffffff", "origem": "whatsapp", "chave": "", "de": "Ana", "assunto": "foto", "estado": "conferir"}]
+        os.makedirs(S.EMAILS_PDF, exist_ok=True)
+        for x in itens:
+            with open(S._email_pdf(x["id"]), "wb") as f:
+                f.write(b"%PDF-1.4")
+        S._emails_gravar({"itens": itens, "vistos": []})
+        self.assertEqual([x["id"] for x in self.itens()], ["bbbbbbbbbbbb", "dddddddddddd", "eeeeeeeeeeee", "ffffffffffff"])
+        self.assertFalse(os.path.exists(S._email_pdf("aaaaaaaaaaaa")) or os.path.exists(S._email_pdf("cccccccccccc")), "os PDFs dos repetidos saem")
+        self.assertTrue(os.path.exists(S._email_pdf("bbbbbbbbbbbb")))
+        self.assertIsNone(S.email_chegou(evento("38")), "e o mesmo e-mail de novo não volta")
+
     def test_de_outro_remetente_fica_guardado_sem_ler(self):
         S.email_chegou(evento(de="Loja <ofertas@lojaexemplo.com>", assunto="Fatura da loja"))
         self.assertEqual((self.itens()[0]["estado"], self.pedidos), ("fora", []))
@@ -426,7 +479,7 @@ class TestEmailChegou(ComServidor):
             ids = [S.email_chegou(evento(str(n), assunto=f"Fatura {n}")) for n in range(5)]
         self.assertEqual([x["id"] for x in self.itens()], ids[::-1][:3])
         self.assertFalse(os.path.exists(S._email_pdf(ids[0])), "o PDF dos que saíram também sai")
-        self.assertEqual(len(S.emails_ler()["vistos"]), 5, "mas continuam vistos")
+        self.assertEqual(len(S.emails_ler()["vistos"]), 10, "mas continuam vistos (pelo número e pelo conteúdo)")
 
     def test_arquivo_estragado(self):
         S.gravar_arquivo(S.EMAILS_ARQ, "[1, 2]")
@@ -507,6 +560,12 @@ class TestProcurar(ComServidor):
         S.PROCURA.update(rodando=True, vistos=0, pdfs=0, achados=0)
         S._procurar([{"id": "imap-ana", "nome": "ana@exemplo.com"}])
         self.assertEqual((S.PROCURA["pdfs"], S.PROCURA["achados"], len(self.itens())), (2, 0, 2), "de novo: nada repetido")
+        # 1.54.1: um e-mail apagado na pasta muda os números: a fatura vira a 39, e continua uma só
+        del self.caixa[1]
+        self.caixa = {n - 1: v for n, v in self.caixa.items()}
+        S.PROCURA.update(rodando=True, vistos=0, pdfs=0, achados=0)
+        S._procurar([{"id": "imap-ana", "nome": "ana@exemplo.com"}])
+        self.assertEqual((S.PROCURA["achados"], len(self.itens())), (0, 2), "com outro número, é o mesmo e-mail")
 
     def test_validacoes_e_em_segundo_plano(self):
         self.ajustar(email=False)

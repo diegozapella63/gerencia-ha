@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.54.0"
+VERSAO = "1.54.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3274,7 +3274,7 @@ def listar_versoes():
 EMAILS_ARQ = os.path.join(DATA_DIR, "emails.json")
 EMAILS_PDF = os.path.join(DATA_DIR, "emails")
 EMAILS_MAX = 30          # os últimos e-mails com PDF guardados
-EMAILS_VISTOS = 300      # os já recebidos (o Home Assistant manda o último de novo quando reinicia)
+EMAILS_VISTOS = 600      # os já recebidos, pelo número e pelo conteúdo (o Home Assistant manda o último de novo quando reinicia)
 EMAIL_ESTADOS = ("lendo", "conferir", "senha", "erro", "fora", "feito", "ignorado")
 RE_EMAIL_ID = re.compile(r"^[0-9a-f]{12}$")
 EMAIL_SIMULADO = {}      # só com a IA simulada (testes e prévia): uid -> bytes do PDF
@@ -3293,7 +3293,33 @@ def emails_ler():
     itens = [x for x in e.get("itens") or [] if isinstance(x, dict) and RE_EMAIL_ID.match(str(x.get("id") or ""))
              and x.get("estado") in EMAIL_ESTADOS]
     vistos = [x for x in e.get("vistos") or [] if isinstance(x, str)][-EMAILS_VISTOS:]
-    return {"itens": itens, "vistos": vistos}
+    return {"itens": _sem_repetidos(itens), "vistos": vistos}
+
+
+def _chave_item(x):
+    return x.get("ck") or emails.chave_conteudo(x.get("entry"), x.get("de"), x.get("data"), x.get("assunto"), x.get("arquivo"))
+
+
+# o mesmo e-mail guardado duas vezes (até a 1.54.0, o aviso do Home Assistant e o Procurar faturas agora davam números
+# diferentes a ele): fica um só, o que andou mais (já lançado, para conferir…), e o PDF do outro sai
+_ORDEM_ESTADO = {"feito": 0, "conferir": 1, "senha": 2, "lendo": 3, "fora": 4, "ignorado": 5, "erro": 6}
+
+
+def _sem_repetidos(itens):
+    melhor = {}
+    for k, x in enumerate(itens):
+        ck = _chave_item(x) if x.get("origem") != "whatsapp" else ""
+        if ck and (ck not in melhor or _ORDEM_ESTADO.get(x.get("estado"), 9) < _ORDEM_ESTADO.get(itens[melhor[ck]].get("estado"), 9)):
+            melhor[ck] = k
+    fica = set(melhor.values())
+    out = []
+    for k, x in enumerate(itens):
+        ck = _chave_item(x) if x.get("origem") != "whatsapp" else ""
+        if not ck or k in fica:
+            out.append(x)
+        else:
+            _email_apagar_pdf(x["id"])
+    return out
 
 
 def _emails_gravar(e):
@@ -3406,26 +3432,41 @@ def email_chegou(ev, avisar=True):
     if parte is None or not ev.get("uid") or not ev.get("entry_id"):
         return None
     k = emails.chave(ev)
+    ck = emails.chave_conteudo(ev.get("entry_id"), ev.get("sender"), str(ev.get("date") or "")[:40], ev.get("subject"), arquivo)
     rg = emails.regra(ev.get("sender"), aj.get("email_remetentes"))
     fatura = emails.e_fatura(ev.get("sender"), ev.get("subject"), arquivo, aj.get("email_de"), aj.get("email_remetentes"))
     with _trava_emails:
         e = emails_ler()
-        if k in e["vistos"]:
-            return None
-        e["vistos"] = (e["vistos"] + [k])[-EMAILS_VISTOS:]
-        if rg and rg["acao"] == "nunca":  # Nunca considerar: nem entra nos Recebidos
+        igual = next((x for x in e["itens"] if ck and _chave_item(x) == ck), None)
+        if igual is not None and igual.get("estado") == "erro" and str(igual.get("uid")) != str(ev["uid"]):
+            # o mesmo e-mail, que não deu para abrir pelo outro número: tenta por este
+            igual.update(uid=str(ev["uid"]), parte=parte, chave=k, ck=ck, estado="lendo" if fatura else "fora", erro="")
+            e["vistos"] = (e["vistos"] + [k])[-EMAILS_VISTOS:]
             _emails_gravar(e)
-            log(f"E-mail de {emails.endereco(ev.get('sender'))}: nunca considerar")
-            return None
-        it = {"id": secrets.token_hex(6), "chave": k, "entry": str(ev["entry_id"]), "uid": str(ev["uid"]), "parte": parte,
-              "de": str(ev.get("sender") or "")[:200], "assunto": str(ev.get("subject") or "")[:200],
-              "data": str(ev.get("date") or "")[:25], "recebido_em": agora_iso(), "arquivo": str(arquivo)[:120],
-              "estado": "lendo" if fatura else "fora", "erro": ""}
-        e["itens"].insert(0, it)
-        for velho in e["itens"][EMAILS_MAX:]:
-            _email_apagar_pdf(velho["id"])
-        e["itens"] = e["itens"][:EMAILS_MAX]
-        _emails_gravar(e)
+            refazer = igual["id"]
+        elif k in e["vistos"] or (ck and (ck in e["vistos"] or igual is not None)):
+            return None  # já visto, mesmo que com outro número
+        else:
+            refazer = None
+            e["vistos"] = (e["vistos"] + [k] + ([ck] if ck else []))[-EMAILS_VISTOS:]
+            if rg and rg["acao"] == "nunca":  # Nunca considerar: nem entra nos Recebidos
+                _emails_gravar(e)
+                log(f"E-mail de {emails.endereco(ev.get('sender'))}: nunca considerar")
+                return None
+            it = {"id": secrets.token_hex(6), "chave": k, "ck": ck, "entry": str(ev["entry_id"]), "uid": str(ev["uid"]), "parte": parte,
+                  "de": str(ev.get("sender") or "")[:200], "assunto": str(ev.get("subject") or "")[:200],
+                  "data": str(ev.get("date") or "")[:25], "recebido_em": agora_iso(), "arquivo": str(arquivo)[:120],
+                  "estado": "lendo" if fatura else "fora", "erro": ""}
+            e["itens"].insert(0, it)
+            for velho in e["itens"][EMAILS_MAX:]:
+                _email_apagar_pdf(velho["id"])
+            e["itens"] = e["itens"][:EMAILS_MAX]
+            _emails_gravar(e)
+    if refazer:
+        log(f"E-mail de {emails.endereco(ev.get('sender'))}: lendo de novo, pelo número {ev['uid']}")
+        if fatura:
+            email_ler(refazer, avisar=avisar)
+        return refazer
     log(f"E-mail de {emails.endereco(it['de'])} com PDF:", "lendo a fatura" if fatura else "não é de fatura")
     if fatura:
         email_ler(it["id"], avisar=avisar)

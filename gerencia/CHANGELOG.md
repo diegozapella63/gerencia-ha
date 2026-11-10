@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.54.1
+
+- **Faturas por e-mail**: a mesma fatura não aparece mais duas vezes. O aviso do Home Assistant e o **Procurar faturas agora** davam números diferentes ao mesmo e-mail. Agora ele é reconhecido pela conta, pelo remetente, pela data e pelo assunto. As que já estavam repetidas viram uma só, a que andou mais. Se o PDF não abriu por um dos números, o app tenta pelo outro, no mesmo lugar.
+
 ## 1.54.0
 
 - **Oportunidades** em Mais › Benefícios: o que falta para ganhar mais, do mais perto para o mais longe. **Investindo** (a anuidade grátis com R$ 50 mil investidos: "faltam R$ 5.000 · tem R$ 45 mil"; o próximo nível de cada conta entra sozinho), **Gastando** no cartão (a sala VIP gastando R$ 3 mil por mês: "faltam R$ 500 · média R$ 2.500", pela média das faturas dos últimos 3 meses) e **Outro plano** da mesma assinatura ("+R$ 20,00 por mês"). O que já dá fica no fim, com **Já dá**.

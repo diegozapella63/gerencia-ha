@@ -7,11 +7,13 @@ Só biblioteca padrão: a conexão é a do voz.py (ConexaoWS), que fica aberta e
 """
 import base64
 import binascii
+import email.utils
 import quopri
 import re
 import threading
 import time
 import unicodedata
+from datetime import datetime
 
 import voz
 
@@ -110,6 +112,31 @@ def e_fatura(remetente, assunto, arquivo, remetentes, regras=None):
 def chave(ev):
     """O que identifica um e-mail (o Home Assistant manda o último de novo quando reinicia)."""
     return f"{ev.get('entry_id') or ''}|{ev.get('uid') or ''}|{str(ev.get('subject') or '')[:60]}"
+
+
+def _data_chave(d):
+    """A data do e-mail num jeito só (a hora como está escrita, até o segundo, sem o fuso: a data guardada é cortada e
+    pode ter ficado sem ele), venha ela em ISO ou no formato do cabeçalho."""
+    s = str(d or "").strip()
+    if not s:
+        return ""
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = email.utils.parsedate_to_datetime(s)
+        except (TypeError, ValueError, IndexError):
+            return s[:40]
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def chave_conteudo(entry, remetente, data, assunto, arquivo=""):
+    """O mesmo e-mail mesmo com outro número: o aviso do Home Assistant e o Procurar faturas agora não numeram igual, e o
+    número muda quando a pasta muda (um e-mail apagado ou movido). Pela conta, o remetente, a data e o assunto (sem a
+    data, o nome do anexo). Vazio quando não há como saber (sem a conta)."""
+    if not entry:
+        return ""
+    return "|".join(("c", str(entry), endereco(remetente), _data_chave(data) or "a:" + str(arquivo or "")[:80], _sem_acento(assunto)[:60]))
 
 
 class Escuta:
