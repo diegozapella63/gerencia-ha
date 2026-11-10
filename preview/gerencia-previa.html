@@ -1435,6 +1435,8 @@ input[readonly] { opacity: .8; }
 .folha-pe .btn { padding-top: 0; padding-bottom: 0; }
 .pref.grande { min-height: var(--altura); }
 .pref.grande input { padding-top: 4px; padding-bottom: 4px; }
+.bc-ben { margin-top: 12px; }
+.ajuda.bc-ben-n { margin-top: 6px; }
 
 </style>
 <main id="app" aria-live="polite"></main>
@@ -1796,7 +1798,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.52.0';
+const VERSAO = '1.53.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4080,6 +4082,8 @@ function montarFormLanc() {
   }
   c += `<div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="lf-obs">${ic('chev', 'ic-s')}Observação</button>
     ${f.obsAberta ? `<textarea class="inp" data-lf="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar">${esc(f.obs)}</textarea>` : ''}</div>`;
+  // um gasto fixo, como uma assinatura, também dá benefícios
+  if (r && !rec && !r.aporte && iaOn()) c += `<div class="campo">${botaoBen('fixo:' + r.id)}</div>`;
   const cab = f.id ? `<button class="icbtn" data-a="lf-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   let pe;
   if (!f.id) pe = `<button class="btn" data-a="lf-salvar" data-mais="1">Salvar e lançar outro</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
@@ -6190,6 +6194,7 @@ function abrirBanco(id, nome, sobre) {
               <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="0" aria-label="Limite do adicional"></div>
                 <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>`).join('')}
             ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}
+            ${botaoBenConta(c)}
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
@@ -6705,7 +6710,7 @@ function avisosBeneficios(h) {
 }
 // de onde vem: os fixos de despesa e as contas e cartões dos bancos (a origem que saiu continua na lista)
 function origensBeneficio(atual) {
-  const o = [['', 'Nenhum']].concat(fixosAtivos().filter(r => r.tipo !== 'receita').map(r => ['fixo:' + r.id, r.descricao + ' (fixo)']),
+  const o = [['', 'Nenhum']].concat(fixosAtivos().filter(r => r.tipo !== 'receita' && !r.aporte).map(r => ['fixo:' + r.id, r.descricao + (r.categoria === 'c-assinaturas' ? ' (assinatura)' : ' (fixo)')]),
     S.d.bancos.flatMap(bc => (bc.contas || []).map(k => ['conta:' + k.id, bc.nome + (k.pessoa ? ' · ' + k.pessoa : '') + (k.cartao ? ' · cartão' + (k.cartao_nivel ? ' ' + k.cartao_nivel : '') : k.nivel ? ' · ' + k.nivel : '')])));
   if (atual && !o.some(([v]) => v === atual)) o.push([atual, origemBeneficio({ origem: atual }).nome]);
   return o;
@@ -6778,11 +6783,21 @@ function usarBeneficio(id) {
    cartão (beneficios.py no servidor). A IA lista; da página e do texto, só fica o que está escrito lá. A pessoa confere
    e cadastra os escolhidos (depois dá para mudar cada um no formulário). */
 let BLER = null;
-function abrirLerBeneficios() {
-  BLER = { etapa: 'entrada', origem: '', texto: '', arquivo: null, itens: [], erro: '' };
+// origem: já com De onde vêm escolhido (o Identificar benefícios de uma conta, em Editar banco, abre por cima dele)
+function abrirLerBeneficios(origem = '', sobre = false) {
+  BLER = { etapa: 'entrada', origem, texto: '', arquivo: null, itens: [], erro: '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (BLER && FOLHA) pintarFolha(); }).catch(() => {});
-  abrirFolha(montarLerBeneficios, () => { BLER = null; });
+  abrirFolha(montarLerBeneficios, () => { BLER = null; }, sobre);
 }
+// Identificar benefícios de uma conta (em Editar banco) ou de um fixo, como uma assinatura (no fixo): a IA lê o print,
+// o PDF ou a página do cartão ou do plano, já com ele em De onde vêm; com quantos ele já tem. Só com a IA ligada.
+function botaoBen(origem) {
+  if (!iaOn()) return '';
+  const n = (S.d.beneficios || []).filter(b => b.origem === origem).length;
+  return `<button type="button" class="btn out larga bc-ben" data-a="ben-identificar" data-v="${esc(origem)}">${ic('ia', 'ic-s')}Identificar benefícios</button>${n ? `<p class="ajuda bc-ben-n">${plural(n, 'benefício cadastrado', 'benefícios cadastrados')}.</p>` : ''}`;
+}
+// em Editar banco, só nas contas já salvas
+const botaoBenConta = c => c.id && contas().some(k => k.id === c.id) ? botaoBen('conta:' + c.id) : '';
 const subBen = x => [x.tipo === 'vantagem' ? 'Vantagem' : `${qtdBen(x, +x.total || 0)} ${RENOVA_TXT[x.renova] || ''}`.trim(), x.obs || ''].filter(Boolean).join(' · ');
 function montarLerBeneficios() {
   const s = BLER, arq = s.arquivo;
@@ -8049,6 +8064,7 @@ document.addEventListener('click', ev => {
     case 'ben-editar': abrirBeneficio(id); break;
     case 'ben-usar': usarBeneficio(id); break;
     case 'ben-ler': abrirLerBeneficios(); break;
+    case 'ben-identificar': abrirLerBeneficios(v, true); break;
     case 'bler-arq': escolherArquivo('image/*,application/pdf').then(blerPegarArquivo); break;
     case 'bler-cam': abrirCamera(blerFotos); break;
     case 'bler-arq-rm': if (BLER) { BLER.arquivo = null; BLER.erro = ''; pintarFolha(); } break;

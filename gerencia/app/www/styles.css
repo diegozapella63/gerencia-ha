@@ -1429,3 +1429,5 @@ input[readonly] { opacity: .8; }
 .folha-pe .btn { padding-top: 0; padding-bottom: 0; }
 .pref.grande { min-height: var(--altura); }
 .pref.grande input { padding-top: 4px; padding-bottom: 4px; }
+.bc-ben { margin-top: 12px; }
+.ajuda.bc-ben-n { margin-top: 6px; }

@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.53.0
+
+- **Identificar benefícios** em **Editar banco**: cada conta já salva tem o botão. A leitura por IA abre já com a conta em **De onde vêm**, e o botão mostra quantos benefícios a conta tem.
+- **Assinaturas também dão benefícios**: num gasto fixo (uma assinatura de jogos ou de streaming, por exemplo), o mesmo **Identificar benefícios** fica no fim do fixo. Em **Mais › Benefícios**, as assinaturas aparecem em **De onde vem** com "(assinatura)", e os benefícios delas ficam agrupados nelas, como os das contas.
+
 ## 1.52.0
 
 - **Datas no jeito do ResolvIA**: nenhuma data abre mais a janela do celular. Os atalhos aparecem em botões (**Hoje**, **Amanhã**, **Sábado**, **Próx. semana**; numa data que não passa de hoje, **Hoje** e **Ontem**; num lançamento, **Hoje**, **Ontem** e **Amanhã**). **Outra data** abre o mês ali mesmo, embaixo, e tocar no nome do mês mostra os meses do ano, para um vencimento longe. Vale no lançamento, no investimento (Valor em e Vencimento), no Aplicar mais, na primeira cobrança anual, no benefício e na revisão da leitura por IA.

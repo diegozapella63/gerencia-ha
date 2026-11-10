@@ -187,6 +187,59 @@ class TestLerComIA(TelaBen):
                          {"nome": "Créditos de uso", "origem": "conta:k-ana", "tipo": "saldo", "total": 100, "moeda": "USD", "renova": "mes", "desde": "2026-11-02", "usos": []})
         self.assertEqual(self.linhas()[1], ["Créditos de uso", "US$ 100 por mês · renova em 02/12/2026", "restam US$ 100", "de US$ 100"])
 
+    def test_identificar_beneficios_na_conta_do_banco(self):
+        """1.53: em Editar banco, cada conta já salva tem Identificar benefícios: a leitura por IA abre por cima, já com
+        a conta em De onde vêm; cadastrar volta para o banco, que mostra quantos a conta tem. Sem a IA, não aparece."""
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VIP]), ui={"tab": "mais", "maisTela": "bancos"})
+        self.js("(T.abrirBanco('b-azul'), true)")
+        self.esperar()
+        self.assertEqual(self.textos('.folha [data-a="ben-identificar"]'), ["Identificar benefícios", "Identificar benefícios"], "uma para cada pessoa")
+        self.assertEqual(self.textos('.folha .bc-ben-n'), ["1 benefício cadastrado."], "a Ana já tem a Sala VIP")
+        self.clicar('.folha [data-a="bc-add"]')
+        self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 2, "a conta nova (ainda não salva) não tem o botão")
+        self.clicar('.folha [data-a="ben-identificar"][data-v="conta:k-beto"]')
+        self.assertEqual(self.folha(), "Ler benefícios com IA")
+        self.assertEqual(self.texto('.folha [data-a="bler-origem"].on'), "Banco Azul · Beto · cartão", "já com a conta do Beto")
+        self.preencher("#bler-txt", self.TEXTO)
+        self.ler()
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados")
+        self.assertEqual(self.folha(), "Editar banco", "volta para o banco")
+        self.assertEqual(self.textos('.folha .bc-ben-n'), ["1 benefício cadastrado.", "3 benefícios cadastrados."])
+        self.assertEqual(self.conta('.folha .conta-ed'), 3, "a pessoa acrescentada continua lá")
+        self.abrir(base(bancos=BANCOS, ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "bancos"})
+        self.js("(T.abrirBanco('b-azul'), true)")
+        self.esperar()
+        self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 0, "sem a IA, não aparece")
+
+    def test_identificar_beneficios_de_uma_assinatura(self):
+        """1.53: um gasto fixo, como uma assinatura, também dá benefícios: no fixo, Identificar benefícios abre a leitura
+        por IA já com ele em De onde vêm (a assinatura com o nome dela); cadastrar volta para o fixo."""
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[CREDITO]), ui={"tab": "mais", "maisTela": "caixa"})
+        self.clicar('#app [data-a="fixo"][data-id="r-sol"]')
+        self.assertEqual(self.texto('.folha [data-a="ben-identificar"]'), "Identificar benefícios")
+        self.assertEqual(self.texto('.folha .bc-ben-n'), "1 benefício cadastrado.", "os Créditos de uso do Plano Sol")
+        self.clicar('.folha [data-a="ben-identificar"]')
+        self.assertEqual(self.folha(), "Ler benefícios com IA")
+        self.assertEqual(self.texto('.folha [data-a="bler-origem"].on'), "Plano Sol (assinatura)", "já com a assinatura")
+        self.preencher("#bler-txt", self.TEXTO)
+        self.ler()
+        self.assertEqual(self.itens()[1][0], False, "os Créditos de uso já estão cadastrados")
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrados"), "2 benefícios cadastrados")
+        self.assertEqual(self.folha(), "Despesa", "volta para o fixo")
+        self.assertEqual(self.texto('.folha .bc-ben-n'), "3 benefícios cadastrados.")
+        self.assertEqual({b["origem"] for b in self.dados()["beneficios"]}, {"fixo:r-sol"})
+
+    def test_sem_identificar_num_recebimento_nem_num_lancamento_avulso(self):
+        sal = {"id": "r-sal", "tipo": "receita", "descricao": "Salário", "valor": 5000, "dia": 5, "freq": "mensal", "inicio": "2026-01", "categoria": "c-salario"}
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO, sal]), ui={"tab": "mais", "maisTela": "caixa"})
+        self.clicar('#app [data-a="fixo"][data-id="r-sal"]')
+        self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 0, "recebimento não dá benefício")
+        self.js("(T.fecharFolha(true), T.abrirLancamento(null, { tipo: 'despesa' }), true)")
+        self.esperar()
+        self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 0, "um gasto avulso também não")
+
     def test_imagem_voltar_e_nada_achado(self):
         from tests.test_tela_ia import _SOLTAR
         self.abrir_ben()
