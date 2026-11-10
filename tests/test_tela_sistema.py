@@ -1403,12 +1403,15 @@ class TestBens(TelaSistema):
         self.assertEqual(self.limpo('#bens .linha-sw span'), "Ligado: R$ 31.500 em 13 itens.")
         self.assertEqual(self.conta("#bens .status"), 0)
 
-    def perda(self, k, texto):
+    def perda(self, k, texto, salvo=None):
         # digitar e sair do campo num passo só: um redesenho no meio (o que a tela ainda buscava) trocaria o campo, e a
-        # mudança iria para o campo de antes, fora da tela (aconteceu no GitHub, que é mais lento)
+        # mudança iria para o campo de antes, fora da tela (aconteceu no GitHub, que é mais lento); com o valor que deve
+        # ficar, espera ele chegar aos dados (lá a gravação e o redesenho depois dela demoram mais)
         self.esperar()
         self.pg.locator(f'#perda-bens [data-bens-taxa="{k}"]').evaluate(
             "(e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }", texto)
+        if salvo is not None:
+            self.pg.wait_for_function("([k, v]) => ((window.GERENCIA_TESTE.S.d.ajustes.bens_taxas || {})[k]) === v", arg=[k, salvo], timeout=5000)
         self.esperar()
 
     def test_perda_de_valor_lista_as_categorias_pelo_valor(self):
@@ -1466,7 +1469,7 @@ class TestBens(TelaSistema):
         # um número negativo digitado também vale: vira Valoriza, e o campo mostra a % sem sinal
         for digitado, salvo, mostrado in [("150", 100, "100"), ("-80", -50, "50"), ("abc", 0, "0"), ("−5", -5, "5"), ("7,5", -7.5, "7,5")]:  # com Valoriza marcado, a % digitada valoriza
             with self.subTest(digitado):
-                self.perda("moveis", digitado)
+                self.perda("moveis", digitado, salvo)
                 self.assertEqual(self.dados()["ajustes"]["bens_taxas"]["moveis"], salvo)
                 self.assertEqual(self.dados()["investimentos"][0]["partes"][0]["taxa"], salvo)
                 self.assertEqual(self.pg.input_value('#perda-bens [data-bens-taxa="moveis"]'), mostrado)
