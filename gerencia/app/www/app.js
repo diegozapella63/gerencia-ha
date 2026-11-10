@@ -3966,7 +3966,7 @@ function abrirRemetente(id) {
   const it = ((S.emails && S.emails.itens) || []).find(x => x.id === id);
   if (!it || !it.endereco) return;
   const end = it.endereco, dom = end.includes('@') ? end.split('@')[1] : '', rg = regraEmail(end);
-  // o nome do fixo novo: o do remetente ("Nabu Casa <...>") ou o do domínio (nabucasa.com → Nabucasa)
+  // o nome do fixo novo: o do remetente ("Nuvem Sol <...>") ou o do domínio (nuvemsol.com → Nuvemsol)
   const nome = it.de && it.de !== end ? it.de : (dom.split('.')[0] || end).replace(/^./, c => c.toUpperCase());
   FREM = { id, end, dom, estado: it.estado, de: rg ? rg.de : end, acao: rg ? rg.acao : '', fixo: (rg && rg.fixo) || '', novoNome: nome.slice(0, 60), novoValor: '', erro: '',
     dia: +(pData(String(it.data || it.recebido_em || '').slice(0, 10)) || hoje()).getDate(), ym: ymDe(String(it.data || it.recebido_em || '')) || ymHoje() };
