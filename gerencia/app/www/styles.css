@@ -1380,3 +1380,9 @@ input[readonly] { opacity: .8; }
 .recolhido-t .ic-s { transition: transform .15s; }
 .recolhido.on .recolhido-t .ic-s { transform: rotate(90deg); }
 .recolhido-c { padding-bottom: 4px; }
+
+/* Editar banco: os cartões adicionais (para quem e o limite, com a lixeira ao lado do limite) */
+.adic-l { display: flex; align-items: center; gap: 6px; }
+.adic-l > .pref { flex: 1; min-width: 0; }
+.chip.add.adic-add { margin-top: 10px; }
+.ajuda.limite-disp:empty, .ajuda.nivel-meta:empty { display: none; }

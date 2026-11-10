@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.51.0
+
+- **Mais › Bancos › Editar banco**: em cada conta, o **Nível da conta**, o **Próximo nível** e o **Pede investido** vêm antes do cartão.
+- **Limite do cartão**: com cartão, diga o limite; logo abaixo aparece quanto já foi usado (as compras no cartão ainda não pagas) e quanto está disponível.
+- **Cartão adicional**: ligue **Tem cartão adicional?** e diga para quem é e o limite de cada um (dá para ter mais de um). A lista de Bancos mostra "adicional Beto".
+- **Banco de cada pessoa**: onde se escolhe o banco (no investimento, por exemplo), um banco com conta de mais de uma pessoa aparece uma vez para cada uma (**Banco Azul · Ana**, **Banco Azul · Beto**); o que falta para o próximo nível conta o investimento na conta escolhida.
+- **Novo benefício › De onde vem** (e o **De onde vêm** do Ler com IA): os fixos e as contas em botões na própria tela, como na escolha do banco.
+
 ## 1.50.0
 
 - **Desfazer**: depois de apagar um lançamento, uma parcela, um fixo (só deste mês, parar ou apagar), um investimento, um benefício, um banco ou uma categoria, o aviso embaixo traz o **Desfazer**, como nos outros apps da família: tudo volta como era, no mesmo lugar.

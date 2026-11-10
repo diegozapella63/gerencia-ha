@@ -86,7 +86,7 @@ class TestCadastro(TelaBen):
         self.preencher("#fben-nome", "Sala VIP")
         self.clicar('#folhas [data-a="fben-salvar"]')
         self.assertEqual(self.esperar_aviso("Diga"), "Diga quantos.")
-        self.pg.select_option("#fben-origem", "conta:k-ana")
+        self.clicar('.folha [data-a="fben-origem"][data-v="conta:k-ana"]')
         self.preencher("#fben-total", "6")
         self.preencher("#fben-desde", "2026-03-15")
         self.clicar('#folhas [data-a="fben-salvar"]')
@@ -100,7 +100,7 @@ class TestCadastro(TelaBen):
         self.abrir_ben()
         self.clicar('[data-a="ben-novo"]')
         self.preencher("#fben-nome", "Créditos de uso")
-        self.pg.select_option("#fben-origem", "fixo:r-sol")
+        self.clicar('.folha [data-a="fben-origem"][data-v="fixo:r-sol"]')
         self.clicar('#folhas [data-a="fben-seg"][data-k="tipo"][data-v="saldo"]')
         self.clicar('#folhas [data-a="fben-seg"][data-k="moeda"][data-v="USD"]')
         self.clicar('#folhas [data-a="fben-seg"][data-k="renova"][data-v="mes"]')
@@ -134,6 +134,20 @@ class TestCadastro(TelaBen):
         self.assertEqual(self.dados()["beneficios"], [])
 
 
+    def test_de_onde_vem_em_botoes_como_a_escolha_do_banco(self):
+        """1.51: De onde vem fica na tela, em botões (era uma caixa que abria embaixo), como a escolha do banco."""
+        self.abrir_ben()
+        self.clicar('[data-a="ben-novo"]')
+        self.assertEqual(self.conta('.folha select#fben-origem'), 0)
+        ops = self.textos('.folha [data-a="fben-origem"]')
+        self.assertEqual(ops[0], "Nenhum")
+        self.assertTrue(any(o.startswith("Banco Azul · Ana") for o in ops), ops)
+        self.assertEqual(self.texto('.folha [data-a="fben-origem"].on'), "Nenhum", "começa em Nenhum")
+        self.assertEqual(self.conta('.folha [data-a="fben-origem"][data-v="conta:k-ana"] .bol'), 1, "a conta com a cor do banco")
+        self.clicar('.folha [data-a="fben-origem"][data-v="conta:k-ana"]')
+        self.assertEqual(self.js("T.FBEN.origem"), "conta:k-ana")
+        self.assertEqual(self.js("document.querySelector('.folha [data-a=\"fben-origem\"][data-v=\"conta:k-ana\"]').getAttribute('aria-checked')"), "true")
+
 class TestLerComIA(TelaBen):
     """Ler com IA: a IA simulada da prévia (a mesma regra do servidor) lê o texto, a página ou a imagem; a pessoa confere
     (o que já está cadastrado vem desmarcado) e cadastra os escolhidos."""
@@ -154,7 +168,7 @@ class TestLerComIA(TelaBen):
         self.clicar('[data-a="ben-ler"]')
         self.assertEqual(self.folha(), "Ler benefícios com IA")
         self.assertTrue(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"))
-        self.pg.select_option("#bler-origem", "conta:k-ana")
+        self.clicar('.folha [data-a="bler-origem"][data-v="conta:k-ana"]')
         self.preencher("#bler-txt", self.TEXTO)
         self.assertFalse(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"))
         self.ler()

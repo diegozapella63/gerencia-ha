@@ -73,7 +73,11 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 
 Em **Mais › Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
 
-Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e, com cartão, o **Cartão** (ex.: Gold), e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os seus investimentos; numa conta com o nome de um terceiro, os dele) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".
+Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os investimentos escolhidos nessa conta; os de antes, sem conta escolhida, vão para a conta de quem é dono) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".
+
+Com cartão, a conta pede também o **Cartão** (o nível, ex.: Gold) e o **Limite**. Logo abaixo aparece quanto do limite já foi usado (as compras no cartão ainda não pagas) e quanto está disponível ("Usado R$ 1.200; disponível R$ 3.800."). Em **Tem cartão adicional?**, diga para quem é cada adicional e, se quiser, o limite dele; **Outro adicional** acrescenta mais um. A lista de Bancos mostra "adicional Beto".
+
+Onde se escolhe um banco (no investimento, por exemplo), um banco com conta de mais de uma pessoa aparece uma vez para cada uma: **Banco Azul · Ana** e **Banco Azul · Beto**.
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
@@ -222,7 +226,7 @@ Os índices (CDI, Selic, IPCA 12 meses e TR) vêm do Banco Central a cada 12 hor
 
 ## Benefícios
 
-Em **Mais › Benefícios**, o que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, seguro viagem… Cada benefício fica ligado ao que o sustenta: um **fixo** (a assinatura) ou uma **conta** de Mais › Bancos (com o nível da conta ou do cartão), e a lista fica agrupada assim.
+Em **Mais › Benefícios**, o que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, seguro viagem… Cada benefício fica ligado ao que o sustenta: um **fixo** (a assinatura) ou uma **conta** de Mais › Bancos (com o nível da conta ou do cartão), e a lista fica agrupada assim. Em **De onde vem**, toque no fixo ou na conta (os botões ficam na própria tela, como na escolha do banco).
 
 - **Tipo**: **Quantidade** (ex.: 6 salas VIP por ano; **Usei 1** desconta e mostra "restam 5"), **Saldo** (ex.: US$ 100 de créditos por mês; **Usei** pergunta quanto) ou **Vantagem** (sem contagem).
 - **Renova** todo mês, todo ano ou não renova, a partir da data em **Renova a partir de** (o aniversário do plano ou do cartão): no dia, o que foi usado zera. **Vale até** (opcional) é o último dia do benefício.

@@ -387,6 +387,12 @@ def _cadastros(d):
             it["pessoa"] = c["pessoa"]
         if c.get("cartao"):
             it["cartao_de_credito"] = {"fecha_dia": c.get("fechamento"), "vence_dia": c.get("vencimento")}
+            if calc.num(c.get("limite"), 0) > 0:
+                it["cartao_de_credito"]["limite"] = round(calc.num(c.get("limite")), 2)
+            adic = [{"pessoa": a.get("pessoa"), **({"limite": round(calc.num(a.get("limite")), 2)} if calc.num(a.get("limite"), 0) > 0 else {})}
+                    for a in (c.get("adicionais") or []) if isinstance(a, dict) and a.get("pessoa")]
+            if adic:
+                it["cartao_de_credito"]["adicionais"] = adic
         contas.append(it)
     fixos = []
     for r in d.get("recorrencias", []):

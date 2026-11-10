@@ -119,6 +119,9 @@ class TestLeitura(unittest.TestCase):
         self.assertEqual(c["contas"], [{"id": "cc", "nome": "Banco Azul · Ana", "banco": "Banco Azul", "pessoa": "Ana",
                                         "cartao_de_credito": {"fecha_dia": 5, "vence_dia": 10}}])
         self.assertEqual(c["pessoas_terceiros"], ["Beto"])
+        d["bancos"][0]["contas"][0].update(limite=5000, adicionais=[{"id": "a1", "pessoa": "Beto", "limite": 1500}, {"id": "a2", "pessoa": ""}])
+        cc = json_de("cadastros", {}, d)["contas"][0]["cartao_de_credito"]
+        self.assertEqual(cc, {"fecha_dia": 5, "vence_dia": 10, "limite": 5000, "adicionais": [{"pessoa": "Beto", "limite": 1500}]}, "o limite e os adicionais")
         self.assertIn("cdb", c["tipos_investimento"])
         self.assertEqual(c["fixos"][0]["id"], "r-net")
 

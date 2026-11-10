@@ -348,6 +348,51 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.linha(".banco-row", "Banco Azul"),
                          "B Banco Azul Ana (One, cartão Gold) · faltam R$ 15 mil para Black Plus · Beto (cartão) · 1 investimento · R$ 10.000")
 
+    def test_conta_antes_do_cartao_limite_e_adicional(self):
+        """1.51: o nível, o próximo nível e o que ele pede vêm antes do Tem cartão; com cartão, o limite (e quanto está
+        livre, pelas compras ainda não pagas) e os cartões adicionais, com para quem e o limite de cada um."""
+        lanc = [{"id": "c1", "tipo": "despesa", "descricao": "Farmácia", "valor": 1200, "data": "2026-11-01", "conta": "k-ana", "cartao": True, "pago": False},
+                {"id": "c2", "tipo": "receita", "descricao": "Estorno", "valor": 200, "data": "2026-11-02", "conta": "k-ana", "cartao": True, "pago": False},
+                {"id": "c3", "tipo": "despesa", "descricao": "Paga", "valor": 999, "data": "2026-10-01", "conta": "k-ana", "cartao": True, "pago": True}]
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS, lancamentos=lanc))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        ordem = self.js("""(() => { const card = document.querySelector('.folha .conta-ed');
+            const pos = el => [...card.querySelectorAll('*')].indexOf(el);
+            return [pos(card.querySelector('[data-fbcs="nivel"]')), pos(card.querySelector('[data-fbcs="meta_nivel"]')), pos(card.querySelector('[data-fbc="meta_valor"]')), pos(card.querySelector('[data-a="bc-cartao"]'))]; })()""")
+        self.assertEqual(ordem, sorted(ordem), "nível, próximo nível, pede investido e só então o cartão")
+        self.preencher('[data-fbc="limite"][data-i="0"]', "5.000")
+        self.assertEqual(self.texto('.folha .limite-disp[data-lim="0"]'), "Usado R$ 1.000; disponível R$ 4.000.", "as compras não pagas menos o estorno")
+        self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
+        self.preencher('[data-fba="pessoa"][data-i="0"][data-j="0"]', "Beto")
+        self.preencher('[data-fba="limite"][data-i="0"][data-j="0"]', "1.500")
+        self.clicar('.folha [data-a="bc-adic-add"][data-i="0"]')
+        self.preencher('[data-fba="pessoa"][data-i="0"][data-j="1"]', "Carla")
+        self.clicar('.folha [data-a="bc-adic-add"][data-i="0"]')  # um vazio: não é gravado
+        self.clicar('[data-a="b-salvar"]')
+        c = self.banco("b-azul")["contas"][0]
+        self.assertEqual((c["limite"], [(a["pessoa"], a.get("limite")) for a in c["adicionais"]]), (5000, [("Beto", 1500), ("Carla", None)]))
+        self.assertIn("Ana (cartão, adicional Beto e Carla)", self.linha(".banco-row", "Banco Azul"))
+        # sem cartão, o limite e os adicionais não ficam
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
+        self.assertEqual(self.conta('.folha [data-fbc="limite"][data-i="0"], .folha [data-a="bc-adic"][data-i="0"]'), 0)
+        self.clicar('[data-a="b-salvar"]')
+        c = self.banco("b-azul")["contas"][0]
+        self.assertNotIn("limite", c)
+        self.assertNotIn("adicionais", c)
+
+    def test_adicional_desligado_tira_os_adicionais(self):
+        self.abrir_bancos(base(bancos=BANCOS))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
+        self.preencher('[data-fba="pessoa"][data-i="0"][data-j="0"]', "Beto")
+        self.clicar('.folha [data-a="bc-adic-rm"][data-i="0"][data-j="0"]')
+        self.assertEqual(self.conta('.folha [data-fba="pessoa"]'), 0, "a lixeira tira")
+        self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
+        self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
+        self.assertEqual(self.conta('.folha [data-fba="pessoa"]'), 0, "desligar tira todos")
+        self.assertEqual(self.texto('.folha .limite-disp[data-lim="0"]'), "", "sem limite, nada")
+
     def test_meta_de_um_terceiro_conta_os_investimentos_dele(self):
         bancos = [{"id": "b-verde", "nome": "Banco Verde", "cor": "#4CD3A5", "contas": [
             {"id": "k-verde", "pessoa": "Ana", "cartao": False, "fechamento": 1, "vencimento": 10, "meta_nivel": "Prime", "meta_valor": 3000},

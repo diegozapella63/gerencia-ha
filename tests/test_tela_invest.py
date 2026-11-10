@@ -555,7 +555,7 @@ class TestFormulario(_TelaInvest):
         self.assertEqual(self.texto('.folha [data-a="f-tipo"].on'), "CDB")
         self.assertEqual(self.texto('.folha [data-a="f-idx"].on'), "% do CDI")
         self.assertEqual(self.pg.input_value('.folha [data-f="taxa"]'), "100")
-        self.assertEqual(self.texto('.folha [data-a="f-set"][data-k="banco"].on'), "Banco Azul", "o primeiro banco")
+        self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Azul · Ana", "o primeiro banco, na conta de quem usa o app")
         self.preencher("#f-nome", "CDB Azul 2029")
         self.digitar("#f-valor", "1000000")
         self.assertEqual(self.pg.input_value("#f-valor"), "10.000,00", "os números entram como centavos")
@@ -655,7 +655,7 @@ class TestFormulario(_TelaInvest):
     def test_sem_nome_usa_o_tipo_e_o_banco(self):
         self.novo()
         self.clicar('.folha [data-a="f-tipo"][data-v="lci"]')
-        self.clicar('.folha [data-a="f-set"][data-k="banco"][data-v="b-verde"]')
+        self.clicar('.folha [data-a="f-banco"][data-v="b-verde"]')
         self.digitar("#f-valor", "100000")
         self.clicar(SALVAR)
         self.assertEqual((self.salvo()["nome"], self.salvo()["banco"]), ("LCI/LCA Banco Verde", "b-verde"))
@@ -798,13 +798,13 @@ class TestFormulario(_TelaInvest):
         self.assertEqual(self.textos(".folha .msg-erro"), ["Dê um nome."])
         self.preencher('.folha [data-f="nb-nome"]', "banco verde")
         self.clicar('.folha [data-a="f-nbok"]')
-        self.assertEqual(self.texto('.folha [data-k="banco"].on'), "Banco Verde", "um banco que já existe é reaproveitado")
+        self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Verde", "um banco que já existe é reaproveitado")
         self.assertEqual(self.js("T.F.bancosNovos.length"), 0)
         self.clicar('.folha [data-a="f-nb"]')
         self.preencher('.folha [data-f="nb-nome"]', "Banco Roxo")
         self.clicar('.folha [data-a="f-nbcor"][data-v="#B79BFF"]')
         self.clicar('.folha [data-a="f-nbok"]')
-        self.assertEqual(self.texto('.folha [data-k="banco"].on'), "Banco Roxo")
+        self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Roxo")
         self.digitar("#f-valor", "100000")
         self.clicar(SALVAR)
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")
@@ -815,7 +815,7 @@ class TestFormulario(_TelaInvest):
         self.clicar('.folha [data-a="f-set"][data-k="titular"][data-v="terceiros"]')
         self.preencher('.folha [data-f="terceiro"]', "Carla")
         self.clicar('.folha [data-a="f-tipo"][data-v="lci"]')
-        self.clicar('.folha [data-a="f-set"][data-k="banco"][data-v="b-verde"]')
+        self.clicar('.folha [data-a="f-banco"][data-v="b-verde"]')
         self.preencher("#f-nome", "LCI da Carla")
         self.digitar("#f-valor", "300000")
         self.clicar('.folha [data-a="f-salvar"][data-mais]')
@@ -830,6 +830,25 @@ class TestFormulario(_TelaInvest):
 class TestEditar(_TelaInvest):
     """Abrir um investimento: editar, duplicar, excluir e as imagens guardadas."""
 
+    def test_banco_com_duas_pessoas_um_botao_por_pessoa(self):
+        """1.51: onde se escolhe o banco, um banco com mais de uma pessoa aparece uma vez por pessoa; o investimento guarda
+        a conta, e o próximo nível de cada pessoa conta os investimentos dela."""
+        self.invest()
+        ana_antes = self.js("T.investidoNaConta(T.S.d.bancos[0].contas[0], 'b-azul')")
+        self.editar("cdb")
+        self.assertEqual(self.textos('.folha [data-a="f-banco"]')[:3], ["Banco Azul · Ana", "Banco Azul · Beto", "Banco Verde"])
+        self.clicar('.folha [data-a="f-banco"][data-conta="k-beto"]')
+        self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Azul · Beto")
+        self.clicar('.folha [data-a="f-salvar"]')
+        cdb = next(i for i in self.dados()["investimentos"] if i["id"] == "cdb")
+        self.assertEqual((cdb["banco"], cdb["conta"]), ("b-azul", "k-beto"))
+        self.assertEqual(self.js("T.investidoNaConta(T.S.d.bancos[0].contas[1], 'b-azul')"), self.js("T.valorHoje(T.S.d.investimentos.find(i => i.id === 'cdb'))"),
+                         "os 10 mil contam para o Beto")
+        self.assertEqual(round(self.js("T.investidoNaConta(T.S.d.bancos[0].contas[0], 'b-azul')"), 2),
+                         round(ana_antes - self.js("T.valorHoje(T.S.d.investimentos.find(i => i.id === 'cdb'))"), 2), "e saem da Ana")
+        self.editar("cdb")
+        self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Azul · Beto", "aberto de novo, a conta escolhida")
+
     def test_editar_abre_com_os_dados(self):
         self.invest()
         self.editar("cdb")
@@ -837,7 +856,8 @@ class TestEditar(_TelaInvest):
         self.assertEqual(self.pg.input_value("#f-valor"), "10.000,00")
         self.assertEqual(self.pg.input_value('.folha [data-f="taxa"]'), "110")
         self.assertEqual(self.pg.input_value("#f-venc"), "2028-03-15")
-        self.assertEqual([self.texto(f'.folha [data-k="{k}"].on') for k in ("banco", "liquidez")], ["Banco Azul", "No vencimento"])
+        self.assertEqual([self.texto('.folha [data-a="f-banco"].on'), self.texto('.folha [data-k="liquidez"].on')], ["Banco Azul · Ana", "No vencimento"],
+                         "o Banco Azul tem a Ana e o Beto: o CDB (meu, de antes, sem a conta) fica na de quem usa o app")
         self.assertEqual(self.textos(".folha .folha-pe .btn"), ["Duplicar", "Salvar"])
         self.assertEqual(self.conta('.folha .folha-cab [data-a="f-excluir"]'), 1, "a lixeira no alto")
         self.assertEqual(self.textos(".folha .inv-acoes .btn"), ["Aplicar mais", "Transferir"])
