@@ -94,6 +94,24 @@ class TestOQueAIARecebe(unittest.TestCase):
     def test_dia_de_hoje(self):
         self.assertTrue(self.r.startswith("Hoje é segunda-feira, 02/11/2026."))
 
+    def test_oportunidades_dos_beneficios(self):
+        """1.54: o que falta para ganhar mais (Mais › Benefícios › Oportunidades), para a IA responder "tenho alguma oportunidade?"."""
+        d = dados()
+        d["bancos"][0]["contas"][1].update(meta_nivel="Black", meta_valor=10000)
+        d["metas"] = [{"id": "m1", "tipo": "investido", "origem": "conta:k-ana", "valor": 5000, "ganha": "Sem anuidade"},
+                      {"id": "m2", "tipo": "gasto", "origem": "conta:k-ana", "valor": 3000, "periodo": "mes", "ganha": "Sala VIP"},
+                      {"id": "m3", "tipo": "plano", "origem": "fixo:r-net", "valor": 150, "periodo": "mes", "ganha": "Mais velocidade", "plano": "1 giga"},
+                      {"id": "m4", "tipo": "investido", "origem": "conta:k-ana", "valor": 500, "ganha": "Cashback"}, "lixo"]
+        r = C.resumo(d, HOJE)
+        self.assertIn("Oportunidades nos benefícios (o que ganha | de onde | condição | situação):", r)
+        self.assertIn("Sem anuidade | Banco Azul · Ana | R$ 5.000,00 investidos | faltam R$ 4.000,00 (tem R$ 1.000,00)", r)
+        self.assertIn("Sala VIP | Banco Azul · Ana | gastar R$ 3.000,00 por mês no cartão | sem como saber", r, "sem faturas nos últimos 3 meses")
+        self.assertIn("Mais velocidade | Internet | plano 1 giga de R$ 150,00 por mês | custa R$ 30,00 a mais por mês", r)
+        self.assertIn("Cashback | Banco Azul · Ana | R$ 500,00 investidos | já dá", r)
+        self.assertIn("nível Black | Banco Azul · Beto | R$ 10.000,00 investidos | faltam R$ 9.000,00 (tem R$ 1.000,00)", r,
+                      "o próximo nível da conta; o CDB de antes, sem a conta, conta como seu (como no card)")
+        self.assertNotIn("Oportunidades nos benefícios", C.resumo(dados(), HOJE), "sem nenhuma, nada")
+
     def test_contas_e_cartoes(self):
         self.assertIn("k-ana | Banco Azul · Ana | cartão, fecha dia 5, vence dia 12", self.r)
         self.assertIn("k-beto | Banco Azul · Beto | sem cartão", self.r)

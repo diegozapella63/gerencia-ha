@@ -151,6 +151,18 @@ def resumo(d, hoje=None):
         ix = d.get("indices", {})
         L.append(f"Índices ao ano: CDI {calc.fmt_pct(ix.get('cdi', 0))}%, Selic {calc.fmt_pct(ix.get('selic', 0))}%, IPCA {calc.fmt_pct(ix.get('ipca', 0))}%.")
 
+    metas = [m for m in d.get("metas", []) if isinstance(m, dict)] + calc.metas_conta(d)
+    if metas:  # Mais › Benefícios › Oportunidades: o que falta para ganhar mais (o mesmo da tela)
+        L.append("\nOportunidades nos benefícios (o que ganha | de onde | condição | situação):")
+        for m in metas[:30]:
+            pr = calc.progresso_meta(m, d, hoje)
+            cond = (f"{_brl(pr['pede'])} investidos" if m.get("tipo") == "investido" else f"gastar {_brl(pr['pede'])} por mês no cartão"
+                    if m.get("tipo") == "gasto" else f"plano {m.get('plano') or ''} de {_brl(pr['pede'])} por mês".replace("  ", " "))
+            sit = ("sem como saber" if pr["sem"] else "já dá" if pr["ja"] else f"custa {_brl(pr['falta'])} a mais por mês" if m.get("tipo") == "plano"
+                   else f"faltam {_brl(pr['falta'])} (tem {_brl(pr['tem'])}{' de média' if m.get('tipo') == 'gasto' else ''})")
+            nome = ("nível " if m.get("nivel") else "") + str(m.get("ganha") or "")
+            L.append(f"{nome} | {calc.origem_beneficio(m, d, hoje)['nome']} | {cond} | {sit}")
+
     if cats:
         L.append("\nCategorias (id: nome, tipo): " + "; ".join(f"{c.get('id')}: {c.get('nome', '')}, {c.get('tipo', 'despesa')}" for c in d.get("categorias", [])))
     return "\n".join(L)

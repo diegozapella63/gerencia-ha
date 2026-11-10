@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.53.1';
+const VERSAO = '1.54.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -343,6 +343,7 @@ function normalizar(d) {
     categorias: Array.isArray(d.categorias) ? d.categorias : clone(CATEGORIAS_PADRAO),
     investimentos: Array.isArray(d.investimentos) ? d.investimentos : [],
     beneficios: lista(d.beneficios),
+    metas: lista(d.metas),
     indices: Object.assign({}, INDICES_PADRAO, d.indices || {}),
     ajustes: Object.assign({}, AJUSTES_PADRAO, d.ajustes || {}),
     historico: Array.isArray(d.historico) ? d.historico : [],
@@ -563,7 +564,7 @@ function apiDemo() {
     async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
     async save(c) {
       if (c.rev !== d.rev) { const e = new Error('conflito'); e.conflito = true; e.d = clone(d); throw e; }
-      for (const k of ['bancos', 'investimentos', 'ajustes', 'exemplo', 'lancamentos', 'recorrencias', 'categorias', 'beneficios']) if (k in c) d[k] = c[k];
+      for (const k of ['bancos', 'investimentos', 'ajustes', 'exemplo', 'lancamentos', 'recorrencias', 'categorias', 'beneficios', 'metas']) if (k in c) d[k] = c[k];
       if (c.substituir_historico) d.historico = c.historico || [];
       d.rev++; registrarHistorico(d); return clone(d);
     },
@@ -628,9 +629,9 @@ function apiDemo() {
     async beneficiosLer(c) {
       await espera(600);
       const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
-      const itens = simBeneficios(c.anexo || c.anexos || url ? BEN_EXEMPLO : t);
-      if (!itens.length) throw new Error('A IA não achou benefícios aqui.');
-      return { beneficios: itens, recusados: 0, origem: c.origem || '' };
+      const fonte = c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
+      if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios aqui.');
+      return { beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' };
     },
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
     async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
@@ -732,7 +733,7 @@ const api = DEMO ? apiDemo() : apiServidor;
 let fila = Promise.resolve();
 /* Desfazer um Apagar: o que a ação tirou volta para o mesmo lugar, o que ela mudou volta como era e o que ela criou
    (a linha que pula um mês de um fixo) sai. O que outro aparelho mudou depois fica. */
-const LISTAS_DESFAZER = ['lancamentos', 'recorrencias', 'investimentos', 'bancos', 'beneficios', 'categorias'];
+const LISTAS_DESFAZER = ['lancamentos', 'recorrencias', 'investimentos', 'bancos', 'beneficios', 'metas', 'categorias'];
 const fotografia = d => Object.fromEntries(LISTAS_DESFAZER.map(k => [k, clone(d[k] || [])]));
 function desfazerPara(d, antes, depois) {
   const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -756,7 +757,7 @@ function persistir(mut, ok, desfazer) {
     const antes = desfazer ? fotografia(S.d) : null;
     mut(novo);
     const corpo = { rev: novo.rev, bancos: novo.bancos, investimentos: novo.investimentos, ajustes: novo.ajustes, exemplo: novo.exemplo,
-      lancamentos: novo.lancamentos, recorrencias: novo.recorrencias, categorias: novo.categorias, beneficios: novo.beneficios };
+      lancamentos: novo.lancamentos, recorrencias: novo.recorrencias, categorias: novo.categorias, beneficios: novo.beneficios, metas: novo.metas };
     if (novo._hist) { corpo.substituir_historico = true; corpo.historico = novo._hist; }
     try {
       S.d = normalizar(await api.save(corpo));
@@ -4864,6 +4865,54 @@ function origemBeneficio(b, d = S.d) {
   }
   return { tipo: '', nome: '', ativa: true };
 }
+/* Oportunidades (Mais › Benefícios): o que falta para ganhar mais. investido: ter um valor no banco (a anuidade grátis
+   com R$ 50 mil investidos; o próximo nível da conta, de Editar banco); gasto: gastar um valor por mês no cartão (a sala
+   VIP gastando R$ 3 mil); plano: um plano mais caro do mesmo fixo (o de 2 TB por R$ 120 em vez de R$ 100). A conta é a
+   mesma do calc.py (progresso_meta, gasto_cartao, investido_na_conta). */
+// o gasto médio por mês no cartão: as faturas dos 3 meses antes deste (pelo vencimento), sem o pagamento da fatura; um
+// estorno desconta; só os meses com fatura entram na média (sem nenhuma, null)
+function gastoCartao(contaId, h = hoje(), meses = 3) {
+  const c = contaDe(contaId);
+  if (!c || !c.cartao) return null;
+  const ym = iso(h).slice(0, 7), por = new Map();
+  for (const l of lancamentosEntre(addYm(ym, -meses), addYm(ym, -1))) {
+    if (!l.cartao || l.conta !== contaId || ehPagamentoFatura(l, true)) continue;
+    const m = ymDe(l.dc);
+    por.set(m, (por.get(m) || 0) + (ehRec(l) ? -1 : 1) * (+l.valor || 0));
+  }
+  return por.size ? r2([...por.values()].reduce((a, b) => a + b, 0) / por.size) : null;
+}
+const mensalRec = r => r.freq === 'anual' ? (+r.valor || 0) / 12 : +r.valor || 0;
+// o próximo nível de cada conta (Próximo nível e Pede investido, em Editar banco) também é uma oportunidade de investir
+function metasConta(d = S.d) {
+  return d.bancos.flatMap(b => (b.contas || []).filter(c => c && c.id && c.meta_nivel && +c.meta_valor > 0)
+    .map(c => ({ id: 'nivel:' + c.id, origem: 'conta:' + c.id, tipo: 'investido', valor: +c.meta_valor, ganha: String(c.meta_nivel), nivel: true })));
+}
+// {tem, pede, falta, pct, ja (já dá), sem (sem como saber: origem, cartao ou faturas)}
+function progressoMeta(m, d = S.d, h = hoje()) {
+  const o = String(m.origem || ''), ano = m.periodo === 'ano' && (m.tipo === 'gasto' || m.tipo === 'plano');
+  const pede = (+m.valor || 0) / (ano ? 12 : 1);
+  const out = { tem: null, pede: r2(pede), falta: r2(pede), pct: 0, ja: false, sem: '' };
+  if (m.tipo === 'investido' || m.tipo === 'gasto') {
+    const c = o.startsWith('conta:') ? contaDe(o.slice(6)) : null;
+    if (!c) return Object.assign(out, { sem: 'origem' });
+    let tem;
+    if (m.tipo === 'investido') tem = investidoNaConta(c, c.banco, d);
+    else {
+      if (!c.cartao) return Object.assign(out, { sem: 'cartao' });
+      tem = gastoCartao(c.id, h);
+      if (tem == null) return Object.assign(out, { sem: 'faturas' });
+    }
+    return Object.assign(out, { tem: r2(tem), falta: r2(Math.max(0, pede - tem)), pct: pede > 0 ? Math.round(Math.min(100, Math.max(0, tem) / pede * 100) * 10) / 10 : 0, ja: tem >= pede });
+  }
+  if (m.tipo === 'plano') {
+    const r = o.startsWith('fixo:') ? d.recorrencias.find(x => x.id === o.slice(5)) : null;
+    if (!r) return Object.assign(out, { sem: 'origem' });
+    const tem = mensalRec(r);
+    return Object.assign(out, { tem: r2(tem), falta: r2(Math.max(0, pede - tem)), ja: pede <= tem });
+  }
+  return Object.assign(out, { sem: 'origem' });
+}
 const MOEDA_BEN = { BRL: 'R$', USD: 'US$' };
 const qtdBen = (b, v) => b.tipo === 'saldo' ? `${MOEDA_BEN[b.moeda] || 'R$'} ${NF2.format(v).replace(/,00$/, '')}` : NF0.format(v);
 const RENOVA_TXT = { mes: 'por mês', ano: 'por ano', nunca: '' };
@@ -4897,7 +4946,83 @@ function maisBeneficios() {
   h += porOrigem(L);
   return h + (iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="ben-novo">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="ben-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
     : `<button class="btn out larga" data-a="ben-novo">${ic('plus')}Cadastrar benefício</button>`)
-    + recolhido('ben-encerrados', 'Encerrados', fora.length, porOrigem(fora)) + '</section>';
+    + recolhido('ben-encerrados', 'Encerrados', fora.length, porOrigem(fora)) + '</section>' + cardMetas();
+}
+// Oportunidades: as cadastradas (ou achadas pela IA na leitura) e o próximo nível de cada conta; as que faltam, da mais
+// perto para a mais longe; depois as sem como saber e as que já dão
+const MSG_SEM_META = { origem: 'Diga de onde vem', cartao: 'A conta não tem cartão', faturas: 'Sem faturas nos últimos 3 meses' };
+function condMeta(m, p) {
+  if (m.tipo === 'investido') return `com ${brlCurto(p.pede)} investidos`;
+  if (m.tipo === 'gasto') return `gastando ${brlCurto(p.pede)} por mês no cartão`;
+  return `${m.plano ? m.plano + ' ' : ''}por ${brl(p.pede)} por mês`;
+}
+function linhaMeta(m) {
+  const p = progressoMeta(m), o = origemBeneficio(m);
+  const sub = [o.nome || 'Sem origem', condMeta(m, p)].join(' · ');
+  const barra = p.tem != null && m.tipo !== 'plano' ? `<span class="ben-barra" aria-hidden="true"><i style="width:${p.pct}%"></i></span>` : '';
+  const quanto = m.tipo === 'gasto' ? 'média ' + brlCurto(p.tem || 0) : 'tem ' + brlCurto(p.tem || 0);
+  const v = p.sem ? `<small>${esc(MSG_SEM_META[p.sem])}</small>`
+    : p.ja ? `<b class="meta-ja">${ic('check', 'ic-s')}Já dá</b>${m.tipo !== 'plano' ? `<small>${esc(quanto)}</small>` : ''}`
+    : m.tipo === 'plano' ? `<b>+${esc(brl(p.falta))}</b><small>por mês</small>` : `<b>faltam ${esc(brlCurto(p.falta))}</b><small>${esc(quanto)}</small>`;
+  const banco = m.nivel ? (contaDe(String(m.origem).slice(6)) || {}).banco : '';
+  const acao = m.nivel ? `data-a="banco" data-id="${esc(banco)}"` : `data-a="meta-editar" data-id="${esc(m.id)}"`;
+  return `<div class="ben-row meta-row${p.ja ? ' ja' : ''}"><button class="ben-t" ${acao}><b>${esc(m.nivel ? 'Nível ' + m.ganha : m.ganha)}</b><span>${esc(sub)}</span>${barra}</button>
+    <div class="ben-v">${v}</div></div>`;
+}
+function cardMetas() {
+  const L = S.d.metas.concat(metasConta()).map(m => ({ m, p: progressoMeta(m) }));
+  const ordem = x => x.p.ja ? 2 : x.p.sem ? 1 : 0;
+  L.sort((a, b) => ordem(a) - ordem(b) || b.p.pct - a.p.pct || a.p.falta - b.p.falta);
+  return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead('O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
+    ${L.length ? L.map(x => linhaMeta(x.m)).join('') : `<p class="vazio">Nenhuma oportunidade ainda.${iaOn() ? ' A leitura com IA também acha.' : ''}</p>`}
+    <button class="btn out larga" data-a="meta-nova">${ic('plus')}Cadastrar oportunidade</button></section>`;
+}
+// o formulário: o que ganha, como (investindo, gastando no cartão, outro plano), de onde vem e o valor
+let FMETA = null;
+const SUG_META = ['Sem anuidade', 'Sala VIP', 'Cashback maior', 'Mais espaço', 'Mais pessoas no plano'];
+function textoProgMeta(f) {
+  const v = Math.round((numDinheiro(f.valor) || 0) * 100) / 100;
+  if (!(v > 0) || !f.origem) return '';
+  const p = progressoMeta(Object.assign({}, f, { valor: v }));
+  if (p.sem) return MSG_SEM_META[p.sem] + '.';
+  if (f.tipo === 'plano') return `Você paga ${brl(p.tem)} por mês. ${p.ja ? 'Já paga isso.' : `São ${brl(p.falta)} a mais.`}`;
+  return `${f.tipo === 'gasto' ? 'Sua média no cartão' : 'Você tem aqui'}: ${brl(p.tem, 0)}${f.tipo === 'gasto' ? ' por mês' : ''}. ${p.ja ? 'Já dá.' : `Faltam ${brl(p.falta, 0)}.`}`;
+}
+function abrirMeta(id) {
+  const m = id && S.d.metas.find(x => x.id === id);
+  FMETA = m ? clone(m) : { id: null, tipo: 'investido', origem: '', valor: '', periodo: 'mes', ganha: '', plano: '' };
+  FMETA.erro = '';
+  abrirFolha(() => {
+    const f = FMETA, so = f.tipo === 'plano' ? (v => v.startsWith('fixo:')) : f.tipo === 'gasto' ? (v => v.startsWith('conta:') && !!(contaDe(v.slice(6)) || {}).cartao) : (v => v.startsWith('conta:'));
+    const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fmeta-seg" data-k="${k}" data-v="${v}">${t}</button>`).join('')}</div>`;
+    const rot = { investido: 'Pede investido', gasto: 'Gasto no cartão', plano: 'Preço do plano' }[f.tipo];
+    return {
+      titulo: f.id ? 'Editar oportunidade' : 'Nova oportunidade',
+      cab: f.id ? `<button class="icbtn" data-a="fmeta-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
+      corpo: `<div class="campo"><label for="fmeta-ganha">O que ganha</label><input id="fmeta-ganha" class="inp${f.erro === 'ganha' ? ' erro' : ''}" data-fmeta="ganha" value="${esc(f.ganha)}" placeholder="Ex.: Sem anuidade" data-sug="dl-meta" autocomplete="off">
+          <datalist id="dl-meta">${SUG_META.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+        <div class="campo"><div class="lbl">Como</div>${seg('tipo', [['investido', 'Investindo'], ['gasto', 'Gastando'], ['plano', 'Outro plano']])}</div>
+        <div class="campo"><div class="lbl" id="fmeta-origem-l">${f.tipo === 'plano' ? 'Qual assinatura' : f.tipo === 'gasto' ? 'Qual cartão' : 'Qual conta'}</div>${chipsOrigem(f.origem, 'fmeta-origem', so)}</div>
+        ${f.tipo === 'plano' ? `<div class="campo"><label for="fmeta-plano">Plano <span class="opc">(opcional)</span></label><input id="fmeta-plano" class="inp" data-fmeta="plano" value="${esc(f.plano || '')}" placeholder="Ex.: 2 TB" autocomplete="off"></div>` : ''}
+        <div class="campo"><label for="fmeta-valor">${rot}</label><div class="duo">
+          <div class="pref${f.erro === 'valor' ? ' erro' : ''}"><span>R$</span><input id="fmeta-valor" inputmode="decimal" data-fmeta="valor" value="${esc(typeof f.valor === 'number' ? NF2.format(f.valor).replace(/,00$/, '') : String(f.valor ?? ''))}" placeholder="${f.tipo === 'investido' ? '50.000' : f.tipo === 'gasto' ? '3.000' : '120'}"></div>
+          ${f.tipo === 'investido' ? '<div></div>' : seg('periodo', [['mes', 'Por mês'], ['ano', 'Por ano']])}</div>
+          <div class="ajuda" id="fmeta-st" aria-live="polite">${esc(textoProgMeta(f))}</div></div>`,
+      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fmeta-salvar">Salvar</button>`,
+    };
+  });
+}
+function salvarMeta() {
+  const f = FMETA, ganha = String(f.ganha || '').trim().slice(0, 60), valor = Math.round((numDinheiro(f.valor) || 0) * 100) / 100;
+  if (!ganha) { f.erro = 'ganha'; pintarFolha(); toast('Diga o que ganha.'); return; }
+  if (!(valor > 0)) { f.erro = 'valor'; pintarFolha(); toast('Diga o valor.'); return; }
+  if (!f.origem) { toast(f.tipo === 'plano' ? 'Escolha a assinatura.' : f.tipo === 'gasto' ? 'Escolha o cartão.' : 'Escolha a conta.'); return; }
+  const m = { id: f.id || 'mt-' + uid(), tipo: f.tipo, origem: f.origem, valor, ganha };
+  if (f.tipo !== 'investido') m.periodo = f.periodo === 'ano' ? 'ano' : 'mes';
+  if (f.tipo === 'plano' && String(f.plano || '').trim()) m.plano = String(f.plano).trim().slice(0, 40);
+  if (f.trecho) m.trecho = f.trecho;
+  persistir(d => { const k = d.metas.findIndex(x => x.id === m.id); if (k >= 0) d.metas[k] = m; else d.metas.push(m); }, f.id ? 'Oportunidade salva' : 'Oportunidade cadastrada')
+    .then(ok => { if (ok) fecharFolha(false, true); });
 }
 // os avisos do Início: o que sobrou para usar e vence em até 30 dias, e o que vai parar porque o pagamento acabou
 function avisosBeneficios(h) {
@@ -4921,8 +5046,8 @@ function origensBeneficio(atual) {
   return o;
 }
 // De onde vem: botões na tela, como a escolha do banco (as contas com a cor do banco, os fixos e Nenhum)
-function chipsOrigem(atual, acao) {
-  return `<div class="chips origem-ch" role="radiogroup" style="margin:0">${origensBeneficio(atual).map(([v, t]) => {
+function chipsOrigem(atual, acao, so = null) {
+  return `<div class="chips origem-ch" role="radiogroup" style="margin:0">${origensBeneficio(atual).filter(([v]) => !so || (v && v === atual) || so(v)).map(([v, t]) => {
     const k = v.startsWith('conta:') ? contas().find(x => x.id === v.slice(6)) : null, cor = k ? corOk(k.cor) || '#B8B0B0' : '';
     return `<button type="button" class="chip${v === (atual || '') ? ' on' : ''}" role="radio" aria-checked="${v === (atual || '')}" data-a="${acao}" data-v="${esc(v)}"${cor ? ` style="--c:${cor}"` : ''}>${cor ? '<span class="bol"></span>' : ''}${esc(t)}</button>`;
   }).join('')}</div>`;
@@ -4990,7 +5115,7 @@ function usarBeneficio(id) {
 let BLER = null;
 // origem: já com De onde vêm escolhido (o Identificar benefícios de uma conta, em Editar banco, abre por cima dele)
 function abrirLerBeneficios(origem = '', sobre = false) {
-  BLER = { etapa: 'entrada', origem, texto: '', arquivo: null, itens: [], erro: '' };
+  BLER = { etapa: 'entrada', origem, texto: '', arquivo: null, itens: [], metas: [], erro: '' };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (BLER && FOLHA) pintarFolha(); }).catch(() => {});
   abrirFolha(montarLerBeneficios, () => { BLER = null; }, sobre);
 }
@@ -5008,12 +5133,14 @@ function montarLerBeneficios() {
   const s = BLER, arq = s.arquivo;
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${arq ? (arq.pdf ? 'o PDF' : 'a imagem') : /^\S+\.\S+$/.test(s.texto.trim()) ? 'a página' : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
   if (s.etapa === 'revisao') {
-    const n = s.itens.filter(x => x.on).length, de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
+    const n = s.itens.filter(x => x.on).length + s.metas.filter(x => x.on).length, de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
+    const item = (acao, k, x, nome, sub) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="${acao}" data-v="${k}">
+          <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
     return {
-      titulo: 'Benefícios encontrados',
+      titulo: s.itens.length ? 'Benefícios encontrados' : 'Oportunidades encontradas',
       corpo: `<p class="da-intro" style="margin:0 0 8px">${de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
-        <div class="bler-lista">${s.itens.map((x, k) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="bler-marca" data-v="${k}">
-          <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(x.nome)}</b><span>${esc(subBen(x))}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`).join('')}</div>`,
+        ${s.itens.length ? `<div class="bler-lista">${s.itens.map((x, k) => item('bler-marca', k, x, x.nome, subBen(x))).join('')}</div>` : ''}
+        ${s.metas.length ? `${s.itens.length ? '<div class="lbl bler-sec">Oportunidades</div>' : ''}<div class="bler-lista">${s.metas.map((x, k) => item('bler-meta', k, x, x.ganha, subMetaLida(x))).join('')}</div>` : ''}`,
       pe: `<button class="btn" data-a="bler-voltar">Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>Cadastrar${n ? ' ' + n : ''}</button>`,
     };
   }
@@ -5054,12 +5181,25 @@ async function blerLer() {
       const ja = S.d.beneficios.some(b => semAcento(b.nome) === semAcento(x.nome) && (b.origem || '') === (s.origem || ''));
       return Object.assign({}, x, { ja, on: !ja });
     });
+    // as oportunidades (o que ganha a mais cumprindo uma condição): a mesma condição já cadastrada vem desmarcada
+    // um plano que não custa mais que o de agora não é oportunidade (a IA às vezes traz os mais baratos da página)
+    s.metas = (r.oportunidades || []).filter(x => !(x.tipo === 'plano' && String(s.origem).startsWith('fixo:') && progressoMeta(Object.assign({}, x, { origem: s.origem })).ja)).map(x => {
+      const ja = S.d.metas.some(m => m.tipo === x.tipo && +m.valor === +x.valor && (m.origem || '') === (s.origem || ''));
+      return Object.assign({}, x, { ja, on: !ja });
+    });
     s.etapa = 'revisao';
   } catch (e) {
     if (BLER !== s) return;
     s.etapa = 'entrada'; s.erro = e.message;
   }
   pintarFolha();
+}
+// a oportunidade lida, em palavras: Investindo R$ 50 mil; Gastando R$ 3 mil por mês; Plano 2 TB por R$ 34,99 por mês
+function subMetaLida(x) {
+  const por = x.periodo === 'ano' ? ' por ano' : ' por mês';
+  if (x.tipo === 'investido') return 'Investindo ' + brlCurto(+x.valor || 0);
+  if (x.tipo === 'gasto') return 'Gastando ' + brlCurto(+x.valor || 0) + por + ' no cartão';
+  return (x.plano ? 'Plano ' + x.plano + ' por ' : 'Outro plano por ') + brl(+x.valor || 0) + por;
 }
 function salvarLerBeneficios() {
   const s = BLER, hj = iso(hoje());
@@ -5070,17 +5210,45 @@ function salvarLerBeneficios() {
     if (x.obs) b.obs = String(x.obs).slice(0, 80);
     return b;
   });
-  if (!novos.length) return;
-  persistir(d => { d.beneficios.push(...novos); }, novos.length === 1 ? 'Benefício cadastrado' : `${novos.length} benefícios cadastrados`)
-    .then(ok => { if (ok) fecharFolha(false, true); });
+  const metas = s.metas.filter(x => x.on).map(x => {
+    const m = { id: 'mt-' + uid(), tipo: x.tipo, origem: s.origem || '', valor: +x.valor || 0, ganha: String(x.ganha).slice(0, 60) };
+    if (x.tipo !== 'investido') m.periodo = x.periodo === 'ano' ? 'ano' : 'mes';
+    if (x.tipo === 'plano' && x.plano) m.plano = String(x.plano).slice(0, 40);
+    if (x.trecho) m.trecho = String(x.trecho).slice(0, 160);
+    return m;
+  });
+  if (!novos.length && !metas.length) return;
+  const nb = novos.length, nm = metas.length;
+  const ok = !nm ? (nb === 1 ? 'Benefício cadastrado' : `${nb} benefícios cadastrados`) : !nb ? (nm === 1 ? 'Oportunidade cadastrada' : `${nm} oportunidades cadastradas`)
+    : `${plural(nb, 'benefício', 'benefícios')} e ${plural(nm, 'oportunidade', 'oportunidades')} cadastrados`;
+  persistir(d => { d.beneficios.push(...novos); d.metas.push(...metas); }, ok).then(r => { if (r) fecharFolha(false, true); });
 }
 // a IA simulada da prévia: uma linha por benefício, como a do servidor (beneficios.simulados)
-const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional';
+const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\nAnuidade grátis com R$ 50 mil investidos';
+// a linha que é uma condição para ganhar mais (investindo, gastando no cartão, um plano mais caro): oportunidade, não benefício
+const ehLinhaMeta = (ln, n) => /R\$\s?[\d.,]+/.test(ln) && /\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b/.test(n);
+function simMetas(texto) {
+  const out = [];
+  for (let ln of String(texto || '').split(/[\n;•]+/)) {
+    ln = ln.trim();
+    const n = semAcento(ln).replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!ehLinhaMeta(ln, n)) continue;
+    const din = ln.match(/R\$\s?([\d.,]+)(\s*mil\b)?/), v = numDinheiro(din[1]) * (din[2] ? 1000 : 1);
+    const tipo = /\binvestid|\baplicad/.test(n) ? 'investido' : /\bgast/.test(n) ? 'gasto' : 'plano';
+    const ganha = /anuidade/.test(n) ? 'Sem anuidade' : /sala vip/.test(n) ? 'Sala VIP' : ln.replace(/\s*(por|com|gastando|gastar|a partir de)\s+R\$.*$/i, '').trim() || 'Benefício';
+    const m = { tipo, valor: v, ganha: ganha.slice(0, 40), trecho: ln.slice(0, 100) };
+    if (tipo !== 'investido') m.periodo = /\bpor ano\b|\bao ano\b/.test(n) ? 'ano' : 'mes';
+    if (tipo === 'plano') m.plano = ln.replace(/\s+por\s+R\$.*$/i, '').trim().slice(0, 40);
+    out.push(m);
+  }
+  return out;
+}
 function simBeneficios(texto) {
   const out = [];
   for (let ln of String(texto || '').split(/[\n;•]+/)) {
     ln = ln.trim();
     const n = semAcento(ln).replace(/[^a-z0-9]+/g, ' ').trim();
+    if (ehLinhaMeta(ln, n)) continue;  // a condição para ganhar mais é uma oportunidade (simMetas)
     if (!n || /\b(anuidade|tarifa|mensalidade|preco)\b/.test(n)) continue;  // preço não é benefício
     const renova = /\bpor ano\b|\bao ano\b|\banua/.test(n) ? 'ano' : /\bpor mes\b|\bao mes\b|\bmensa/.test(n) ? 'mes' : 'nunca';
     const cond = ln.match(/com \d+ acompanhantes?/), qtd = n.match(/\b(\d+)\s+(acessos?|entradas?|usos?|visitas?)\b/), din = ln.match(/(US\$|R\$)\s?([\d.,]+)/);
@@ -6270,6 +6438,14 @@ document.addEventListener('click', ev => {
     case 'ben-usar': usarBeneficio(id); break;
     case 'ben-ler': abrirLerBeneficios(); break;
     case 'ben-identificar': abrirLerBeneficios(v, true); break;
+    case 'meta-nova': abrirMeta(null); break;
+    case 'meta-editar': abrirMeta(id); break;
+    case 'fmeta-seg': if (FMETA) { FMETA[el.dataset.k] = v; FMETA.erro = ''; if (el.dataset.k === 'tipo') FMETA.origem = ''; pintarFolha(); } break;
+    case 'fmeta-origem': if (FMETA) { FMETA.origem = v; pintarFolha(); } break;
+    case 'fmeta-salvar': salvarMeta(); break;
+    case 'fmeta-excluir': { const f = FMETA; confirmar({ titulo: 'Apagar oportunidade?', texto: `${esc(f.ganha)} sai da lista.`, botao: 'Apagar', perigo: true,
+      acao: () => persistir(d => { d.metas = d.metas.filter(x => x.id !== f.id); }, 'Oportunidade apagada', true) }); break; }
+    case 'bler-meta': if (BLER && BLER.metas[+v]) { BLER.metas[+v].on = !BLER.metas[+v].on; pintarFolha(); } break;
     case 'bler-arq': escolherArquivo('image/*,application/pdf').then(blerPegarArquivo); break;
     case 'bler-cam': abrirCamera(blerFotos); break;
     case 'bler-arq-rm': if (BLER) { BLER.arquivo = null; BLER.erro = ''; pintarFolha(); } break;
@@ -6356,6 +6532,12 @@ document.addEventListener('input', ev => {
     BLER[el.dataset.bler] = el.value;
     const b = $('[data-a="bler-ler"]'); if (b) b.disabled = !BLER.arquivo && !BLER.texto.trim();
     if (BLER.erro) { BLER.erro = ''; $('.folha .msg-erro')?.remove(); }
+    return;
+  }
+  if (el.dataset.fmeta && FMETA) {
+    FMETA[el.dataset.fmeta] = el.value;
+    if (FMETA.erro && el.dataset.fmeta === FMETA.erro) { FMETA.erro = ''; el.classList.remove('erro'); el.parentElement.classList.remove('erro'); }
+    const st = $('#fmeta-st'); if (st && el.dataset.fmeta === 'valor') st.textContent = textoProgMeta(FMETA);
     return;
   }
   if (el.dataset.fben && FBEN) { FBEN[el.dataset.fben] = el.value; if (FBEN.erro && el.dataset.fben === FBEN.erro) { FBEN.erro = ''; el.classList.remove('erro'); el.parentElement.classList.remove('erro'); } return; }

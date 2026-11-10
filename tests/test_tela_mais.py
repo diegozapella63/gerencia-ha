@@ -1338,7 +1338,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "uso-ia", "email", "senhas-pdf", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "uso-ia", "email", "senhas-pdf", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

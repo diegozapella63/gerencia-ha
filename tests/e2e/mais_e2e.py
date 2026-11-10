@@ -14,7 +14,7 @@ TELAS = {  # tela: (título, as seções)
     'bancos': ('Bancos', []),
     'caixa': ('Caixa', ['Fixos', 'Categorias', 'Dicas de economia']),
     'invest': ('Invest', ['Índices de mercado', 'Oportunidades']),
-    'beneficios': ('Benefícios', []),
+    'beneficios': ('Benefícios', ['Oportunidades']),  # 1.54: as oportunidades embaixo dos benefícios
 }
 ABAS = {
     'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'CorrerIA', 'IA do Home Assistant', 'Uso da IA', 'Faturas por e-mail', 'Senhas dos PDFs', 'Sensores no Home Assistant'],

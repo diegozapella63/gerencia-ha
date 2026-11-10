@@ -27,7 +27,7 @@ Na primeira vez, o Início mostra **Vamos começar**: cadastrar o salário e os 
   - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão e o nível da conta e do cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
-  - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova.
+  - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova, e as oportunidades: o que falta para ganhar mais.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
     - *Integrações*, nesta ordem (a mesma dos outros apps): contas no CronologIA, bens no InventarIA, CorrerIA (WhatsApp, Claude e Gemini), **IA do Home Assistant** (com a chave **Usar IA**), uso da IA, faturas por e-mail, senhas dos PDFs e sensores no Home Assistant.
@@ -239,6 +239,18 @@ Em **Mais › Benefícios**, o que você ganha por pagar um plano ou ter um cart
 - **Ler com IA** (só com a IA ligada): em vez de cadastrar um por um, mande um print ou uma foto da tela de benefícios do app do banco, o PDF do regulamento, cole o texto ou o endereço da página oficial do cartão ou do plano. Escolha **De onde vêm** (o fixo ou a conta e o cartão): numa página com vários cartões ou níveis, a IA fica só com os do seu. Da página e do texto só entra o que está escrito lá, e a quantidade ou o valor precisa estar no trecho (senão o benefício entra como vantagem, sem o número); preço e anuidade não contam. Na conferência, desmarque o que não quiser (o que já está cadastrado vem desmarcado) e toque em **Cadastrar**: cada um renova a partir de hoje, e dá para ajustar depois. Páginas que só mostram os benefícios dentro do app do banco, ou depois do login, não dão para ler: mande um print.
 - **No Início**: "Benefício para usar" quando o que sobrou vence em até 30 dias (antes de renovar ou da validade), e "Benefício que vai parar" quando o fixo acabou ou a conta saiu de Bancos.
 - Os fixos (Mais › Caixa) e os bancos mostram quantos benefícios têm.
+
+### Oportunidades (nos Benefícios)
+
+Embaixo dos benefícios, **Oportunidades** mostra o que falta para ganhar mais, do mais perto para o mais longe:
+
+- **Investindo**: ter um valor no banco (ex.: anuidade grátis com R$ 50 mil investidos). Conta o que a pessoa da conta tem investido no banco, como no card do investimento: "faltam R$ 5.000 · tem R$ 45 mil". O **Próximo nível** de cada conta (Mais › Bancos › Editar banco) entra sozinho; tocar nele abre o banco.
+- **Gastando**: gastar um valor por mês no cartão (ex.: sala VIP gastando R$ 3 mil por mês). Conta a média das faturas dos 3 meses antes deste, sem o pagamento da própria fatura (um estorno desconta): "faltam R$ 500 · média R$ 2.500". O valor por ano vira por mês.
+- **Outro plano**: um plano mais caro da mesma assinatura (ex.: o de 2 TB por R$ 130 em vez de R$ 110): "+R$ 20,00 por mês".
+- O que já dá fica no fim, com **Já dá**. Sem como saber, a linha diz o porquê (a conta não tem cartão, sem faturas nos últimos 3 meses).
+- **Cadastrar oportunidade**: o que ganha, como (Investindo, Gastando ou Outro plano), a conta, o cartão ou a assinatura, e o valor; embaixo, quanto você tem e quanto falta. Toque numa para mudar ou apagar.
+- **Ler com IA** e **Identificar benefícios** também acham as oportunidades na página, no print ou no texto do banco ou do plano: elas vêm na conferência, embaixo dos benefícios, em **Oportunidades**. Da página e do texto só entra o que está escrito lá, com o valor no trecho. Numa assinatura, a IA sabe quanto você paga e traz só os planos mais caros.
+- Na **Conversa**, a IA também vê as oportunidades e quanto falta para cada uma.
 
 ## Oportunidades de investimento
 

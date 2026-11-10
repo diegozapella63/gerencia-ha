@@ -5,6 +5,9 @@ oficial do plano ou do cartão.
 2. Do texto colado e da página, cada benefício só vale se o trecho citado estiver escrito lá; com quantidade ou valor, o
    número precisa estar no trecho (senão vira vantagem, sem o número). Do print e da foto não há texto para conferir.
 3. A tela mostra a lista para conferir e cadastra os escolhidos. A conta do período fica no calc.py (ciclo_beneficio).
+4. Na mesma leitura, as oportunidades: o que a pessoa ganha a mais cumprindo uma condição escrita ali (ter um valor
+   investido, gastar um valor no cartão por mês, um plano mais caro). Conferidas do mesmo jeito: o trecho escrito lá e o
+   valor no trecho. Quanto falta fica no calc.py (progresso_meta).
 Só biblioteca padrão do Python.
 """
 import re
@@ -59,19 +62,30 @@ Para cada benefício, devolva:
 - "renova": "mes" se renova todo mês, "ano" se renova todo ano, "nunca" se não renova ou não diz.
 - "condicao": a condição, curta (ex.: "com 1 acompanhante", "gastando R$ 5 mil por mês"); "" se não houver.
 - "trecho": o pedaço do texto onde aparece o benefício, copiado exatamente como está (até 100 caracteres).
-Use só o que estiver escrito{onde}. Não use o que você sabe de memória. Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios.
+Liste também, em "oportunidades", o que a pessoa ganha a mais cumprindo uma condição escrita ali, com o valor da condição:
+- "tipo": "investido" se for ter um valor investido ou aplicado (ex.: anuidade grátis com R$ 50 mil investidos; o nível Black a partir de R$ 100 mil); "gasto" se for gastar um valor no cartão (ex.: sala VIP gastando R$ 3 mil por mês); "plano" se for um plano mais caro, com o preço dele (ex.: o plano de 2 TB por R$ 34,99 por mês).
+- "valor": o valor da condição ou o preço do plano, em reais, como número (50000; 3000; 34.99).
+- "periodo": "mes" ou "ano", como estiver escrito (no gasto e no plano); "" no investido.
+- "ganha": o que a pessoa ganha, curto, até 40 caracteres (ex.: "Sem anuidade", "Sala VIP", "Nível Black", "2 TB e mais 4 pessoas").
+- "plano": o nome do plano mais caro, só no tipo "plano"; "" no resto.
+- "trecho": o pedaço do texto onde aparece a condição com o valor, copiado exatamente como está (até 100 caracteres).
+Use só o que estiver escrito{onde}. Não use o que você sabe de memória. Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios e 10 oportunidades.
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
-{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}]}}{texto}"""
+{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]}}{texto}"""
 
 
-def prompt(origem="", url="", texto="", anexo=False):
+def prompt(origem="", url="", texto="", anexo=False, preco=0):
     if url:
         fonte, onde = f"a página {url}", " na página"
     elif anexo:
         fonte, onde = "a imagem ou o PDF anexado" + (" e o texto abaixo" if texto else ""), " ali"
     else:
         fonte, onde = "o texto abaixo", " no texto"
-    qual = f" Se houver vários planos, níveis ou cartões, fique só com os de {origem}." if origem else ""
+    # os benefícios são só os do plano ou do cartão da pessoa; os planos mais caros entram nas oportunidades
+    qual = (f" Se houver vários planos, níveis ou cartões, os benefícios são só os de {origem}; os outros, mais caros, entram em"
+            f" \"oportunidades\"." if origem else "")
+    if preco > 0:
+        qual += f" A pessoa paga hoje {calc.fmt_brl(preco)} por mês: num \"plano\", só os que custam mais que isso."
     corpo = f"\n\n{'Trechos da página' if url else 'Texto'}:\n<<<\n{texto}\n>>>" if texto else ""
     return PROMPT.format(fonte=fonte, de=f" (de: {origem})" if origem else "", onde=onde, qual=qual, texto=corpo)
 
@@ -81,6 +95,58 @@ def tem_numero(trecho, valor):
     if any(abs(n - valor) < 0.006 for n in assinaturas.numeros(trecho)):
         return True
     return any(EXTENSO.get(w) == valor for w in assinaturas.normal(trecho).split())
+
+
+def tem_valor(trecho, valor):
+    """O valor está no trecho, em algarismos ou com "mil" ("R$ 50 mil" é 50000)?"""
+    if tem_numero(trecho, valor):
+        return True
+    for m in re.finditer(r"(\d[\d.,]*)\s*mil\b", str(trecho or ""), re.I):
+        if any(abs(n * 1000 - valor) < 0.6 for n in assinaturas.numeros(m.group(1))):
+            return True
+    return False
+
+
+TIPOS_META = ("investido", "gasto", "plano")
+MAX_METAS = 10
+
+
+def limpar_metas(parsed, texto=None):
+    """As oportunidades que a IA devolveu, limpas: com texto, só as que estão escritas lá, com o valor no trecho (a IA
+    não inventa o número). Devolve (oportunidades, recusadas)."""
+    lista = parsed.get("oportunidades") if isinstance(parsed, dict) else None
+    cmp = assinaturas.para_comparar(texto) if texto else None
+    saida, recusadas, vistos = [], 0, set()
+    for o in (lista if isinstance(lista, list) else [])[:30]:
+        if not isinstance(o, dict) or o.get("tipo") not in TIPOS_META:
+            continue
+        ganha = re.sub(r"\s+", " ", str(o.get("ganha") or "")).strip()[:60]
+        valor = round(calc.num_br(o.get("valor")), 2)
+        trecho = re.sub(r"\s+", " ", str(o.get("trecho") or "")).strip()[:160]
+        if not ganha or valor <= 0:
+            continue
+        if cmp is not None:
+            tc = assinaturas.para_comparar(trecho)
+            if len(tc) < 3 or tc not in cmp:
+                recusadas += 1
+                continue
+        if trecho and not tem_valor(trecho, valor):
+            recusadas += 1
+            continue
+        chave = (o["tipo"], valor, assinaturas.normal(ganha))
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        item = {"tipo": o["tipo"], "valor": valor, "ganha": ganha, "trecho": trecho}
+        if o["tipo"] != "investido":
+            item["periodo"] = "ano" if o.get("periodo") == "ano" else "mes"
+        plano = re.sub(r"\s+", " ", str(o.get("plano") or "")).strip()[:40]
+        if o["tipo"] == "plano" and plano:
+            item["plano"] = plano
+        saida.append(item)
+        if len(saida) >= MAX_METAS:
+            break
+    return saida, recusadas
 
 
 def _moeda(m, trecho):
@@ -136,15 +202,26 @@ def limpar(parsed, texto=None):
 
 # ---------------------------------------------------------------- a IA simulada (testes e desenvolvimento)
 
-EXEMPLO_ANEXO = "6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional"
+EXEMPLO_ANEXO = ("6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\n"
+                 "Anuidade grátis com R$ 50 mil investidos")
 
 
 def simulados(texto):
     """O que a IA simulada acha: uma linha por benefício (sala VIP, créditos em R$ ou US$, seguro, cashback, frete)."""
-    saida = []
+    saida, metas = [], []
     for ln in re.split(r"[\n;•]+", str(texto or "")):
         ln = ln.strip()
         n = assinaturas.normal(ln)
+        din = re.search(r"R\$\s?([\d.,]+)(\s*mil\b)?", ln)
+        # a condição para ganhar mais: investindo, gastando no cartão ou um plano mais caro ("Plano X por R$ 120 por mês")
+        if din and re.search(r"\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b", n):
+            v = calc.num_br(din.group(1)) * (1000 if din.group(2) else 1)
+            tipo = "investido" if re.search(r"\binvestid|\baplicad", n) else "gasto" if re.search(r"\bgast", n) else "plano"
+            ganha = ("Sem anuidade" if "anuidade" in n else "Sala VIP" if "sala vip" in n else
+                     re.sub(r"(?i)\s*(por|com|gastando|gastar|a partir de)\s+R\$.*$", "", ln).strip() or "Benefício")
+            metas.append({"tipo": tipo, "valor": v, "periodo": "ano" if re.search(r"\bpor ano\b|\bao ano\b", n) else "mes" if tipo != "investido" else "",
+                          "ganha": ganha[:40], "plano": re.sub(r"(?i)\s+por\s+R\$.*$", "", ln).strip() if tipo == "plano" else "", "trecho": ln[:100]})
+            continue
         if not n or re.search(r"\b(anuidade|tarifa|mensalidade|preco)\b", n):  # preço não é benefício
             continue
         renova = "ano" if re.search(r"\bpor ano\b|\bao ano\b|\banua", n) else "mes" if re.search(r"\bpor mes\b|\bao mes\b|\bmensa", n) else "nunca"
@@ -166,4 +243,4 @@ def simulados(texto):
         else:
             continue
         saida.append(b)
-    return {"beneficios": saida}
+    return {"beneficios": saida, "oportunidades": metas}

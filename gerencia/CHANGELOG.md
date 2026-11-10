@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.54.0
+
+- **Oportunidades** em Mais › Benefícios: o que falta para ganhar mais, do mais perto para o mais longe. **Investindo** (a anuidade grátis com R$ 50 mil investidos: "faltam R$ 5.000 · tem R$ 45 mil"; o próximo nível de cada conta entra sozinho), **Gastando** no cartão (a sala VIP gastando R$ 3 mil por mês: "faltam R$ 500 · média R$ 2.500", pela média das faturas dos últimos 3 meses) e **Outro plano** da mesma assinatura ("+R$ 20,00 por mês"). O que já dá fica no fim, com **Já dá**.
+- **Ler com IA** e **Identificar benefícios** também acham as oportunidades na página, no print ou no texto: elas vêm na conferência, embaixo dos benefícios. Da página e do texto só entra o que está escrito lá, com o valor.
+- Na **Conversa**, a IA também sabe das oportunidades: dá para perguntar "tenho alguma oportunidade?".
+- O valor e a escolha ao lado (Reais ou Dólares, Por mês ou Por ano) ficam com a mesma altura.
+
 ## 1.53.1
 
 - **Tema**: **Automático** agora se chama **Sistema** (segue o claro ou escuro do Home Assistant, como antes). O nome cabe ao lado do ícone e é o mesmo em todos os apps da família.

@@ -38,7 +38,8 @@ class TestAlturas(Tela):
             self.conferir(tab, "#app", vazio=True)
         for abrir, onde in (("T.abrirLancamento(null, { tipo: 'despesa' })", "Nova despesa"), ("T.abrirInvestimento(null)", "Novo investimento"),
                             ("T.abrirInvestimento('i-cdb')", "Editar investimento"), ("T.abrirBanco('b-azul')", "Editar banco"),
-                            ("T.abrirBeneficio(null)", "Novo benefício"), ("T.abrirEscolhaNovo()", "Adicionar")):
+                            ("T.abrirBeneficio(null)", "Novo benefício"), ("(T.abrirMeta(null), T.FMETA.tipo = 'gasto', T.pintarFolha())", "Nova oportunidade"),
+                            ("T.abrirEscolhaNovo()", "Adicionar")):
             self.abrir(d)
             self.js(f"({abrir}, true)")
             self.esperar()

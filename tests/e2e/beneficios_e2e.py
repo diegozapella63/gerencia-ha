@@ -15,7 +15,8 @@ B = "http://localhost:8099/"
 erros = []
 PAGINA = """<html><head><title>Cartão Coral Black</title></head><body><h1>Benefícios do cartão Coral Black</h1><ul>
 <li>6 acessos à sala VIP por ano, com 1 acompanhante</li><li>US$ 100 em créditos de uso por mês no app parceiro</li>
-<li>Seguro viagem internacional para toda a família</li><li>Anuidade de R$ 1.200,00</li></ul></body></html>""".encode()
+<li>Seguro viagem internacional para toda a família</li><li>Anuidade de R$ 1.200,00</li>
+<li>Anuidade grátis com R$ 50 mil investidos</li></ul></body></html>""".encode()
 
 
 class Pagina(BaseHTTPRequestHandler):
@@ -67,8 +68,9 @@ with sync_playwright() as p:
     pg.click('#folhas [data-a="bler-ler"]')
     pg.wait_for_selector("#folhas .bler-it", timeout=15000)
     itens = pg.evaluate("[...document.querySelectorAll('#folhas .bler-it')].map(b => b.innerText.replace(/\\s+/g, ' ').trim())")
-    igual(itens, ["Sala VIP 6 por ano · com 1 acompanhante", "Créditos de uso US$ 100 por mês", "Seguro viagem Vantagem"],
-          "a página lida pela IA: a anuidade fica de fora")
+    igual(itens, ["Sala VIP 6 por ano · com 1 acompanhante", "Créditos de uso US$ 100 por mês", "Seguro viagem Vantagem", "Sem anuidade Investindo R$ 50 mil"],
+          "a página lida pela IA: a anuidade fica de fora; a anuidade grátis com R$ 50 mil investidos vem em Oportunidades (1.54)")
+    tem(pg.inner_text("#folhas .bler-sec"), "Oportunidades", "as oportunidades embaixo dos benefícios")
     tem(pg.inner_text("#folhas .da-intro"), "De Banco Coral · Ana · Black.", "de onde vêm")
     pg.screenshot(path=f"{SP}/shots/ben-conferir-escuro.png")
     pg.click('#folhas [data-a="bler-salvar"]')
@@ -79,6 +81,11 @@ with sync_playwright() as p:
            ("Seguro viagem", "conta:k-ana", "vantagem", None, None, "nunca")], "os três cadastrados no servidor, ligados ao cartão")
     igual(pg.locator("#beneficios .ben-row").count(), 3, "a lista com os três")
     pg.locator("#beneficios").screenshot(path=f"{SP}/shots/ben-lista-escuro.png")
+    mt = estado(pg)["metas"]
+    igual([(x["tipo"], x["origem"], x["valor"], x["ganha"]) for x in mt], [("investido", "conta:k-ana", 50000, "Sem anuidade")], "a oportunidade, no servidor")
+    igual(pg.evaluate("[...document.querySelectorAll('#metas .ben-row')].map(r => r.innerText.replace(/\\s+/g, ' ').trim())"),
+          ["Sem anuidade Banco Coral · Ana · Black · com R$ 50 mil investidos faltam R$ 50 mil tem R$ 0"], "Oportunidades: quanto falta")
+    pg.locator("#metas").screenshot(path=f"{SP}/shots/ben-oportunidades-escuro.png")
     uso = req("api/ia/uso")
     tem(json.dumps(uso, ensure_ascii=False), "beneficios", "conta no Uso da IA")
     pg.close()
@@ -92,6 +99,7 @@ with sync_playwright() as p:
         largura = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]")
         sim(largura[0] <= largura[1], f"{nome}: nada passa da largura", largura)
         pg.locator("#beneficios").screenshot(path=f"{SP}/shots/ben-lista-{nome}.png")
+        pg.locator("#metas").screenshot(path=f"{SP}/shots/ben-oportunidades-{nome}.png")
         pg.click('#beneficios [data-a="ben-ler"]')
         pg.wait_for_selector("#bler-txt")
         pg.click('[data-a="bler-origem"][data-v="conta:k-ana"]')

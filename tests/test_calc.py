@@ -418,3 +418,60 @@ class TestContaDoInvestimento(unittest.TestCase):
         self.assertEqual(calc.banco_do_invest({"banco": "nao-tem"}, self.BANCOS), "")
         self.assertEqual(calc.banco_do_invest({"banco": "az", "conta": "kb"}, [{"id": "az", "nome": "Banco Azul", "contas": [{"id": "ka"}, {"id": "kb"}]}]),
                          "Banco Azul", "conta sem o nome da pessoa")
+
+
+class TestOportunidadesDosBeneficios(unittest.TestCase):
+    """1.54: Mais › Benefícios › Oportunidades: quanto falta para ganhar mais. Dados inventados (Ana, Beto, Banco Azul)."""
+    HOJE = date(2026, 11, 2)
+    BANCOS = [{"id": "b-azul", "nome": "Banco Azul", "contas": [
+        {"id": "k-ana", "pessoa": "Ana", "cartao": True, "fechamento": 5, "vencimento": 12},
+        {"id": "k-beto", "pessoa": "Beto", "cartao": True, "fechamento": 25, "vencimento": 5, "meta_nivel": "Black", "meta_valor": 100000},
+        {"id": "k-sem", "pessoa": "Ana", "cartao": False, "meta_nivel": "Prime", "meta_valor": 0}]}]
+
+    def dados(self, lanc=(), rec=(), invs=()):
+        return {"indices": dict(INDICES), "ajustes": {"corrigir": True}, "bancos": self.BANCOS, "lancamentos": list(lanc),
+                "recorrencias": list(rec), "investimentos": list(invs)}
+
+    @staticmethod
+    def compra(dia, v, **x):
+        return dict({"id": f"l-{dia}", "tipo": "despesa", "valor": v, "data": dia, "cartao": True, "conta": "k-ana", "descricao": "Compra"}, **x)
+
+    def test_gasto_medio_no_cartao_pelas_faturas_dos_3_meses_antes(self):
+        d = self.dados([self.compra("2026-07-10", 2400), self.compra("2026-08-10", 2500), self.compra("2026-09-10", 2600),  # faturas de ago, set e out
+                        self.compra("2026-08-15", 100, tipo="receita", descricao="Estorno da loja"),  # desconta na de setembro
+                        self.compra("2026-08-20", 2500, tipo="receita", descricao="Pagamento recebido"),  # o pagamento da fatura não conta
+                        self.compra("2026-09-20", 300, pulado=True), self.compra("2026-10-10", 9000)])  # pulado; a fatura deste mês
+        self.assertEqual(calc.gasto_cartao(d, "k-ana", self.HOJE), round((2400 + 2400 + 2600) / 3, 2))
+        self.assertIsNone(calc.gasto_cartao(d, "k-beto", self.HOJE), "sem faturas")
+        self.assertIsNone(calc.gasto_cartao(d, "k-sem", self.HOJE), "sem cartão")
+        self.assertEqual(calc.gasto_cartao(self.dados([self.compra("2026-09-10", 1000)]), "k-ana", self.HOJE), 1000, "só os meses com fatura")
+
+    def test_investido_gasto_e_plano(self):
+        invs = [{"id": "i1", "banco": "b-azul", "conta": "k-ana", "titular": "meu", "valor": 45000, "data_valor": "2026-11-02", "indexador": "pre", "taxa": 10}]
+        rec = [{"id": "r-sol", "descricao": "Plano Sol", "valor": 100, "freq": "mensal", "inicio": "2026-01"},
+               {"id": "r-lua", "descricao": "Plano Lua", "valor": 600, "freq": "anual", "inicio": "2026-03"}]
+        d = self.dados([self.compra("2026-09-10", 2500)], rec, invs)
+        P = lambda **m: calc.progresso_meta(m, d, self.HOJE)  # noqa: E731
+        self.assertEqual(P(tipo="investido", origem="conta:k-ana", valor=50000),
+                         {"tem": 45000, "pede": 50000, "falta": 5000, "pct": 90.0, "ja": False, "sem": ""}, "o exemplo: 45 mil de 50 mil")
+        self.assertEqual(P(tipo="gasto", origem="conta:k-ana", valor=3000),
+                         {"tem": 2500, "pede": 3000, "falta": 500, "pct": 83.3, "ja": False, "sem": ""}, "o outro: 2.500 de 3 mil")
+        self.assertEqual(P(tipo="gasto", origem="conta:k-ana", valor=24000, periodo="ano")["pede"], 2000, "por ano vira por mês")
+        self.assertTrue(P(tipo="gasto", origem="conta:k-ana", valor=2000)["ja"])
+        self.assertEqual(P(tipo="plano", origem="fixo:r-sol", valor=120), {"tem": 100, "pede": 120, "falta": 20, "pct": 0.0, "ja": False, "sem": ""})
+        self.assertEqual(P(tipo="plano", origem="fixo:r-lua", valor=720, periodo="ano")["falta"], 10, "o anual, por mês")
+        self.assertTrue(P(tipo="plano", origem="fixo:r-sol", valor=90)["ja"], "o outro plano não custa mais")
+        for m, sem in ((dict(tipo="investido", origem="conta:sumiu", valor=1), "origem"), (dict(tipo="gasto", origem="conta:k-sem", valor=1), "cartao"),
+                       (dict(tipo="gasto", origem="conta:k-beto", valor=1), "faturas"), (dict(tipo="plano", origem="conta:k-ana", valor=1), "origem"),
+                       (dict(tipo="outro", origem="conta:k-ana", valor=1), "origem")):
+            with self.subTest(m=m):
+                self.assertEqual(P(**m)["sem"], sem)
+        self.assertEqual(calc.metas_conta(d), [{"id": "nivel:k-beto", "origem": "conta:k-beto", "tipo": "investido", "valor": 100000, "ganha": "Black", "nivel": True}],
+                         "o próximo nível da conta (sem o valor, não)")
+
+    def test_investido_dos_de_antes_pela_pessoa(self):
+        invs = [{"id": "i2", "banco": "b-azul", "titular": "meu", "valor": 1000, "data_valor": "2026-11-02", "indexador": "pre", "taxa": 10},
+                {"id": "i3", "banco": "b-azul", "titular": "terceiros", "terceiro": "Beto", "valor": 7000, "data_valor": "2026-11-02", "indexador": "pre", "taxa": 10}]
+        d = self.dados(invs=invs)
+        self.assertEqual(calc.investido_na_conta(self.BANCOS[0]["contas"][0], "b-azul", d, self.HOJE), 1000, "os seus, sem a conta")
+        self.assertEqual(calc.investido_na_conta(self.BANCOS[0]["contas"][1], "b-azul", d, self.HOJE), 7000, "os do terceiro com o nome da conta")

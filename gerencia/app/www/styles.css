@@ -1349,6 +1349,13 @@ input[readonly] { opacity: .8; }
 .ben-uso { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .ben-uso span { flex: 1; color: var(--text-2); }
 .ben-botoes { margin-top: 14px; }
+/* Oportunidades (Mais › Benefícios): o que falta para ganhar mais, com a barra do quanto já tem; Já dá na cor de ok */
+#metas .ben-row:last-of-type { border-bottom: 0; }
+#metas > .btn.larga { margin-top: 14px; }
+.meta-row .ben-v { max-width: 46%; text-align: right; }
+.meta-row .ben-v small { white-space: normal; }
+.meta-ja { display: inline-flex; align-items: center; gap: 4px; color: var(--good); }
+.bler-sec { margin: 14px 0 2px; }
 /* Ler benefícios com IA: a lista para conferir (marcar e desmarcar) */
 .bler-lista { display: flex; flex-direction: column; }
 .bler-it { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 2px; border-bottom: 1px solid var(--line); text-align: left; color: var(--text); }
@@ -1428,6 +1435,8 @@ input[readonly] { opacity: .8; }
 .chips:not(.rola) > .chip { padding-top: 6px; padding-bottom: 6px; }
 .folha-pe .btn { padding-top: 0; padding-bottom: 0; }
 .pref.grande { min-height: var(--altura); }
+/* o valor e a escolha ao lado (Reais/Dólares, Por mês/Por ano) na mesma linha, com a mesma altura */
+.duo > .seg { margin-bottom: 0; }
 .pref.grande input { padding-top: 4px; padding-bottom: 4px; }
 .bc-ben { margin-top: 12px; }
 .ajuda.bc-ben-n { margin-top: 6px; }

@@ -115,6 +115,39 @@ class TestIgualAoServidor(Tela):
             with self.subTest(o=o):
                 self.assertEqual(self.js("T.origemBeneficio({ origem: a })", o), calc.origem_beneficio({"origem": o}, d, HOJE))
 
+    def test_oportunidades_dos_beneficios(self):
+        """1.54: Mais › Benefícios › Oportunidades: quanto falta (investido na conta, gasto médio no cartão, a diferença
+        do plano) é igual na tela e no servidor."""
+        import copy
+        bancos = copy.deepcopy(BANCOS)
+        bancos[0]["contas"][1].update(meta_nivel="Black", meta_valor=100000)
+        card = lambda dia, v, **x: dict({"id": f"l-{dia}-{v}", "tipo": "despesa", "descricao": "Compra", "valor": v, "data": dia, "cartao": True,  # noqa: E731
+                                         "conta": "k-ana", "categoria": "c-mercado", "pago": True}, **x)
+        lanc = [card("2026-07-10", 2400), card("2026-08-10", 2500), card("2026-09-10", 2600), card("2026-09-20", 300, pulado=True),
+                card("2026-08-15", 100, tipo="receita", descricao="Estorno da loja"), card("2026-08-20", 2500, tipo="receita", descricao="Pagamento recebido"),
+                card("2026-10-10", 9000), card("2026-05-10", 7000), card("2026-09-10", 50, conta="k-verde")]
+        rec = [{"id": "r-sol", "tipo": "despesa", "descricao": "Plano Sol", "valor": 110, "dia": 5, "freq": "mensal", "inicio": "2026-01", "categoria": "c-assinaturas"},
+               {"id": "r-ano", "tipo": "despesa", "descricao": "Plano Lua", "valor": 600, "dia": 5, "freq": "anual", "inicio": "2026-03", "categoria": "c-assinaturas"},
+               {"id": "r-card", "tipo": "despesa", "descricao": "Streaming", "valor": 40, "dia": 1, "freq": "mensal", "inicio": "2026-01", "categoria": "c-assinaturas",
+                "cartao": True, "conta": "k-ana"}]
+        invs = [{"id": "i1", "nome": "CDB", "banco": "b-azul", "conta": "k-ana", "titular": "meu", "valor": 45000, "data_valor": "2026-11-02", "indexador": "cdi_pct", "taxa": 100},
+                {"id": "i2", "nome": "LCI", "banco": "b-azul", "titular": "meu", "valor": 1000, "data_valor": "2026-01-02", "indexador": "cdi_pct", "taxa": 90},
+                {"id": "i3", "nome": "CDB Beto", "banco": "b-azul", "titular": "terceiros", "terceiro": "Beto", "valor": 7000, "data_valor": "2026-11-02", "indexador": "pre", "taxa": 12}]
+        d = base(bancos=bancos, lancamentos=lanc, recorrencias=rec, investimentos=invs)
+        metas = [{"tipo": "investido", "origem": "conta:k-ana", "valor": 50000}, {"tipo": "investido", "origem": "conta:k-beto", "valor": 5000},
+                 {"tipo": "investido", "origem": "conta:sumiu", "valor": 1}, {"tipo": "gasto", "origem": "conta:k-ana", "valor": 3000},
+                 {"tipo": "gasto", "origem": "conta:k-ana", "valor": 24000, "periodo": "ano"}, {"tipo": "gasto", "origem": "conta:k-beto", "valor": 100},
+                 {"tipo": "gasto", "origem": "conta:k-verde", "valor": 100}, {"tipo": "gasto", "origem": "fixo:r-sol", "valor": 100},
+                 {"tipo": "plano", "origem": "fixo:r-sol", "valor": 130}, {"tipo": "plano", "origem": "fixo:r-ano", "valor": 599.9, "periodo": "ano"},
+                 {"tipo": "plano", "origem": "fixo:r-sol", "valor": 99}, {"tipo": "plano", "origem": "conta:k-ana", "valor": 10},
+                 {"tipo": "outro", "origem": "conta:k-ana", "valor": 10}, {"tipo": "investido", "origem": "conta:k-ana", "valor": 0}]
+        self.usar(d)
+        for m in metas:
+            with self.subTest(m=m):
+                self.assertEqual(self.js("T.progressoMeta(a)", m), calc.progresso_meta(m, d, HOJE))
+        self.assertEqual(self.js("T.gastoCartao('k-ana')"), calc.gasto_cartao(d, "k-ana", HOJE))
+        self.assertEqual(self.js("T.metasConta()"), calc.metas_conta(d))
+
     def test_oportunidades_equivalente_alvo_e_comparacao(self):
         import oportunidades as O
         aj = {"op_cdi": 110, "op_pre": 13.71, "op_ipca": 7.5}

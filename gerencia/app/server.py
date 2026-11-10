@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.53.1"
+VERSAO = "1.54.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -90,7 +90,7 @@ OP_FAIXA = {"op_cdi": (50.0, 300.0), "op_pre": (1.0, 60.0), "op_ipca": (0.0, 30.
 # Conferir sozinho: de quanto em quanto tempo os preços das assinaturas são conferidos de novo na página oficial
 DICAS_FREQ = {"semana": 7, "quinzena": 15, "mes": 30}
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias", "beneficios")
+LISTAS = ("bancos", "investimentos", "historico", "lancamentos", "recorrencias", "categorias", "beneficios", "metas")
 
 
 def log(*a):
@@ -117,6 +117,7 @@ def vazio():
         "recorrencias": [],
         "categorias": calc.categorias_padrao(),
         "beneficios": [],  # Mais › Benefícios: salas VIP, créditos… ligados a um fixo ou a uma conta (calc.ciclo_beneficio)
+        "metas": [],  # Mais › Benefícios › Oportunidades: o que falta para ganhar mais (calc.progresso_meta)
     }
 
 
@@ -1929,6 +1930,8 @@ def beneficios_ler(corpo):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
     origem = str(corpo.get("origem") or "")[:60]
     de = beneficios.nome_origem(d, origem)
+    fixo = next((r for r in d.get("recorrencias") or [] if origem.startswith("fixo:") and r.get("id") == origem[5:]), None)
+    preco = calc.mensal_recorrencia(fixo) if fixo else 0  # o plano de agora: a IA só traz os mais caros
     texto = str(corpo.get("texto") or "").strip()[:20000]
     arquivos = _anexos(corpo)
     url = ""
@@ -1959,7 +1962,7 @@ def beneficios_ler(corpo):
         dados = beneficios.simulados(texto if not arquivos else beneficios.EXEMPLO_ANEXO)
     else:
         mandar = beneficios.trechos(texto) if url else texto[:14000]
-        instr = beneficios.prompt(de, url, mandar, bool(arquivos))
+        instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco)
         try:
             dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos)
         except ErroHA as e:
@@ -1969,14 +1972,16 @@ def beneficios_ler(corpo):
                 raise ValueError(str(e)) from None
             conferir = (texto + "\n" + extra).strip()
             try:
-                dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", beneficios.prompt(de, "", conferir[:14000]))
+                dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", beneficios.prompt(de, "", conferir[:14000], preco=preco))
             except ErroHA as e2:
                 raise ValueError(str(e2)) from None
-    itens, recusados = beneficios.limpar(extrair_json(dados), conferir or None)
-    if not itens:
+    parsed = extrair_json(dados)
+    itens, recusados = beneficios.limpar(parsed, conferir or None)
+    metas, recusadas = beneficios.limpar_metas(parsed, conferir or None)
+    if not itens and not metas:
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
-                         if recusados else "A IA não achou benefícios aqui.")
-    return {"beneficios": itens, "recusados": recusados, "origem": origem}
+                         if recusados or recusadas else "A IA não achou benefícios aqui.")
+    return {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
 
 
 # ---------------------------------------------------------------- conversar com a IA (o balão ao lado do microfone)
@@ -2726,7 +2731,7 @@ TIPOS_MIME = {
     ".txt": "text/plain; charset=utf-8",
 }
 
-CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias", "beneficios")
+CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias", "beneficios", "metas")
 
 
 # share/gerencia/integracao.json: o mesmo começo em todos os apps da família (app, nome, versao, gravado_em com o fuso)

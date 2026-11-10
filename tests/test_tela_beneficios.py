@@ -253,7 +253,7 @@ class TestLerComIA(TelaBen):
         self.pg.wait_for_selector("#folhas .ia-prev")
         self.assertEqual(self.texto("#folhas .ia-prev b"), "beneficios.png")
         self.ler()
-        self.assertEqual([x[1] for x in self.itens()], ["Sala VIP", "Créditos de uso", "Seguro viagem"])
+        self.assertEqual([x[1] for x in self.itens()], ["Sala VIP", "Créditos de uso", "Seguro viagem", "Sem anuidade"], "e embaixo a oportunidade")
         self.assertEqual(self.itens()[0][2], "6 por ano · com 1 acompanhante")
         self.clicar('#folhas [data-a="bler-voltar"]')
         self.assertEqual(self.folha(), "Ler benefícios com IA")
@@ -266,15 +266,160 @@ class TestLerComIA(TelaBen):
 
     def test_ia_simulada_igual_a_do_servidor(self):
         import beneficios as B  # o tela_base põe gerencia/app no caminho
-        texto = self.TEXTO + "\nSala VIP liberada\n2 visitas ao lounge ao ano, com 2 acompanhantes\nR$ 50 de bônus\nSeguro celular; Cashback de 1%"
+        texto = (self.TEXTO + "\nSala VIP liberada\n2 visitas ao lounge ao ano, com 2 acompanhantes\nR$ 50 de bônus\nSeguro celular; Cashback de 1%"
+                 "\nAnuidade grátis com R$ 50 mil investidos\nSala VIP gastando R$ 3.000 por mês\nPlano Família por R$ 34,99 por mês\nPlano Anual por R$ 300 por ano")
         self.abrir_ben()
         js = self.js("T.simBeneficios(" + __import__("json").dumps(texto) + ")")
         self.assertEqual(js, B.limpar(B.simulados(texto), texto)[0])
+        self.assertEqual(self.js("T.simMetas(" + __import__("json").dumps(texto) + ")"), B.limpar_metas(B.simulados(texto), texto)[0])
+
+    def test_oportunidades_na_mesma_leitura(self):
+        """1.54: a leitura também acha o que a pessoa ganha a mais cumprindo uma condição; elas vêm embaixo, em
+        Oportunidades, marcadas (a mesma condição já cadastrada vem desmarcada), e vão para Mais › Benefícios › Oportunidades."""
+        ja = {"id": "mt-ja", "tipo": "gasto", "origem": "conta:k-ana", "valor": 3000, "periodo": "mes", "ganha": "Sala VIP"}
+        self.abrir_ben(metas=[ja])
+        self.clicar('[data-a="ben-ler"]')
+        self.clicar('.folha [data-a="bler-origem"][data-v="conta:k-ana"]')
+        self.preencher("#bler-txt", "Frete grátis\nAnuidade grátis com R$ 50 mil investidos\nSala VIP gastando R$ 3.000 por mês")
+        self.ler()
+        self.assertEqual(self.folha(), "Benefícios encontrados")
+        self.assertEqual(self.texto("#folhas .bler-sec"), "Oportunidades")
+        self.assertEqual(self.itens(), [[True, "Frete grátis", "Vantagem", ""], [True, "Sem anuidade", "Investindo R$ 50 mil", ""],
+                                        [False, "Sala VIP", "Gastando R$ 3.000 por mês no cartão", "já cadastrado"]])
+        self.assertEqual(self.texto('#folhas [data-a="bler-salvar"]'), "Cadastrar 2")
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrad"), "1 benefício e 1 oportunidade cadastrados")
+        m = self.dados()["metas"][1]
+        self.assertEqual({k: v for k, v in m.items() if k != "id"},
+                         {"tipo": "investido", "origem": "conta:k-ana", "valor": 50000, "ganha": "Sem anuidade", "trecho": "Anuidade grátis com R$ 50 mil investidos"})
+        # só oportunidades
+        self.clicar('[data-a="ben-ler"]')
+        self.preencher("#bler-txt", "Plano Família por R$ 34,99 por mês")
+        self.ler()
+        self.assertEqual(self.folha(), "Oportunidades encontradas")
+        self.assertEqual(self.conta("#folhas .bler-sec"), 0, "sem benefícios, sem o título")
+        self.assertEqual(self.itens(), [[True, "Plano Família", "Plano Plano Família por R$ 34,99 por mês", ""]])
+        self.clicar('#folhas [data-a="bler-meta"][data-v="0"]')
+        self.assertTrue(self.js("document.querySelector('[data-a=\"bler-salvar\"]').disabled"), "nada marcado")
+        self.clicar('#folhas [data-a="bler-meta"][data-v="0"]')
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrada"), "Oportunidade cadastrada")
+        # de uma assinatura: um plano que não custa mais que o de agora (R$ 110) não é oportunidade
+        self.clicar('[data-a="ben-ler"]')
+        self.clicar('.folha [data-a="bler-origem"][data-v="fixo:r-sol"]')
+        self.preencher("#bler-txt", "Plano Básico por R$ 50 por mês\nPlano Família por R$ 150 por mês")
+        self.ler()
+        self.assertEqual([x[1] for x in self.itens()], ["Plano Família"])
 
     def test_sem_ia_so_cadastrar(self):
         self.abrir_ben(ajustes={"corrigir": True, "ia": False})
         self.assertEqual(self.textos("#beneficios > .btn"), ["Cadastrar benefício"])
         self.assertEqual(self.conta('[data-a="ben-ler"]'), 0)
+
+
+class TestOportunidades(TelaBen):
+    """1.54: Mais › Benefícios › Oportunidades: o que falta para ganhar mais, investindo (a anuidade grátis com R$ 50 mil
+    investidos; o próximo nível da conta), gastando no cartão (a sala VIP gastando R$ 3 mil por mês) ou mudando de plano
+    (o de 2 TB por R$ 130 em vez de R$ 110). Da mais perto para a mais longe; as que já dão no fim."""
+    CDB = {"id": "i-cdb", "nome": "CDB", "banco": "b-azul", "conta": "k-ana", "titular": "meu", "valor": 45000, "data_valor": "2026-11-02", "indexador": "pre", "taxa": 10}
+    ANUIDADE = {"id": "mt-anu", "tipo": "investido", "origem": "conta:k-ana", "valor": 50000, "ganha": "Sem anuidade"}
+    VIP = {"id": "mt-vip", "tipo": "gasto", "origem": "conta:k-ana", "valor": 3000, "periodo": "mes", "ganha": "Sala VIP"}
+    ESPACO = {"id": "mt-2tb", "tipo": "plano", "origem": "fixo:r-sol", "valor": 130, "periodo": "mes", "ganha": "Mais espaço", "plano": "2 TB"}
+    CASHBACK = {"id": "mt-cb", "tipo": "gasto", "origem": "conta:k-ana", "valor": 2000, "periodo": "mes", "ganha": "Cashback"}
+
+    def abrir_metas(self, metas=(), **mais):
+        import copy
+        bancos = copy.deepcopy(BANCOS)
+        bancos[0]["contas"][1].update(meta_nivel="Black", meta_valor=100000)  # o próximo nível do Beto, em Editar banco
+        compra = lambda dia, v: {"id": "l-" + dia, "tipo": "despesa", "descricao": "Compra", "valor": v, "data": dia, "cartao": True, "conta": "k-ana",  # noqa: E731
+                                 "categoria": "c-mercado", "pago": True}
+        d = base(bancos=bancos, recorrencias=[FIXO], investimentos=[self.CDB], metas=list(metas),
+                 lancamentos=[compra("2026-07-10", 2400), compra("2026-08-10", 2500), compra("2026-09-10", 2600)])  # as faturas de ago, set e out
+        d.update(mais)
+        self.abrir(d, ui=BENS)
+
+    def metas(self):
+        return self.js("""[...document.querySelectorAll('#metas .ben-row')].map(r => [r.querySelector('.ben-t b').textContent, r.querySelector('.ben-t > span').textContent,
+            (r.querySelector('.ben-v b') || {}).textContent || '', (r.querySelector('.ben-v small') || {}).textContent || ''])""")
+
+    def test_lista_da_mais_perto_para_a_mais_longe(self):
+        self.abrir_metas([self.CASHBACK, self.ESPACO, self.VIP, self.ANUIDADE])
+        self.assertEqual(self.texto("#metas .mais-head h2"), "Oportunidades")
+        self.assertEqual(self.metas(), [
+            ["Sem anuidade", "Banco Azul · Ana · com R$ 50 mil investidos", "faltam R$ 5.000", "tem R$ 45 mil"],
+            ["Sala VIP", "Banco Azul · Ana · gastando R$ 3.000 por mês no cartão", "faltam R$ 500", "média R$ 2.500"],
+            ["Mais espaço", "Plano Sol · 2 TB por R$ 130,00 por mês", "+R$ 20,00", "por mês"],
+            ["Nível Black", "Banco Azul · Beto · com R$ 100 mil investidos", "faltam R$ 100 mil", "tem R$ 0"],
+            ["Cashback", "Banco Azul · Ana · gastando R$ 2.000 por mês no cartão", "Já dá", "média R$ 2.500"]])
+        self.assertEqual(self.js("[...document.querySelectorAll('#metas .ben-barra i')].map(i => i.style.width)"), ["90%", "83.3%", "0%", "100%"])
+        # o nível abre o banco (é de lá, em Editar banco); as outras, o formulário
+        self.clicar('#metas [data-a="banco"]')
+        self.assertEqual(self.folha(), "Editar banco")
+        self.js("(T.fecharFolha(true), true)")
+        self.clicar('#metas [data-a="meta-editar"][data-id="mt-vip"]')
+        self.assertEqual(self.folha(), "Editar oportunidade")
+        self.assertEqual(self.texto("#fmeta-st"), "Sua média no cartão: R$ 2.500 por mês. Faltam R$ 500.")
+
+    def test_sem_como_saber(self):
+        sem_cartao = dict(self.VIP, id="mt-x", origem="conta:k-verde")
+        sem_fatura = dict(self.VIP, id="mt-y", origem="conta:k-beto")
+        self.abrir_metas([sem_cartao, sem_fatura, dict(self.ANUIDADE, origem="conta:sumiu")], bancos=BANCOS)
+        self.assertEqual([m[3] for m in self.metas()], ["A conta não tem cartão", "Sem faturas nos últimos 3 meses", "Diga de onde vem"])
+        self.assertEqual(self.metas()[2][1], "Conta apagada · com R$ 50 mil investidos")
+
+    def test_vazio(self):
+        self.abrir_metas(bancos=BANCOS)
+        self.assertEqual(self.texto("#metas .vazio"), "Nenhuma oportunidade ainda. A leitura com IA também acha.")
+        self.abrir_metas(bancos=BANCOS, ajustes={"corrigir": True, "ia": False})
+        self.assertEqual(self.texto("#metas .vazio"), "Nenhuma oportunidade ainda.")
+        self.assertEqual(self.textos("#metas > .btn"), ["Cadastrar oportunidade"])
+
+    def test_cadastrar_editar_e_apagar(self):
+        self.abrir_metas(bancos=BANCOS)
+        self.clicar('#metas [data-a="meta-nova"]')
+        self.assertEqual(self.folha(), "Nova oportunidade")
+        origens = lambda: self.textos('.folha [data-a="fmeta-origem"]')  # noqa: E731
+        self.assertEqual(origens(), ["Banco Azul · Ana · cartão", "Banco Azul · Beto · cartão", "Banco Verde · Ana"], "investindo: as contas")
+        self.clicar('.folha [data-a="fmeta-salvar"]')
+        self.assertEqual(self.esperar_aviso("Diga"), "Diga o que ganha.")
+        self.preencher("#fmeta-ganha", "Sala VIP")
+        self.clicar('.folha [data-a="fmeta-seg"][data-k="tipo"][data-v="gasto"]')
+        self.assertEqual(origens(), ["Banco Azul · Ana · cartão", "Banco Azul · Beto · cartão"], "gastando: só os cartões")
+        self.assertEqual(self.texto(".folha #fmeta-origem-l"), "Qual cartão")
+        self.clicar('.folha [data-a="fmeta-salvar"]')
+        self.assertEqual(self.esperar_aviso("Diga o valor"), "Diga o valor.")
+        self.preencher("#fmeta-valor", "36.000")
+        self.clicar('.folha [data-a="fmeta-seg"][data-k="periodo"][data-v="ano"]')
+        self.clicar('.folha [data-a="fmeta-salvar"]')
+        self.assertEqual(self.esperar_aviso("Escolha"), "Escolha o cartão.")
+        self.clicar('.folha [data-a="fmeta-origem"][data-v="conta:k-ana"]')
+        self.assertEqual(self.texto("#fmeta-st"), "Sua média no cartão: R$ 2.500 por mês. Faltam R$ 500.", "R$ 36 mil por ano são R$ 3 mil por mês")
+        self.preencher("#fmeta-valor", "24.000")
+        self.assertEqual(self.texto("#fmeta-st"), "Sua média no cartão: R$ 2.500 por mês. Já dá.", "muda enquanto digita")
+        self.clicar('.folha [data-a="fmeta-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrada"), "Oportunidade cadastrada")
+        m = self.dados()["metas"][0]
+        self.assertEqual({k: v for k, v in m.items() if k != "id"}, {"tipo": "gasto", "origem": "conta:k-ana", "valor": 24000, "ganha": "Sala VIP", "periodo": "ano"})
+        self.assertEqual(self.metas()[-1], ["Sala VIP", "Banco Azul · Ana · gastando R$ 2.000 por mês no cartão", "Já dá", "média R$ 2.500"])
+        # mudar para outro plano: só os fixos; o plano e o preço
+        self.clicar('#metas [data-a="meta-editar"]')
+        self.clicar('.folha [data-a="fmeta-seg"][data-k="tipo"][data-v="plano"]')
+        self.assertEqual(origens(), ["Plano Sol (assinatura)"])
+        self.clicar('.folha [data-a="fmeta-origem"][data-v="fixo:r-sol"]')
+        self.preencher("#fmeta-plano", "2 TB")
+        self.preencher("#fmeta-valor", "130")
+        self.clicar('.folha [data-a="fmeta-seg"][data-k="periodo"][data-v="mes"]')
+        self.assertEqual(self.texto("#fmeta-st"), "Você paga R$ 110,00 por mês. São R$ 20,00 a mais.")
+        self.clicar('.folha [data-a="fmeta-salvar"]')
+        self.assertEqual(self.esperar_aviso("salva"), "Oportunidade salva")
+        self.assertEqual([m["tipo"], m["plano"], m["valor"]] if (m := self.dados()["metas"][0]) else None, ["plano", "2 TB", 130])
+        # apagar pergunta antes
+        self.clicar('#metas [data-a="meta-editar"]')
+        self.clicar('.folha [data-a="fmeta-excluir"]')
+        self.assertEqual(self.folha(), "Apagar oportunidade?")
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        self.assertEqual(self.esperar_aviso("apagada"), "Oportunidade apagada")
+        self.assertEqual(self.dados()["metas"], [])
 
 
 class TestAvisosEContagem(TelaBen):

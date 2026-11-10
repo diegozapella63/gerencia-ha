@@ -74,12 +74,13 @@ class TestOrigemEPedido(unittest.TestCase):
     def test_pedido_a_ia(self):
         p = B.prompt("Banco Azul, cartão Black", "https://exemplo.com/black", "trecho da página")
         self.assertIn("Você lê a página https://exemplo.com/black (de: Banco Azul, cartão Black)", p)
-        self.assertIn("fique só com os de Banco Azul, cartão Black", p)
+        self.assertIn("os benefícios são só os de Banco Azul, cartão Black; os outros, mais caros, entram em \"oportunidades\"", p)
+        self.assertIn("A pessoa paga hoje R$ 110,00 por mês: num \"plano\", só os que custam mais que isso.", B.prompt("Plano Sol", preco=110))
         self.assertIn("Use só o que estiver escrito na página", p)
         self.assertTrue(p.endswith("Trechos da página:\n<<<\ntrecho da página\n>>>"))
         a = B.prompt("", anexo=True)
         self.assertIn("Você lê a imagem ou o PDF anexado e lista", a)
-        self.assertNotIn("fique só", a)
+        self.assertNotIn("só os de", a)
         self.assertTrue(a.endswith("]}"), "sem texto, o pedido acaba no formato")
 
     def test_trechos_da_pagina(self):
@@ -94,6 +95,47 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertEqual([(b["nome"], b["tipo"], b["total"], b["renova"]) for b in r["beneficios"]],
                          [("Sala VIP", "contagem", 6, "ano"), ("Créditos de uso", "saldo", 100.0, "mes"), ("Seguro viagem", "vantagem", 0, "nunca"),
                           ("Frete grátis", "vantagem", 0, "nunca"), ("Cashback", "vantagem", 0, "nunca")])
+
+
+class TestOportunidades(unittest.TestCase):
+    """1.54: na mesma leitura, o que a pessoa ganha a mais cumprindo uma condição (investindo, gastando no cartão, um plano
+    mais caro), conferido como os benefícios: o trecho escrito lá e o valor no trecho. Bancos e planos inventados."""
+    TEXTO = ("Anuidade grátis com R$ 50 mil investidos\nSala VIP gastando R$ 3.000 por mês no cartão\n"
+             "Plano Família por R$ 34,99 por mês, até 5 pessoas\nCashback de 1%")
+
+    def test_o_valor_em_algarismos_ou_com_mil(self):
+        for trecho, valor, ok in (("com R$ 50 mil investidos", 50000, True), ("R$ 50.000,00 investidos", 50000, True), ("R$ 1,5 mil", 1500, True),
+                                  ("com R$ 50 mil investidos", 5000, False), ("Plano por R$ 34,99", 34.99, True), ("sem número", 10, False)):
+            with self.subTest(trecho=trecho, valor=valor):
+                self.assertEqual(B.tem_valor(trecho, valor), ok)
+
+    def test_limpar_so_o_escrito_e_com_o_valor_no_trecho(self):
+        ia = {"oportunidades": [
+            {"tipo": "investido", "valor": 50000, "periodo": "mes", "ganha": "Sem anuidade", "trecho": "Anuidade grátis com R$ 50 mil investidos"},
+            {"tipo": "gasto", "valor": "3.000", "periodo": "mes", "ganha": "Sala VIP", "trecho": "Sala VIP gastando R$ 3.000 por mês"},
+            {"tipo": "plano", "valor": 34.99, "periodo": "mes", "ganha": "Até 5 pessoas", "plano": "Família", "trecho": "Plano Família por R$ 34,99 por mês"},
+            {"tipo": "gasto", "valor": 5000, "ganha": "Milhas em dobro", "trecho": "milhas em dobro gastando R$ 5 mil"},  # não está no texto
+            {"tipo": "investido", "valor": 80000, "ganha": "Nível Black", "trecho": "Anuidade grátis com R$ 50 mil investidos"},  # o valor não está no trecho
+            {"tipo": "investido", "valor": 50000, "ganha": "Sem anuidade", "trecho": "Anuidade grátis com R$ 50 mil investidos"},  # repetida
+            {"tipo": "outro", "valor": 1, "ganha": "x"}, {"tipo": "gasto", "valor": 0, "ganha": "Zero"}, {"tipo": "gasto", "valor": 10, "ganha": ""}, "lixo"]}
+        metas, recusadas = B.limpar_metas(ia, self.TEXTO)
+        self.assertEqual(metas, [
+            {"tipo": "investido", "valor": 50000.0, "ganha": "Sem anuidade", "trecho": "Anuidade grátis com R$ 50 mil investidos"},
+            {"tipo": "gasto", "valor": 3000.0, "ganha": "Sala VIP", "trecho": "Sala VIP gastando R$ 3.000 por mês", "periodo": "mes"},
+            {"tipo": "plano", "valor": 34.99, "ganha": "Até 5 pessoas", "trecho": "Plano Família por R$ 34,99 por mês", "periodo": "mes", "plano": "Família"}])
+        self.assertEqual(recusadas, 2)
+        self.assertEqual(B.limpar_metas({"oportunidades": [{"tipo": "gasto", "valor": 3, "ganha": "Algo", "periodo": "ano"}]})[0][0]["periodo"], "ano",
+                         "do print não há texto para conferir")
+        self.assertEqual(B.limpar_metas({"beneficios": []}), ([], 0))
+        self.assertEqual(B.limpar_metas([]), ([], 0))
+
+    def test_pedido_e_ia_simulada(self):
+        self.assertIn('"oportunidades"', B.prompt("Banco Azul"))
+        r = B.simulados(self.TEXTO + "\nPlano Premium por R$ 1.200 por ano")
+        self.assertEqual([b["nome"] for b in r["beneficios"]], ["Cashback"], "as condições não são benefícios")
+        self.assertEqual([(m["tipo"], m["valor"], m["ganha"], m["periodo"]) for m in r["oportunidades"]],
+                         [("investido", 50000, "Sem anuidade", ""), ("gasto", 3000, "Sala VIP", "mes"),
+                          ("plano", 34.99, "Plano Família", "mes"), ("plano", 1200, "Plano Premium", "ano")])
 
 
 class TestLerNoServidor(unittest.TestCase):
@@ -118,6 +160,15 @@ class TestLerNoServidor(unittest.TestCase):
                          [("Sala VIP", "contagem", 6.0, None, "ano", "com 1 acompanhante"), ("Créditos de uso", "saldo", 100.0, "USD", "mes", None),
                           ("Seguro viagem", "vantagem", None, None, "nunca", None)])
         self.assertEqual((r["origem"], r["recusados"]), ("conta:k1", 0))
+        self.assertEqual(r["oportunidades"], [], "a página não tem condição para ganhar mais")
+
+    def test_so_oportunidades(self):
+        self.salvar()
+        r = S.beneficios_ler({"origem": "conta:k1", "texto": "Anuidade grátis com R$ 50 mil investidos"})
+        self.assertEqual((r["beneficios"], [(m["tipo"], m["valor"], m["ganha"]) for m in r["oportunidades"]]), ([], [("investido", 50000, "Sem anuidade")]))
+        with mock.patch.object(B, "simulados", return_value={"oportunidades": [{"tipo": "gasto", "valor": 5000, "ganha": "Milhas", "trecho": "milhas em dobro"}]}):
+            with self.assertRaisesRegex(ValueError, "não estão escritos no texto"):
+                S.beneficios_ler({"texto": "Anuidade grátis com R$ 50 mil investidos"})
 
     def test_o_que_a_pagina_nao_confirma(self):
         self.salvar()
@@ -194,6 +245,18 @@ class TestIaDeVerdade(unittest.TestCase):
         self.assertEqual(payload["attachments"][0]["media_content_type"], "image/jpeg")
         self.assertTrue(payload["attachments"][0]["media_content_id"].startswith("media-source://media_source/local/gerencia/ia-temp/"))
         self.assertEqual(os.listdir(os.path.join(self.media, S.IA_TMP_REL)), [], "e saiu depois")
+
+    def test_assinatura_manda_o_preco_de_agora(self):
+        """1.54: lendo os planos de uma assinatura, a IA sabe quanto a pessoa paga, para trazer só os planos mais caros."""
+        with S.TRAVA:
+            d = S.ler()
+            d["recorrencias"] = [{"id": "r-sol", "descricao": "Plano Sol", "valor": 1320, "freq": "anual", "inicio": "2026-01"}]
+            S.salvar(d, versao=False)
+        self.ia({"beneficios": [], "oportunidades": [{"tipo": "plano", "valor": 130, "periodo": "mes", "ganha": "Mais espaço", "plano": "2 TB",
+                                                       "trecho": "2 TB por R$ 130 por mês"}]})
+        r = S.beneficios_ler({"origem": "fixo:r-sol", "texto": "Plano Sol 1 TB: R$ 110 por mês. 2 TB por R$ 130 por mês."})
+        self.assertEqual([m["plano"] for m in r["oportunidades"]], ["2 TB"])
+        self.assertIn("A pessoa paga hoje R$ 110,00 por mês", self.pedidos[0][1]["instructions"], "o anual, por mês")
 
     def test_apagado_mesmo_quando_a_ia_falha(self):
         self.ia(S.ErroHA("A IA caiu."))

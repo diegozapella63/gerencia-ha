@@ -642,6 +642,116 @@ def ciclo_beneficio(b, hoje=None):
             "ate": ate.isoformat() if ate else None, "vencido": bool(validade and validade < hoje)}
 
 
+def _ym_mais(ym, n):
+    a, m = int(ym[:4]), int(ym[5:7]) - 1 + n
+    return f"{a + m // 12:04d}-{m % 12 + 1:02d}"
+
+
+def investido_na_conta(c, banco_id, data, hoje=None):
+    """Quanto a pessoa da conta tem investido no banco (investidoNaConta no app.js): os investimentos ligados à conta;
+    os de antes, sem a conta, pelos de um terceiro com o nome dela, senão os seus."""
+    invs = data.get("investimentos") or []
+    terc = {_sem_acento(i.get("terceiro")) for i in invs if i.get("titular") == "terceiros"}
+    p = _sem_acento(c.get("pessoa"))
+    de_terc = bool(p) and p in terc
+    banco = next((b for b in data.get("bancos") or [] if b.get("id") == banco_id), {}) or {}
+    do_banco = {k.get("id") for k in banco.get("contas") or [] if isinstance(k, dict)}
+    ind, corrigir = data.get("indices", {}), data.get("ajustes", {}).get("corrigir", True)
+    soma = 0.0
+    for i in invs:
+        if i.get("banco") != banco_id:
+            continue
+        if i.get("conta") and i["conta"] in do_banco:
+            ok = i["conta"] == c.get("id")
+        elif de_terc:
+            ok = i.get("titular") == "terceiros" and _sem_acento(i.get("terceiro")) == p
+        else:
+            ok = i.get("titular") != "terceiros"
+        if ok:
+            soma += valor_hoje(i, ind, corrigir, hoje)
+    return soma
+
+
+def gasto_cartao(data, conta_id, hoje=None, meses=3):
+    """O gasto médio por mês no cartão da conta (gastoCartao no app.js): as faturas dos `meses` meses antes deste (pelo
+    vencimento), sem o pagamento da própria fatura; um estorno desconta. Só os meses com fatura entram na média; sem
+    nenhuma, None."""
+    hoje = hoje or date.today()
+    contas = mapa_contas(data)
+    c = contas.get(conta_id)
+    if not c or not c.get("cartao"):
+        return None
+    ym = hoje.isoformat()[:7]
+    alvo = {_ym_mais(ym, -k) for k in range(1, meses + 1)}
+    por_mes = {}
+    for k in range(1, meses + 3):  # a compra de um mês cai na fatura até dois meses depois
+        for l in ocorrencias_mes(data, _ym_mais(ym, -k)):
+            if not l.get("cartao") or l.get("conta") != conta_id or e_pagamento_fatura(l, True):
+                continue
+            dc = data_caixa(l, contas, data)
+            m = dc.isoformat()[:7] if dc else ""
+            if m in alvo:
+                por_mes[m] = por_mes.get(m, 0.0) + (-1 if l.get("tipo") == "receita" else 1) * num(l.get("valor"))
+    return round(sum(por_mes.values()) / len(por_mes), 2) if por_mes else None
+
+
+def mensal_recorrencia(r):
+    """Quanto um fixo custa por mês (o anual dividido por 12)."""
+    v = num(r.get("valor"))
+    return v / 12 if r.get("freq") == "anual" else v
+
+
+def metas_conta(data):
+    """O próximo nível de cada conta (Editar banco: Próximo nível e Pede investido) vira uma oportunidade de investir."""
+    out = []
+    for b in data.get("bancos") or []:
+        for c in b.get("contas") or []:
+            if isinstance(c, dict) and c.get("id") and c.get("meta_nivel") and num(c.get("meta_valor")) > 0:
+                out.append({"id": "nivel:" + c["id"], "origem": "conta:" + c["id"], "tipo": "investido", "valor": num(c["meta_valor"]),
+                            "ganha": str(c["meta_nivel"]), "nivel": True})
+    return out
+
+
+def progresso_meta(m, data, hoje=None):
+    """Quanto falta para uma oportunidade (progressoMeta no app.js). investido: o que a conta tem no banco; gasto: o gasto
+    médio por mês no cartão (o valor por ano vira por mês); plano: quanto o plano custa a mais por mês que o fixo de
+    agora. {"tem", "pede", "falta", "pct", "ja" (já dá), "sem" (sem como saber: "origem", "cartao", "faturas")}."""
+    tipo, o = m.get("tipo"), str(m.get("origem") or "")
+    pede = num(m.get("valor"))
+    if tipo == "gasto" and m.get("periodo") == "ano":
+        pede /= 12
+    if tipo == "plano" and m.get("periodo") == "ano":
+        pede /= 12
+    out = {"tem": None, "pede": _r2(pede), "falta": _r2(pede), "pct": 0.0, "ja": False, "sem": ""}
+    if tipo in ("investido", "gasto"):
+        conta = mapa_contas(data).get(o[6:]) if o.startswith("conta:") else None
+        if not conta:
+            out["sem"] = "origem"
+            return out
+        if tipo == "investido":
+            tem = investido_na_conta(conta, conta.get("banco"), data, hoje)
+        else:
+            if not conta.get("cartao"):
+                out["sem"] = "cartao"
+                return out
+            tem = gasto_cartao(data, conta["id"], hoje)
+            if tem is None:
+                out["sem"] = "faturas"
+                return out
+        out.update(tem=_r2(tem), falta=_r2(max(0.0, pede - tem)), pct=math.floor(min(100.0, max(0.0, tem) / pede * 100) * 10 + 0.5) / 10 if pede > 0 else 0.0, ja=tem >= pede)
+        return out
+    if tipo == "plano":
+        r = next((x for x in data.get("recorrencias") or [] if x.get("id") == o[5:]), None) if o.startswith("fixo:") else None
+        if not r:
+            out["sem"] = "origem"
+            return out
+        tem = mensal_recorrencia(r)
+        out.update(tem=_r2(tem), falta=_r2(max(0.0, pede - tem)), ja=pede <= tem)
+        return out
+    out["sem"] = "origem"
+    return out
+
+
 def origem_beneficio(b, data, hoje=None):
     """De onde vem o benefício (origemBeneficio no app.js): {"tipo": "fixo" | "conta" | "", "nome", "ativa"}. Um fixo
     que não acontece mais nos próximos 12 meses, ou uma conta que saiu de Bancos, não está mais ativa."""
