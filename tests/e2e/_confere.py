@@ -69,3 +69,24 @@ def ir_mais(pg, tela, aba=None, espera=400):
     if aba:
         pg.click(f'#app .mais-abas [data-a="mais-aba"][data-v="{aba}"]')
         pg.wait_for_timeout(espera)
+
+
+def data(pg, id_, iso):
+    """Escolhe uma data no campo de data (1.52: os atalhos ou o Outra data, o mês e o dia), como a pessoa faz."""
+    box = f'[data-dc="{id_}"]'
+    atalho = pg.locator(f'{box} .dc-ch .chip[data-v="{iso}"]')
+    if atalho.count():
+        atalho.first.click()
+        pg.wait_for_timeout(200)
+        return
+    if not pg.locator(f'{box} .cal').count():
+        pg.click(f'{box} [data-a="dc-cal"]')
+    for _ in range(120):
+        dia = pg.locator(f'{box} .cal-d[data-v="{iso}"]')
+        if dia.count():
+            dia.click()
+            pg.wait_for_timeout(200)
+            return
+        atual = pg.locator(f'{box} .cal-d').first.get_attribute("data-v")
+        pg.click(f'{box} [data-a="dc-mes"][data-v="{1 if iso > atual else -1}"]')
+    raise AssertionError(f"não achei o dia {iso} no campo {id_}")

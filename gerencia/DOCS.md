@@ -77,7 +77,7 @@ Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e o
 
 Com cartão, a conta pede também o **Cartão** (o nível, ex.: Gold) e o **Limite**. Logo abaixo aparece quanto do limite já foi usado (as compras no cartão ainda não pagas) e quanto está disponível ("Usado R$ 1.200; disponível R$ 3.800."). Em **Tem cartão adicional?**, diga para quem é cada adicional e, se quiser, o limite dele; **Outro adicional** acrescenta mais um. A lista de Bancos mostra "adicional Beto".
 
-Onde se escolhe um banco (no investimento, por exemplo), um banco com conta de mais de uma pessoa aparece uma vez para cada uma: **Banco Azul · Ana** e **Banco Azul · Beto**.
+Onde se escolhe um banco (no investimento, por exemplo), um banco com conta de mais de uma pessoa aparece uma vez para cada uma: **Banco Azul · Ana** e **Banco Azul · Beto**. O card do investimento e o Relatório de patrimônio mostram de quem é a conta (no relatório, embaixo do banco).
 
 Uma compra no cartão entra no mês em que a fatura vence, não no dia da compra. Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. Isso vale para compras avulsas, parcelas e fixos: uma assinatura fixa no cartão aparece nas faturas e no fluxo dos próximos meses. Para pagar a fatura inteira, toque nela na lista.
 
@@ -92,6 +92,10 @@ O aporte é um **tipo de conta a pagar**: o compromisso de aplicar nos seus inve
 - Para dar como aplicado (no **Apliquei** da lista, ou marcando **Aplicado** no formulário), diga **em qual investimento** foi o dinheiro e quanto: o valor soma ao valor de hoje desse investimento. O app lembra o investimento para os próximos meses. Se um mês for diferente, o padrão continua o mesmo.
 
 **Aplicar mais num investimento**: ao abrir um investimento já cadastrado, toque em **Aplicar mais**, diga quanto e a data. Se você só sabe o total que o banco mostra agora, escolha **Quanto tem agora**: o aporte é a diferença entre esse total e o valor de hoje. O valor soma ao de hoje e, no caixa, dá para dar baixa no aporte do mês que estiver a aplicar, lançar como um aporte à parte (de qual conta saiu) ou não lançar. Na leitura por IA, "apliquei 3 mil no CDB do Banco Sol" também soma ao CDB que já existe e lança a saída como aporte.
+
+### Datas
+
+Nenhuma data abre a janela do celular. Os atalhos ficam em botões: **Hoje**, **Amanhã**, **Sábado** e **Próx. semana** (num lançamento, **Hoje**, **Ontem** e **Amanhã**; numa data que não passa de hoje, como o **Valor em** de um investimento, **Hoje** e **Ontem**). **Outra data** abre o mês ali embaixo: ‹ e › trocam o mês, e tocar no nome do mês mostra os meses do ano (para um vencimento daqui a anos). Numa data opcional, **Sem data** tira a data.
 
 ### Dia a dia
 

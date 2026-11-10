@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.51.0"
+VERSAO = "1.52.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -518,11 +518,12 @@ COLUNAS_INVEST = ["Investimento", "Banco", "Rendimento", "Vencimento"]
 COLUNAS_BENS = ["Bem", "Cômodo", "Por ano", "Informado em"]
 
 
-def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False):
+def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False, usuario=""):
     """O que vai no Relatório de patrimônio (na página e no PDF). quem: todos, meus ou terceiros. inventario: os itens do
     InventarIA (bens_relatorio), que entram em Bens junto com os bens cadastrados aqui (os seus; não em De terceiros).
     Patrimônio é o mesmo do Início: os seus investimentos e os bens; o dinheiro de terceiros fica à parte.
-    detalhar: os bens um por um; sem ele, uma linha para os imóveis e outra para os outros bens (Detalhar bens e imóveis)."""
+    detalhar: os bens um por um; sem ele, uma linha para os imóveis e outra para os outros bens (Detalhar bens e imóveis).
+    usuario: o nome de quem abriu (do Home Assistant), para a conta dos investimentos de antes num banco com várias pessoas."""
     quem = quem if quem in QUEM else "todos"
     ind = d["indices"]
     corrigir = d["ajustes"].get("corrigir", True)
@@ -543,17 +544,18 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False
             ps = inv.get("partes") if isinstance(inv.get("partes"), list) else []
             cat = f"{len(ps)} categorias" if len(ps) > 1 else nomes_cat.get((ps[0].get("categoria") if ps else inv.get("categoria_bem")) or "outros", "Outros")
             dv = calc.parse_data(inv.get("data_valor"))
-            return {"nome": inv.get("nome", ""), "tipo": cat, "banco": "", "rendimento": calc.rotulo_taxa(inv),
+            return {"nome": inv.get("nome", ""), "tipo": cat, "banco": "", "pessoa": "", "rendimento": calc.rotulo_taxa(inv),
                     "vencimento": dv.strftime("%d/%m/%Y") if dv and data_bem else "", "valor": vh[id(inv)], **fut[id(inv)]}
-        return {"nome": inv.get("nome", ""), "tipo": calc.TIPOS.get(inv.get("tipo"), ""),
-                "banco": bancos.get(inv.get("banco"), {}).get("nome", ""), "rendimento": calc.rotulo_taxa(inv),
+        banco, pessoa = calc.banco_e_pessoa(inv, d["bancos"], usuario)  # de quem é a conta, num banco com várias pessoas
+        return {"nome": inv.get("nome", ""), "tipo": calc.TIPOS.get(inv.get("tipo"), ""), "banco": banco, "pessoa": pessoa,
+                "rendimento": calc.rotulo_taxa(inv),
                 "vencimento": venc.strftime("%d/%m/%Y") if venc else ("Diária" if inv.get("liquidez") == "diaria" else ""),
                 "valor": vh[id(inv)], **fut[id(inv)]}
 
     def linha_casa(it):
         h, t = it["hoje"], it["taxa"] / 100
         dv = calc.parse_data(it.get("valor_em"))
-        return {"nome": it["nome"], "tipo": it["categoria_nome"], "banco": it["comodo_nome"],
+        return {"nome": it["nome"], "tipo": it["categoria_nome"], "banco": it["comodo_nome"], "pessoa": "",
                 "rendimento": calc.rotulo_taxa({"indexador": "deprecia", "taxa": it["taxa"]}),
                 "vencimento": dv.strftime("%d/%m/%Y") if dv else "", "valor": h,
                 "mes": h * ((1 - t) ** (1 / 12) - 1), "ano1": h * (1 - t), "ano5": h * (1 - t) ** 5}
@@ -592,7 +594,7 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False
                 n = len({x[0] for x in ps})
                 var = (proj["ano1"] / v - 1) * 100 if v else 0  # quanto o grupo muda num ano, em %
                 rot = "mantém o valor" if abs(var) < 0.005 else f"{'valoriza' if var > 0 else 'perde'} {calc.fmt_pct(round(abs(var), 1))}% a.a."
-                resumidas.append({"nome": nome, "tipo": f"{n} {'item' if n == 1 else 'itens'}", "banco": "", "rendimento": rot,
+                resumidas.append({"nome": nome, "tipo": f"{n} {'item' if n == 1 else 'itens'}", "banco": "", "pessoa": "", "rendimento": rot,
                                   "vencimento": "", "valor": v, "mes": mes, **proj})
             secoes.append(secao(titulo_bens, resumidas, ["Bem", "", "Por ano", ""]))
     grupos = {}
@@ -680,7 +682,7 @@ def notas_relatorio(r):
     return notas + [r["rodape"]]
 
 
-def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False):
+def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False, usuario=""):
     """O relatório de patrimônio em HTML, para ver; Baixar PDF leva ao mesmo relatório em PDF (o app do Home Assistant no
     Android não imprime a página). tema: "claro" ou "escuro" (o app manda o que está usando); sem ele, vale o de
     Mais › Aparência e, no automático, o do Home Assistant ou do aparelho. No papel é sempre claro. quem: todos, meus ou
@@ -690,7 +692,7 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False)
     no pé, só quem faz o app."""
     tema = tema if tema in ("claro", "escuro") else d["ajustes"].get("tema") if d["ajustes"].get("tema") in ("claro", "escuro") else None
     attr_tema = {"claro": ' data-theme="light"', "escuro": ' data-theme="dark"'}.get(tema, "")
-    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar)
+    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar, usuario=usuario)
     e = html.escape
     q_det = "&detalhar=1" if r["detalhar"] else ""
     q_tema = f"&tema={tema}" if tema else ""
@@ -699,9 +701,10 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False)
     for s in r["secoes"]:
         linhas = "".join(
             # no celular a 2ª coluna (banco ou cômodo) some e vai embaixo do nome (senão o valor fica cortado)
-            "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
-                e(l["nome"]), e(l["tipo"]), ((" · " if l["tipo"] else "") + e(l["banco"])) if l["banco"] else "",
-                e(l["banco"]), e(l["rendimento"]), e(l["vencimento"]), calc.fmt_brl(l["valor"]))
+            # e de quem é a conta, embaixo do banco, num banco com conta de mais de uma pessoa
+            "<tr><td>{}<small>{}<span class=bm>{}</span></small></td><td>{}{}</td><td>{}</td><td>{}</td><td class=n>{}</td></tr>".format(
+                e(l["nome"]), e(l["tipo"]), ((" · " if l["tipo"] else "") + e(l["banco"]) + (" · " + e(l["pessoa"]) if l.get("pessoa") else "")) if l["banco"] else "",
+                e(l["banco"]), f"<small>{e(l['pessoa'])}</small>" if l.get("pessoa") else "", e(l["rendimento"]), e(l["vencimento"]), calc.fmt_brl(l["valor"]))
             for l in s["linhas"])
         cab = "".join(f"<th>{e(c)}</th>" for c in s["colunas"])
         partes.append(f"<section><h2><span>{e(s['titulo'])}</span><b>{calc.fmt_brl(s['total'])}</b></h2>"
@@ -822,11 +825,11 @@ def _brl_sinal(v):
     return ("−" if v < 0 else "") + calc.fmt_brl(abs(v))
 
 
-def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
+def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False, usuario=""):
     """O mesmo relatório em PDF (A4 deitada, sempre claro), para baixar e compartilhar: o cabeçalho dos relatórios dos
     apps (o ícone, GerencIA, o título, a contagem e quando, como no ResolvIA), o resumo, os investimentos e os bens (com
     quanto mudam por mês e o valor em 1 e em 5 anos), a divisão por banco e, no pé de cada página, quem faz o app e a página."""
-    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar)
+    r = dados_relatorio(d, quem, inventario=inventario, detalhar=detalhar, usuario=usuario)
     doc = pdf.Documento("Relatório de patrimônio · GerencIA", deitada=True)
     TXT, MUT, LIN, LIN2, CARTAO = (0.08, 0.10, 0.13), (0.36, 0.40, 0.45), (0.85, 0.87, 0.90), (0.92, 0.93, 0.95), pdf.cor_rgb("#f6f7f9")
     COR = pdf.cor_rgb(r["cor"])
@@ -919,6 +922,8 @@ def gerar_relatorio_pdf(d, quem="todos", inventario=None, detalhar=False):
                 doc.texto(COLS[0][0], y[0] + 10, pdf.cortar(l["tipo"], COLS[0][1], 7), 7, False, MUT)
             for (x, w), t, tam in zip(COLS[1:], (l["banco"], l["rendimento"], l["vencimento"]), (9, 9, 8.5)):
                 doc.texto(x, y[0], pdf.cortar(t, w, tam), tam, False, TXT)
+            if l.get("pessoa"):  # de quem é a conta, embaixo do banco
+                doc.texto(COLS[1][0], y[0] + 10, pdf.cortar(l["pessoa"], COLS[1][1], 7), 7, False, MUT)
             valores(l)
             y[0] += 15
             doc.linha(M, y[0], DIR, y[0], LIN2, 0.5)
@@ -2917,6 +2922,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(403, "Use o GerencIA pelo painel do Home Assistant.")
         return False
 
+    def quem_usa(self):
+        """O nome de quem está usando o app, que o ingress do Home Assistant informa ("" fora dele)."""
+        return self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
+
     def enviar(self, status, corpo, tipo="application/json", extra=None):
         if isinstance(corpo, (dict, list)):
             corpo = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
@@ -3026,12 +3035,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, listar_versoes())
             if p == "/relatorio.pdf":
                 quem, d = (q.get("quem") or ["todos"])[0], ler()
-                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d), (q.get("detalhar") or [""])[0] == "1"),
+                return self.baixar(gerar_relatorio_pdf(d, quem, bens_relatorio(d), (q.get("detalhar") or [""])[0] == "1", self.quem_usa()),
                                    "application/pdf", nome_relatorio(quem))
             if p in ("/relatorio", "/relatorio.html"):
                 d = ler()
                 corpo = gerar_relatorio(d, (q.get("tema") or [None])[0], (q.get("quem") or ["todos"])[0], bens_relatorio(d),
-                                        (q.get("detalhar") or [""])[0] == "1")
+                                        (q.get("detalhar") or [""])[0] == "1", self.quem_usa())
                 if q.get("baixar"):
                     return self.baixar(corpo, "text/html; charset=utf-8", nome_arquivo("html"))
                 return self.enviar(200, corpo, "text/html; charset=utf-8")

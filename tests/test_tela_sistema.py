@@ -1491,9 +1491,10 @@ class TestFormularios(TelaSistema):
         self.abrir(base(bancos=BANCOS))
         self.nova_despesa()
         self.assertEqual(self.limpo('#folhas [data-a="lf-pago"].on'), "Pago")
-        self.preencher("#lf-data", "2026-11-20")
+        self.clicar('#folhas [data-dc="lf-data"] [data-a="dc-cal"]')
+        self.clicar('#folhas [data-dc="lf-data"] .cal-d[data-v="2026-11-20"]')
         self.pg.wait_for_function("document.querySelector('#folhas [data-a=\"lf-pago\"].on').textContent === 'A pagar'")
-        self.assertEqual(self.js("document.activeElement.id"), "lf-data", "o foco volta para a data")
+        self.assertEqual(self.js("document.activeElement.closest('[data-dc]')?.dataset.dc"), "lf-data", "o foco volta para a data")
 
     def test_observacao_abre_e_e_salva(self):
         self.abrir(base(bancos=BANCOS))

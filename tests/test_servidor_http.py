@@ -108,6 +108,20 @@ class TestHTTP(unittest.TestCase):
         self.assertTrue(any(t.startswith("Só os seus · ") for p in ler_pdf(corpo) for t in p))
         self.assertRegex(self.s.get("/relatorio.pdf")[1]["Content-Disposition"], r'filename="patrimonio-\d{4}-\d{2}-\d{2}\.pdf"$')
 
+    def test_relatorio_sabe_quem_abriu(self):
+        """1.52: a conta de um investimento de antes num banco com várias pessoas é a de quem abriu (o nome vem do ingress)."""
+        _, _, d = self.s.get("/api/state")
+        antes = json.loads(json.dumps(d))
+        d["bancos"] = [{"id": "bq", "nome": "Banco Quartzo", "contas": [{"id": "qa", "pessoa": "Ana"}, {"id": "qb", "pessoa": "Beto"}]}]
+        d["investimentos"] = [{"id": "iq", "nome": "CDB Quartzo", "banco": "bq", "tipo": "cdb", "valor": 1000, "indexador": "parado"}]
+        _, _, d = self.s.put("/api/state", d)
+        self.addCleanup(lambda: self.s.put("/api/state", dict(antes, rev=self.s.get("/api/state")[2]["rev"])))
+        self.assertIn("Banco Quartzo · Beto".encode(), self.s.get("/relatorio", cabecalhos={"X-Remote-User-Name": "Beto"})[2])
+        self.assertIn("Banco Quartzo · Ana".encode(), self.s.get("/relatorio")[2], "fora do ingress: a primeira conta")
+        pdf = self.s.get("/relatorio.pdf", cabecalhos={"X-Remote-User-Display-Name": "Beto Souza"})[2]
+        t = [x for p in ler_pdf(pdf) for x in p]
+        self.assertTrue({"Banco Quartzo", "Beto"} <= set(t), "no PDF, o banco e a pessoa embaixo dele")
+
     def test_relatorio_detalhado(self):
         self.assertEqual(self.s.get("/relatorio?detalhar=1")[0], 200)
         st, _, corpo = self.s.get("/relatorio.pdf?detalhar=1&quem=meus")

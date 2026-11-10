@@ -4,7 +4,7 @@ grava o novo com o que foi revisado e o saldo novo no que existia."""
 import sys, json, urllib.request
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim
+from _confere import igual, tem, sim, data
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -26,10 +26,10 @@ with sync_playwright() as p:
     pg.locator('[data-a="iai-revisar"]').nth(1).click(); pg.wait_for_timeout(400)
     igual(pg.inner_text('.folha-cab h2'), 'Revisar investimento novo', 'Revisar antes do novo (Banco Mar)')
     igual(sorted(pg.locator('[data-iae]').evaluate_all('es => es.map(e => e.dataset.iae)')), sorted(['valor', 'nome', 'banco', 'tipo', 'indexador', 'taxa', 'vencimento']), 'novo: valor, nome, banco, tipo, rendimento, taxa e vencimento')
-    igual(pg.locator('[data-a="iae-liq"]').all_inner_texts(), ['Diária', 'No venc.'], 'novo: e a liquidez')
+    igual(pg.locator('[data-a="iae-liq"]').all_inner_texts(), ['Diária', 'No vencimento'], 'novo: e a liquidez')
     igual(pg.locator('[data-a="iae-ok"]').count(), 1, 'continua na janela da IA (com Pronto)')
     pg.fill('#iae-nome', 'CDB Mar 2027'); pg.select_option('#iae-tipo', 'cdb'); pg.wait_for_timeout(200)
-    pg.fill('#iae-taxa', '120'); pg.fill('#iae-venc', '2027-12-01')
+    pg.fill('#iae-taxa', '120'); data(pg, 'iae-venc', '2027-12-01')
     pg.screenshot(path=f'{SP}/shots/revisar-item.png')
     pg.click('[data-a="iae-ok"]'); pg.wait_for_timeout(300)
     igual(pg.inner_text('.folha-cab h2'), 'Conferir os saldos', 'Pronto volta para a conferência')

@@ -393,3 +393,28 @@ class TestCorDoDia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestContaDoInvestimento(unittest.TestCase):
+    """De quem é a conta de um investimento num banco com várias pessoas (igual ao contaDoInvest e bancoDoInvest do app.js)."""
+    BANCOS = [{"id": "az", "nome": "Banco Azul", "contas": [{"id": "ka", "pessoa": "Ana"}, {"id": "kb", "pessoa": "Beto"}]},
+              {"id": "vd", "nome": "Banco Verde", "contas": [{"id": "kv", "pessoa": "Ana"}]}]
+
+    def test_a_conta_escolhida(self):
+        self.assertEqual(calc.conta_do_invest({"banco": "az", "conta": "kb"}, self.BANCOS), "kb")
+        self.assertEqual(calc.banco_do_invest({"banco": "az", "conta": "kb"}, self.BANCOS), "Banco Azul · Beto")
+
+    def test_os_de_antes_pelo_dono_ou_por_quem_usa(self):
+        self.assertEqual(calc.conta_do_invest({"banco": "az", "titular": "terceiros", "terceiro": "BETO"}, self.BANCOS), "kb", "o terceiro dono")
+        self.assertEqual(calc.conta_do_invest({"banco": "az"}, self.BANCOS, "Beto Souza"), "kb", "quem usa o app")
+        self.assertEqual(calc.conta_do_invest({"banco": "az", "conta": "sumiu"}, self.BANCOS), "ka", "a conta que saiu: a primeira")
+        self.assertEqual(calc.banco_do_invest({"banco": "az", "titular": "terceiros", "terceiro": "Mãe"}, self.BANCOS), "Banco Azul · Ana")
+
+    def test_com_uma_conta_so_o_banco(self):
+        self.assertEqual(calc.banco_do_invest({"banco": "vd", "conta": "kv"}, self.BANCOS), "Banco Verde", "sem repetir a pessoa")
+        self.assertEqual(calc.conta_do_invest({"banco": "vd"}, self.BANCOS), "kv")
+        self.assertEqual(calc.conta_do_invest({"banco": "x"}, [{"id": "x", "nome": "Sem contas"}]), "")
+        self.assertEqual(calc.banco_do_invest({"banco": "x"}, [{"id": "x", "nome": "Sem contas"}]), "Sem contas")
+        self.assertEqual(calc.banco_do_invest({"banco": "nao-tem"}, self.BANCOS), "")
+        self.assertEqual(calc.banco_do_invest({"banco": "az", "conta": "kb"}, [{"id": "az", "nome": "Banco Azul", "contas": [{"id": "ka"}, {"id": "kb"}]}]),
+                         "Banco Azul", "conta sem o nome da pessoa")

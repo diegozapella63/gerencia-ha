@@ -4,7 +4,7 @@ sem aplicar vira conta atrasada (avisos, lista e contas do CronologIA); com De t
 import sys, os, json, calendar, urllib.request
 from datetime import date
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sem, sim, valores, mes
+from _confere import igual, tem, sem, sim, valores, mes, data
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     igual([x.strip() for x in pg.locator('[data-a="lf-pago"]').all_inner_texts()], ['Aplicado', 'A aplicar'], 'situação: Aplicado ou A aplicar')
     pg.screenshot(path=f'{SP}/shots/ap2-novo.png', full_page=True)
     pg.click('#lf-valor'); pg.keyboard.type('20000')
-    pg.fill('#lf-data', hoje.isoformat()); pg.wait_for_timeout(500)
+    data(pg, 'lf-data', hoje.isoformat()); pg.wait_for_timeout(500)
     igual(pg.inner_text('[data-a="lf-pago"].on').strip(), 'A aplicar', 'o aporte novo nasce A aplicar (mesmo com a data de hoje)')
     pg.click('[data-a="lf-salvar"]:not([data-mais])'); pg.wait_for_timeout(800)
     rs = [(r['descricao'], r['valor'], r['dia'], r['inicio'], r.get('categoria'), bool(r.get('cartao')), r.get('aporte')) for r in get('api/state')['recorrencias'] if r.get('aporte')]

@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.52.0
+
+- **Datas no jeito do ResolvIA**: nenhuma data abre mais a janela do celular. Os atalhos aparecem em botões (**Hoje**, **Amanhã**, **Sábado**, **Próx. semana**; numa data que não passa de hoje, **Hoje** e **Ontem**; num lançamento, **Hoje**, **Ontem** e **Amanhã**). **Outra data** abre o mês ali mesmo, embaixo, e tocar no nome do mês mostra os meses do ano, para um vencimento longe. Vale no lançamento, no investimento (Valor em e Vencimento), no Aplicar mais, na primeira cobrança anual, no benefício e na revisão da leitura por IA.
+- **Uma altura só**: botões, campos, caixas de seleção, botões de escolha (as abas de Configurações, o Tema, Toda semana/Todo mês…) e as escolhas em botões têm a mesma altura, a mesma de todos os apps da família. O Tema ficou com o ícone ao lado do nome.
+- **De quem é a conta**: num banco com conta de mais de uma pessoa, o card do investimento mostra de quem é (**Banco Azul · Ana · CDB**), e o Relatório de patrimônio, na página e no PDF, mostra a pessoa embaixo do banco.
+
 ## 1.51.0
 
 - **Mais › Bancos › Editar banco**: em cada conta, o **Nível da conta**, o **Próximo nível** e o **Pede investido** vêm antes do cartão.

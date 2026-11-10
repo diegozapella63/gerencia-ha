@@ -221,7 +221,7 @@ class TestCarteira(_TelaInvest):
         c = '#app .inv[data-id="cdb"]'
         self.assertEqual(self.texto(c + " .inv-nome"), "CDB Azul 2028")
         self.assertEqual(self.texto(c + " .inv-valor"), "R$ 10.000,00")
-        self.assertEqual(self.texto(c + " .inv-meta"), "Banco Azul · CDB")
+        self.assertEqual(self.texto(c + " .inv-meta"), "Banco Azul · Ana · CDB", "o Banco Azul tem a Ana e o Beto: de quem é a conta (1.52)")
         self.assertEqual(self.textos(c + " .tag"), ["110% do CDI", "Meu", "Vence 15/03/2028"])
         self.assertEqual(self.textos(c + " .inv-pe span"), [f"≈ {brl(RENDE['cdb'])} por mês", "valor de 02/11"])
         self.assertEqual(self.js("getComputedStyle(document.querySelector(a)).getPropertyValue('--c').trim()", c), "#56AEFF", "a cor do banco")
@@ -846,6 +846,7 @@ class TestEditar(_TelaInvest):
                          "os 10 mil contam para o Beto")
         self.assertEqual(round(self.js("T.investidoNaConta(T.S.d.bancos[0].contas[0], 'b-azul')"), 2),
                          round(ana_antes - self.js("T.valorHoje(T.S.d.investimentos.find(i => i.id === 'cdb'))"), 2), "e saem da Ana")
+        self.assertEqual(self.texto('#app .inv[data-id="cdb"] .inv-meta'), "Banco Azul · Beto · CDB", "o card diz de quem é a conta")
         self.editar("cdb")
         self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Azul · Beto", "aberto de novo, a conta escolhida")
 

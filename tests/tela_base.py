@@ -234,8 +234,17 @@ class Tela(unittest.TestCase):
         self.esperar()
 
     def preencher(self, sel, texto):
+        if self.pg.locator(sel).first.evaluate("e => e.hasAttribute('data-dcv')"):
+            self.escolher_data(sel, texto)
+            return
         self.pg.fill(sel, str(texto))
         self.pg.locator(sel).first.dispatch_event("input")
+        self.esperar()
+
+    def escolher_data(self, sel, iso):
+        """Uma data no campo de data (os atalhos e o Outra data): pela escolha do campo, como um toque num dia do mês
+        (os testes das datas, em test_tela_datas.py, tocam nos botões de verdade)."""
+        self.pg.locator(sel).first.evaluate("(e, v) => window.GERENCIA_TESTE.dcEscolher(e.id, v)", str(iso))
         self.esperar()
 
     def texto(self, sel):

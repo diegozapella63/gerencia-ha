@@ -1393,6 +1393,49 @@ input[readonly] { opacity: .8; }
 .chip.add.adic-add { margin-top: 10px; }
 .ajuda.limite-disp:empty, .ajuda.nivel-meta:empty { display: none; }
 
+/* ---------- campo de data (o modelo é o Prazo do ResolvIA): atalhos em botões e Outra data, que abre o mês ali embaixo */
+.opc { color: var(--muted); font-weight: 400; }
+.dc .chips { margin: 0; }
+.dc .ajuda { margin-top: 8px; }
+.dc-outra .ic-s { width: 16px; height: 16px; flex: none; }
+.cal { margin-top: 10px; padding: 8px 8px 10px; border-radius: 18px; border: 1.5px solid var(--line-2); background: var(--bg); }
+.cal-cab { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.cal-cab .cal-nav { width: 40px; height: 40px; flex: none; color: var(--text-2); }
+.cal-cab .cal-nav:disabled { opacity: .3; }
+.cal-tit { flex: 1; min-width: 0; min-height: 40px; border-radius: var(--r-ctl); text-align: center; color: var(--text); font: 600 16px/1.2 var(--font); }
+.cal-tit:active { background: var(--card-2); }
+.cal-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; }
+.cal-s { padding: 4px 0 6px; text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cal-d { justify-self: center; width: min(100%, 42px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%;
+  color: var(--text); font: 400 15px/1 var(--font); font-variant-numeric: tabular-nums; }
+.cal-d:disabled, .cal-m:disabled { opacity: .3; }
+.cal-d.hoje, .cal-m.hoje { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent-text); font-weight: 600; }
+.cal-d.on, .cal-m.on { background: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: none; }
+.cal-meses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 4px 2px 2px; }
+.cal-m { min-height: 44px; border-radius: var(--r-ctl); color: var(--text); font: 500 15px/1 var(--font); }
+@media (hover: hover) { .cal-d:not(.on):not(:disabled):hover, .cal-m:not(.on):not(:disabled):hover { background: var(--card-2); } }
+
+/* ---------- uma altura só, a mesma em todos os apps da família (50 px): botões, campos, caixas de seleção, botões de
+   escolha (as abas de Configurações, o Tema, Toda semana/Todo mês...) e as escolhas em botões. Ficam de fora os botões
+   só com ícone, os quadrinhos da IA, as linhas das listas, os interruptores e as cores. */
+:root { --altura: 50px; }
+.btn, .btn.peq, .btns-2 .btn, .folha-pe .btn { min-height: var(--altura); }
+.chip, .chips:not(.rola) > .chip, .quem-p { min-height: var(--altura); }
+.chips.rola > .chip { padding: 0 16px; }
+.inp, select.inp, .pref, .pref.mini { min-height: var(--altura); }
+.seg { min-height: var(--altura); align-items: stretch; }
+.seg button { padding-top: 0; padding-bottom: 0; }
+.mais-abas { min-height: var(--altura); }
+/* o Tema: os três do mesmo jeito dos outros botões de escolha, com o ícone ao lado (no celular estreito, só o nome) */
+.seg.temas button { flex-direction: row; gap: 7px; min-height: 0; padding: 0 6px; }
+.seg.temas button .ic { width: 18px; height: 18px; flex: none; }
+@media (max-width: 380px) { .seg.temas button .ic { display: none; } }
+@media (min-width: 1000px) { .top-acts .btn { min-height: var(--altura); } }
+.chips:not(.rola) > .chip { padding-top: 6px; padding-bottom: 6px; }
+.folha-pe .btn { padding-top: 0; padding-bottom: 0; }
+.pref.grande { min-height: var(--altura); }
+.pref.grande input { padding-top: 4px; padding-bottom: 4px; }
+
 </style>
 <main id="app" aria-live="polite"></main>
 <nav id="nav" aria-label="Menu principal"><div class="in"></div></nav>
@@ -1753,7 +1796,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.51.0';
+const VERSAO = '1.52.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1946,6 +1989,108 @@ const P = {
   'external-link': '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
 };
 const ic = (n, c = 'ic') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
+
+/* ------------------------------------------------------------------ campo de data */
+// O campo de data da família (o modelo é o Prazo do ResolvIA): atalhos em botões (Hoje, Amanhã, Sábado, Próx. semana;
+// Hoje e Ontem numa data que não passa de hoje) e Outra data, que abre o mês ali embaixo, na própria janela (nada da
+// janela de data do celular). ‹ e › trocam o mês; tocar no nome do mês mostra os meses do ano (para um vencimento longe).
+// O valor fica num campo escondido com o mesmo data-* de antes (data-lf="data", data-f="vencimento"...): escolher
+// muda o valor e manda o "input", e quem cuidava do campo continua cuidando.
+//   campoData(id, rotulo, valor, liga, { tipo: 'futuro'|'passado'|'livre', min, max, opcional, ajuda })
+const DC = {}; // por id: as opções do campo e o mês aberto ({mes: 'AAAA-MM', meses: true} ou nada)
+const DIAS_INI = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const DIAS_LONGOS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const addDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+// os atalhos de cada tipo de data (os que passam do mínimo ou do máximo ficam de fora)
+function atalhosData(tipo, h = hoje()) {
+  if (tipo === 'passado') return [['Hoje', iso(h)], ['Ontem', iso(addDias(h, -1))]];
+  if (tipo === 'livre') return [['Hoje', iso(h)], ['Ontem', iso(addDias(h, -1))], ['Amanhã', iso(addDias(h, 1))]];
+  const dow = h.getDay(), sab = (6 - dow + 7) % 7 || 7, seg = (1 - dow + 7) % 7 || 7;
+  const r = [['Hoje', iso(h)], ['Amanhã', iso(addDias(h, 1))]];
+  if (sab > 1) r.push(['Sábado', iso(addDias(h, sab))]);
+  if (seg > 1) r.push(['Próx. semana', iso(addDias(h, seg))]);
+  return r;
+}
+// "9 dez" (com o ano quando não é o deste ano): o texto do Outra data com uma data escolhida
+function dataCurta(s, h = hoje()) {
+  const d = pData(s);
+  return d ? `${d.getDate()} ${MESES[d.getMonth()]}${d.getFullYear() !== h.getFullYear() ? ' ' + d.getFullYear() : ''}` : '';
+}
+const mesDe = s => (/^\d{4}-\d{2}/.test(s || '') ? s.slice(0, 7) : iso(hoje()).slice(0, 7));
+function mudaMes(ym, n) { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + n, 1); return iso(d).slice(0, 7); }
+function campoData(id, rotulo, valor, liga, op = {}) {
+  const o = DC[id] = Object.assign(DC[id] && DC[id].liga === liga ? { mes: DC[id].mes, meses: DC[id].meses } : {}, { rotulo, liga, tipo: op.tipo || 'futuro', min: op.min || '', max: op.max || '', opcional: !!op.opcional, ajuda: op.ajuda || '' });
+  return `<div class="campo dc" data-dc="${id}"><div class="lbl" id="${id}-l">${rotulo}</div>${dcCorpo(id, valor)}</div>`;
+}
+function dcCorpo(id, valor) {
+  const o = DC[id], v = /^\d{4}-\d{2}-\d{2}$/.test(valor || '') ? valor : '';
+  const dentro = x => (!o.min || x >= o.min) && (!o.max || x <= o.max);
+  const at = atalhosData(o.tipo).filter(([, x]) => dentro(x)), rapido = at.some(([, x]) => x === v);
+  const outra = v && !rapido;
+  return `<input type="hidden" id="${id}" ${o.liga} data-dcv value="${esc(v)}">
+    <div class="chips dc-ch" role="group" aria-labelledby="${id}-l">${at.map(([t, x]) => `<button type="button" class="chip${x === v ? ' on' : ''}" aria-pressed="${x === v}" data-a="dc" data-id="${id}" data-v="${x}">${t}</button>`).join('')}
+      <button type="button" class="chip dc-outra${outra ? ' on' : ''}" aria-pressed="${outra}" aria-expanded="${!!o.mes}" data-a="dc-cal" data-id="${id}">${ic('calendar', 'ic-s')}<span>${outra ? dataCurta(v) : 'Outra data'}</span></button>
+      ${o.opcional && v ? `<button type="button" class="chip" data-a="dc" data-id="${id}" data-v="">${ic('x', 'ic-s')}<span>Sem data</span></button>` : ''}</div>
+    ${o.mes ? dcMes(id, v) : ''}${o.ajuda ? `<div class="ajuda">${o.ajuda}</div>` : ''}`;
+}
+// o mês (ou, tocando no nome, os meses do ano): domingo primeiro, como nos calendários do Brasil
+function dcMes(id, v) {
+  const o = DC[id], [y, m] = o.mes.split('-').map(Number), hj = iso(hoje());
+  const dentro = x => (!o.min || x >= o.min) && (!o.max || x <= o.max);
+  const nav = (n, txt, pode) => `<button type="button" class="icbtn cal-nav" data-a="dc-mes" data-id="${id}" data-v="${n}" aria-label="${txt}"${pode ? '' : ' disabled'}>${ic(n < 0 ? 'chevL' : 'chev')}</button>`;
+  if (o.meses) {
+    const ok = k => (!o.max || `${y}-${String(k + 1).padStart(2, '0')}-01` <= o.max) && (!o.min || iso(new Date(y, k + 1, 0)) >= o.min);
+    return `<div class="cal" role="group" aria-label="Escolher o mês">
+      <div class="cal-cab">${nav(-12, 'Ano anterior', !o.min || +o.min.slice(0, 4) < y)}<button type="button" class="cal-tit" data-a="dc-meses" data-id="${id}" aria-label="Voltar aos dias">${y}</button>${nav(12, 'Próximo ano', !o.max || +o.max.slice(0, 4) > y)}</div>
+      <div class="cal-meses">${MESES.map((t, k) => { const ym = `${y}-${String(k + 1).padStart(2, '0')}`; return `<button type="button" class="cal-m${ym === mesDe(v) && v ? ' on' : ''}${ym === hj.slice(0, 7) ? ' hoje' : ''}" data-a="dc-ir" data-id="${id}" data-v="${ym}"${ok(k) ? '' : ' disabled'}>${t}</button>`; }).join('')}</div></div>`;
+  }
+  const prim = new Date(y, m - 1, 1), dias = new Date(y, m, 0).getDate(), cels = [];
+  for (let i = 0; i < prim.getDay(); i++) cels.push('<span></span>');
+  for (let d = 1; d <= dias; d++) {
+    const x = `${o.mes}-${String(d).padStart(2, '0')}`, dt = new Date(y, m - 1, d);
+    cels.push(`<button type="button" class="cal-d${x === v ? ' on' : ''}${x === hj ? ' hoje' : ''}" data-a="dc" data-id="${id}" data-v="${x}" aria-pressed="${x === v}"${x === hj ? ' aria-current="date"' : ''} aria-label="${DIAS_LONGOS[dt.getDay()]}, ${d} de ${MESES_LONGOS[m - 1]} de ${y}"${dentro(x) ? '' : ' disabled'}>${d}</button>`);
+  }
+  const antes = iso(addDias(prim, -1)), depois = iso(new Date(y, m, 1));
+  return `<div class="cal" role="group" aria-label="Escolher a data">
+    <div class="cal-cab">${nav(-1, 'Mês anterior', !o.min || antes >= o.min)}<button type="button" class="cal-tit" data-a="dc-meses" data-id="${id}" aria-live="polite" aria-label="${MESES_LONGOS[m - 1]} de ${y}: escolher o mês">${MESES_LONGOS[m - 1][0].toUpperCase() + MESES_LONGOS[m - 1].slice(1)} de ${y}</button>${nav(1, 'Próximo mês', !o.max || depois <= o.max)}</div>
+    <div class="cal-grade">${DIAS_INI.map(t => `<span class="cal-s" aria-hidden="true">${t}</span>`).join('')}${cels.join('')}</div></div>`;
+}
+// redesenha só o campo (o resto da janela fica como está)
+function dcPintar(id) {
+  const box = document.querySelector(`[data-dc="${id}"]`), inp = document.getElementById(id);
+  if (!box || !DC[id]) return;
+  const tinha = box.contains(document.activeElement);
+  const lbl = box.querySelector(':scope > .lbl');
+  box.innerHTML = '';
+  if (lbl) box.appendChild(lbl);
+  box.insertAdjacentHTML('beforeend', dcCorpo(id, inp ? inp.value : ''));
+  if (tinha) dcFoco(id);
+}
+// o foco fica no campo de data depois de redesenhar: no dia escolhido do mês aberto, ou no botão escolhido
+function dcFoco(id) {
+  const b = document.querySelector(`[data-dc="${id}"] .cal-d.on, [data-dc="${id}"] .cal-m.on, [data-dc="${id}"] .cal-tit, [data-dc="${id}"] .chip.on`) || document.querySelector(`[data-dc="${id}"] .dc-outra`);
+  if (b) b.focus({ preventScroll: true });
+}
+// escolher uma data: o valor vai para o campo escondido (o "input" de sempre) e o mês fecha
+function dcEscolher(id, v) {
+  const inp = document.getElementById(id);
+  if (!inp || !DC[id]) return;
+  DC[id].mes = null; DC[id].meses = false;
+  inp.value = v;
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  dcPintar(id);
+}
+function dcAcao(a, id, v) {
+  const o = DC[id], inp = document.getElementById(id);
+  if (!o) return;
+  if (a === 'dc') return dcEscolher(id, v);
+  if (a === 'dc-cal') { o.mes = o.mes ? null : mesDe(inp && inp.value || (o.min > iso(hoje()) ? o.min : o.max && o.max < iso(hoje()) ? o.max : '')); o.meses = false; }
+  else if (a === 'dc-mes') o.mes = mudaMes(o.mes, +v);
+  else if (a === 'dc-meses') o.meses = !o.meses;
+  else if (a === 'dc-ir') { o.mes = v; o.meses = false; }
+  dcPintar(id);
+  if (a === 'dc-cal' && o.mes) { const c = document.querySelector(`[data-dc="${id}"] .cal`); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+}
 
 /* ------------------------------------------------------------------ estado */
 // Até a 1.25, Mais era em abas (maisAba). Agora Mais é um menu: Bancos, Caixa e Invest viraram telas (maisTela) e as
@@ -2794,7 +2939,7 @@ function cardInv(i, v) {
   const velho = dv && diasEntre(dv, h) > 60 && i.indexador !== 'parado';
   return `<button class="inv" data-a="inv" data-id="${i.id}" style="--c:${corOk(b?.cor) || 'var(--line-2)'}">
     <div class="inv-top"><div class="inv-nome">${esc(i.nome)}</div><div class="inv-valor">${brl(v)}</div></div>
-    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${i.partes && i.partes.length > 1 ? plural(i.partes.length, 'categoria', 'categorias') : esc(nomeCatBem(i.partes && i.partes.length ? i.partes[0].categoria : i.categoria_bem))}` : `${esc(b?.nome || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
+    <div class="inv-meta"><i></i>${i.tipo === 'dinheiro' && !b ? 'Em espécie' : i.tipo === 'bens' ? `Bens · ${i.partes && i.partes.length > 1 ? plural(i.partes.length, 'categoria', 'categorias') : esc(nomeCatBem(i.partes && i.partes.length ? i.partes[0].categoria : i.categoria_bem))}` : `${esc(bancoDoInvest(i) || 'Sem banco')} · ${esc(tipoDe(i.tipo).nome)}`}</div>
     <div class="tags"><span class="tag taxa">${esc(rotuloTaxa(i))}</span>${tagDono(i)}${liq}</div>
     <div class="inv-pe"><span>${r > 0 ? `≈ ${brl(rendeMes(v, r))} por mês` : r < 0 ? `perde ≈ ${brl(perdeMesInv(i, v))} por mês` : 'Não rende'}</span>
       <span${velho ? ' style="color:var(--danger)"' : ''}>${dv ? 'valor de ' + fDataC(dv) + (dv.getFullYear() !== h.getFullYear() ? '/' + String(dv.getFullYear()).slice(2) : '') : ''}</span></div>
@@ -3896,10 +4041,10 @@ function montarFormLanc() {
     }
     c += `</div>`;
   }
-  c += `<div class="duo"><div class="campo"><label for="lf-data">${noCartao ? 'Data da compra' : 'Data'}</label><input id="lf-data" class="inp" type="date" data-lf="data" value="${esc(f.data)}"></div>
+  c += campoData('lf-data', noCartao ? 'Data da compra' : 'Data', f.data, 'data-lf="data"', { tipo: 'livre' }) + `
     <div class="campo"><div class="lbl">Situação</div>${vinc ? `<p class="vinc-st">${ic('repeat', 'ic-s')}Baixa com ${esc(vinc.descricao)}</p>` : `<div class="seg mini" style="margin:0">
       <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago'}</button>
-      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div></div>`;
+      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div>`;
   if (apo && f.pago && !f.pagoOrig) c += campoInvestimentoAporte(f);
   const recsFixos = rec || apo || f.ajuste ? [] : recebimentosFixos();
   if (recsFixos.length || vinc) {
@@ -5161,8 +5306,8 @@ function revisarItemHTML() {
       <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
         <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.filter(x => !x.oculto || x.id === r.indexador).map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
       ${ix.taxa ? `<div class="campo"><label for="iae-taxa">Taxa (${esc(ix.suf)})</label><input id="iae-taxa" class="inp" data-iae="taxa" inputmode="decimal" value="${r.taxa || r.taxa === 0 ? String(r.taxa).replace('.', ',') : ''}" placeholder="${ix.ph}"></div>` : ''}
-      <div class="campos-2"><div class="campo"><label for="iae-venc">Vencimento</label><input id="iae-venc" class="inp" type="date" data-iae="vencimento" value="${esc(r.vencimento || '')}"></div>
-        <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">No venc.</button></div></div></div>`;
+      <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">No vencimento</button></div></div>
+      ${campoData('iae-venc', 'Vencimento <span class="opc">(opcional)</span>', r.vencimento || '', 'data-iae="vencimento"', { opcional: true })}`;
   return { titulo: ex ? `Revisar ${esc(ex.nome)}` : 'Revisar investimento novo', corpo,
     pe: `<button class="btn" data-a="iae-voltar">Voltar</button><button class="btn pri" data-a="iae-ok">Pronto</button>` };
 }
@@ -5385,8 +5530,7 @@ function montarDicaAnual() {
       <div><span>No anual</span><b>${fmtPreco(x.anual, x.moeda)}</b><small>por ano, na página oficial</small></div></div>
     <div class="campo"><label for="da-valor">Valor da cobrança anual</label><div class="pref grande${DA.erro ? ' erro' : ''}"><span>R$</span><input id="da-valor" data-da="valor" inputmode="numeric" value="${DA.valor ? NF2.format(DA.valor) : ''}"></div>
       <div class="ajuda">${x.estimado ? `Estimado no câmbio de hoje: ${fmtPreco(x.anual, x.moeda)}.` : `Preço da página oficial.`}</div>${DA.erro ? `<div class="msg-erro">${DA.erro}</div>` : ''}</div>
-    <div class="campo"><label for="da-data">Primeira cobrança anual</label><input id="da-data" class="inp" type="date" data-da="data" value="${esc(DA.data)}">
-      <div class="ajuda">Todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.</div></div>
+    ${campoData('da-data', 'Primeira cobrança anual', DA.data, 'data-da="data"', { ajuda: `Todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.` })}
     <div class="eco-linha" id="da-eco">${ecoDA()}</div>`;
   return { titulo: `${esc(x.nome)} no plano anual`, corpo, pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="da-ok">Mudar para anual</button>` };
 }
@@ -5939,6 +6083,14 @@ function contaDoInvest(f, bancos = S.d.bancos) {
   if (cs.length <= 1) return cs[0] ? cs[0].id : '';
   const quem = semAcento(f.titular === 'terceiros' ? f.terceiro : (S.usuario || '').split(' ')[0]);
   return (cs.find(c => quem && semAcento(c.pessoa) === quem) || cs[0]).id;
+}
+// o banco de um investimento como aparece no card e no relatório: com a pessoa da conta quando o banco tem mais de uma
+// (Banco Azul · Ana); igual ao calc.banco_do_invest
+function bancoDoInvest(i, bancos = S.d.bancos) {
+  const b = bancos.find(x => x.id === i.banco);
+  if (!b) return '';
+  const cs = (b.contas || []).filter(c => c && c.id), k = cs.length > 1 && cs.find(c => c.id === contaDoInvest(i, bancos));
+  return b.nome + (k && k.pessoa ? ' · ' + k.pessoa : '');
 }
 // o próximo nível da conta (o nome e quanto ele pede): {nome, pede, tem, falta} ou null
 function metaNivel(c, bancoId) {
@@ -6587,8 +6739,8 @@ function abrirBeneficio(id) {
             <div class="pref${f.erro === 'total' ? ' erro' : ''}">${f.tipo === 'saldo' ? `<span>${MOEDA_BEN[f.moeda] || 'R$'}</span>` : ''}<input id="fben-total" inputmode="decimal" data-fben="total" value="${esc(String(f.total ?? '').replace('.', ','))}" placeholder="${f.tipo === 'saldo' ? '100' : '6'}"></div>
             ${f.tipo === 'saldo' ? seg('moeda', [['BRL', 'Reais'], ['USD', 'Dólares']]) : '<div></div>'}</div></div>
           <div class="campo"><div class="lbl">Renova</div>${seg('renova', [['mes', 'Todo mês'], ['ano', 'Todo ano'], ['nunca', 'Não renova']])}</div>` : ''}
-        <div class="duo"><div class="campo"><label for="fben-desde">${conta && f.renova !== 'nunca' ? 'Renova a partir de' : 'Desde'}</label><input id="fben-desde" type="date" class="inp" data-fben="desde" value="${esc(f.desde || '')}"></div>
-          <div class="campo"><label for="fben-validade">Vale até <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input id="fben-validade" type="date" class="inp" data-fben="validade" value="${esc(f.validade || '')}"></div></div>
+        ${campoData('fben-desde', conta && f.renova !== 'nunca' ? 'Renova a partir de' : 'Desde', f.desde || '', 'data-fben="desde"', { tipo: 'livre' })}
+        ${campoData('fben-validade', 'Vale até <span class="opc">(opcional)</span>', f.validade || '', 'data-fben="validade"', { opcional: true })}
         <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input id="fben-obs" class="inp" data-fben="obs" value="${esc(f.obs || '')}" placeholder="Ex.: com 1 acompanhante" autocomplete="off"></div>
         ${f.id && conta ? `<div class="campo"><div class="lbl">Usos deste período · ${esc(qtdBen(f, c.usado))} de ${esc(qtdBen(f, +f.total || 0))}</div>${usos.length ? usos.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(qtdBen(f, +u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este uso">${ic('x', 'ic-s')}</button></div>`).join('') : '<p class="nota" style="margin:0">Nenhum uso ainda.</p>'}</div>` : ''}`,
       pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-salvar">Salvar</button>`,
@@ -6953,6 +7105,7 @@ function marcarHist(h) {
 }
 function abrirFolha(montar, aoFechar, sobre) {
   const root = $('#folhas');
+  for (const k in DC) delete DC[k]; // uma janela nova abre com os meses dos campos de data fechados
   if (sobre && FOLHA) {
     const c = $('.folha-corpo', root);
     FOLHA.scroll = c ? c.scrollTop : 0;
@@ -7090,7 +7243,7 @@ function montarAplicar() {
       <div class="campo"><label for="ap-v">${a.modo === 'total' ? 'Quanto tem agora, no total' : 'Quanto você aplicou'}</label><div class="pref grande${a.erro ? ' erro' : ''}"><span>R$</span><input id="ap-v" data-ap="${a.modo === 'total' ? 'total' : 'valor'}" inputmode="numeric" value="${a.modo === 'total' ? (a.total ? NF2.format(a.total) : '') : (a.valor ? NF2.format(a.valor) : '')}" placeholder="0,00"></div>
         ${a.erro ? `<div class="msg-erro">${esc(a.erro)}</div>` : ''}
         <div class="ajuda" id="ap-ajuda">${aplicarAjuda(atual)}</div></div>
-      <div class="campo"><label for="ap-data">Data</label><input id="ap-data" class="inp" type="date" data-ap="data" value="${esc(a.data)}" max="${iso(hoje())}"></div>
+      ${campoData('ap-data', 'Data', a.data, 'data-ap="data"', { tipo: 'passado', max: iso(hoje()) })}
       <div class="campo"><div class="lbl">No caixa</div><div class="chips" style="margin:0">
         ${pend.map(l => chip(l.id, `Baixa no ${esc(l.descricao.toLowerCase().startsWith('aporte') ? 'aporte' : l.descricao)} de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]} (${brl(+l.valor || 0, 0)})`)).join('')}
         ${chip('novo', pend.length ? 'Lançar à parte' : 'Lançar como aporte')}${chip('nenhum', 'Não lançar')}</div>
@@ -7265,10 +7418,10 @@ function montarFormInv() {
   c += `</div>
     <div class="campo"><div class="lbl">Tipo</div><div class="chips" style="margin:0">${TIPOS.map(t =>
       `<button class="chip${f.tipo === t.id ? ' on' : ''}" data-a="f-tipo" data-v="${t.id}">${t.nome}</button>`).join('')}</div></div>
-    <div class="duo"><div class="campo" style="margin-bottom:6px"><label for="f-valor">Valor atual</label>
+    <div class="campo" style="margin-bottom:6px"><label for="f-valor">Valor atual</label>
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"${f.tipo === 'bens' && f.dividir ? ' readonly aria-readonly="true" title="A soma das categorias"' : ''}></div></div>
-      <div class="campo" style="margin-bottom:6px"><label for="f-data">Valor em</label><input id="f-data" class="inp" type="date" data-f="data_valor" value="${esc(f.data_valor)}" max="${iso(hoje())}"></div></div>
-    ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:20px"></div>
+    ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:16px"></div>
+    ${campoData('f-data', 'Valor em', f.data_valor, 'data-f="data_valor"', { tipo: 'passado', max: iso(hoje()) })}
     ${f.tipo === 'bens' ? camposBens(f) : ''}
     <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${x.nome}</button>`).join('')}</div>
@@ -7277,8 +7430,7 @@ function montarFormInv() {
     <div class="campo"${oculto}><div class="lbl">Liquidez</div><div class="seg" style="margin:0">
       <button class="${f.liquidez === 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="diaria">Diária</button>
       <button class="${f.liquidez !== 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="vencimento">No vencimento</button></div></div>
-    <div class="campo"${oculto}><label for="f-venc">Vencimento <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-      <input id="f-venc" class="inp" type="date" data-f="vencimento" value="${esc(f.vencimento || '')}"></div>
+    ${oculto ? '' : campoData('f-venc', 'Vencimento <span class="opc">(opcional)</span>', f.vencimento || '', 'data-f="vencimento"', { opcional: true })}
     ${fotosFormHTML()}
     <div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="f-obs">${ic('chev', 'ic-s')}Observação</button>
       ${f.obsAberta ? `<textarea class="inp" data-f="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar sobre este investimento">${esc(f.obs)}</textarea>` : ''}</div>`;
@@ -7558,6 +7710,7 @@ document.addEventListener('click', ev => {
     }
     case 'mais-tela': irPara('mais', null, v); break;
     case 'mais-volta': irPara('mais'); break;
+    case 'dc': case 'dc-cal': case 'dc-mes': case 'dc-meses': case 'dc-ir': dcAcao(a, id, v || ''); break;
     case 'novo':
       if (S.ui.tab === 'investimentos') abrirInvestimento(null, S.ui.filtro === 'terc' && S.ui.pessoa ? { titular: 'terceiros', terceiro: S.ui.pessoa } : null);
       else if (S.ui.tab === 'caixa') abrirLancamento(null, { tipo: S.ui.cxFiltro === 'entradas' ? 'receita' : 'despesa' });
@@ -7963,7 +8116,7 @@ document.addEventListener('input', ev => {
       const dig = el.value.replace(/\D/g, '').slice(0, 13);
       F.valor = dig ? parseInt(dig, 10) / 100 : 0;
       el.value = dig ? NF2.format(F.valor) : '';
-      if (F.original && !F.dataEditadaAgora) { F.data_valor = iso(hoje()); $('[data-f="data_valor"]').value = F.data_valor; }
+      if (F.original && !F.dataEditadaAgora && F.data_valor !== iso(hoje())) { F.data_valor = iso(hoje()); const dv = $('#f-data'); if (dv) { dv.value = F.data_valor; dcPintar('f-data'); } }
       delete F.erros.valor;
     } else if (k === 'taxa') { const n = parseNum(el.value); F.taxa = isNaN(n) ? '' : n; }
     else if (k === 'nb-nome') F.novoBanco.nome = el.value;
@@ -8230,9 +8383,10 @@ function pintarFolhaDepois() {
   clearTimeout(pfT);
   pfT = setTimeout(() => {
     const ativo = document.activeElement, sel = ativo && ativo.dataset && (ativo.dataset.lf ? `[data-lf="${ativo.dataset.lf}"]` : null);
-    const pos = ativo && ativo.selectionStart;
+    const pos = ativo && ativo.selectionStart, dc = ativo && ativo.closest && ativo.closest('[data-dc]');
     pintarFolha();
-    if (sel) { const e = $(sel); if (e) { e.focus(); try { e.setSelectionRange(pos, pos); } catch (x) { /* ok */ } } }
+    if (dc) dcFoco(dc.dataset.dc);
+    else if (sel) { const e = $(sel); if (e) { e.focus(); try { e.setSelectionRange(pos, pos); } catch (x) { /* ok */ } } }
   }, 450);
 }
 

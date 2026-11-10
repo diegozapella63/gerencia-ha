@@ -768,6 +768,32 @@ class TestRelatorioBens(unittest.TestCase):
 
 
 
+class TestRelatorioContas(unittest.TestCase):
+    """1.52: num banco com conta de mais de uma pessoa, o relatório diz de quem é a conta (Banco Azul · Beto), na página e no PDF."""
+
+    def carteira(self):
+        d = carteira()
+        d["bancos"][0]["contas"] = [{"id": "ka", "pessoa": "Ana"}, {"id": "kb", "pessoa": "Beto"}]
+        d["investimentos"][0]["conta"] = "kb"
+        return d
+
+    def test_linha_com_a_pessoa_da_conta(self):
+        linhas = {l["nome"]: (l["banco"], l["pessoa"]) for sec in S.dados_relatorio(self.carteira(), usuario="Ana")["secoes"] for l in sec["linhas"]}
+        self.assertEqual(linhas["CDB Azul 1"], ("Banco Azul", "Beto"), "a conta escolhida")
+        self.assertEqual(linhas["CDB Azul 2"], ("Banco Azul", "Ana"), "um de antes: a de quem usa o app")
+        self.assertEqual(linhas["Tesouro Selic"], ("Corretora Verde", ""), "banco sem contas de várias pessoas: só o banco")
+        self.assertEqual([b[0] for b in S.dados_relatorio(self.carteira())["bancos"]][:1], ["Banco Azul"], "o Por banco continua por banco")
+
+    def test_na_pagina_e_no_pdf(self):
+        html = S.gerar_relatorio(self.carteira(), usuario="Ana").decode()
+        self.assertIn("<td>Banco Azul<small>Beto</small></td>", html, "embaixo do banco")
+        self.assertIn("<span class=bm> · Banco Azul · Beto</span>", html, "no celular, junto do tipo")
+        self.assertIn("<td>Corretora Verde</td>", html)
+        t = textos(S.gerar_relatorio_pdf(self.carteira(), usuario="Ana"))
+        self.assertEqual(t[t.index("CDB Azul 1"):t.index("CDB Azul 1") + 4], ["CDB Azul 1", "CDB", "Banco Azul", "Sem rendimento"])
+        self.assertIn("Beto", t, "no PDF, embaixo do banco")
+
+
 class TestRelatorioPdf(unittest.TestCase):
     """O PDF do relatório: o cabeçalho do app, o resumo, as colunas de valor, os bens, o Por banco e o pé de cada página."""
 

@@ -448,6 +448,36 @@ def mapa_contas(data):
     return contas
 
 
+def conta_do_invest(inv, bancos, usuario=""):
+    """A conta de um investimento: a escolhida; nos de antes, num banco com várias pessoas, a do terceiro dono dele, senão
+    a de quem usa o app (ou a primeira). Igual ao contaDoInvest do app.js."""
+    b = next((x for x in bancos or [] if isinstance(x, dict) and x.get("id") == inv.get("banco")), None)
+    cs = [c for c in (b or {}).get("contas") or [] if isinstance(c, dict) and c.get("id")]
+    if inv.get("conta") and any(c["id"] == inv["conta"] for c in cs):
+        return inv["conta"]
+    if len(cs) <= 1:
+        return cs[0]["id"] if cs else ""
+    quem = _sem_acento(inv.get("terceiro") if inv.get("titular") == "terceiros" else (usuario or "").split(" ")[0])
+    return next((c for c in cs if quem and _sem_acento(c.get("pessoa")) == quem), cs[0])["id"]
+
+
+def banco_e_pessoa(inv, bancos, usuario=""):
+    """(o banco, de quem é a conta) de um investimento; a pessoa só quando o banco tem conta de mais de uma ("" senão)."""
+    b = next((x for x in bancos or [] if isinstance(x, dict) and x.get("id") == inv.get("banco")), None)
+    if not b:
+        return "", ""
+    cs = [c for c in b.get("contas") or [] if isinstance(c, dict) and c.get("id")]
+    k = next((c for c in cs if c["id"] == conta_do_invest(inv, bancos, usuario)), None) if len(cs) > 1 else None
+    return b.get("nome", ""), (k or {}).get("pessoa") or ""
+
+
+def banco_do_invest(inv, bancos, usuario=""):
+    """O banco de um investimento no card: com a pessoa da conta quando o banco tem mais de uma (Banco Azul · Ana).
+    Igual ao bancoDoInvest do app.js."""
+    b, p = banco_e_pessoa(inv, bancos, usuario)
+    return b + (f" · {p}" if p else "")
+
+
 def nome_conta(c):
     if not c:
         return ""

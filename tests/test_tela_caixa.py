@@ -405,7 +405,7 @@ class TestCartao(Caixa):
     def test_compra_no_cartao_diz_em_que_fatura_entra(self):
         self.no_cartao("k-ana")
         self.assertEqual(self.fatura(), "Entra na fatura que vence em 12/11/2026 (fecha dia 5, vence dia 12).")
-        self.assertEqual(self.texto('.folha label[for="lf-data"]'), "Data da compra", "no cartão, a data é a da compra")
+        self.assertEqual(self.texto('.folha #lf-data-l'), "Data da compra", "no cartão, a data é a da compra")
 
     def test_compra_no_dia_do_fechamento_vai_para_a_fatura_seguinte(self):
         self.no_cartao("k-ana")

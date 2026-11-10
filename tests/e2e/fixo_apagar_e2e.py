@@ -4,7 +4,7 @@ da lista; apagar tudo leva os lançamentos dele."""
 import sys, json, urllib.request
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
-from _confere import igual, tem, sim, mes, ir_mais
+from _confere import igual, tem, sim, mes, ir_mais, data
 MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
@@ -21,7 +21,7 @@ with sync_playwright() as p:
     # recebimento todo ano, recebido
     pg.click('[data-a="lanc-novo"][data-v="receita"]'); pg.wait_for_timeout(400)
     pg.click('#lf-valor'); pg.keyboard.type('2400000')
-    pg.fill('#lf-data', d_anual.isoformat()); pg.wait_for_timeout(300)
+    data(pg, 'lf-data', d_anual.isoformat()); pg.wait_for_timeout(300)
     pg.click('[data-a="lf-set"][data-k="repete"][data-v="anual"]'); pg.wait_for_timeout(200)
     pg.click('[data-a="lf-salvar"]:not([data-mais])'); pg.wait_for_timeout(800)
     d = get('api/state')
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     igual(len(d['lancamentos']), 1, 'o que já foi lançado continua')
     # de novo: criar e apagar tudo
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(300); pg.click('.escolhas [data-a="lanc-novo"][data-v="receita"]'); pg.wait_for_timeout(400)
-    pg.click('#lf-valor'); pg.keyboard.type('100000'); pg.fill('#lf-data', d_mensal.isoformat()); pg.wait_for_timeout(300)
+    pg.click('#lf-valor'); pg.keyboard.type('100000'); data(pg, 'lf-data', d_mensal.isoformat()); pg.wait_for_timeout(300)
     pg.click('[data-a="lf-set"][data-k="repete"][data-v="mensal"]'); pg.click('[data-a="lf-salvar"]:not([data-mais])'); pg.wait_for_timeout(800)
     d = get('api/state'); n0 = len(d['lancamentos'])
     igual(n0, 2, 'o fixo mensal lançou o primeiro mês')
