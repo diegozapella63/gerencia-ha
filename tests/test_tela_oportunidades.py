@@ -210,7 +210,8 @@ class TestAvisoNoCelular(TelaOport):
         self.assertEqual((a["op_aviso"], a["op_para"]), (True, ["person.ana"]))
         self.pg.wait_for_selector("#op-oport .quem-p")
         self.assertEqual(self.pg.input_value("#op-hora"), "10:00")
-        self.assertEqual(self.textos("#op-oport .op-hora-l .btn"), ["Testar"], "o Testar ao lado do horário, como no ResolvIA")
+        self.assertEqual(self.texto('#op-oport [data-a="op-testar"]'), "Testar no meu celular", "o mesmo nome dos outros avisos (padrão da família)")
+        self.assertEqual(self.js("[...document.querySelectorAll('#op-oport .op-hora-l > div > label')].map(l => l.textContent)"), ["Horário", "A cada"], "lado a lado")
         self.assertIn("O que chegou ao alvo ou, sem alvo, rende mais que os seus.", self.texto("#op-oport"))
         self.assertEqual(self.pg.input_value("#op-dias"), "1")
 

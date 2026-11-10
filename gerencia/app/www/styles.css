@@ -8,7 +8,7 @@
 
 /* Layout: coluna única de celular; o comprovante do caixa eletrônico abre o Início. */
 :root {
-  --accent: #56AEFF;
+  --accent: #62B5FF;
   --on-accent: #0b0f14;
   --font: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-d: "Barlow Condensed", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -1220,8 +1220,6 @@ input[readonly] { opacity: .8; }
 .ch-sug .chip { white-space: normal; text-align: center; }
 .folha-pe .ch-pe { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ch-pe .msg-erro { margin: 0; }
-.ch-pe-limpar p { margin: 0; font-weight: 600; }
-.ch-pe-limpar .ch-bts { margin-top: 4px; }
 .ch-campo { display: flex; align-items: flex-end; gap: 6px; }
 .ch-campo textarea { flex: 1; min-width: 0; resize: none; max-height: 132px; padding: 11px 14px; border-radius: 22px; border: 1px solid var(--line-2);
   background: var(--card-2); color: var(--text); font: 16px/1.35 var(--font); }
@@ -1310,7 +1308,8 @@ input[readonly] { opacity: .8; }
 .op-hora-l { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }  /* as duas metades iguais: Horário e Testar; A cada e o vazio */
 .op-hora-l > * { min-width: 0; }
 .op-hora-l .btn { justify-content: center; min-width: 0; padding-left: 10px; padding-right: 10px; }
-.op-hora-l > .pref.mini.op-dias { width: auto; }
+.op-hora-l > div > label { display: block; }
+.op-hora-l select.inp, .op-hora-l .pref.mini.op-dias { width: 100%; min-height: 50px; }
 .pref.mini.larga.op-dias { width: auto; min-height: 50px; }  /* do tamanho do Horário */
 .nivel-l { margin-top: 10px; }
 .nivel-l .inp { width: 100%; }

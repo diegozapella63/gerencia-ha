@@ -287,7 +287,7 @@ class TestJanelaLerComIA(TelaIA):
         self.abrir(base(bancos=BANCOS))
         self.ler_com_ia()
         self.assertEqual(self.folha(), "Ler com IA")
-        self.assertEqual([_limpo(b) for b in self.textos("#folhas .ia-arq .btn")], ["Fatura, print, foto ou PDF", "Digitalizar com a câmera", "Falar"])
+        self.assertEqual([_limpo(b) for b in self.textos("#folhas .ia-arq .btn")], ["Fatura, print, foto ou PDF", "Digitalizar com IA", "Falar"])
         self.assertEqual(self.conta("#folhas #ia-txt"), 1, "campo para colar o texto")
         self.assertTrue(self.desligado('#folhas [data-a="ia-ler"]'), "sem texto nem arquivo, Ler com IA fica desligado")
 
@@ -353,14 +353,14 @@ class TestJanelaLerComIA(TelaIA):
         self.assertEqual(self.texto("#folhas .msg-erro"), "A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.")
 
     def test_ia_que_nao_esta_pronta_avisa_onde_ver(self):
-        """O aviso leva aonde a Leitura por IA fica hoje (até a 1.26 dizia "Mais > Leitura por IA", que não existe mais)."""
+        """O aviso leva aonde a IA do Home Assistant fica hoje (até a 1.26 dizia "Mais > IA do Home Assistant", que não existe mais)."""
         self.abrir(base(bancos=BANCOS))
         self.js("(T.S.ia = { pronta: false, motivo: 'Nenhuma IA configurada no Home Assistant.', entidades: [] }, true)")
         self.ler_com_ia()
         self.assertEqual(_limpo(self.texto("#folhas .aviso-fixo")), "Nenhuma IA configurada no Home Assistant. Veja em Mais › Configurações › Integrações.")
         self.clicar('#folhas .folha-cab [data-a="fechar"]')
         self.ir_mais("config", "integracoes")
-        self.assertEqual(self.conta("#ia .linha-sw"), 1, "e lá está a Leitura por IA")
+        self.assertEqual(self.conta("#ia .linha-sw"), 1, "e lá está a IA do Home Assistant")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -450,7 +450,7 @@ class TestSenhaDoPdf(TelaIA):
         self.pg.wait_for_selector("#folhas .ia-prev")
         self.clicar('#folhas [data-a="ia-ler"]')
         self.esperar_ia()
-        self.assertEqual(self.folha(), "Fatura, print ou foto")
+        self.assertEqual(self.folha(), "Escolher fotos ou PDF")
         self.assertEqual(self.texto("#folhas .msg-erro"), "Nenhuma das senhas cadastradas abre este PDF.")
         self.preencher("#ia-senha", "12345")
         self.clicar('#folhas [data-a="ia-ler"]')
@@ -467,14 +467,14 @@ class TestQuadrinhos(TelaIA):
         self.abrir(base(bancos=BANCOS))
         self.nova_despesa()
         self.assertEqual(self.folha(), "Nova despesa")
-        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Fatura, print ou foto", "Digitalizar com IA", "Falar"],
+        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Escolher fotos ou PDF", "Digitalizar com IA", "Falar"],
                          "com https e fala para texto, nenhum aviso nos quadrinhos")
 
     def test_novo_investimento_tem_imagem_ou_print_e_atualizar_saldos(self):
         self.abrir(base(bancos=BANCOS, investimentos=[CDB]))
         self.novo_investimento()
         self.assertEqual(self.folha(), "Novo investimento")
-        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Imagem ou print", "Digitalizar com IA", "Falar"])
+        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Escolher fotos", "Digitalizar com IA", "Falar"])
         self.assertEqual(_limpo(self.texto("#folhas .imp-saldos")), "Atualizar saldos de vários")
 
     def test_colar_mensagem_abre_so_o_campo_da_mensagem(self):
@@ -507,14 +507,14 @@ class TestQuadrinhos(TelaIA):
         self.assertEqual((self.folha(), self.niveis()), ("Nova despesa", 1), "com a galeria aberta, a Nova despesa continua")
         escolha.set_files(JPG)
         self.pg.wait_for_selector("#folhas .ia-prev")
-        self.assertEqual((self.folha(), self.niveis()), ("Fatura, print ou foto", 2), "escolheu: a leitura abre por cima da Nova despesa")
+        self.assertEqual((self.folha(), self.niveis()), ("Escolher fotos ou PDF", 2), "escolheu: a leitura abre por cima da Nova despesa")
 
     def test_colar_imagem_na_nova_despesa_abre_a_leitura_com_ela(self):
         self.abrir(base(bancos=BANCOS))
         self.nova_despesa()
         self.soltar_arquivo("colar", "png", "colada.png")
         self.pg.wait_for_selector("#folhas .ia-prev")
-        self.assertEqual((self.folha(), self.niveis()), ("Fatura, print ou foto", 2))
+        self.assertEqual((self.folha(), self.niveis()), ("Escolher fotos ou PDF", 2))
         self.assertEqual(self.texto("#folhas .ia-prev b"), "colada.png")
 
     def test_soltar_pdf_no_novo_investimento_abre_imagem_ou_print(self):
@@ -523,20 +523,20 @@ class TestQuadrinhos(TelaIA):
         self.novo_investimento()
         self.soltar_arquivo("soltar", "pdf", "extrato.pdf")
         self.pg.wait_for_selector("#folhas .ia-prev")
-        self.assertEqual((self.folha(), self.niveis()), ("Imagem ou print", 2))
+        self.assertEqual((self.folha(), self.niveis()), ("Escolher fotos", 2))
         self.assertEqual((self.texto("#folhas .ia-prev b"), self.texto("#folhas .ia-prev small")), ("extrato.pdf", "PDF"))
 
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestVoltarParaANovaDespesa(TelaIA):
-    """Fatura, print ou foto e Falar, abertos da Nova despesa (ou do Novo investimento), voltam para ela. O X, o Cancelar,
+    """Escolher fotos ou PDF e Falar, abertos da Nova despesa (ou do Novo investimento), voltam para ela. O X, o Cancelar,
     o que foi digitado e o salvar que fecha tudo, a partir do Colar mensagem, estão em test_tela_mais.py (TestNavegacao)."""
 
     def abrir_fatura(self):
         self.nova_despesa()
         self.escolher('#folhas [data-a="ia-de"][data-ini="arquivo"]', JPG)
         self.pg.wait_for_selector("#folhas .ia-prev")
-        self.assertEqual(self.folha(), "Fatura, print ou foto")
+        self.assertEqual(self.folha(), "Escolher fotos ou PDF")
 
     def test_voltar_do_celular_na_fatura_volta_para_a_nova_despesa(self):
         self.abrir(base(bancos=BANCOS))
@@ -712,7 +712,7 @@ class TestCameraSemHttps(TelaIA):
         self.nova_despesa()
         self.clicar('#folhas [data-a="ia-de"][data-ini="camera"]')
         self.assertEqual(self.texto("#camera .cam-msg p"), "A câmera só abre aqui com o Home Assistant num endereço seguro (https), "
-                                                           "como o do Nabu Casa. Dá para tirar a foto pelo celular e escolher.")
+                                                           "como o do Home Assistant Cloud. Dá para tirar a foto pelo celular e escolher.")
         escolha = self.galeria('#camera [data-a="cam-galeria"]')
         self.assertEqual(escolha.element.get_attribute("capture"), "environment")
         escolha.set_files(JPG)
@@ -1222,7 +1222,7 @@ class TestFalar(TelaIA):
         self.js("(T.S.voz = { pronta: false, motivo: 'Nenhuma fala para texto no Home Assistant.' }, T.render(), true)")
         self.assertEqual(self.conta('#app [data-a="falar"]'), 0, "sem o microfone no alto")
         self.nova_despesa()
-        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Fatura, print ou foto", "Digitalizar com IA"], "sem o quadrinho Falar")
+        self.assertEqual(self.quadrinhos(), ["Colar mensagem", "Escolher fotos ou PDF", "Digitalizar com IA"], "sem o quadrinho Falar")
 
     def test_mensagens_de_erro_do_microfone_explicam_o_que_fazer(self):
         self.abrir(base())
@@ -1231,13 +1231,13 @@ class TestFalar(TelaIA):
                                "no app do celular, nas permissões do app Home Assistant) e tente de novo.")
         self.assertEqual(m[1], "Não achei um microfone neste aparelho.")
         self.assertEqual(m[2], "O microfone está sendo usado por outro app. Feche o outro e tente de novo.")
-        self.assertEqual(m[3], "Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app.",
+        self.assertEqual(m[3], "Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Home Assistant Cloud) ou pelo app.",
                          "sem https: explica onde abrir")
 
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestCardsDaIAEmMais(TelaIA):
-    """Mais › Configurações › Integrações: Leitura por IA (a chave, a situação, qual IA) e os tipos do Uso da IA (os números e o gráfico por dia
+    """Mais › Configurações › Integrações: IA do Home Assistant (a chave, a situação, qual IA) e os tipos do Uso da IA (os números e o gráfico por dia
     estão em test_tela_mais.py)."""
 
     def integracoes(self):

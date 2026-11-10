@@ -14,7 +14,7 @@
 
 /* Layout: coluna única de celular; o comprovante do caixa eletrônico abre o Início. */
 :root {
-  --accent: #56AEFF;
+  --accent: #62B5FF;
   --on-accent: #0b0f14;
   --font: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-d: "Barlow Condensed", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -1226,8 +1226,6 @@ input[readonly] { opacity: .8; }
 .ch-sug .chip { white-space: normal; text-align: center; }
 .folha-pe .ch-pe { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ch-pe .msg-erro { margin: 0; }
-.ch-pe-limpar p { margin: 0; font-weight: 600; }
-.ch-pe-limpar .ch-bts { margin-top: 4px; }
 .ch-campo { display: flex; align-items: flex-end; gap: 6px; }
 .ch-campo textarea { flex: 1; min-width: 0; resize: none; max-height: 132px; padding: 11px 14px; border-radius: 22px; border: 1px solid var(--line-2);
   background: var(--card-2); color: var(--text); font: 16px/1.35 var(--font); }
@@ -1316,7 +1314,8 @@ input[readonly] { opacity: .8; }
 .op-hora-l { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }  /* as duas metades iguais: Horário e Testar; A cada e o vazio */
 .op-hora-l > * { min-width: 0; }
 .op-hora-l .btn { justify-content: center; min-width: 0; padding-left: 10px; padding-right: 10px; }
-.op-hora-l > .pref.mini.op-dias { width: auto; }
+.op-hora-l > div > label { display: block; }
+.op-hora-l select.inp, .op-hora-l .pref.mini.op-dias { width: 100%; min-height: 50px; }
 .pref.mini.larga.op-dias { width: auto; min-height: 50px; }  /* do tamanho do Horário */
 .nivel-l { margin-top: 10px; }
 .nivel-l .inp { width: 100%; }
@@ -1743,15 +1742,15 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.48.0';
+const VERSAO = '1.49.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#56AEFF', '#B79BFF', '#4CD3A5', '#FFA23A', '#FF77A8', '#F2C14E', '#FF8A65', '#E04B8A', '#FF5A4E', '#B8B0B0'];
-// cores do app com nome, em forma de etiqueta (as mesmas do CronologIA e do ResolvIA; o azul é o do GerencIA)
+// cores do app com nome, em forma de etiqueta: a paleta da família (igual em todos os apps; a do CronologIA)
 const CORES_APP = [
   ['Vermelho', '#FF5A4F'], ['Coral', '#FF8A65'], ['Laranja', '#FFA23E'], ['Ouro', '#F2C14E'], ['Verde', '#8BD45F'], ['Menta', '#4ED3A6'],
-  ['Turquesa', '#3CCBDA'], ['Azul', '#56AEFF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
+  ['Turquesa', '#3CCBDA'], ['Azul', '#62B5FF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
 ];
 const rgbHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 // Cor do dia (Mais › Configurações › Aparência, ligada por padrão): as cores do app em ordem, uma por dia, sem as neutras (Grafite).
@@ -1808,7 +1807,7 @@ function taxaBem(k) {
 }
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#56AEFF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#62B5FF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
   op_cdi: null, op_pre: null, op_ipca: null, op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1, op_simular: 10000 };
 
 /* ------------------------------------------------------------------ util */
@@ -2405,16 +2404,22 @@ function temaHA() {
 const TEMA_HOST = document.documentElement.getAttribute('data-theme');
 // a cor que vale agora: a do dia (só um "desligado" explícito desliga) ou a escolhida em Aparência
 const corDiaOn = () => S.d.ajustes.cor_dia !== false;
-const corDoApp = () => corDiaOn() ? corDoDia() : (corOk(S.d.ajustes.cor) || AJUSTES_PADRAO.cor);
+// o azul de antes da paleta única da família vira o de agora (como no calc.py)
+const CORES_ANTIGAS = { '#56AEFF': '#62B5FF' };
+const corDoApp = () => { if (corDiaOn()) return corDoDia(); const c = corOk(S.d.ajustes.cor); return c ? CORES_ANTIGAS[c.toUpperCase()] || c : AJUSTES_PADRAO.cor; };
 let diaDaCor = null; // o dia da cor posta por último
+// o tema vale só neste aparelho (padrão da família; começa em Automático). Quem já tinha escolhido, na versão em que o
+// tema valia para a casa toda, fica com aquele até escolher outro aqui.
+const TEMAS = ['auto', 'claro', 'escuro'];
+const temaAqui = () => { const t = store.get('tema', null); return TEMAS.includes(t) ? t : TEMAS.includes(S.d && S.d.ajustes.tema) ? S.d.ajustes.tema : 'auto'; };
 function aplicarTema() {
   if (!S.d) return;
-  const a = S.d.ajustes;
+  const a = S.d.ajustes, tema = temaAqui();
   const root = document.documentElement;
-  if (DEMO && a.tema === 'auto') {
+  if (DEMO && tema === 'auto') {
     if (TEMA_HOST) root.setAttribute('data-theme', TEMA_HOST); else root.removeAttribute('data-theme');
   } else {
-    const t = a.tema === 'claro' ? 'light' : a.tema === 'escuro' ? 'dark' : temaHA();
+    const t = tema === 'claro' ? 'light' : tema === 'escuro' ? 'dark' : temaHA();
     if (root.dataset.theme !== t) root.dataset.theme = t;
   }
   diaDaCor = numeroDoDia();
@@ -2423,7 +2428,7 @@ function aplicarTema() {
   const meta = $('meta[name="theme-color"]');
   if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0f1318';
 }
-if (!DEMO) setInterval(() => { if (S.d && S.d.ajustes.tema === 'auto') aplicarTema(); }, 2000);
+if (!DEMO) setInterval(() => { if (S.d && temaAqui() === 'auto') aplicarTema(); }, 2000);
 // o relatório (uma página do servidor) abre no mesmo tema que o app está usando agora
 const urlRelatorio = () => 'relatorio?tema=' + (document.documentElement.dataset.theme === 'light' ? 'claro' : 'escuro');
 // Com a Cor do dia, o app aberto troca de cor à meia-noite sem recarregar (confere a cada minuto e ao voltar para ele).
@@ -3798,7 +3803,7 @@ function tilesIA(modo) {
   const caixa = modo === 'caixa', voz = vozPronta();
   const t = (inicio, icone, txt, nota) => `<button type="button" class="imp-tile" data-a="ia-de" data-v="${modo}" data-ini="${inicio}">${ic(icone)}<span>${txt}${nota ? `<small>${nota}</small>` : ''}</span></button>`;
   return `<div class="campo imp-campo"><div class="lbl">Trazer de mensagem ou imagem</div>
-    <div class="imp-tiles${voz ? ' quatro' : ''}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'image', caixa ? 'Fatura, print ou foto' : 'Imagem ou print')}${t('camera', 'scan', 'Digitalizar com\u00a0IA', camOk() ? '' : 'Precisa de https')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
+    <div class="imp-tiles${voz ? ' quatro' : ''}">${t('texto', 'clipboard-paste', 'Colar mensagem')}${t('arquivo', caixa ? 'receipt' : 'image', caixa ? 'Escolher fotos ou PDF' : 'Escolher fotos')}${t('camera', 'scan', 'Digitalizar com\u00a0IA', camOk() ? '' : 'Precisa de https')}${voz ? t('voz', 'mic', 'Falar') : ''}</div>
     <p class="imp-ajuda">Dá para colar a imagem direto aqui.</p>
     ${!caixa && S.d.investimentos.length && !(F && F.id) ? `<button type="button" class="link imp-saldos" data-a="ia-saldos" data-sobre="1" data-v="${esc(F && F.titular === 'terceiros' ? F.terceiro || '' : '')}">${ic('ia', 'ic-s')}Atualizar saldos de vários</button>` : ''}</div>`;
 }
@@ -3890,7 +3895,7 @@ function montarFormLanc() {
   }
   c += `<div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="lf-obs">${ic('chev', 'ic-s')}Observação</button>
     ${f.obsAberta ? `<textarea class="inp" data-lf="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar">${esc(f.obs)}</textarea>` : ''}</div>`;
-  const cab = f.id ? `<button class="icbtn" data-a="lf-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '';
+  const cab = f.id ? `<button class="icbtn" data-a="lf-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   let pe;
   if (!f.id) pe = `<button class="btn" data-a="lf-salvar" data-mais="1">Salvar e lançar outro</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
   else if (f.recorrencia) pe = anualR ? `<button class="btn" data-a="lf-salvar" data-v="este">Só este ano</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os anos</button>`
@@ -4138,7 +4143,7 @@ function abrirCategoria(id, tipo) {
     const n = FC.id ? S.d.lancamentos.filter(l => l.categoria === FC.id).length + S.d.recorrencias.filter(r => r.categoria === FC.id).length : 0;
     return {
       titulo: FC.id ? 'Editar categoria' : 'Nova categoria',
-      cab: FC.id ? `<button class="icbtn" data-a="cat-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '',
+      cab: FC.id ? `<button class="icbtn" data-a="cat-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `${FC.id ? '' : `<div class="seg"><button class="${FC.tipo === 'despesa' ? 'on' : ''}" data-a="cat-tipo" data-v="despesa">Gasto</button><button class="${FC.tipo === 'receita' ? 'on' : ''}" data-a="cat-tipo" data-v="receita">Recebimento</button></div>`}
         <div class="campo"><label for="cat-nome">Nome</label><input id="cat-nome" class="inp${FC.erro ? ' erro' : ''}" data-fc="nome" value="${esc(FC.nome)}" placeholder="${FC.tipo === 'despesa' ? 'Ex.: Farmácia, Viagens' : 'Ex.: Aluguel recebido'}" autocomplete="off">${FC.erro ? `<div class="msg-erro">${FC.erro}</div>` : ''}</div>
         <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(cr => `<button class="cor${FC.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${cr}">${FC.cor === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
@@ -4270,7 +4275,7 @@ function erroMicrofone(err) {
   if (n === 'NotAllowedError' || n === 'SecurityError') return 'O microfone está bloqueado. Permita o microfone para o Home Assistant (no navegador, no cadeado ao lado do endereço; no app do celular, nas permissões do app Home Assistant) e tente de novo.';
   if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'Não achei um microfone neste aparelho.';
   if (n === 'NotReadableError') return 'O microfone está sendo usado por outro app. Feche o outro e tente de novo.';
-  if (n === 'NoApi') return 'Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app.';
+  if (n === 'NoApi') return 'Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Home Assistant Cloud) ou pelo app.';
   return `Não consegui abrir o microfone (${(err && err.message) || n || 'erro'}).`;
 }
 
@@ -4360,7 +4365,7 @@ const CH_SUGESTOES = {
 };
 function abrirChat() {
   if (CH) return;
-  CH = { msgs: null, texto: '', enviando: false, erro: '', rec: 'off', limpar: false };
+  CH = { msgs: null, texto: '', enviando: false, erro: '', rec: 'off' };
   abrirFolha(montarChat, () => { pararDitado(); CH = null; });
   const s = CH;
   api.chat().then(r => { if (CH !== s) return; s.msgs = r.mensagens || []; pintarFolha(1e9); focarChat(); })
@@ -4422,15 +4427,13 @@ function montarChat() {
     corpo = `<div class="ch-lista">${vazio}${msgs}${s.enviando ? '<div class="ch-msg ia"><div class="ch-bolha ch-pensando" aria-label="Pensando"><span></span><span></span><span></span></div></div>' : ''}</div>`;
   }
   const ph = on ? 'Ouvindo… toque no visto quando terminar' : s.rec === 'starting' ? 'Abrindo o microfone…' : s.rec === 'transcrevendo' ? 'Transcrevendo…' : 'Escreva para a IA';
-  const pe = s.limpar
-    ? '<div class="ch-pe ch-pe-limpar"><p>Apagar a conversa?</p><div class="ch-bts"><button class="btn" data-a="ch-limpar-nao">Cancelar</button><button class="btn perigo" data-a="ch-limpar-sim">Apagar</button></div></div>'
-    : `<div class="ch-pe">${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
+  const pe = `<div class="ch-pe">${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
         ${vozPronta() ? `<button class="icbtn ch-mic${on ? ' on' : ''}" data-a="ch-mic" aria-label="${on ? 'Pronto: enviar o que falei' : 'Falar'}"${s.rec === 'transcrevendo' || s.enviando ? ' disabled' : ''}>${ic(on ? 'check' : 'mic')}</button>` : ''}
         <textarea id="ch-txt" data-ch="texto" rows="1" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
         <button class="icbtn ch-env" data-a="ch-enviar" aria-label="Enviar"${s.enviando || ocupado || !s.texto.trim() ? ' disabled' : ''}>${ic('send')}</button></div></div>`;
   return {
     titulo: 'Conversar com a IA',
-    cab: s.msgs && s.msgs.length ? `<button class="icbtn" data-a="ch-limpar" aria-label="Apagar a conversa" title="Apagar a conversa">${ic('trash')}</button>` : '',
+    cab: s.msgs && s.msgs.length ? `<button class="icbtn" data-a="ch-nova" aria-label="Nova conversa" title="Nova conversa">${ic('edit')}</button>` : '',
     corpo, pe,
     depois: el => { const t = $('#ch-txt', el); if (t) ajustarAlturaChat(t); },
   };
@@ -4445,7 +4448,7 @@ async function enviarChat(texto, fala) {
   texto = String(texto || '').trim();
   if (!s || s.enviando || !texto || !s.msgs) return;
   const temp = { id: 'enviando', papel: 'eu', texto, fala: !!fala };
-  Object.assign(s, { msgs: [...s.msgs, temp], enviando: true, erro: '', texto: '', limpar: false });
+  Object.assign(s, { msgs: [...s.msgs, temp], enviando: true, erro: '', texto: '' });
   pintarFolha(1e9);
   try {
     const r = await api.chatEnviar({ texto, tela: textoTela(), aba: S.ui.tab, fala: !!fala });
@@ -4633,7 +4636,7 @@ function montarIA() {
       </div>${erro}`,
     pe };
   if (s.so === 'arquivo') return {
-    titulo: inv ? 'Imagem ou print' : 'Fatura, print ou foto',
+    titulo: inv ? 'Escolher fotos' : 'Escolher fotos ou PDF',
     corpo: `${aviso}${prevArq || `<div class="ia-arq"><button class="btn larga" data-a="ia-arq">${ic('image')}${inv ? 'Escolher o print do banco, a foto ou o PDF' : 'Escolher a fatura, o print ou a foto'}</button>${botaoCam()}</div>`}
       <p class="ajuda" style="margin:10px 0 0">Dá também para colar a imagem aqui.</p>${erro}${campoSenhaPdf()}`,
     pe };
@@ -4655,7 +4658,7 @@ function prevArquivo(arq, tirar = 'ia-arq-rm') {
   return `<div class="ia-prev">${arq.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${arq.dataUrl}" alt="">`}
     <span><b>${esc(arq.nome)}</b><small>${arq.pdf ? 'PDF' : n > 1 ? `${n} páginas` : 'Imagem'}</small></span><button class="icbtn" data-a="${tirar}" aria-label="Tirar arquivo">${ic('x')}</button></div>`;
 }
-const botaoCam = () => `<button class="btn larga" data-a="ia-cam" style="margin-top:8px">${ic('scan')}Digitalizar com a câmera</button>`;
+const botaoCam = () => `<button class="btn larga" data-a="ia-cam" style="margin-top:8px">${ic('scan')}Digitalizar com IA</button>`;
 const donosSaldos = () => [['', 'Vários'], ['meu', 'Meus'], ...pessoas().map(p => [p, p])];
 function entradaSaldos(aviso) {
   const s = IAS, arq = s.arquivo;
@@ -4666,7 +4669,7 @@ function entradaSaldos(aviso) {
       <div class="campo"><div class="lbl">De quem são</div><div class="chips" style="margin:0">${donosSaldos().map(([k, n]) =>
         `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${esc(n)}</button>`).join('')}</div></div>
       <div class="ia-arq">${arq ? prevArquivo(arq)
-        : `<button class="btn larga" data-a="ia-arq">${ic('image')}Print, foto ou PDF</button>${botaoCam()}`}</div>
+        : `<button class="btn larga" data-a="ia-arq">${ic('image')}Escolher fotos ou PDF</button>${botaoCam()}`}</div>
       <div class="campo"><label for="ia-txt">Ou cole a lista</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.:&#10;Nubank, valor atualizado, R$ 500&#10;Serasa, valor atualizado, R$ 600">${esc(s.texto)}</textarea>
       </div>
@@ -4726,7 +4729,7 @@ async function abrirCamera(aoUsar) {
   if (!camOk()) {
     CAM.status = 'erro';
     CAM.erro = window.isSecureContext === false
-      ? 'A câmera só abre aqui com o Home Assistant num endereço seguro (https), como o do Nabu Casa. Dá para tirar a foto pelo celular e escolher.'
+      ? 'A câmera só abre aqui com o Home Assistant num endereço seguro (https), como o do Home Assistant Cloud. Dá para tirar a foto pelo celular e escolher.'
       : 'Este navegador não deixa usar a câmera aqui. Dá para tirar a foto pelo celular e escolher.';
     pintarCamera();
     return;
@@ -5565,7 +5568,7 @@ function cardIA() {
   const chaveIA = linhaChave('ia', on, 'Usar IA', on
     ? 'Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas.'
     : 'Desligado: os botões de IA somem em todos os aparelhos.');
-  const cab = `<section class="card" id="ia">${maisCab('ia', 'Leitura por IA')}
+  const cab = `<section class="card" id="ia">${maisCab('ia', 'IA do Home Assistant')}
     ${maisLead('Usa a IA configurada no Home Assistant; o app não guarda chave.')}
     ${chaveIA}`;
   if (!on) return cab + `</section>`;
@@ -5950,7 +5953,7 @@ function abrirBanco(id, nome, sobre) {
     const n = FB.id ? S.d.investimentos.filter(i => i.banco === FB.id).length : 0;
     return {
       titulo: FB.id ? 'Editar banco' : 'Novo banco',
-      cab: FB.id ? `<button class="icbtn" data-a="b-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '',
+      cab: FB.id ? `<button class="icbtn" data-a="b-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `<div class="campo"><label for="b-nome">Nome</label><input id="b-nome" class="inp${FB.erro ? ' erro' : ''}" data-fb="nome" value="${esc(FB.nome)}" placeholder="Ex.: Nubank, XP, Sicredi" data-sug="dl-b" autocomplete="off">
           <datalist id="dl-b">${BANCOS_COMUNS.map(x => `<option value="${esc(x)}">`).join('')}</datalist>${FB.erro ? `<div class="msg-erro">${FB.erro}</div>` : ''}</div>
         <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
@@ -6365,9 +6368,9 @@ function opcoesOport() {
     // o horário numa caixa de seleção do app (de meia em meia hora), sem o AM/PM do relógio do celular
     const hora = a.op_hora || '10:00', horas = Array.from({ length: 48 }, (_, k) => `${String(k >> 1).padStart(2, '0')}:${k % 2 ? '30' : '00'}`);
     if (!horas.includes(hora)) horas.push(hora), horas.sort();
-    h += `<div class="campo"><label for="op-hora">Horário</label><div class="op-hora-l"><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select>
-      <button class="btn out" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar</button></div></div>
-      <div class="campo"><label for="op-dias">A cada</label><div class="op-hora-l"><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span><span></span></div></div>${quem}
+    h += `<div class="op-hora-l campo"><div><label for="op-hora">Horário</label><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
+      <div><label for="op-dias">A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div></div>${quem}
+      <button class="btn out op-testar" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>
       <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
   }
   return h + '</section>';
@@ -6479,7 +6482,7 @@ function abrirBeneficio(id) {
     const usos = (f.usos || []).filter(u => { const d = pData(u.data); return c && d && d >= pData(c.inicio) && (!c.fim || d < pData(c.fim)); });
     return {
       titulo: f.id ? 'Editar benefício' : 'Novo benefício',
-      cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '',
+      cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `<div class="campo"><label for="fben-nome">Nome</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Ex.: Sala VIP" data-sug="dl-ben" autocomplete="off">
           <datalist id="dl-ben">${SUG_BEN.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
         <div class="campo"><label for="fben-origem">De onde vem</label><select id="fben-origem" class="inp" data-fben="origem">${origens.map(([v, t]) => `<option value="${esc(v)}"${v === f.origem ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
@@ -6550,7 +6553,7 @@ function montarLerBeneficios() {
   return {
     titulo: 'Ler benefícios com IA',
     corpo: `${aviso}<div class="campo"><label for="bler-origem">De onde vêm</label><select id="bler-origem" class="inp" data-bler="origem">${origensBeneficio(s.origem).map(([v, t]) => `<option value="${esc(v)}"${v === s.origem ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
-      <div class="ia-arq">${arq ? prevArquivo(arq, 'bler-arq-rm') : `<button class="btn larga" data-a="bler-arq">${ic('image')}Print, foto ou PDF</button><button class="btn larga" data-a="bler-cam" style="margin-top:8px">${ic('scan')}Digitalizar com a câmera</button>`}</div>
+      <div class="ia-arq">${arq ? prevArquivo(arq, 'bler-arq-rm') : `<button class="btn larga" data-a="bler-arq">${ic('image')}Escolher fotos ou PDF</button><button class="btn larga" data-a="bler-cam" style="margin-top:8px">${ic('scan')}Digitalizar com IA</button>`}</div>
       <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
         <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="Ex.: https://… (a página dos benefícios do cartão ou do plano)">${esc(s.texto)}</textarea></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
@@ -6633,7 +6636,8 @@ function maisIntegracoes() {
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
   const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
     ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
-  return cardOutrosApps(a) + cardBens(a) + cardIA() + (iaOn() ? cardSenhas() + cardEmail() : '') + cardCorreria(a) + (iaOn() ? cardUsoIA() : '') + `
+  // a ordem da família: os outros apps › CorrerIA › IA do Home Assistant (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
+  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
@@ -6737,11 +6741,11 @@ const tamanhoTxt = n => n >= 1048576 ? `${(n / 1048576).toLocaleString('pt-BR', 
 
 /* --------- Aparência */
 function maisAparencia() {
-  const a = S.d.ajustes, cor = corAppAtual();
+  const a = S.d.ajustes, cor = corAppAtual(), tema = temaAqui();
   return `<section class="card" id="tema">${maisCab('contrast', 'Tema')}
-      ${maisLead('Automático segue o Home Assistant.')}
+      ${maisLead('Só neste aparelho. Automático segue o Home Assistant.')}
       <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Automático', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
-        `<button role="radio" aria-checked="${a.tema === k}" class="${a.tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
+        `<button role="radio" aria-checked="${tema === k}" class="${tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
     <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
       ${linhaChave('cor_dia', corDiaOn(), 'Cor do dia', 'Muda a cor do app todo dia.')}
       <div class="tag-cores" role="radiogroup" aria-label="Cor do app">${CORES_APP.map(([n, hex]) =>
@@ -6821,7 +6825,7 @@ function carregarPessoasAviso() {
 
 /* ------------------------------------------------------------------ folhas (bottom sheets) */
 // Cada folha (e a câmera) ocupa um nível no histórico: o Voltar do celular fecha só o de cima.
-// Uma folha aberta "por cima" (Fatura, print ou foto a partir da Nova despesa) volta para a de baixo ao fechar.
+// Uma folha aberta "por cima" (Escolher fotos ou PDF a partir da Nova despesa) volta para a de baixo ao fechar.
 let FOLHA = null, PILHA = [];
 const nivelHist = () => { try { return (history.state && history.state.g) || 0; } catch (e) { return 0; } };
 const nivel = () => (CAM ? CAM.h : FOLHA ? FOLHA.h : 0);
@@ -7182,7 +7186,7 @@ function montarFormInv() {
     ${fotosFormHTML()}
     <div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="f-obs">${ic('chev', 'ic-s')}Observação</button>
       ${f.obsAberta ? `<textarea class="inp" data-f="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar sobre este investimento">${esc(f.obs)}</textarea>` : ''}</div>`;
-  const cab = f.id ? `<button class="icbtn" data-a="f-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '';
+  const cab = f.id ? `<button class="icbtn" data-a="f-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   const pe = f.id
     ? `<button class="btn" data-a="f-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="f-salvar">Salvar</button>`
     : `<button class="btn" data-a="f-salvar" data-mais="1">Salvar e adicionar outro</button><button class="btn pri" data-a="f-salvar">Salvar</button>`;
@@ -7597,10 +7601,8 @@ document.addEventListener('click', ev => {
     case 'ch-mic': if (CH && CH.rec === 'on') terminarDitado(); else comecarDitado(); break;
     case 'ch-ok': confirmarAcaoChat(id, el.dataset.g); break;
     case 'ch-editar': editarAcaoChat(id, el.dataset.g); break;
-    case 'ch-limpar': if (CH) { CH.limpar = true; pintarFolha(); } break;
-    case 'ch-limpar-nao': if (CH) { CH.limpar = false; pintarFolha(); } break;
-    case 'ch-limpar-sim':
-      if (CH) api.chatLimpar().then(r => { if (CH) { Object.assign(CH, { msgs: r.mensagens || [], limpar: false, erro: '' }); pintarFolha(); } }).catch(e => toast('Não consegui apagar. ' + (e.message || '')));
+    case 'ch-nova':
+      if (CH) api.chatLimpar().then(r => { if (CH) { Object.assign(CH, { msgs: r.mensagens || [], erro: '' }); pintarFolha(); } }).catch(e => toast('Não consegui começar uma nova conversa. ' + (e.message || '')));
       break;
     case 'fala-ok': terminarFala(); break;
     case 'ia': if (!iaOn()) { toast('A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.'); break; } abrirIA(v); break;
@@ -7693,7 +7695,7 @@ document.addEventListener('click', ev => {
       confirmar({ titulo: 'Apagar tudo?', texto: `Saem ${plural(S.d.investimentos.length, 'investimento', 'investimentos')} e ${plural(S.d.bancos.length, 'banco', 'bancos')}. Uma cópia fica em Versões anteriores.`, botao: 'Apagar tudo', perigo: true,
         acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.beneficios = []; d.exemplo = false; d._hist = []; }, 'Tudo apagado') });
       break;
-    case 'tema': S.d.ajustes.tema = v; aplicarTema(); render(); persistir(d => { d.ajustes.tema = v; }); break;
+    case 'tema': store.set('tema', v); aplicarTema(); render(); break;  // só neste aparelho
     // escolher uma cor desliga a Cor do dia e fica com ela
     case 'cor': Object.assign(S.d.ajustes, { cor: v, cor_dia: false }); aplicarTema(); render(); persistir(d => { Object.assign(d.ajustes, { cor: v, cor_dia: false }); }); break;
     case 'ajuste': {
@@ -7785,8 +7787,8 @@ document.addEventListener('click', ev => {
       pintarFolha(); break;
     case 'f-excluir': {
       const alvo = F.id, nome = F.nome;
-      confirmar({ titulo: 'Excluir investimento?', texto: `<b>${esc(nome)}</b> sai da lista e dos gráficos. Uma cópia fica em Versões anteriores.`, botao: 'Excluir', perigo: true,
-        acao: () => persistir(d => { d.investimentos = d.investimentos.filter(i => i.id !== alvo); }, 'Investimento excluído') });
+      confirmar({ titulo: 'Apagar investimento?', texto: `<b>${esc(nome)}</b> sai da lista e dos gráficos. Uma cópia fica em Versões anteriores.`, botao: 'Apagar', perigo: true,
+        acao: () => persistir(d => { d.investimentos = d.investimentos.filter(i => i.id !== alvo); }, 'Investimento apagado') });
       break;
     }
 
@@ -7808,20 +7810,20 @@ document.addEventListener('click', ev => {
     case 'fben-salvar': salvarBeneficio(); break;
     case 'fben-uso-rm': if (FBEN) { FBEN.usos = (FBEN.usos || []).filter(u => u.id !== v); pintarFolha(); } break;
     case 'fben-usou': if (FBEN && FBEN.lancar) { const q = Math.round((numDinheiro(FBEN.valor) || 0) * 100) / 100; if (!(q > 0)) { toast('Diga quanto usou.'); break; } const f = FBEN.lancar; fecharFolha(false, true); f(q); } break;
-    case 'fben-excluir': { const f = FBEN; confirmar({ titulo: 'Excluir benefício?', texto: `${esc(f.nome)} sai da lista, com os usos.`, botao: 'Excluir', perigo: true,
-      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, 'Benefício excluído') }); break; }
+    case 'fben-excluir': { const f = FBEN; confirmar({ titulo: 'Apagar benefício?', texto: `${esc(f.nome)} sai da lista, com os usos.`, botao: 'Apagar', perigo: true,
+      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, 'Benefício apagado') }); break; }
     case 'bc-add': FB.contas.push({ id: 'k-' + uid(), pessoa: '', cartao: false, fechamento: '', vencimento: '' }); pintarFolha(); break;
     case 'bc-rm': FB.contas.splice(+el.dataset.i, 1); pintarFolha(); break;
     case 'bc-cartao': { const c = FB.contas[+el.dataset.i]; c.cartao = !c.cartao; pintarFolha(); break; }
     case 'b-excluir': {
       const alvo = FB.id, n = S.d.investimentos.filter(i => i.banco === alvo).length;
-      confirmar({ titulo: 'Excluir banco?', texto: n ? `${plural(n, 'investimento fica', 'investimentos ficam')} sem banco. Dá para escolher outro depois.` : 'O banco sai da lista.', botao: 'Excluir', perigo: true,
+      confirmar({ titulo: 'Apagar banco?', texto: n ? `${plural(n, 'investimento fica', 'investimentos ficam')} sem banco. Dá para escolher outro depois.` : 'O banco sai da lista.', botao: 'Apagar', perigo: true,
         acao: () => persistir(d => {
           const ks = new Set((d.bancos.find(b => b.id === alvo)?.contas || []).map(c => c.id));
           d.bancos = d.bancos.filter(b => b.id !== alvo);
           d.investimentos.forEach(i => { if (i.banco === alvo) i.banco = ''; });
           for (const l of [...d.lancamentos, ...d.recorrencias]) if (ks.has(l.conta)) { l.conta = ''; l.cartao = false; }
-        }, 'Banco excluído') });
+        }, 'Banco apagado') });
       break;
     }
 

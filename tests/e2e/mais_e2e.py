@@ -17,7 +17,7 @@ TELAS = {  # tela: (título, as seções)
     'beneficios': ('Benefícios', []),
 }
 ABAS = {
-    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'Leitura por IA', 'Senhas dos PDFs', 'Faturas por e-mail', 'CorrerIA', 'Uso da IA', 'Sensores no Home Assistant'],
+    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'CorrerIA', 'IA do Home Assistant', 'Uso da IA', 'Faturas por e-mail', 'Senhas dos PDFs', 'Sensores no Home Assistant'],
     'Dados': ['Exportar', 'Backup na pasta share', 'Importar', 'Versões anteriores', 'Onde ficam os dados', 'Começar do zero'],
     'Aparência': ['Tema', 'Cor do app'],
     'Opções': ['Início', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos', 'Oportunidades de investimento'],

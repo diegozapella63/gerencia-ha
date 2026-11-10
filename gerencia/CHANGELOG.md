@@ -1,5 +1,15 @@
 # Mudanças
 
+## 1.49.0
+
+- **Igual aos outros apps da família**:
+  - **Integrações** na mesma ordem de todos: os outros apps, CorrerIA, **IA do Home Assistant** (antes Leitura por IA), Uso da IA, faturas por e-mail, senhas dos PDFs e sensores.
+  - O **tema** (Automático, Claro ou Escuro) vale só no aparelho em que foi escolhido; quem já tinha escolhido continua com ele até trocar. A cor continua valendo para a casa toda.
+  - As 12 cores são as mesmas em todos os apps: o Azul ficou um pouco mais claro.
+  - Os mesmos nomes: **Escolher fotos ou PDF**, **Escolher fotos**, **Digitalizar com IA**, **Apagar** (no lugar de Excluir) e **Testar no meu celular**.
+  - Na Conversa, **Nova conversa** no alto recomeça do zero, sem pergunta.
+- **Oportunidades de investimento › Avisar no celular**: **Horário** e **A cada** lado a lado, do mesmo tamanho, e **Testar no meu celular** embaixo, na largura toda.
+
 ## 1.48.0
 
 - **O que está parado fica no fim, recolhido**: uma seção fechada no fim, com a contagem, que abre num toque. Vale para:

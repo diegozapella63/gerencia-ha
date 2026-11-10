@@ -379,9 +379,16 @@ class TestCorDoDia(unittest.TestCase):
     def test_desligada_fica_a_escolhida(self):
         hoje = date(2026, 11, 2)
         self.assertEqual(calc.cor_app({"cor": "#8BD45F", "cor_dia": False}, hoje), "#8BD45F")
-        self.assertEqual(calc.cor_app({"cor_dia": False}, hoje), "#56AEFF", "sem cor escolhida, o azul do GerencIA")
+        self.assertEqual(calc.cor_app({"cor_dia": False}, hoje), "#62B5FF", "sem cor escolhida, o azul da paleta da família")
         self.assertEqual(calc.cor_app({"cor": "#ff0000;background:url(x)", "cor_dia": False}, hoje), "#ff0000", "nada além de #rrggbb")
-        self.assertEqual(calc.cor_app({"cor": "azul", "cor_dia": False}, hoje), "#56AEFF")
+        self.assertEqual(calc.cor_app({"cor": "azul", "cor_dia": False}, hoje), "#62B5FF")
+
+    def test_o_azul_de_antes_vira_o_da_familia(self):
+        hoje = date(2026, 11, 2)
+        for antiga in ("#56AEFF", "#56aeff"):
+            with self.subTest(antiga=antiga):
+                self.assertEqual(calc.cor_app({"cor": antiga, "cor_dia": False}, hoje), "#62B5FF")
+        self.assertIn(("Azul", "#62B5FF"), calc.CORES_APP)
 
 
 if __name__ == "__main__":

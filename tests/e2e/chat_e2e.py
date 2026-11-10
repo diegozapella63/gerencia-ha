@@ -66,6 +66,6 @@ with sync_playwright() as p:
     igual(titulo(), '(nenhuma)', 'Voltar fecha o chat')
 
     pg.click('.cab-topo [data-a="chat"]'); pg.wait_for_timeout(500)
-    pg.click('[data-a="ch-limpar"]'); pg.click('[data-a="ch-limpar-sim"]'); pg.wait_for_timeout(500)
-    igual((pg.locator('.ch-msg').count(), get('api/chat')['mensagens']), (0, []), 'apagar a conversa')
+    pg.click('[data-a="ch-nova"]'); pg.wait_for_timeout(500)
+    igual((pg.locator('.ch-msg').count(), get('api/chat')['mensagens']), (0, []), 'Nova conversa recomeça do zero')
     print('ERROS', erros); b.close()

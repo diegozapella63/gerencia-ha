@@ -296,9 +296,11 @@ def comparar_meus(x, investimentos, ind, hoje=None):
 # As cores do app, as mesmas do app.js (CORES_APP); o azul é o padrão do GerencIA.
 CORES_APP = [
     ("Vermelho", "#FF5A4F"), ("Coral", "#FF8A65"), ("Laranja", "#FFA23E"), ("Ouro", "#F2C14E"), ("Verde", "#8BD45F"), ("Menta", "#4ED3A6"),
-    ("Turquesa", "#3CCBDA"), ("Azul", "#56AEFF"), ("Índigo", "#8F9BFF"), ("Lilás", "#B99BFF"), ("Rosa", "#FF77A9"), ("Grafite", "#B5B9C2"),
+    ("Turquesa", "#3CCBDA"), ("Azul", "#62B5FF"), ("Índigo", "#8F9BFF"), ("Lilás", "#B99BFF"), ("Rosa", "#FF77A9"), ("Grafite", "#B5B9C2"),
 ]
-COR_PADRAO = "#56AEFF"
+COR_PADRAO = "#62B5FF"
+# o azul de antes da paleta única da família vira o de agora
+CORES_ANTIGAS = {"#56AEFF": "#62B5FF"}
 
 
 def _neutra(h):
@@ -325,7 +327,7 @@ def cor_app(ajustes, hoje=None):
     if ajustes.get("cor_dia") is not False:
         return cor_do_dia(hoje)
     c = re.sub(r"[^#0-9A-Fa-f]", "", str(ajustes.get("cor") or ""))[:7]
-    return c if re.fullmatch(r"#[0-9A-Fa-f]{6}", c) else COR_PADRAO
+    return CORES_ANTIGAS.get(c.upper(), c) if re.fullmatch(r"#[0-9A-Fa-f]{6}", c) else COR_PADRAO
 
 
 def fmt_num(x, casas=2):

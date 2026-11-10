@@ -10,7 +10,7 @@ B = 'http://localhost:8099/'
 def st(): return json.loads(urllib.request.urlopen(B + 'api/state').read())
 # as cores do app sem as neutras, na ordem do seletor; uma por dia, contando os dias desde 01/01/1970
 CORES = [('Vermelho', '#FF5A4F'), ('Coral', '#FF8A65'), ('Laranja', '#FFA23E'), ('Ouro', '#F2C14E'), ('Verde', '#8BD45F'), ('Menta', '#4ED3A6'),
-         ('Turquesa', '#3CCBDA'), ('Azul', '#56AEFF'), ('Índigo', '#8F9BFF'), ('Lilás', '#B99BFF'), ('Rosa', '#FF77A9')]
+         ('Turquesa', '#3CCBDA'), ('Azul', '#62B5FF'), ('Índigo', '#8F9BFF'), ('Lilás', '#B99BFF'), ('Rosa', '#FF77A9')]
 n = (date.today() - date(1970, 1, 1)).days
 NOME, COR = CORES[n % len(CORES)]
 OUTRO, OUTRA = CORES[(n + 1) % len(CORES)]  # a de amanhã: uma cor diferente da de hoje

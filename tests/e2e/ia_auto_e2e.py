@@ -1,4 +1,4 @@
-"""Leitura por IA sem escolher o tipo: a IA separa lançamentos e investimentos; da tela de investimentos, só investimentos."""
+"""IA do Home Assistant sem escolher o tipo: a IA separa lançamentos e investimentos; da tela de investimentos, só investimentos."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright
 from _confere import igual, tem, sim

@@ -655,7 +655,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         self.addCleanup(lambda: self.pg.emulate_media(color_scheme="no-preference"))
         self.dentro_do_ha(True)
         self.assertEqual(self.automatico(), "dark", "o HA escuro manda, mesmo com o aparelho claro")
-        self.assertEqual(self.dados()["ajustes"]["tema"], "auto")
+        self.assertEqual(self.js("localStorage.getItem('gerencia.tema')"), '"auto"', "o tema fica neste aparelho")
         self.dentro_do_ha(False)
         self.assertEqual(self.js("(T.aplicarTema(), document.documentElement.dataset.theme)"), "light")
 
@@ -1056,7 +1056,7 @@ class TestFalaComServidor(TelaFala, TelaServidor):
             ("NotReadableError", "Could not start audio source", "O microfone está sendo usado por outro app. Feche o outro e tente de novo."),
             ("AbortError", "O driver de áudio travou", "Não consegui abrir o microfone (O driver de áudio travou)."),
             ("", "", "Não consegui abrir o microfone (erro)."),
-            (None, None, "Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Nabu Casa) ou pelo app."),
+            (None, None, "Este navegador não deixa usar o microfone aqui. Abra o Home Assistant pelo endereço com https (como o do Home Assistant Cloud) ou pelo app."),
         ]
         for nome, msg, esperado in casos:
             with self.subTest(nome):

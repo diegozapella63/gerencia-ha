@@ -896,19 +896,19 @@ class TestEditar(_TelaInvest):
         self.invest()
         self.editar("lci")
         self.clicar('.folha [data-a="f-excluir"]')
-        self.assertEqual(self.folha(), "Excluir investimento?")
+        self.assertEqual(self.folha(), "Apagar investimento?")
         self.assertIn("LCI Verde sai da lista e dos gráficos. Uma cópia fica em Versões anteriores.", self.folha_texto())
-        self.assertEqual(self.textos(".folha .folha-pe .btn"), ["Cancelar", "Excluir"])
+        self.assertEqual(self.textos(".folha .folha-pe .btn"), ["Cancelar", "Apagar"])
         self.clicar('.folha [data-a="fechar"]:text-is("Cancelar")')
         self.assertIn("LCI Verde", [i["nome"] for i in self.dados()["investimentos"]], "cancelar não exclui")
         self.assertEqual(self.folha(), "Editar investimento", "Cancelar volta para o investimento")
         self.clicar('.folha [data-a="f-excluir"]')
         self.clicar('.folha [data-a="confirmar"]')
-        self.assertEqual(self.aviso(), "Investimento excluído")
+        self.assertEqual(self.aviso(), "Investimento apagado")
         self.assertNotIn("LCI Verde", [i["nome"] for i in self.dados()["investimentos"]])
         self.assertNotIn("LCI Verde", self.nomes())
 
-    # BUG: o "Excluir investimento?" abre no lugar do formulário; Cancelar (ou o Voltar) fecha tudo e a pessoa perde a
+    # BUG: o "Apagar investimento?" abre no lugar do formulário; Cancelar (ou o Voltar) fecha tudo e a pessoa perde a
     # edição, em vez de voltar para o investimento (AGENTS.md: "Uma janela aberta de dentro de outra volta para ela no Voltar
     # do celular, no X e no Cancelar"). Reproduzir: abrir um investimento, tocar na lixeira, Cancelar: cai na Carteira.
     def test_cancelar_a_exclusao_volta_para_o_investimento(self):
@@ -1178,7 +1178,7 @@ class TestComoODonoGosta(_TelaInvest):
         self.invest(base(bancos=BANCOS, investimentos=INVS), ui={"filtro": "terc", "pessoa": "Carla"})
         self.assertEqual(self.texto("#app .ia-saldos-btn"), "Atualizar saldos de Carla com IA", "com a IA ligada")
         self.clicar('#nav [data-a="novo"]')
-        self.assertEqual(self.textos(".folha .imp-tile")[:2], ["Colar mensagem", "Imagem ou print"])
+        self.assertEqual(self.textos(".folha .imp-tile")[:2], ["Colar mensagem", "Escolher fotos"])
         sem_ia = {"corrigir": True, "ia": False}
         self.invest(base(bancos=BANCOS, investimentos=INVS, ajustes=sem_ia), ui={"filtro": "terc", "pessoa": "Carla"})
         self.assertEqual(self.conta("#app .ia-saldos-btn"), 0)

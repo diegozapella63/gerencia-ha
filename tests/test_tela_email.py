@@ -159,7 +159,7 @@ class TestSenha(TelaEmail):
         self.trocar_api("iaLer", self.SEM_SENHA)
         self.clicar('[data-a="email-abrir"]')
         self.pg.wait_for_selector("#ia-senha")
-        self.assertEqual(self.folha(), "Fatura, print ou foto", "só o arquivo, sem as outras opções")
+        self.assertEqual(self.folha(), "Escolher fotos ou PDF", "só o arquivo, sem as outras opções")
         self.assertEqual(self.texto("#folhas .ia-prev b"), "fatura-2.pdf")
         self.assertEqual(self.texto("#folhas .msg-erro"), "Nenhuma das senhas cadastradas abre este PDF.")
         self.pg.wait_for_function("document.activeElement && document.activeElement.id === 'ia-senha'")
@@ -306,7 +306,7 @@ class TestCartaoIntegracoes(TelaEmail):
     def test_ordem_dos_cartoes(self):
         self.abrir_com([], ui=INTEG)
         self.assertEqual(self.js("[...document.querySelectorAll('#app section.card')].map(s => s.id)"),
-                         ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"])
+                         ["outros-apps", "bens", "correria", "ia", "uso-ia", "email", "senhas-pdf", "sensores"])
 
 
 class TestRemetente(TelaEmail):

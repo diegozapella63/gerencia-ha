@@ -1,4 +1,4 @@
-"""Fala para texto à escolha (Mais › Configurações › Integrações › Leitura por IA): a lista com Padrão do Home Assistant e as falas para
+"""Fala para texto à escolha (Mais › Configurações › Integrações › IA do Home Assistant): a lista com Padrão do Home Assistant e as falas para
 texto do HA, o status do Falar com o nome da escolhida, a transcrição usando a escolhida e a volta ao padrão."""
 import sys, json, urllib.request
 from playwright.sync_api import sync_playwright

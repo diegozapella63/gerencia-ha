@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.48.0"
+VERSAO = "1.49.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -79,7 +79,7 @@ INDICES_PADRAO = {
 
 # sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#56AEFF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#62B5FF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
                   "email": False, "email_de": [], "email_remetentes": [], "email_aviso": False, "email_para": [], "correria": False,
                   # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
@@ -139,6 +139,8 @@ def normalizar(d):
             base["ajustes"]["sensores"] = False
     # só um "desligado" de verdade desliga a Cor do dia
     base["ajustes"]["cor_dia"] = base["ajustes"].get("cor_dia") is not False
+    cor = str(base["ajustes"].get("cor") or "").upper()
+    base["ajustes"]["cor"] = calc.CORES_ANTIGAS.get(cor, base["ajustes"].get("cor"))
     # Dicas de economia: conferir sozinho (no horário) e avisar no celular de quem foi escolhido
     aj = base["ajustes"]
     aj["dicas_auto"] = aj.get("dicas_auto") is not False

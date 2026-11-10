@@ -425,16 +425,16 @@ class TestMaisBancos(TelaMais):
         self.abrir_bancos(base(bancos=BANCOS, investimentos=[INV_CDB], lancamentos=lanc))
         self.clicar('[data-a="banco"][data-id="b-azul"]')
         self.clicar('.folha [data-a="b-excluir"]')
-        self.assertEqual(self.folha(), "Excluir banco?")
+        self.assertEqual(self.folha(), "Apagar banco?")
         self.assertIn("1 investimento fica sem banco.", self.folha_texto())
         self.clicar('.folha-pe [data-a="confirmar"]')
         d = self.dados()
         self.assertEqual([b["nome"] for b in d["bancos"]], ["Banco Verde"])
         self.assertEqual(d["investimentos"][0]["banco"], "")
         self.assertEqual((d["lancamentos"][0]["conta"], d["lancamentos"][0]["cartao"]), ("", False), "a compra perde a conta e o cartão que sumiram")
-        self.assertEqual(self.esperar_aviso("Banco"), "Banco excluído")
+        self.assertEqual(self.esperar_aviso("Banco"), "Banco apagado")
 
-    # BUG: a confirmação "Excluir banco?" é aberta de dentro de "Editar banco", mas o Cancelar fecha tudo em vez de voltar
+    # BUG: a confirmação "Apagar banco?" é aberta de dentro de "Editar banco", mas o Cancelar fecha tudo em vez de voltar
     # para o banco (a regra do AGENTS.md: uma janela aberta de dentro de outra volta para ela no Voltar, no X e no Cancelar).
     # Igual nas outras confirmações abertas de uma janela (Apagar categoria?, Restaurar esta versão?, Apagar lançamento?).
     def test_cancelar_a_exclusao_volta_para_editar_banco_sem_apagar(self):
@@ -750,13 +750,28 @@ class TestIntegracoes(TelaMais):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestAparenciaEDados(TelaMais):
+    def tema_aqui(self):
+        return self.js("localStorage.getItem('gerencia.tema')")
+
     def test_tema_claro_e_escuro(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
+        self.assertIn("Só neste aparelho", self.texto("#app"))
         self.clicar('[data-a="tema"][data-v="claro"]')
-        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("light", "claro"))
+        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.tema_aqui()), ("light", '"claro"'))
         self.assertEqual(self.js("document.querySelector('[data-a=\"tema\"][data-v=\"claro\"]').getAttribute('aria-checked')"), "true")
         self.clicar('[data-a="tema"][data-v="escuro"]')
-        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.dados()["ajustes"]["tema"]), ("dark", "escuro"))
+        self.assertEqual((self.js("document.documentElement.dataset.theme"), self.tema_aqui()), ("dark", '"escuro"'))
+        self.assertEqual(self.dados()["ajustes"]["tema"], "auto", "o tema é deste aparelho: a casa não muda")
+
+    def test_tema_de_antes_vale_ate_escolher_aqui(self):
+        """Quem tinha escolhido o tema antes (gravado nos dados) continua com ele até escolher neste aparelho."""
+        self.abrir(base(ajustes={"tema": "claro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
+        self.assertEqual(self.js("document.documentElement.dataset.theme"), "light")
+        self.assertEqual(self.js("document.querySelector('[data-a=\"tema\"][data-v=\"claro\"]').getAttribute('aria-checked')"), "true")
+        self.js("(localStorage.setItem('gerencia.tema', '\"escuro\"'), T.aplicarTema(), true)")
+        self.assertEqual(self.js("document.documentElement.dataset.theme"), "dark", "o deste aparelho vale mais")
+        self.js("(localStorage.setItem('gerencia.tema', '\"lixo\"'), T.aplicarTema(), true)")
+        self.assertEqual(self.js("document.documentElement.dataset.theme"), "light", "um valor estranho fica de fora")
 
     def test_tema_automatico_segue_o_sistema(self):
         self.abrir(base(ajustes={"tema": "escuro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
@@ -765,7 +780,7 @@ class TestAparenciaEDados(TelaMais):
         self.pg.emulate_media(color_scheme="light")
         escuro_fixo = fundo()
         self.clicar('[data-a="tema"][data-v="auto"]')
-        self.assertEqual(self.dados()["ajustes"]["tema"], "auto")
+        self.assertEqual(self.tema_aqui(), '"auto"')
         claro = fundo()
         self.pg.emulate_media(color_scheme="dark")
         self.esperar()
@@ -1264,7 +1279,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios"]), "config": ("Configurações", ["outros-apps", "bens", "ia", "senhas-pdf", "email", "correria", "uso-ia", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "uso-ia", "email", "senhas-pdf", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

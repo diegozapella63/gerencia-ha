@@ -48,6 +48,11 @@ class TestDados(unittest.TestCase):
             with self.subTest(cor_dia=lixo):
                 self.assertIs(S.normalizar({"ajustes": {"cor_dia": lixo}})["ajustes"]["cor_dia"], True, "só um False desliga")
 
+    def test_o_azul_de_antes_vira_o_da_paleta_da_familia(self):
+        self.assertEqual(S.vazio()["ajustes"]["cor"], "#62B5FF")
+        self.assertEqual(S.normalizar({"ajustes": {"cor": "#56aeff", "cor_dia": False}})["ajustes"]["cor"], "#62B5FF")
+        self.assertEqual(S.normalizar({"ajustes": {"cor": "#8BD45F"}})["ajustes"]["cor"], "#8BD45F", "as outras ficam")
+
     def test_historico_um_ponto_por_dia(self):
         d = exemplo()
         S.registrar_historico(d, hoje=date(2026, 11, 1))

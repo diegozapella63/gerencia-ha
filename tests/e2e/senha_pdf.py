@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.goto(B); pg.wait_for_timeout(800)
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1200)
     igual(senhas(), [], 'começa sem senhas')
-    # Caixa › Adicionar › Fatura, print ou foto: o PDF com senha
+    # Caixa › Adicionar › Escolher fotos ou PDF: o PDF com senha
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(500)
     ler_pdf(pg, 'fatura-aes256.pdf')

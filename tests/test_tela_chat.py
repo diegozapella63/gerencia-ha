@@ -86,7 +86,7 @@ class TestConversar(TelaChat):
         self.abrir_chat()
         self.assertEqual(self.folha(), "Conversar com a IA")
         self.assertIn("Quanto rende a carteira por mês?", self.textos(".ch-sug .chip"))
-        self.assertEqual(self.conta('[data-a="ch-limpar"]'), 0, "sem conversa, sem lixeira")
+        self.assertEqual(self.conta('[data-a="ch-nova"]'), 0, "sem conversa, sem Nova conversa")
 
     def test_sugestao_vira_pergunta(self):
         self.abrir()
@@ -401,19 +401,29 @@ class TestJanela(TelaChat):
         self.js("(T.render(), true)")
         self.assertEqual(self.pg.input_value("#ch-txt"), "metade da pergunta")
 
-    def test_apagar_a_conversa_pede_confirmacao(self):
+    def test_nova_conversa_recomeca(self):
         self.abrir(conversa=[{"id": "m1", "papel": "eu", "texto": "oi"}])
         self.abrir_chat()
-        self.clicar('[data-a="ch-limpar"]')
-        self.assertIn("Apagar a conversa?", self.texto(".ch-pe-limpar"))
-        self.clicar('[data-a="ch-limpar-nao"]')
-        self.assertEqual(self.bolhas(), ["oi"])
-        self.clicar('[data-a="ch-limpar"]')
-        self.clicar('[data-a="ch-limpar-sim"]')
+        self.assertEqual(self.js("document.querySelector('[data-a=\"ch-nova\"]').getAttribute('aria-label')"), "Nova conversa")
+        self.clicar('[data-a="ch-nova"]')
         self.pg.wait_for_timeout(30)
         self.esperar()
         self.assertEqual((self.conta(".ch-msg"), self.conta(".ch-sug .chip"), self.js("T.CHAT_DEMO.length")), (0, 3, 0))
         self.assertEqual(self.folha(), "Conversar com a IA", "continua aberto, vazio")
+
+    def test_sem_mensagens_sem_nova_conversa(self):
+        self.abrir()
+        self.abrir_chat()
+        self.assertEqual(self.conta('[data-a="ch-nova"]'), 0)
+
+    def test_nova_conversa_com_erro_avisa(self):
+        self.abrir(conversa=[{"id": "m1", "papel": "eu", "texto": "oi"}])
+        self.abrir_chat()
+        self.js("(window._limpar = T.api.chatLimpar, T.api.chatLimpar = () => Promise.reject(new Error('sem rede')), true)")
+        self.addCleanup(lambda: self.js("(T.api.chatLimpar = window._limpar, true)"))
+        self.clicar('[data-a="ch-nova"]')
+        self.assertIn("Não consegui começar uma nova conversa. sem rede", self.aviso())
+        self.assertEqual(self.bolhas(), ["oi"], "a conversa fica")
 
 
 class TestDitar(TelaChat):

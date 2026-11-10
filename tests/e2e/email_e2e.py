@@ -66,7 +66,7 @@ with sync_playwright() as p:
             pg.close(); break
         # a com senha: pede a senha, lê e lança
         pg.click('[data-a="email-abrir"]:has-text("o PDF tem senha")'); pg.wait_for_selector('#ia-senha', timeout=8000)
-        igual(pg.inner_text('.folha-cab h2'), 'Fatura, print ou foto', 'abre o PDF que chegou')
+        igual(pg.inner_text('.folha-cab h2'), 'Escolher fotos ou PDF', 'abre o PDF que chegou')
         igual(pg.inner_text('.folha .msg-erro'), 'Este PDF tem senha.', 'pede a senha')
         pg.screenshot(path=f'{SP}/shots/email-senha.png')
         pg.fill('#ia-senha', '12345'); pg.click('.folha [data-a="ia-ler"]')

@@ -1,4 +1,4 @@
-"""Fatura, print ou foto e Digitalizar com IA a partir da Nova despesa: Voltar, X e Cancelar voltam para ela; a câmera
+"""Escolher fotos ou PDF e Digitalizar com IA a partir da Nova despesa: Voltar, X e Cancelar voltam para ela; a câmera
 tira várias páginas e manda todas para a IA."""
 import sys, json
 from playwright.sync_api import sync_playwright
@@ -18,15 +18,15 @@ with sync_playwright() as p:
     pg.click('[data-a="carregar-exemplo"]'); pg.wait_for_timeout(1500)
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(300)
     pg.click('#nav [data-a="novo"]'); pg.wait_for_timeout(400)
-    igual([x.replace('\n', ' ').replace('\xa0', ' ') for x in pg.locator('.imp-tile').all_inner_texts()], ['Colar mensagem', 'Fatura, print ou foto', 'Digitalizar com IA', 'Falar'], 'os quadrinhos da Nova despesa')
+    igual([x.replace('\n', ' ').replace('\xa0', ' ') for x in pg.locator('.imp-tile').all_inner_texts()], ['Colar mensagem', 'Escolher fotos ou PDF', 'Digitalizar com IA', 'Falar'], 'os quadrinhos da Nova despesa')
     igual(titulo(), 'Nova despesa', 'na Nova despesa')
     pg.screenshot(path=f'{SP}/shots/cam-tiles.png')
-    # Fatura, print ou foto: a galeria abre sem trocar a janela; desistir deixa na Nova despesa
+    # Escolher fotos ou PDF: a galeria abre sem trocar a janela; desistir deixa na Nova despesa
     with pg.expect_file_chooser() as fc: pg.click('[data-a="ia-de"][data-ini="arquivo"]')
     pg.wait_for_timeout(300)
     igual(titulo(), 'Nova despesa', 'a galeria abre sem trocar a janela')
     fc.value.set_files(f'{SP}/print.jpg'); pg.wait_for_timeout(900)
-    igual((titulo(), pg.locator('.ia-prev').count(), pg.evaluate('history.state && history.state.g')), ('Fatura, print ou foto', 1, 2), 'escolheu: abre por cima da Nova despesa, com a imagem')
+    igual((titulo(), pg.locator('.ia-prev').count(), pg.evaluate('history.state && history.state.g')), ('Escolher fotos ou PDF', 1, 2), 'escolheu: abre por cima da Nova despesa, com a imagem')
     pg.go_back(); pg.wait_for_timeout(500)
     igual((titulo(), pg.evaluate('history.state && history.state.g')), ('Nova despesa', 1), 'Voltar do celular volta para a Nova despesa')
     with pg.expect_file_chooser() as fc: pg.click('[data-a="ia-de"][data-ini="arquivo"]')
@@ -55,12 +55,12 @@ with sync_playwright() as p:
     igual((len(c.get('anexos') or []), 'anexo' in c), (2, False), 'as duas páginas vão juntas para a IA')
     pg.go_back(); pg.wait_for_timeout(500)
     igual(titulo(), 'Nova despesa', 'Voltar da revisão volta para a Nova despesa')
-    # dentro do Ler com IA (cabeçalho): Digitalizar com a câmera
+    # dentro do Ler com IA (cabeçalho): Digitalizar com IA
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(500)
     igual((titulo(), pg.evaluate('history.state && history.state.g')), ('(nenhuma)', None), 'X na Nova despesa fecha tudo')
     pg.evaluate("document.querySelector('[data-a=ia]').click()"); pg.wait_for_timeout(400)
     igual(titulo(), 'Ler com IA', 'Ler com IA')
-    igual([x.strip() for x in pg.locator('.ia-arq .btn').all_inner_texts()], ['Fatura, print, foto ou PDF', 'Digitalizar com a câmera', 'Falar'], 'botões do Ler com IA')
+    igual([x.strip() for x in pg.locator('.ia-arq .btn').all_inner_texts()], ['Fatura, print, foto ou PDF', 'Digitalizar com IA', 'Falar'], 'botões do Ler com IA')
     pg.click('[data-a="ia-cam"]'); pg.wait_for_timeout(1500)
     pg.click('[data-a="cam-foto"]'); pg.wait_for_timeout(300)
     pg.click('[data-a="cam-pronto"]'); pg.wait_for_timeout(3000)
