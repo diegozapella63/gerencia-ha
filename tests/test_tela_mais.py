@@ -434,6 +434,20 @@ class TestMaisBancos(TelaMais):
         self.assertEqual((d["lancamentos"][0]["conta"], d["lancamentos"][0]["cartao"]), ("", False), "a compra perde a conta e o cartão que sumiram")
         self.assertEqual(self.esperar_aviso("Banco"), "Banco apagado")
 
+    def test_desfazer_o_banco_apagado_devolve_as_contas_e_os_investimentos(self):
+        lanc = [{"id": "c1", "tipo": "despesa", "descricao": "Farmácia", "valor": 120, "data": "2026-10-01", "conta": "k-ana", "cartao": True, "pago": True}]
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=[INV_CDB], lancamentos=lanc))
+        antes = self.dados()
+        self.clicar('[data-a="banco"][data-id="b-azul"]')
+        self.clicar('.folha [data-a="b-excluir"]')
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        self.esperar_aviso("Banco")
+        self.clicar('#toast .toast-a')
+        self.esperar_aviso("Desfeito")
+        d = self.dados()
+        for k in ("bancos", "investimentos", "lancamentos"):
+            self.assertEqual(d[k], antes[k], k)
+
     # BUG: a confirmação "Apagar banco?" é aberta de dentro de "Editar banco", mas o Cancelar fecha tudo em vez de voltar
     # para o banco (a regra do AGENTS.md: uma janela aberta de dentro de outra volta para ela no Voltar, no X e no Cancelar).
     # Igual nas outras confirmações abertas de uma janela (Apagar categoria?, Restaurar esta versão?, Apagar lançamento?).

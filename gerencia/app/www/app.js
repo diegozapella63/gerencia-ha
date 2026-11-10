@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.49.1';
+const VERSAO = '1.50.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -628,9 +628,30 @@ function apiDemo() {
 const api = DEMO ? apiDemo() : apiServidor;
 
 let fila = Promise.resolve();
-function persistir(mut, ok) {
+/* Desfazer um Apagar: o que a ação tirou volta para o mesmo lugar, o que ela mudou volta como era e o que ela criou
+   (a linha que pula um mês de um fixo) sai. O que outro aparelho mudou depois fica. */
+const LISTAS_DESFAZER = ['lancamentos', 'recorrencias', 'investimentos', 'bancos', 'beneficios', 'categorias'];
+const fotografia = d => Object.fromEntries(LISTAS_DESFAZER.map(k => [k, clone(d[k] || [])]));
+function desfazerPara(d, antes, depois) {
+  const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const k of LISTAS_DESFAZER) {
+    const porId = l => new Map(l.filter(x => x && x.id != null).map(x => [x.id, x]));
+    const A = porId(antes[k]), D = porId(depois[k]);
+    d[k] = (d[k] || []).filter(x => !(x && x.id != null && D.has(x.id) && !A.has(x.id) && igual(x, D.get(x.id))));
+    antes[k].forEach((x, i) => {
+      if (!x || x.id == null) return;
+      const j = d[k].findIndex(y => y.id === x.id);
+      if (j < 0) { if (!D.has(x.id)) d[k].splice(Math.min(i, d[k].length), 0, clone(x)); }
+      else if (!igual(x, D.get(x.id)) && igual(d[k][j], D.get(x.id))) d[k][j] = clone(x);
+    });
+  }
+}
+
+/* Grava a mudança (mut) e mostra ok. Com desfazer, o aviso ganha o Desfazer (para os Apagar). */
+function persistir(mut, ok, desfazer) {
   fila = fila.then(async () => {
     const novo = clone(S.d);
+    const antes = desfazer ? fotografia(S.d) : null;
     mut(novo);
     const corpo = { rev: novo.rev, bancos: novo.bancos, investimentos: novo.investimentos, ajustes: novo.ajustes, exemplo: novo.exemplo,
       lancamentos: novo.lancamentos, recorrencias: novo.recorrencias, categorias: novo.categorias, beneficios: novo.beneficios };
@@ -638,7 +659,10 @@ function persistir(mut, ok) {
     try {
       S.d = normalizar(await api.save(corpo));
       render();
-      if (ok) toast(ok);
+      if (ok && antes) {
+        const depois = fotografia(S.d);
+        toast(ok, { rotulo: 'Desfazer', fazer: () => persistir(d => desfazerPara(d, antes, depois), 'Desfeito') });
+      } else if (ok) toast(ok);
       agendarDicas();
       return true;
     } catch (e) {
@@ -705,12 +729,17 @@ try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', apl
 /* ------------------------------------------------------------------ peças */
 const toastEl = () => $('#toast');
 let toastT;
-function toast(msg) {
+/* O aviso de baixo. Com acao ({rotulo, fazer}), um botão nele (o Desfazer depois de apagar, como nos outros apps da
+   família) e mais tempo na tela. */
+function toast(msg, acao) {
   const el = toastEl();
-  el.textContent = msg;
+  el.innerHTML = `<span class="toast-t">${esc(msg)}</span>${acao ? `<button type="button" class="toast-a">${esc(acao.rotulo)}</button>` : ''}`;
+  el.classList.toggle('com-acao', !!acao);
   el.classList.add('on');
   clearTimeout(toastT);
-  toastT = setTimeout(() => el.classList.remove('on'), 3200);
+  const fechar = () => { el.classList.remove('on', 'com-acao'); };
+  if (acao) el.querySelector('.toast-a').onclick = () => { clearTimeout(toastT); fechar(); acao.fazer(); };
+  toastT = setTimeout(fechar, acao ? 6000 : 3200);
 }
 
 // Cabeçalho no padrão EconomIA: marca com "IA" na cor do app, saudação e linha de situação.
@@ -2284,31 +2313,31 @@ function excluirLanc() {
         { rotulo: anual ? `Só o de ${ym.slice(0, 4)}` : `Só o de ${mes}`, acao: () => persistir(d => {
           if (f.virtual) d.lancamentos.push(materializar(Object.assign({}, f, { recorrencia: rid, competencia: ym }), { pulado: true }));
           else { const x = d.lancamentos.find(y => y.id === f.id); if (x) x.pulado = true; }
-        }, anual ? 'Apagado deste ano' : 'Apagado deste mês') },
+        }, anual ? 'Apagado deste ano' : 'Apagado deste mês', true) },
         { rotulo: `Parar a partir de ${mes}`, acao: () => persistir(d => {
           const r = d.recorrencias.find(x => x.id === rid);
           if (r) { if (ym <= r.inicio) d.recorrencias = d.recorrencias.filter(x => x.id !== r.id); else r.fim = addYm(ym, -1); }
           d.lancamentos = d.lancamentos.filter(x => !(x.recorrencia === rid && x.competencia >= ym && !x.pago));
-        }, 'Fixo encerrado: o que já foi lançado continua') },
+        }, 'Fixo encerrado: o que já foi lançado continua', true) },
         { rotulo: lancados ? `Apagar o fixo e o que ele já lançou (${lancados})` : 'Apagar o fixo', perigo: true, acao: () => persistir(d => {
           d.recorrencias = d.recorrencias.filter(x => x.id !== rid);
           d.lancamentos = d.lancamentos.filter(x => x.recorrencia !== rid);
           // despesas descontadas deste recebimento ficam por conta própria
           for (const x of [...d.recorrencias, ...d.lancamentos]) if (x.vinculo === rid) delete x.vinculo;
-        }, 'Fixo apagado') },
+        }, 'Fixo apagado', true) },
       ],
     });
   } else if (f.grupo) {
     escolher({
       titulo: 'Apagar parcela', texto: `<b>${esc(f.descricao)}</b>, parcela ${esc(f.parcela || '')}.`,
       opcoes: [
-        { rotulo: 'Só esta parcela', acao: () => persistir(d => removerReal(d, f.id), 'Parcela apagada') },
-        { rotulo: 'Esta e as próximas', perigo: true, acao: () => persistir(d => { d.lancamentos = d.lancamentos.filter(x => !(x.grupo === f.grupo && x.data >= f.data)); }, 'Parcelas apagadas') },
+        { rotulo: 'Só esta parcela', acao: () => persistir(d => removerReal(d, f.id), 'Parcela apagada', true) },
+        { rotulo: 'Esta e as próximas', perigo: true, acao: () => persistir(d => { d.lancamentos = d.lancamentos.filter(x => !(x.grupo === f.grupo && x.data >= f.data)); }, 'Parcelas apagadas', true) },
       ],
     });
   } else {
     confirmar({ titulo: 'Apagar lançamento?', texto: `<b>${esc(f.descricao)}</b>, ${brl(f.valor)}. Uma cópia fica em Versões anteriores.`, botao: 'Apagar', perigo: true,
-      acao: () => persistir(d => removerReal(d, f.id), 'Lançamento apagado') });
+      acao: () => persistir(d => removerReal(d, f.id), 'Lançamento apagado', true) });
   }
 }
 
@@ -5817,7 +5846,7 @@ document.addEventListener('click', ev => {
     case 'cat-excluir': {
       const alvo = FC.id;
       confirmar({ titulo: 'Apagar categoria?', texto: 'Os lançamentos dela ficam sem categoria.', botao: 'Apagar', perigo: true,
-        acao: () => persistir(d => { d.categorias = d.categorias.filter(c => c.id !== alvo); for (const l of [...d.lancamentos, ...d.recorrencias]) if (l.categoria === alvo) l.categoria = ''; }, 'Categoria apagada') });
+        acao: () => persistir(d => { d.categorias = d.categorias.filter(c => c.id !== alvo); for (const l of [...d.lancamentos, ...d.recorrencias]) if (l.categoria === alvo) l.categoria = ''; }, 'Categoria apagada', true) });
       break;
     }
     // formulário de lançamento
@@ -6049,7 +6078,7 @@ document.addEventListener('click', ev => {
     case 'f-excluir': {
       const alvo = F.id, nome = F.nome;
       confirmar({ titulo: 'Apagar investimento?', texto: `<b>${esc(nome)}</b> sai da lista e dos gráficos. Uma cópia fica em Versões anteriores.`, botao: 'Apagar', perigo: true,
-        acao: () => persistir(d => { d.investimentos = d.investimentos.filter(i => i.id !== alvo); }, 'Investimento apagado') });
+        acao: () => persistir(d => { d.investimentos = d.investimentos.filter(i => i.id !== alvo); }, 'Investimento apagado', true) });
       break;
     }
 
@@ -6072,7 +6101,7 @@ document.addEventListener('click', ev => {
     case 'fben-uso-rm': if (FBEN) { FBEN.usos = (FBEN.usos || []).filter(u => u.id !== v); pintarFolha(); } break;
     case 'fben-usou': if (FBEN && FBEN.lancar) { const q = Math.round((numDinheiro(FBEN.valor) || 0) * 100) / 100; if (!(q > 0)) { toast('Diga quanto usou.'); break; } const f = FBEN.lancar; fecharFolha(false, true); f(q); } break;
     case 'fben-excluir': { const f = FBEN; confirmar({ titulo: 'Apagar benefício?', texto: `${esc(f.nome)} sai da lista, com os usos.`, botao: 'Apagar', perigo: true,
-      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, 'Benefício apagado') }); break; }
+      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, 'Benefício apagado', true) }); break; }
     case 'bc-add': FB.contas.push({ id: 'k-' + uid(), pessoa: '', cartao: false, fechamento: '', vencimento: '' }); pintarFolha(); break;
     case 'bc-rm': FB.contas.splice(+el.dataset.i, 1); pintarFolha(); break;
     case 'bc-cartao': { const c = FB.contas[+el.dataset.i]; c.cartao = !c.cartao; pintarFolha(); break; }
@@ -6084,7 +6113,7 @@ document.addEventListener('click', ev => {
           d.bancos = d.bancos.filter(b => b.id !== alvo);
           d.investimentos.forEach(i => { if (i.banco === alvo) i.banco = ''; });
           for (const l of [...d.lancamentos, ...d.recorrencias]) if (ks.has(l.conta)) { l.conta = ''; l.cartao = false; }
-        }, 'Banco apagado') });
+        }, 'Banco apagado', true) });
       break;
     }
 

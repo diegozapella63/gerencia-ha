@@ -276,7 +276,7 @@ class Tela(unittest.TestCase):
 
     def aviso(self):
         """O aviso que está na tela (embaixo, some sozinho), ou None."""
-        return self.js("(e => e && e.classList.contains('on') ? e.textContent : null)(document.getElementById('toast'))")
+        return self.js("(e => e && e.classList.contains('on') ? (e.querySelector('.toast-t') || e).textContent : null)(document.getElementById('toast'))")
 
 
 def dump(x):  # para depurar um teste: print(dump(self.dados()))

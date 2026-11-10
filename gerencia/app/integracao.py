@@ -90,7 +90,8 @@ class Conexao:
             url, ip = self.endereco()
             corpo = {"app": "gerencia", **self.extra, **(extra or {}), "versao": self.versao, "url": url,
                      "ip_url": f"http://{ip}:{self.porta}" if ip else None,
-                     "chave": self.chave(), "gravado_em": datetime.now().isoformat(timespec="seconds")}
+                     # no integracao.json, a hora com o fuso (igual em todos os apps da família); no correria.json, como no contrato dele
+                     "chave": self.chave(), "gravado_em": (datetime.now().astimezone() if self.arq_share.endswith("integracao.json") else datetime.now()).isoformat(timespec="seconds")}
             os.makedirs(os.path.dirname(self.arq_share), exist_ok=True)
             tmp = self.arq_share + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:

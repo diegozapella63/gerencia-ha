@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.50.0
+
+- **Desfazer**: depois de apagar um lançamento, uma parcela, um fixo (só deste mês, parar ou apagar), um investimento, um benefício, um banco ou uma categoria, o aviso embaixo traz o **Desfazer**, como nos outros apps da família: tudo volta como era, no mesmo lugar.
+
 ## 1.49.1
 
 - **CorrerIA e CronologIA**: um pedido para pagar ou mudar um fixo com um mês que não existe (como o mês 13) é recusado, em vez de criar um lançamento com a data errada.

@@ -125,6 +125,12 @@ class Caixa(Tela):
     def opcoes(self):
         return self.textos('.folha-pe [data-a="escolha"]')
 
+    def desfazer(self):
+        """O Desfazer do aviso de baixo (depois de um Apagar)."""
+        self.assertEqual(self.js("(b => b && b.textContent)(document.querySelector('#toast.on .toast-a'))"), "Desfazer")
+        self.clicar('#toast .toast-a')
+        self.esperar()
+
     def escolher(self, rotulo):
         ops = self.opcoes()
         self.assertIn(rotulo, ops, "a opção existe")
@@ -634,6 +640,61 @@ class TestFixos(Caixa):
 
 # ---------------------------------------------------------------------------------------------------------------
 SALARIO = rec("l-sal", "Salário", 5000, "2026-11-02", True, conta="k-verde", categoria="c-salario", descontos=[INSS])
+
+
+class TestDesfazer(Caixa):
+    """Depois de apagar, o aviso tem o Desfazer (como nos outros apps da família): volta tudo como era."""
+
+    def test_lancamento_volta_no_mesmo_lugar(self):
+        mercado = desp("l2", "Mercado", 80, "2026-11-03", True)
+        self.caixa(lancamentos=[PADARIA, mercado])
+        antes = self.dados()["lancamentos"]
+        self.clicar('.lanc[data-id="l1"]')
+        self.excluir()
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        self.assertEqual([l["id"] for l in self.dados()["lancamentos"]], ["l2"])
+        self.desfazer()
+        self.assertEqual(self.dados()["lancamentos"], antes, "o mesmo lançamento, na mesma posição")
+        self.assertEqual(self.aviso(), "Desfeito")
+        self.assertEqual(self.js("document.querySelector('#toast .toast-a')"), None, "o Desfeito não tem outro Desfazer")
+        self.assertIn("l1", self.ids())
+
+    def abrir_fixo(self, ym="2026-11", id="r-luz"):
+        self.clicar(f'.lanc[data-id="v:{id}:{ym}"]')
+
+    def test_fixo_so_deste_mes_e_parar(self):
+        self.caixa(recorrencias=[LUZ])
+        self.abrir_fixo()
+        self.excluir()
+        self.escolher("Só o de novembro")
+        self.assertEqual(len(self.dados()["lancamentos"]), 1, "a linha que pula o mês")
+        self.desfazer()
+        self.assertEqual(self.dados()["lancamentos"], [], "a linha que pulava o mês sai")
+        self.assertEqual(self.ids(), ["v:r-luz:2026-11"])
+        self.abrir_fixo()
+        self.excluir()
+        self.escolher("Parar a partir de novembro")
+        self.desfazer()
+        self.assertEqual(self.dados()["recorrencias"][0].get("fim"), LUZ.get("fim"), "o fixo volta a valer")
+
+    def test_o_que_mudou_depois_fica(self):
+        mercado = desp("l2", "Mercado", 80, "2026-11-03", True)
+        self.caixa(lancamentos=[PADARIA, mercado])
+        self.clicar('.lanc[data-id="l1"]')
+        self.excluir()
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        # outro aparelho muda o Mercado antes do Desfazer
+        self.js("(T.persistir(d => { d.lancamentos.find(l => l.id === 'l2').valor = 99; }), true)")
+        self.esperar()
+        self.desfazer()
+        d = {l["id"]: l["valor"] for l in self.dados()["lancamentos"]}
+        self.assertEqual(d, {"l1": 12.5, "l2": 99}, "a Padaria volta e o Mercado fica com o valor novo")
+
+    def test_aviso_comum_sem_desfazer_e_some(self):
+        self.caixa(lancamentos=[PADARIA])
+        self.js("(T.toast('Salvo'), true)")
+        self.assertEqual(self.aviso(), "Salvo")
+        self.assertEqual(self.js("document.getElementById('toast').classList.contains('com-acao')"), False)
 
 
 class TestSalario(Caixa):

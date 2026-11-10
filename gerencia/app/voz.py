@@ -1,11 +1,14 @@
 """Falar: o que você diz vai para a fala para texto do Home Assistant e volta como texto, que a IA lê
-como uma mensagem colada (igual ao CronologIA e ao ResolvIA).
+como uma mensagem colada. O mesmo arquivo no GerencIA e no EconomIA (tools/iguais.py: ao mudar, copie para o outro);
+no CronologIA, no ResolvIA e no MemorIA, o lib/voice.js faz o mesmo em Node.
 
-O motor é o escolhido em Mais › Configurações › Integrações › Leitura por IA (uma lista, como a da IA) ou, sem
-escolha, o do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud, stt.home_assistant_cloud),
-com o idioma dele; sem assistente, a primeira entidade stt.*.
+O motor é o escolhido no app (uma lista, como a da IA: uma linha por motor de fala para texto) ou, sem escolha, o do
+assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud, stt.home_assistant_cloud),
+com o idioma dele; sem assistente, a primeira entidade stt.*. Uma escolha de antes, de um assistente ("pipeline:<id>"),
+vale como o motor dele.
 O áudio chega do app como PCM cru, 16 kHz, 16 bits, mono (o mesmo que o Assist manda).
-Só biblioteca padrão do Python: o WebSocket do Home Assistant é falado à mão, para uma única pergunta.
+Só biblioteca padrão do Python: o WebSocket do Home Assistant é falado à mão (ConexaoWS, que o GerencIA também usa
+para escutar os e-mails).
 """
 import base64
 import http.client
@@ -144,8 +147,10 @@ def _ws_comando(url, token, comando, timeout=10):
 
 
 class Voz:
-    def __init__(self, rest, ws, token, log, simulada=False):
+    def __init__(self, rest, ws, token, log, simulada=False, texto_simulado="Um texto de teste"):
+        """simulada: sem o Home Assistant (testes e prévia), duas falas de mentira; texto_simulado é o que elas "ouvem"."""
         self.rest, self.ws, self.token, self.log, self.simulada = rest, ws, token, log, simulada
+        self.texto_simulado = texto_simulado
         self.cache = None
 
     def _ler(self):
@@ -198,22 +203,36 @@ class Voz:
             o["assistentes"] = [a for a in o["assistentes"] if a]
         return sorted(lista.values(), key=lambda o: (not o["preferido"], o["nome"].lower()))
 
+    def _resolver(self, escolha):
+        """A escolha guardada no app como o id de um motor: "pipeline:<id>" (um assistente, como se guardava antes)
+        vira o motor dele; "" se não houver escolha."""
+        escolha = str(escolha or "").strip()
+        if escolha.startswith("pipeline:"):
+            pid = escolha.split(":", 1)[1]
+            pipes = [{"id": "simulado", "stt_engine": "stt.simulada"}] if self.simulada else self._ler()[0]
+            return next((p["stt_engine"] for p in pipes if str(p.get("id")) == pid), escolha)
+        return escolha
+
     def motor(self, escolha=""):
         """{engine, language, name} da fala para texto a usar, ou None: a escolhida no app ou, sem escolha
         (ou se ela sumiu do Home Assistant), a do assistente de voz preferido."""
-        ops = self.opcoes()
+        ops, escolha = self.opcoes(), self._resolver(escolha)
         o = next((x for x in ops if escolha and x["id"] == escolha), None) \
             or next((x for x in ops if x["preferido"]), None) or (ops[0] if ops else None)
         return {"engine": o["id"], "language": o["idioma"], "name": o["nome"]} if o else None
 
     def status(self, escolha=""):
+        """Pronta ou o motivo; com o motor que vai ser usado, a lista para escolher, a escolhida (se ainda existe) e se
+        a escolhida sumiu do Home Assistant (escolha_sumiu: o app avisa que está usando outra)."""
         ops = self.opcoes()
         m = self.motor(escolha)
         if not m:
             return {"pronta": False, "opcoes": [], "motivo": "Para falar, o Home Assistant precisa de um assistente de voz com fala para texto "
                                                              "(Configurações › Assistentes de voz; com o Home Assistant Cloud ele já vem pronto)."}
-        return {"pronta": True, "motor": m["engine"], "idioma": m["language"], "nome": m["name"], "opcoes": ops,
-                "selecionada": escolha if any(o["id"] == escolha for o in ops) else ""}
+        resolvida = self._resolver(escolha)
+        existe = any(o["id"] == resolvida for o in ops)
+        return {"pronta": True, "motor": m["engine"], "idioma": m["language"], "nome": m["name"], "opcoes": ops, "usando": m["engine"],
+                "selecionada": resolvida if existe else "", "escolha_sumiu": bool(resolvida) and not existe}
 
     def texto(self, pcm, escolha=""):
         """PCM cru (16 kHz, 16 bits, mono) para texto."""
@@ -223,10 +242,10 @@ class Voz:
             raise ErroVoz("Fale até 2 minutos de cada vez.")
         m = self.motor(escolha)
         if not m:
-            raise ErroVoz(self.status()["motivo"])
+            raise ErroVoz(self.status(escolha)["motivo"])
         if self.simulada:
             time.sleep(0.8)
-            return {"texto": "Gastei 45 reais no mercado hoje no cartão e recebi 150 do João pelo Pix", "nome": m["name"]}
+            return {"texto": self.texto_simulado, "nome": m["name"]}
         u = urlparse(self.rest)
         # nomes dos cabeçalhos escritos exatamente assim: o proxy do Supervisor só repassa "X-Speech-Content" desse jeito
         c = http.client.HTTPConnection(u.hostname, u.port or 80, timeout=90)

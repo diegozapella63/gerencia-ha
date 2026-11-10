@@ -74,6 +74,17 @@ Abra `http://localhost:8099`. Em **Carregar exemplo** aparecem dados inventados.
 6. `python3 tools/montar_previa.py` e commit também de `preview/gerencia-previa.html`.
 7. Commit em `main` com mensagem em português ("GerencIA 1.24.0: ..."), `git pull --rebase` e push. O GitHub roda todos os testes a cada push (aba Actions).
 
+## Arquivos iguais em todos os apps
+
+A lista dos arquivos que são iguais nos apps da família fica em `tools/iguais.py` (ele também é igual em todos):
+`python3 tools/iguais.py` confere os daqui com os dos apps ao lado (`../resolvia-ha`, ...), e o GitHub confere a cada
+push (job **Arquivos iguais aos dos outros apps**, que baixa os outros apps). Mudou um arquivo da lista? Copie para os
+outros apps do grupo e publique todos. Um arquivo que passa a ser igual entra em `GRUPOS`, aqui e nas cópias.
+
+`share/<app>/integracao.json` começa igual em todos os apps: `app` (o id, como no `correria.json`), `nome`, `versao` e
+`gravado_em` (ISO 8601 com o fuso), depois os campos de cada app. O ResolvIA e o CronologIA ainda gravam o nome em
+`app` (as versões de antes conferem por ele) e quem lê aceita os dois; o id entra numa próxima versão.
+
 ## Como os apps conversam
 
 Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro app junto.

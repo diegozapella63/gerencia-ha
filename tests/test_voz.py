@@ -132,6 +132,19 @@ class TestMotores(unittest.TestCase):
         st = v.status("stt.vosk")
         self.assertEqual((st["pronta"], st["motor"], st["selecionada"], len(st["opcoes"])), (True, "stt.vosk", "stt.vosk", 3))
         self.assertEqual(v.status("stt.sumiu")["selecionada"], "")
+        self.assertEqual((st["usando"], st["escolha_sumiu"]), ("stt.vosk", False))
+        self.assertEqual((v.status("stt.sumiu")["usando"], v.status("stt.sumiu")["escolha_sumiu"]), ("stt.home_assistant_cloud", True),
+                         "a escolhida sumiu: o app avisa que usa outra")
+        self.assertFalse(v.status()["escolha_sumiu"], "sem escolha, nada sumiu")
+
+    def test_escolha_de_antes_por_assistente(self):
+        """O EconomIA guardava o assistente ("pipeline:<id>"): vale o motor dele (o mesmo voz.py nos dois apps)."""
+        v = self.v()
+        self.assertEqual(v.motor("pipeline:p2")["engine"], "stt.faster_whisper")
+        st = v.status("pipeline:p2")
+        self.assertEqual((st["selecionada"], st["escolha_sumiu"]), ("stt.faster_whisper", False))
+        st = v.status("pipeline:p9")
+        self.assertEqual((st["motor"], st["selecionada"], st["escolha_sumiu"]), ("stt.home_assistant_cloud", "", True), "o assistente sumiu")
 
     def test_sem_motor(self):
         self.rest.rotas["/api/states"] = (200, [])
@@ -202,10 +215,12 @@ class TestTexto(unittest.TestCase):
 
 class TestSimulada(unittest.TestCase):
     def test_simulada(self):
-        v = voz.Voz("", "", "", print, simulada=True)
+        v = voz.Voz("", "", "", print, simulada=True, texto_simulado="Gastei 45 reais no mercado")
         self.assertEqual([o["id"] for o in v.opcoes()], ["stt.simulada", "stt.outra_simulada"])
         self.assertEqual(v.status("stt.outra_simulada")["selecionada"], "stt.outra_simulada")
-        self.assertIn("mercado", v.texto(PCM)["texto"])
+        self.assertEqual(v.status("pipeline:simulado")["selecionada"], "stt.simulada")
+        self.assertEqual(v.texto(PCM)["texto"], "Gastei 45 reais no mercado", "cada app diz o que a fala simulada ouve")
+        self.assertEqual(voz.Voz("", "", "", print, simulada=True).texto(PCM)["texto"], "Um texto de teste")
 
 
 if __name__ == "__main__":

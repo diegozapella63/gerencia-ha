@@ -266,8 +266,13 @@ class TestConexaoComOCronologIA(unittest.TestCase):
     def setUpClass(cls):
         cls.s = Servidor()
         with open(os.path.join(cls.s.dirs["share"], "integracao.json"), encoding="utf-8") as f:
-            cls.chave = json.load(f)["chave"]
+            cls.arquivo = json.load(f)
+        cls.chave = cls.arquivo["chave"]
         cls.auth = {"Authorization": f"Bearer {cls.chave}", "X-App": "CronologIA"}
+
+    def test_o_arquivo_comeca_como_o_dos_outros_apps(self):
+        self.assertEqual({k: self.arquivo[k] for k in ("app", "nome")}, {"app": "gerencia", "nome": "GerencIA"})
+        self.assertRegex(self.arquivo["versao"], r"^\d+\.\d+\.\d+$")
 
     @classmethod
     def tearDownClass(cls):

@@ -86,10 +86,24 @@ class TestConexao(unittest.TestCase):
             p = json.load(f)
         self.assertEqual((p["app"], p["versao"], p["url"], p["chave"]), ("gerencia", "9.9.9", "http://g:8099", self.c.chave()))
         self.assertIsNone(p["ip_url"])
+        self.assertRegex(p["gravado_em"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$", "com o fuso, como nos outros apps")
         self.assertEqual(stat.S_IMODE(os.stat(self.c.arq_share).st_mode), 0o600)
         self.c.publicar(ligado=False)
         self.assertFalse(os.path.exists(self.c.arq_share))
         self.c.publicar(ligado=False)  # de novo: nada a apagar
+
+    def test_o_comeco_igual_ao_dos_outros_apps(self):
+        """share/<app>/integracao.json começa igual em todos os apps: app (o id), nome, versao e gravado_em."""
+        c = I.Conexao(self.data, self.share, 8099, "9.9.9", print, extra={"nome": "GerencIA"})
+        c.publicar()
+        with open(c.arq_share, encoding="utf-8") as f:
+            p = json.load(f)
+        self.assertEqual(list(p)[:2], ["app", "nome"])
+        self.assertEqual((p["app"], p["nome"], p["versao"]), ("gerencia", "GerencIA", "9.9.9"))
+        cor = I.Conexao(self.data, self.share, 8099, "9.9.9", print, nome="correria")
+        cor.publicar()
+        with open(cor.arq_share, encoding="utf-8") as f:
+            self.assertRegex(json.load(f)["gravado_em"], r"T\d\d:\d\d:\d\d$", "o correria.json segue o contrato dele (a hora da casa)")
 
     def test_publicar_sem_pasta_avisa(self):
         arquivo = os.path.join(self.share, "um-arquivo")

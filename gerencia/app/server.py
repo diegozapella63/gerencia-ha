@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.49.1"
+VERSAO = "1.50.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2673,7 +2673,8 @@ def rotina_oport():
 
 # ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
 
-VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"))
+VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"),
+              texto_simulado="Gastei 45 reais no mercado hoje no cartão e recebi 150 do João pelo Pix")
 BENS = bens.Bens(log)
 
 
@@ -2723,7 +2724,8 @@ TIPOS_MIME = {
 CAMPOS_USUARIO = ("bancos", "investimentos", "ajustes", "exemplo", "lancamentos", "recorrencias", "categorias", "beneficios")
 
 
-CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log)
+# share/gerencia/integracao.json: o mesmo começo em todos os apps da família (app, nome, versao, gravado_em com o fuso)
+CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, extra={"nome": "GerencIA"})
 # O CorrerIA (o WhatsApp, o Claude e o Gemini) usa as ferramentas (/api/integracao/ferramentas: ler e gravar, sem a IA
 # daqui) e, com a IA ligada, pergunta pela rota /api/integracao/conversa (as fotos e os PDFs vêm por ela). A chave própria
 # fica em share/gerencia/correria.json, que só existe com Mais › Configurações › Integrações › CorrerIA ligado.
