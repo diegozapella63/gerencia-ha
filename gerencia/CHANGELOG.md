@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.53.1
+
+- **Tema**: **Automático** agora se chama **Sistema** (segue o claro ou escuro do Home Assistant, como antes). O nome cabe ao lado do ícone e é o mesmo em todos os apps da família.
+
 ## 1.53.0
 
 - **Identificar benefícios** em **Editar banco**: cada conta já salva tem o botão. A leitura por IA abre já com a conta em **De onde vêm**, e o botão mostra quantos benefícios a conta tem.

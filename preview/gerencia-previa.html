@@ -1798,7 +1798,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.53.0';
+const VERSAO = '1.53.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2590,7 +2590,7 @@ const corDiaOn = () => S.d.ajustes.cor_dia !== false;
 const CORES_ANTIGAS = { '#56AEFF': '#62B5FF' };
 const corDoApp = () => { if (corDiaOn()) return corDoDia(); const c = corOk(S.d.ajustes.cor); return c ? CORES_ANTIGAS[c.toUpperCase()] || c : AJUSTES_PADRAO.cor; };
 let diaDaCor = null; // o dia da cor posta por último
-// o tema vale só neste aparelho (padrão da família; começa em Automático). Quem já tinha escolhido, na versão em que o
+// o tema vale só neste aparelho (padrão da família; começa em Sistema). Quem já tinha escolhido, na versão em que o
 // tema valia para a casa toda, fica com aquele até escolher outro aqui.
 const TEMAS = ['auto', 'claro', 'escuro'];
 const temaAqui = () => { const t = store.get('tema', null); return TEMAS.includes(t) ? t : TEMAS.includes(S.d && S.d.ajustes.tema) ? S.d.ajustes.tema : 'auto'; };
@@ -7006,8 +7006,8 @@ const tamanhoTxt = n => n >= 1048576 ? `${(n / 1048576).toLocaleString('pt-BR', 
 function maisAparencia() {
   const a = S.d.ajustes, cor = corAppAtual(), tema = temaAqui();
   return `<section class="card" id="tema">${maisCab('contrast', 'Tema')}
-      ${maisLead('Só neste aparelho. Automático segue o Home Assistant.')}
-      <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Automático', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
+      ${maisLead('Só neste aparelho. Sistema segue o Home Assistant.')}
+      <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Sistema', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
         `<button role="radio" aria-checked="${tema === k}" class="${tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
     <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
       ${linhaChave('cor_dia', corDiaOn(), 'Cor do dia', 'Muda a cor do app todo dia.')}

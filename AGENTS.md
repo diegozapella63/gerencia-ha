@@ -118,7 +118,7 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - IA: as entradas se chamam **Colar mensagem**, **Escolher fotos** (ou **Escolher fotos ou PDF**, onde PDF vale) e **Digitalizar com IA**; a conversa recomeça em **Nova conversa**; o Voltar do celular fecha a Conversa.
 - Palavras: **Apagar** (nunca Excluir); **Testar no meu celular**; **Home Assistant Cloud** (não Nabu Casa); recolhidos como **Nome (n)**; o CHANGELOG começa com "# Mudanças".
 - **Dados**: Exportar › Backup na pasta share › Importar › Versões anteriores › Onde ficam os dados › Começar do zero.
-- **Aparência**: o tema vale no aparelho (começa em Automático; aqui, `localStorage` `gerencia.tema`, e o `ajustes.tema` de antes vale até escolher); a cor do app vale para a casa toda; uma paleta só, de 12 cores (Vermelho, Coral, Laranja, Ouro, Verde, Menta, Turquesa, Azul, Índigo, Lilás, Rosa, Grafite; `CORES_APP` no app.js e no calc.py); a Cor do dia é a mesma em todos os apps (as 11 sem o Grafite, pelo número do dia).
+- **Aparência**: o tema vale no aparelho (começa em Sistema; aqui, `localStorage` `gerencia.tema`, e o `ajustes.tema` de antes vale até escolher); a cor do app vale para a casa toda; uma paleta só, de 12 cores (Vermelho, Coral, Laranja, Ouro, Verde, Menta, Turquesa, Azul, Índigo, Lilás, Rosa, Grafite; `CORES_APP` no app.js e no calc.py); a Cor do dia é a mesma em todos os apps (as 11 sem o Grafite, pelo número do dia).
 
 ## Conversa com o dono
 

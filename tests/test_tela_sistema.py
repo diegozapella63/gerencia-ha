@@ -638,7 +638,7 @@ class TestTelaComServidor(TelaServidor):
 
 # ---------------------------------------------------------------------------------------------------------------
 class TestTemaDoHomeAssistant(TelaServidor):
-    """Tema Automático dentro do Home Assistant: segue o tema do HA (darkMode); fora dele, o do aparelho."""
+    """Tema Sistema dentro do Home Assistant: segue o tema do HA (darkMode); fora dele, o do aparelho."""
 
     def dentro_do_ha(self, dark_mode):
         """Finge que o app está num iframe do Home Assistant com este darkMode (o parent tem o <home-assistant>)."""
@@ -648,6 +648,13 @@ class TestTemaDoHomeAssistant(TelaServidor):
     def automatico(self):
         self.clicar('#tema [data-a="tema"][data-v="auto"]')
         return self.js("document.documentElement.dataset.theme")
+
+    def test_os_temas_sistema_claro_e_escuro(self):
+        """1.53.1: Sistema no lugar de Automático (que não cabia ao lado do ícone), igual em todos os apps da família."""
+        self.abrir(base(ajustes={"corrigir": True}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
+        self.assertEqual(self.pg.locator('#tema [data-a="tema"]').all_inner_texts(), ["Sistema", "Claro", "Escuro"])
+        self.assertEqual(self.pg.locator('#tema [aria-checked="true"]').inner_text(), "Sistema", "começa em Sistema")
+        self.assertIn("Sistema segue o Home Assistant", self.pg.locator("#tema").inner_text())
 
     def test_segue_o_modo_escuro_e_o_claro_do_home_assistant(self):
         self.abrir(base(ajustes={"corrigir": True, "tema": "claro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})

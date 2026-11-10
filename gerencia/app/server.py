@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.53.0"
+VERSAO = "1.53.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
