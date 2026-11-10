@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.47.0';
+const VERSAO = '1.48.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2098,7 +2098,7 @@ function montarFormLanc() {
     : `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
   c += secaoDescontos(f);
   const sugest = [...new Set(S.d.lancamentos.filter(l => l.tipo === f.tipo && !l.ajuste).map(l => l.descricao))].slice(-60);
-  c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : apo ? 'Ex.: Aporte nos investimentos, Tesouro do mês' : 'Ex.: Mercado, Aluguel, iFood'}" list="dl-desc" autocomplete="off">
+  c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : apo ? 'Ex.: Aporte nos investimentos, Tesouro do mês' : 'Ex.: Mercado, Aluguel, iFood'}" data-sug="dl-desc" autocomplete="off">
     <datalist id="dl-desc">${sugest.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>`;
   if (!f.ajuste && !apo) {
     c += `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${cats.map(k =>
@@ -2855,6 +2855,7 @@ function pagarDoChat(a) {
 }
 
 function abrirIA(modo, inicio, opts) {
+  ABERTOS.delete('ia-fora');  // cada conferência começa com os pagamentos desconsiderados fechados
   // a IA separa sozinha lançamentos (gastos, recebimentos, a pagar e a receber) e investimentos: não se escolhe antes.
   // Atualizar saldos (opts.saldos): uma listinha com o saldo de agora de cada investimento; o aporte é a diferença.
   IAS = { dica: modo === 'invest' ? 'invest' : 'caixa', etapa: inicio === 'voz' ? 'voz' : 'entrada', rec: inicio === 'voz' ? 'starting' : 'off', arquivo: null, texto: '', itens: [], invs: [], erro: '', conta: '', cartao: false,
@@ -3123,8 +3124,15 @@ function nomeBancoVisto(nome) {
   const n = semAcento(nome);
   return BANCOS_COMUNS.find(x => n.includes(semAcento(x))) || String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 }
-// o crédito na fatura que é o pagamento dela (não é recebimento): Pagamento online, pagamento recebido, pagto, débito automático
+// o crédito na fatura que é o pagamento dela (não é recebimento): Pagamento online, pagamento recebido, pagto, débito
+// automático; a IA marca (pagamento_fatura) ou o nome diz, num recebimento no cartão ou numa fatura de cartão (igual ao calc.py)
 const RE_PAG_FATURA = /^(pagamento|pagto|pgto)\b|debito automatico|pagamento (recebido|online|da fatura|de fatura|efetuado)/;
+const cartaoMaioria = l => l.filter(x => x && x.cartao).length > l.length / 2;
+const ehPagamentoFatura = (x, cartao) => x.pagamento_fatura === true || (x.tipo === 'receita' && (!!x.cartao || cartao) && RE_PAG_FATURA.test(semAcento(x.descricao)));
+function semPagamentosFatura(lanc) {
+  const l = (lanc || []).filter(x => x && typeof x === 'object'), m = cartaoMaioria(l);
+  return l.filter(x => !ehPagamentoFatura(x, m));
+}
 function prepararRevisaoCaixa() {
   const s = IAS;
   const cartao = s.itens.filter(i => i.cartao).length > s.itens.length / 2;
@@ -3152,7 +3160,7 @@ function prepararRevisaoCaixa() {
     it.dup = dup;
     if (dup) it.marcado = false;
     // o pagamento da própria fatura (a IA marca, ou o nome diz: Pagamento online, pagamento recebido...): fica desmarcado, no fim
-    it.desconsiderado = it.pagamento_fatura === true || (it.tipo === 'receita' && (!!it.cartao || cartao) && RE_PAG_FATURA.test(semAcento(it.descricao)));
+    it.desconsiderado = ehPagamentoFatura(it, cartao);
     if (it.desconsiderado) it.marcado = false;
   }
   // a fatura de um remetente ligado a um fixo (Sempre é um fixo): a primeira despesa vai para o fixo do mês, na
@@ -3236,8 +3244,8 @@ function revisaoCaixa() {
     };
     const ks = s.itens.map((it, k) => k), fora = ks.filter(k => s.itens[k].desconsiderado);
     return `<div class="ia-itens">${ks.filter(k => !s.itens[k].desconsiderado).map(k => linha(s.itens[k], k)).join('')}</div>`
-      + (fora.length ? `<h3 class="ia-sec ia-fora">Pagamentos desconsiderados</h3><div class="ajuda" style="margin:-4px 0 8px">O pagamento da fatura não é recebimento. Marque se quiser lançar.</div>
-        <div class="ia-itens">${fora.map(k => linha(s.itens[k], k)).join('')}</div>` : '');
+      + recolhido('ia-fora', 'Pagamentos desconsiderados', fora.length, `<div class="ajuda" style="margin:0 0 8px">O pagamento da fatura não é recebimento. Marque se quiser lançar.</div>
+        <div class="ia-itens">${fora.map(k => linha(s.itens[k], k)).join('')}</div>`);
     })()}`;
 }
 // salva o que estiver marcado nos dois grupos de uma vez
@@ -3365,7 +3373,7 @@ function revisarItemHTML() {
       ${ex ? `<div class="ajuda">${esc(ex.nome)}: ${brl(valorHoje(ex))} hoje.</div>` : ''}</div>`;
   let corpo = valor;
   if (!ex) corpo += `<div class="campo"><label for="iae-nome">Nome</label><input id="iae-nome" class="inp" data-iae="nome" value="${esc(r.nome)}" autocomplete="off"></div>
-      <div class="campo"><label for="iae-banco">Banco</label><input id="iae-banco" class="inp" data-iae="banco" value="${esc(r.banco)}" list="dl-iae-bancos" autocomplete="off">
+      <div class="campo"><label for="iae-banco">Banco</label><input id="iae-banco" class="inp" data-iae="banco" value="${esc(r.banco)}" data-sug="dl-iae-bancos" autocomplete="off">
         <datalist id="dl-iae-bancos">${[...new Set([...S.d.bancos.map(b => b.nome), ...BANCOS_COMUNS])].map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
         <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.filter(x => !x.oculto || x.id === r.indexador).map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
@@ -3795,7 +3803,9 @@ function fixosAtivos() {
 }
 function cardFixos() {
   const ativos = fixosAtivos();
-  if (!ativos.length) return '';
+  // os que acabaram (o último mês já passou): no fim, recolhidos
+  const encerrados = S.d.recorrencias.filter(r => !ativos.includes(r) && r.fim).sort((a, b) => String(b.fim).localeCompare(String(a.fim)));
+  if (!ativos.length && !encerrados.length) return '';
   const quando = r => (r.freq === 'anual' ? `Todo ano, ${r.dia} de ${MESES_LONGOS[+String(r.inicio).slice(5) - 1]}` : `Todo dia ${r.dia}`) + (r.fim ? ` · até ${nomeMes(r.fim, true)}` : '');
   const linha = r => `<button class="banco-row" data-a="fixo" data-id="${esc(r.id)}"><span class="ini" style="--c:${corCat(r)}">${esc((r.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <div class="op-t"><b>${esc(r.descricao)}</b><span>${quando(r)}${r.conta ? ' · ' + esc(nomeConta(contaDe(r.conta))) + (r.cartao ? ' · cartão' : '') : ''}${nBeneficios('fixo:' + r.id) ? ' · ' + plural(nBeneficios('fixo:' + r.id), 'benefício', 'benefícios') : ''}</span></div>
@@ -3807,7 +3817,8 @@ function cardFixos() {
     ${maisLead('Entram sozinhos nos próximos meses. Toque para mudar ou parar.')}
     ${rec.length ? `<h3>Recebimentos · ${brl(soma(rec), 0)}</h3>${rec.map(linha).join('')}` : ''}
     ${des.length ? `<h3 style="margin-top:14px">Gastos · ${brl(soma(des), 0)}</h3>${des.map(linha).join('')}` : ''}
-    ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}</section>`;
+    ${anuais.length ? `<h3 style="margin-top:14px">Uma vez por ano</h3>${anuais.map(linha).join('')}` : ''}
+    ${recolhido('fixos-encerrados', 'Encerrados', encerrados.length, encerrados.map(linha).join(''))}</section>`;
 }
 function cardIA() {
   const on = iaOn();
@@ -3868,15 +3879,16 @@ function emailAcao(acao, id, msg) {
   return api.emailAcao(acao, id).then(r => { if (msg) toast(msg); return aplicarEmails(r); }).catch(e => toast(e.message));
 }
 const emailsPendentes = () => (pendentesOn() && S.emails && S.emails.itens ? S.emails.itens.filter(x => EMAIL_PEND.includes(x.estado) && (emailOn() || !doEmail(x))) : []);
+// o total e a contagem da fatura, sem o pagamento da própria fatura (fica desmarcado na conferência)
 function totalEmail(it) {
-  return ((it.resultado || {}).lancamentos || []).reduce((a, x) => a + (x.tipo === 'receita' ? -1 : 1) * (+x.valor || 0), 0);
+  return semPagamentosFatura((it.resultado || {}).lancamentos).reduce((a, x) => a + (x.tipo === 'receita' ? -1 : 1) * (+x.valor || 0), 0);
 }
 function resumoEmail(it) {
   if (it.estado === 'lendo') return 'lendo com IA…';
   if (it.estado === 'senha') return 'o PDF tem senha';
   if (it.estado === 'erro') return it.erro || 'não consegui ler';
-  const r = it.resultado || {}, l = r.lancamentos || [], v = r.investimentos || [];
-  return l.length ? plural(l.length, 'lançamento', 'lançamentos') : plural(v.length, 'investimento', 'investimentos');
+  const r = it.resultado || {}, l = semPagamentosFatura(r.lancamentos), v = r.investimentos || [];
+  return (r.lancamentos || []).length ? plural(l.length, 'lançamento', 'lançamentos') : plural(v.length, 'investimento', 'investimentos');
 }
 // no Início, junto dos avisos: cada fatura que chegou e ainda não foi lançada nem ignorada
 function avisosEmail() {
@@ -3926,12 +3938,16 @@ function cardEmail() {
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
     <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
     <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura”, “boleto”, “recibo” ou “assinatura” no assunto.'}</div></div>`;
-  const R = a.email_remetentes || [];
-  if (R.length) h += `<div class="campo email-regras"><div class="lbl">Remetentes</div>${R.map(r => `<div class="email-l"><span><b>${esc(r.de)}</b>
+  // as regras: os fixos à vista; Nunca considerar e os e-mails ignorados ficam no fim, recolhidos
+  const R = a.email_remetentes || [], regra = r => `<div class="email-l"><span><b>${esc(r.de)}</b>
       <small>${r.acao === 'nunca' ? 'Nunca considerar' : 'Fixo: ' + esc((S.d.recorrencias.find(x => x.id === r.fixo) || {}).descricao || 'que saiu')}</small></span>
-      <button class="icbtn" data-a="email-regra-rm" data-v="${esc(r.de)}" aria-label="Tirar a regra de ${esc(r.de)}">${ic('trash', 'ic-s')}</button></div>`).join('')}</div>`;
-  const L = ((E && E.itens) || []).filter(doEmail).slice(0, 5);
+      <button class="icbtn" data-a="email-regra-rm" data-v="${esc(r.de)}" aria-label="Tirar a regra de ${esc(r.de)}">${ic('trash', 'ic-s')}</button></div>`;
+  const fixas = R.filter(r => r.acao === 'fixo'), nunca = R.filter(r => r.acao === 'nunca');
+  if (fixas.length) h += `<div class="campo email-regras"><div class="lbl">Remetentes</div>${fixas.map(regra).join('')}</div>`;
+  const todos = ((E && E.itens) || []).filter(doEmail), L = todos.filter(x => x.estado !== 'ignorado').slice(0, 5), ign = todos.filter(x => x.estado === 'ignorado').slice(0, 10);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
+  h += recolhido('email-ignorados', 'Ignorados', ign.length, `<div class="emails">${ign.map(linhaEmail).join('')}</div>`)
+    + recolhido('email-nunca', 'Nunca considerar', nunca.length, `<div class="email-regras">${nunca.map(regra).join('')}</div>`);
   return h + '</section>';
 }
 // Procurar faturas agora: abre os e-mails mais novos da caixa de entrada (o Home Assistant só avisa os que chegam)
@@ -4128,6 +4144,58 @@ function metaNivel(c, bancoId) {
 }
 const brlCurto = v => v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : v >= 1e4 ? `R$ ${Math.round(v / 1000)} mil` : brl(v, 0);
 const NIVEIS_SUG = ['Black', 'Platinum', 'Gold', 'Infinite', 'Signature', 'Ultravioleta', 'Personnalité', 'Prime', 'Select', 'Estilo', 'Exclusive', 'One', 'Win'];
+/* Inativos no fim, recolhidos (padrão de todos os apps da família): o que está inativo, encerrado ou ignorado de
+   propósito fica numa seção no fim, fechada, com o nome e a contagem; abre num toque (a escolha vale até sair do app) */
+const ABERTOS = new Set();
+function recolhido(id, titulo, n, corpo) {
+  if (!n) return '';
+  const on = ABERTOS.has(id);
+  return `<div class="recolhido${on ? ' on' : ''}" data-rec="${id}"><button type="button" class="recolhido-t" data-a="recolher" data-v="${id}" aria-expanded="${on}">${ic('chev', 'ic-s')}${esc(titulo)} (${n})</button>
+    ${on ? `<div class="recolhido-c">${corpo}</div>` : ''}</div>`;
+}
+/* Sugestões no visual do app, no lugar da lista do celular (<datalist>, que no Android abre fora do padrão): o campo com
+   data-sug="<id do datalist>" mostra logo abaixo, dentro da janela, até 6 sugestões que combinam com o que foi digitado.
+   Tocar numa preenche o campo (com os eventos input e change de sempre); sair do campo ou escolher fecha. */
+let SUG = null; // {inp, box}
+function sugFechar() { if (SUG) { SUG.box.remove(); SUG = null; } }
+function sugMostrar(inp) {
+  const dl = document.getElementById(inp.dataset.sug), q = semAcento(inp.value);
+  const ops = dl ? [...new Set([...dl.options].map(o => o.value))].filter(v => v && semAcento(v) !== q && (!q || semAcento(v).includes(q))).slice(0, 6) : [];
+  if (!ops.length) { sugFechar(); return; }
+  if (!SUG || SUG.inp !== inp || !SUG.box.isConnected) {
+    sugFechar();
+    const box = document.createElement('div');
+    box.className = 'sug-box'; box.setAttribute('role', 'listbox');
+    // embaixo do campo (ou da linha dele, quando o campo divide a linha com um botão)
+    (inp.closest('.conta-l, .pref') || inp).insertAdjacentElement('afterend', box);
+    SUG = { inp, box };
+  }
+  SUG.box.innerHTML = ops.map(v => `<button type="button" class="sug-op" role="option" data-sugv="${esc(v)}">${esc(v)}</button>`).join('');
+}
+document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('input[data-sug]')) sugMostrar(e.target); });
+document.addEventListener('input', e => { if (e.target.matches && e.target.matches('input[data-sug]')) sugMostrar(e.target); });
+document.addEventListener('focusout', e => { if (SUG && e.target === SUG.inp) setTimeout(() => { if (SUG && document.activeElement !== SUG.inp) sugFechar(); }, 120); });
+// o toque na sugestão não tira o foco do campo (pointerdown), e o campo recebe o valor como se fosse digitado
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('.sug-op');
+  if (!b || !SUG) return;
+  e.preventDefault();
+  const inp = SUG.inp;
+  inp.value = b.dataset.sugv;
+  sugFechar();
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+  sugFechar();
+}, true);
+// o nível (da conta, do cartão, o próximo) é uma caixa de seleção no visual do app (selectsheet.js), com Outro… para
+// escrever um que não está na lista; um nível escrito antes que não está na lista entra nela
+function campoNivel(c, i, k, rotulo) {
+  const v = String(c[k] || '');
+  if ((c._outro || {})[k]) return `<input class="inp" data-fbc="${k}" data-i="${i}" value="${esc(v)}" placeholder="Escreva o nível" autocomplete="off" maxlength="30" aria-label="${rotulo}">`;
+  const ops = !v || NIVEIS_SUG.includes(v) ? NIVEIS_SUG : [v, ...NIVEIS_SUG];
+  return `<select class="inp" data-fbcs="${k}" data-i="${i}" aria-label="${rotulo}"><option value=""${v ? '' : ' selected'}>Nenhum</option>
+    ${ops.map(n => `<option value="${esc(n)}"${n === v ? ' selected' : ''}>${esc(n)}</option>`).join('')}<option value="__outro">Outro…</option></select>`;
+}
 
 let FB = null;
 // sobre: aberto por cima de outra janela (o + Banco do Conferir lançamentos), volta para ela ao salvar ou cancelar
@@ -4143,25 +4211,24 @@ function abrirBanco(id, nome, sobre) {
     return {
       titulo: FB.id ? 'Editar banco' : 'Novo banco',
       cab: FB.id ? `<button class="icbtn" data-a="b-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '',
-      corpo: `<div class="campo"><label for="b-nome">Nome</label><input id="b-nome" class="inp${FB.erro ? ' erro' : ''}" data-fb="nome" value="${esc(FB.nome)}" placeholder="Ex.: Nubank, XP, Sicredi" list="dl-b" autocomplete="off">
+      corpo: `<div class="campo"><label for="b-nome">Nome</label><input id="b-nome" class="inp${FB.erro ? ' erro' : ''}" data-fb="nome" value="${esc(FB.nome)}" placeholder="Ex.: Nubank, XP, Sicredi" data-sug="dl-b" autocomplete="off">
           <datalist id="dl-b">${BANCOS_COMUNS.map(x => `<option value="${esc(x)}">`).join('')}</datalist>${FB.erro ? `<div class="msg-erro">${FB.erro}</div>` : ''}</div>
         <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         <div class="campo"><div class="lbl">Quem tem conta neste banco</div>
           ${FB.contas.map((c, i) => `<div class="conta-ed">
-            <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" list="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
+            <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" data-sug="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
               ${FB.contas.length > 1 ? `<button class="icbtn" data-a="bc-rm" data-i="${i}" aria-label="Tirar esta pessoa">${ic('trash', 'ic-s')}</button>` : ''}</div>
             <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>
               <div><div class="lbl">Vence dia</div><div class="pref"><input inputmode="numeric" data-fbc="vencimento" data-i="${i}" value="${c.vencimento || ''}" placeholder="10"></div></div></div>` : ''}
-            <div class="duo nivel-l"><div><div class="lbl">Nível da conta</div><input class="inp" data-fbc="nivel" data-i="${i}" value="${esc(c.nivel || '')}" placeholder="Ex.: One" list="dl-niveis" autocomplete="off"></div>
-              ${c.cartao ? `<div><div class="lbl">Cartão</div><input class="inp" data-fbc="cartao_nivel" data-i="${i}" value="${esc(c.cartao_nivel || '')}" placeholder="Ex.: Black" list="dl-niveis" autocomplete="off"></div>` : '<div></div>'}</div>
-            <div class="duo nivel-l"><div><div class="lbl">Próximo nível</div><input class="inp" data-fbc="meta_nivel" data-i="${i}" value="${esc(c.meta_nivel || '')}" placeholder="Ex.: Black" list="dl-niveis" autocomplete="off"></div>
+            <div class="duo nivel-l"><div><div class="lbl">Nível da conta</div>${campoNivel(c, i, 'nivel', 'Nível da conta')}</div>
+              ${c.cartao ? `<div><div class="lbl">Cartão</div>${campoNivel(c, i, 'cartao_nivel', 'Nível do cartão')}</div>` : '<div></div>'}</div>
+            <div class="duo nivel-l"><div><div class="lbl">Próximo nível</div>${campoNivel(c, i, 'meta_nivel', 'Próximo nível')}</div>
               <div><div class="lbl">Pede investido</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="meta_valor" data-i="${i}" value="${typeof c.meta_valor === 'number' ? NF0.format(c.meta_valor) : esc(c.meta_valor || '')}" placeholder="0"></div></div></div>
             <p class="ajuda nivel-meta" data-meta="${i}">${textoMeta(c, FB.id)}</p>
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
-          <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist>
-          <datalist id="dl-niveis">${NIVEIS_SUG.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+          <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
         <div class="campo"><label for="b-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
           <input id="b-obs" class="inp" data-fb="obs" value="${esc(FB.obs || '')}" placeholder="Agência, conta, gerente…" autocomplete="off"></div>
         ${iaOn() ? `<div class="campo"><label for="b-ofertas">Página de ofertas <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
@@ -4555,9 +4622,12 @@ function opcoesOport() {
   if (aviso) {
     const quem = quemRecebe('op_para', false), P = S.avisoPessoas, eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
     const porque = !P || !P.pessoas ? '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
-    h += `<div class="campo"><label for="op-hora">Horário</label><div class="op-hora-l"><input id="op-hora" class="inp" type="time" data-op-hora value="${esc(a.op_hora || '10:00')}">
+    // o horário numa caixa de seleção do app (de meia em meia hora), sem o AM/PM do relógio do celular
+    const hora = a.op_hora || '10:00', horas = Array.from({ length: 48 }, (_, k) => `${String(k >> 1).padStart(2, '0')}:${k % 2 ? '30' : '00'}`);
+    if (!horas.includes(hora)) horas.push(hora), horas.sort();
+    h += `<div class="campo"><label for="op-hora">Horário</label><div class="op-hora-l"><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select>
       <button class="btn out" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar</button></div></div>
-      <div class="campo"><label for="op-dias">A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div>${quem}
+      <div class="campo"><label for="op-dias">A cada</label><div class="op-hora-l"><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span><span></span></div></div>${quem}
       <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
   }
   return h + '</section>';
@@ -4614,18 +4684,25 @@ function linhaBeneficio(b) {
       <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${c.restante > 0 && !c.vencido ? '' : ' disabled'}>${b.tipo === 'saldo' ? 'Usei' : 'Usei 1'}</button>` : ''}</div>`;
 }
 function maisBeneficios() {
-  const L = S.d.beneficios;
+  // os vencidos e os de um fixo que acabou ou de uma conta que saiu: no fim, recolhidos
+  const encerrado = b => cicloBeneficio(b).vencido || (!!b.origem && !origemBeneficio(b).ativa);
+  const L = S.d.beneficios.filter(b => !encerrado(b)), fora = S.d.beneficios.filter(encerrado);
   let h = `<section class="card" id="beneficios">${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens. Toque em Usei para descontar.')}`;
-  if (!L.length) h += `<p class="vazio">Nenhum benefício ainda.</p>`;
-  const grupos = new Map();
-  for (const b of L) { const k = b.origem || ''; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(b); }
-  for (const [k, lista] of grupos) {
-    const o = origemBeneficio(lista[0]);
-    h += `<div class="ben-grupo"><div class="ben-grupo-cab">${ic(o.tipo === 'fixo' ? 'repeat' : o.tipo === 'conta' ? 'card' : 'gift', 'ic-s')}<b>${esc(o.nome || 'Sem origem')}</b>
-      ${!o.ativa ? `<em class="ben-acabou">${o.tipo === 'fixo' ? 'o fixo acabou' : 'a conta saiu'}</em>` : ''}</div>${lista.map(linhaBeneficio).join('')}</div>`;
-  }
+  if (!L.length) h += `<p class="vazio">${fora.length ? 'Nenhum benefício valendo.' : 'Nenhum benefício ainda.'}</p>`;
+  // por origem (o fixo, a conta), com o aviso quando o fixo acabou ou a conta saiu
+  const porOrigem = lista => {
+    const grupos = new Map();
+    for (const b of lista) { const k = b.origem || ''; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(b); }
+    return [...grupos.values()].map(g => {
+      const o = origemBeneficio(g[0]);
+      return `<div class="ben-grupo"><div class="ben-grupo-cab">${ic(o.tipo === 'fixo' ? 'repeat' : o.tipo === 'conta' ? 'card' : 'gift', 'ic-s')}<b>${esc(o.nome || 'Sem origem')}</b>
+        ${!o.ativa ? `<em class="ben-acabou">${o.tipo === 'fixo' ? 'o fixo acabou' : 'a conta saiu'}</em>` : ''}</div>${g.map(linhaBeneficio).join('')}</div>`;
+    }).join('');
+  };
+  h += porOrigem(L);
   return h + (iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="ben-novo">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="ben-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
-    : `<button class="btn out larga" data-a="ben-novo">${ic('plus')}Cadastrar benefício</button>`) + '</section>';
+    : `<button class="btn out larga" data-a="ben-novo">${ic('plus')}Cadastrar benefício</button>`)
+    + recolhido('ben-encerrados', 'Encerrados', fora.length, porOrigem(fora)) + '</section>';
 }
 // os avisos do Início: o que sobrou para usar e vence em até 30 dias, e o que vai parar porque o pagamento acabou
 function avisosBeneficios(h) {
@@ -4663,7 +4740,7 @@ function abrirBeneficio(id) {
     return {
       titulo: f.id ? 'Editar benefício' : 'Novo benefício',
       cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Excluir" style="color:var(--danger)">${ic('trash')}</button>` : '',
-      corpo: `<div class="campo"><label for="fben-nome">Nome</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Ex.: Sala VIP" list="dl-ben" autocomplete="off">
+      corpo: `<div class="campo"><label for="fben-nome">Nome</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Ex.: Sala VIP" data-sug="dl-ben" autocomplete="off">
           <datalist id="dl-ben">${SUG_BEN.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
         <div class="campo"><label for="fben-origem">De onde vem</label><select id="fben-origem" class="inp" data-fben="origem">${origens.map(([v, t]) => `<option value="${esc(v)}"${v === f.origem ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
         <div class="campo"><div class="lbl">Tipo</div>${seg('tipo', [['contagem', 'Quantidade'], ['saldo', 'Saldo'], ['vantagem', 'Vantagem']])}</div>
@@ -5340,7 +5417,7 @@ function montarFormInv() {
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
   if (f.novoBanco) {
     c += `<div style="margin-top:12px;padding:14px;border:1px dashed var(--line-2);border-radius:16px">
-      <input class="inp${err('nb')}" data-f="nb-nome" value="${esc(f.novoBanco.nome)}" placeholder="Nome do banco ou corretora" list="dl-bancos" autocomplete="off">${msg('nb')}
+      <input class="inp${err('nb')}" data-f="nb-nome" value="${esc(f.novoBanco.nome)}" placeholder="Nome do banco ou corretora" data-sug="dl-bancos" autocomplete="off">${msg('nb')}
       <datalist id="dl-bancos">${BANCOS_COMUNS.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${f.novoBanco.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="f-nbcor" data-v="${cr}" aria-label="Cor ${cr}"></button>`).join('')}</div>
       <button class="btn out" data-a="f-nbok">Usar este banco</button></div>`;
@@ -5713,6 +5790,7 @@ document.addEventListener('click', ev => {
     case 'email-de-add': emailDeAdicionar(); break;
     case 'email-de-rm': persistir(d => { d.ajustes.email_de = (d.ajustes.email_de || []).filter(x => x !== v); }); break;
     case 'email-remetente': abrirRemetente(v); break;
+    case 'recolher': if (ABERTOS.has(v)) ABERTOS.delete(v); else ABERTOS.add(v); if (el.closest('#folhas')) pintarFolha(); else render(); break;
     case 'email-regra-rm': persistir(d => { d.ajustes.email_remetentes = (d.ajustes.email_remetentes || []).filter(r => r.de !== v); }, 'Regra tirada').then(ok => { if (ok) carregarEmails(true); }); break;
     case 'frem-de': if (FREM) { FREM.de = v; pintarFolha(); } break;
     case 'frem-acao': if (FREM) { FREM.acao = v; FREM.erro = ''; pintarFolha(); } break;
@@ -6063,6 +6141,22 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.fben && FBEN) { FBEN[el.dataset.fben] = el.value; if (FBEN.erro && el.dataset.fben === FBEN.erro) { FBEN.erro = ''; el.classList.remove('erro'); el.parentElement.classList.remove('erro'); } return; }
+  if (el.dataset.fbcs && FB) {
+    const k = el.dataset.fbcs, i = el.dataset.i, c = FB.contas[+i];
+    if (!c) return;
+    if (el.value === '__outro') {
+      // Outro…: o campo vira texto, para escrever o nível
+      c._outro = Object.assign({}, c._outro, { [k]: true });
+      c[k] = '';
+      pintarFolha();
+      setTimeout(() => { const t = $(`[data-fbc="${k}"][data-i="${i}"]`); if (t) t.focus(); }, 60);
+      return;
+    }
+    c[k] = el.value;
+    const m = document.querySelector(`.nivel-meta[data-meta="${i}"]`);
+    if (m && k === 'meta_nivel') m.innerHTML = textoMeta(c, FB.id);
+    return;
+  }
   if (el.dataset.fbc && FB) {
     const k = el.dataset.fbc, c = FB.contas[+el.dataset.i];
     if (['pessoa', 'nivel', 'cartao_nivel', 'meta_nivel', 'meta_valor'].includes(k)) c[k] = el.value;

@@ -557,6 +557,10 @@ class TestAvisoEContas(ComServidor):
         self.assertEqual(S._resumo_fatura({"resultado": {"lancamentos": [{"tipo": "despesa", "valor": 100}, {"tipo": "receita", "valor": 30}]}}), "2 lançamentos · R$ 70,00")
         self.assertEqual(S._resumo_fatura({"resultado": {"lancamentos": [{"tipo": "despesa", "valor": 9.9}]}}), "1 lançamento · R$ 9,90")
         self.assertEqual(S._resumo_fatura({"resultado": {"investimentos": [{}]}}), "1 investimento")
+        # (era bug na 1.47.0: o pagamento da própria fatura descontava do total no aviso)
+        fatura = [{"tipo": "despesa", "valor": 100, "cartao": True}, {"tipo": "despesa", "valor": 50, "cartao": True},
+                  {"tipo": "receita", "descricao": "Pagamento online", "valor": 1200, "cartao": False}]
+        self.assertEqual(S._resumo_fatura({"resultado": {"lancamentos": fatura}}), "2 lançamentos · R$ 150,00")
 
     def test_contas_de_email_do_home_assistant(self):
         S._contas_imap.update(t=0, v=None)

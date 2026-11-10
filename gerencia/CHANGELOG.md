@@ -1,5 +1,19 @@
 # Mudanças
 
+## 1.48.0
+
+- **O que está parado fica no fim, recolhido**: uma seção fechada no fim, com a contagem, que abre num toque. Vale para:
+  - os remetentes marcados **Nunca** e os e-mails ignorados (**Nunca considerar (2)**, **Ignorados (1)**);
+  - os pagamentos da fatura na conferência (**Pagamentos desconsiderados (1)**);
+  - os fixos que acabaram (**Encerrados**, em Mais › Caixa);
+  - os benefícios vencidos ou de um fixo que acabou (**Encerrados**, em Mais › Benefícios).
+- **Faturas por e-mail**: o total e a contagem do aviso no Início (e no celular) não descontam mais o pagamento da fatura. Antes, uma fatura de R$ 15.630 com um Pagamento online de R$ 12.206 aparecia como R$ 3.424.
+- **Caixas de seleção e sugestões no visual do app**: nada abre mais a lista do celular.
+  - O nível da conta, o do cartão e o próximo nível (Mais › Bancos) viraram caixas de seleção, com **Outro…** para escrever um nível que não está na lista.
+  - As sugestões do nome do banco, da pessoa, da descrição e do benefício aparecem logo abaixo do campo, dentro da janela.
+  - O **Horário** do aviso das oportunidades é uma caixa de seleção, de meia em meia hora, sem o AM/PM.
+- **Botões do mesmo tamanho**: as pessoas de **Quem recebe** ficam lado a lado, do mesmo tamanho; o **A cada** fica do tamanho do **Horário**.
+
 ## 1.47.0
 
 - **Faturas por e-mail: o que fazer com cada remetente.** Em Recebidos, o **⋯** de cada e-mail abre as opções para aquele endereço ou para o domínio todo:

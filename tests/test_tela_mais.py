@@ -323,18 +323,30 @@ class TestMaisBancos(TelaMais):
         self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
         self.clicar('.banco-row[data-id="b-azul"]')
         self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 investidos aqui.")
-        self.preencher('[data-fbc="nivel"][data-i="0"]', "One")
-        self.preencher('[data-fbc="cartao_nivel"][data-i="0"]', "Gold")
-        self.preencher('[data-fbc="meta_nivel"][data-i="0"]', "Black")
+        # (era um campo de texto com a lista do celular, fora do visual do app; agora é a caixa de seleção do app)
+        self.assertEqual(self.js("document.querySelector('[data-fbcs=\"cartao_nivel\"][data-i=\"0\"]').tagName"), "SELECT")
+        self.assertEqual(self.conta(".folha datalist#dl-niveis"), 0)
+        self.assertEqual(self.js("[...document.querySelector('[data-fbcs=\"nivel\"][data-i=\"0\"]').options].map(o => o.textContent)")[:3], ["Nenhum", "Black", "Platinum"])
+        self.pg.select_option('[data-fbcs="nivel"][data-i="0"]', "One")
+        self.pg.select_option('[data-fbcs="cartao_nivel"][data-i="0"]', "Gold")
+        # Outro…: vira texto para escrever um nível fora da lista
+        self.pg.select_option('[data-fbcs="meta_nivel"][data-i="0"]', "__outro")
+        self.pg.wait_for_function("() => document.activeElement && document.activeElement.dataset.fbc === 'meta_nivel'")
+        self.preencher('[data-fbc="meta_nivel"][data-i="0"]', "Black Plus")
         self.preencher('[data-fbc="meta_valor"][data-i="0"]', "25.000")
-        self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 aqui; o Black pede R$ 25.000. Faltam R$ 15.000.", "muda enquanto digita")
+        self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 aqui; o Black Plus pede R$ 25.000. Faltam R$ 15.000.", "muda enquanto digita")
         self.clicar('[data-a="b-salvar"]')
         c = self.banco("b-azul")["contas"][0]
         self.assertEqual({k: c.get(k) for k in ("nivel", "cartao_nivel", "meta_nivel", "meta_valor")},
-                         {"nivel": "One", "cartao_nivel": "Gold", "meta_nivel": "Black", "meta_valor": 25000})
+                         {"nivel": "One", "cartao_nivel": "Gold", "meta_nivel": "Black Plus", "meta_valor": 25000})
+        self.assertNotIn("_outro", c, "o Outro… não é gravado")
+        # aberto de novo, o nível escrito entra na lista
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.assertEqual(self.js("document.querySelector('[data-fbcs=\"meta_nivel\"][data-i=\"0\"]').value"), "Black Plus")
+        self.voltar()
         self.assertNotIn("nivel", self.banco("b-azul")["contas"][1], "o vazio não é gravado")
         self.assertEqual(self.linha(".banco-row", "Banco Azul"),
-                         "B Banco Azul Ana (One, cartão Gold) · faltam R$ 15 mil para Black · Beto (cartão) · 1 investimento · R$ 10.000")
+                         "B Banco Azul Ana (One, cartão Gold) · faltam R$ 15 mil para Black Plus · Beto (cartão) · 1 investimento · R$ 10.000")
 
     def test_meta_de_um_terceiro_conta_os_investimentos_dele(self):
         bancos = [{"id": "b-verde", "nome": "Banco Verde", "cor": "#4CD3A5", "contas": [
@@ -344,6 +356,28 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.linha(".banco-row", "Banco Verde"),
                          "B Banco Verde Ana · já dá para Prime · Carla · faltam R$ 500 para Prime · 2 investimentos · R$ 6.500",
                          "Ana: o Tesouro Verde (4.000, dela); Carla: a poupança dela (2.500)")
+
+    # (era a lista do celular do <datalist>, fora do visual do app; agora as sugestões aparecem dentro da janela)
+    def test_sugestoes_no_visual_do_app(self):
+        self.abrir_bancos(base(bancos=BANCOS))
+        self.clicar('.btn[data-a="banco"]')
+        self.assertEqual(self.conta('.folha input[list]'), 0, "nenhum campo com a lista do celular")
+        self.pg.click("#b-nome")
+        self.pg.keyboard.type("bra")
+        self.pg.wait_for_selector(".folha .sug-box .sug-op")
+        self.assertEqual(self.textos(".folha .sug-box .sug-op"), ["Bradesco", "Banco do Brasil"], "o que tem o texto em qualquer parte")
+        self.pg.click(".folha .sug-op >> nth=0")
+        self.assertEqual(self.pg.input_value("#b-nome"), "Bradesco")
+        self.assertEqual(self.js("T.FB.nome"), "Bradesco", "o campo recebe como se fosse digitado")
+        self.assertEqual(self.conta(".folha .sug-box"), 0, "escolheu, fecha")
+        # a pessoa da conta: as sugestões ficam embaixo da linha do nome
+        self.pg.fill('[data-fbc="pessoa"][data-i="0"]', "")
+        self.pg.keyboard.type("b")
+        self.pg.wait_for_selector(".folha .conta-ed .sug-box")
+        self.assertEqual(self.textos(".folha .conta-ed .sug-op"), ["Beto"])
+        self.assertTrue(self.js("document.querySelector('.folha .conta-ed .sug-box').previousElementSibling.classList.contains('conta-l')"))
+        self.pg.click("#b-obs")
+        self.pg.wait_for_function("() => !document.querySelector('.folha .sug-box')")
 
     def test_banco_sem_nome_nao_salva(self):
         self.abrir_bancos()
@@ -476,6 +510,12 @@ class TestMaisCaixa(TelaMais):
         self.assertIn("Todo dia 15 · Banco Azul · Ana · cartão", self.linha("#fixos .banco-row", "Internet"))
         self.assertIn("Todo ano, 1 de fevereiro", self.linha("#fixos .banco-row", "IPTU"))
         self.assertIsNone(self.linha("#fixos .banco-row", "Academia"), "parou em outubro: sai da lista")
+        # (pedido do dono: o encerrado fica no fim, recolhido, e abre num toque)
+        self.assertEqual(self.texto('#fixos [data-a="recolher"]'), "Encerrados (1)")
+        self.clicar('#fixos [data-a="recolher"]')
+        self.assertIn("até out/26", self.linha('#fixos [data-rec="fixos-encerrados"] .banco-row', "Academia"))
+        self.clicar('#fixos [data-a="recolher"]')
+        self.assertEqual(self.conta('#fixos [data-rec="fixos-encerrados"] .banco-row'), 0, "fecha de novo")
 
     def test_tocar_no_fixo_abre_o_do_proximo_mes(self):
         self.abrir_caixa(base(bancos=BANCOS, recorrencias=FIXOS))

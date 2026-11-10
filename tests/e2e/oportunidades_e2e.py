@@ -112,10 +112,9 @@ with sync_playwright() as p:
     igual(estado(pg)["ajustes"]["op_aviso"], True, "o aviso ligado no servidor")
     igual(pg.input_value("#op-hora"), "10:00", "o horário começa às 10:00")
     tem(pg.inner_text("#op-oport"), "Fora do Home Assistant não dá para avisar no celular.", "fora do Home Assistant, o porquê")
-    pg.fill("#op-hora", "09:15")
-    pg.locator("#op-hora").dispatch_event("change")
+    pg.select_option("#op-hora", "09:30")
     pg.wait_for_timeout(400)
-    igual(estado(pg)["ajustes"]["op_hora"], "09:15", "o horário gravado")
+    igual(estado(pg)["ajustes"]["op_hora"], "09:30", "o horário gravado")
     pg.locator("#op-oport").screenshot(path=f"{SP}/shots/op-opcoes-escuro.png")
     pg.close()
 

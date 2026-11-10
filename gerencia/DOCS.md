@@ -241,6 +241,10 @@ Em **Mais › Invest › Oportunidades**, as taxas de hoje do **Tesouro Direto**
 - **Avisar no celular** (Mais › Configurações › Opções › Oportunidades de investimento; vem desligado): no **Horário** escolhido (10:00 de início), todo dia ou **a cada** tantos dias (de 1 a 30), o que chegou ao alvo (ou, sem alvo, rende mais que os seus) vai para o celular de quem foi escolhido em **Quem recebe**, como o aviso de prazos do ResolvIA (os celulares ligados a cada pessoa no Home Assistant). Cada oportunidade é avisada uma vez; de novo só se a taxa subir (0,10 no prefixado e no IPCA+, 1 ponto no % do CDI) ou se ela sair e voltar ao alvo. **Testar** manda agora para o seu celular. Tocar no aviso abre as oportunidades.
 - Não é recomendação: confira prazo, liquidez e garantia (FGC até R$ 250 mil por banco e instituição).
 
+## Recolhidos no fim
+
+O que está parado (encerrado, vencido ou ignorado de propósito) fica numa seção fechada no fim, com a contagem, que abre num toque: **Nunca considerar** e **Ignorados** (Faturas por e-mail), **Pagamentos desconsiderados** (na conferência), **Encerrados** (Mais › Caixa › Fixos e Mais › Benefícios). Ao sair do app, elas voltam a ficar fechadas.
+
 ## Uso da IA
 
 Em **Mais › Configurações › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.

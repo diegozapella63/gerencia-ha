@@ -259,8 +259,13 @@ class TestCartaoIntegracoes(TelaEmail):
         self.abrir_com([email(1, "conferir"), email(2, "senha", "Banco Verde"), email(3, "fora", "Loja", "Seu boleto"), email(4, "feito"), email(5, "ignorado"), email(6, "erro")], ui=INTEG)
         linhas = self.js("[...document.querySelectorAll('#email .email-l')].map(l => [l.querySelector('b').textContent, l.querySelector('small').textContent, l.querySelector('em, button').textContent])")
         self.assertEqual(linhas, [["Banco Azul", "Fatura 1 · 01/11", "Para conferir"], ["Banco Verde", "Fatura 2 · 01/11", "Precisa da senha"],
-                                  ["Loja", "Seu boleto · 01/11", "Ler"], ["Banco Azul", "Fatura 4 · 01/11", "Lançada"], ["Banco Azul", "Fatura 5 · 01/11", "Ler"]],
-                         "os 5 últimos; o que não parecia fatura e o ignorado dá para ler")
+                                  ["Loja", "Seu boleto · 01/11", "Ler"], ["Banco Azul", "Fatura 4 · 01/11", "Lançada"], ["Banco Azul", "Fatura 6 · 01/11", "Ler"]],
+                         "os 5 últimos; o que não parecia fatura e o com erro dá para ler")
+        # o ignorado fica no fim, recolhido (pedido do dono: o que foi ignorado de propósito, recolhido)
+        self.assertEqual(self.texto('#email [data-a="recolher"][data-v="email-ignorados"]'), "Ignorados (1)")
+        self.clicar('#email [data-a="recolher"][data-v="email-ignorados"]')
+        self.assertEqual(self.textos('#email [data-rec="email-ignorados"] .email-l small'), ["Fatura 5 · 01/11"])
+        self.assertEqual(self.texto('#email [data-rec="email-ignorados"] [data-a="email-ler"]'), "Ler")
         self.clicar('#email [data-a="email-ler"][data-v="e00000000003"]')
         self.assertEqual(self.aviso(), "Lendo com IA")
         self.assertEqual(self.estados()[2], "lendo")
@@ -329,6 +334,10 @@ class TestRemetente(TelaEmail):
         self.assertEqual(self.aviso(), "Os e-mails de lojalua.com.br não entram mais")
         self.assertEqual(self.dados()["ajustes"]["email_remetentes"], [{"de": "lojalua.com.br", "acao": "nunca"}])
         self.pg.wait_for_function("() => document.querySelectorAll('#email .emails .email-l').length === 1")
+        # Nunca considerar fica no fim, recolhido
+        self.assertEqual(self.texto('#email [data-a="recolher"][data-v="email-nunca"]'), "Nunca considerar (1)")
+        self.assertEqual(self.conta("#email .email-regras .email-l"), 0, "fechado por padrão")
+        self.clicar('#email [data-a="recolher"][data-v="email-nunca"]')
         self.assertEqual(self.textos("#email .email-regras .email-l b"), ["lojalua.com.br"])
         self.assertEqual(self.textos("#email .email-regras .email-l small"), ["Nunca considerar"])
         # tirar a regra: o e-mail volta
@@ -437,19 +446,37 @@ class TestRemetente(TelaEmail):
         res = {"lancamentos": [lanc("Mercado Bom", 123.45), pag, flag, lanc("Farmácia Sol", 45.9, "c-saude")], "investimentos": []}
         self.abrir_com([email(1, "conferir", resultado=res)])
         self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.texto('#folhas [data-a="recolher"][data-v="ia-fora"]'), "Pagamentos desconsiderados (2)")
+        self.assertEqual(self.conta("#folhas .ia-itens"), 1, "recolhidos por padrão")
+        self.clicar('#folhas [data-a="recolher"][data-v="ia-fora"]')
         secoes = self.js("[...document.querySelectorAll('#folhas .ia-itens')].map(g => [...g.querySelectorAll('.ia-item-t > b')].map(b => b.textContent))")
         self.assertEqual(secoes, [["Mercado Bom", "Farmácia Sol"], ["Pagamento online", "Crédito recebido"]])
-        self.assertEqual(self.texto("#folhas .ia-fora"), "Pagamentos desconsiderados")
         self.assertEqual(self.js("[...document.querySelectorAll('#folhas .ia-itens')][1].querySelectorAll('.ia-check.on').length"), 0, "desmarcados")
         self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 2 · −R$ 169")
+        # (era bug na 1.47.0: o aviso no Início descontava o pagamento do total da fatura)
+        self.assertEqual(self.js("[T.totalEmail(T.api._emails[0]), T.resumoEmail(T.api._emails[0])]"), [169.35, "2 lançamentos"])
         self.clicar('#folhas .ia-itens:last-of-type [data-a="ia-marca"]')
         self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 3 · R$ 1.031", "marcado, entra")
         # fora de uma fatura de cartão, um recebimento com "pagamento" no nome continua normal
         res2 = {"lancamentos": [dict(lanc("Aluguel", 900), cartao=False), pix], "investimentos": []}
         self.abrir_com([email(2, "conferir", resultado=res2)])
         self.clicar('[data-a="email-abrir"]')
-        self.assertEqual(self.conta("#folhas .ia-fora"), 0)
+        self.assertEqual(self.conta('#folhas [data-v="ia-fora"]'), 0)
         self.assertEqual(self.texto('#folhas [data-a="ia-salvar"]'), "Lançar 2 · −R$ 820")
+
+    def test_pagamento_da_fatura_igual_ao_servidor(self):
+        import calc
+        casos = [{"tipo": "receita", "descricao": "Pagamento online", "cartao": True}, {"tipo": "receita", "descricao": "PAGTO DEBITO AUTOMATICO", "cartao": False},
+                 {"tipo": "receita", "descricao": "Pagamento recebido de Beto", "cartao": False}, {"tipo": "receita", "descricao": "Débito automático da fatura", "cartao": True},
+                 {"tipo": "despesa", "descricao": "Pagamento online", "cartao": True}, {"tipo": "receita", "descricao": "Estorno", "pagamento_fatura": True},
+                 {"tipo": "receita", "descricao": "Salário", "cartao": True}]
+        self.abrir_com([])
+        for cartao in (False, True):
+            with self.subTest(cartao=cartao):
+                self.assertEqual(self.js("a[0].map(x => T.ehPagamentoFatura(x, a[1]))", [casos, cartao]), [calc.e_pagamento_fatura(x, cartao) for x in casos])
+        linhas = [lanc("Mercado Bom", 10), lanc("Farmácia", 5), {"tipo": "receita", "descricao": "Pagamento online", "valor": 99, "cartao": False}]
+        self.assertEqual(self.js("T.semPagamentosFatura(a).map(x => x.descricao)", linhas), [x["descricao"] for x in calc.sem_pagamentos_fatura(linhas)])
+        self.assertEqual([x["descricao"] for x in calc.sem_pagamentos_fatura(linhas)], ["Mercado Bom", "Farmácia"])
 
     def test_igual_ao_servidor(self):
         import emails as E  # o tela_base põe gerencia/app no caminho

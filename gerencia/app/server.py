@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.47.0"
+VERSAO = "1.48.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3571,7 +3571,8 @@ def email_pdf_b64(eid):
 
 
 def _resumo_fatura(it):
-    lanc = (it.get("resultado") or {}).get("lancamentos") or []
+    # o pagamento da própria fatura não conta (fica desmarcado na conferência)
+    lanc = calc.sem_pagamentos_fatura((it.get("resultado") or {}).get("lancamentos") or [])
     total = sum(float(x.get("valor") or 0) * (1 if x.get("tipo") == "despesa" else -1) for x in lanc if isinstance(x, dict))
     n = len(lanc) or len((it.get("resultado") or {}).get("investimentos") or [])
     txt = f"{n} {'lançamento' if n == 1 else 'lançamentos'}" if lanc else f"{n} {'investimento' if n == 1 else 'investimentos'}"

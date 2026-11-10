@@ -5,6 +5,7 @@ Taxas são guardadas em porcentagem (13.65 = 13,65% a.a.) e convertidas aqui.
 import calendar
 import math
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 
 INDEXADORES = {
@@ -632,3 +633,33 @@ def origem_beneficio(b, data, hoje=None):
                     return {"tipo": "conta", "nome": nome, "ativa": True}
         return {"tipo": "conta", "nome": "Conta apagada", "ativa": False}
     return {"tipo": "", "nome": "", "ativa": True}
+
+
+# ---------------------------------------------------------------- o pagamento da própria fatura (igual ao app.js)
+# O crédito na fatura do cartão que é o pagamento dela (Pagamento online, pagamento recebido, débito automático) não é
+# recebimento: a conferência deixa desmarcado, no fim, e o total da fatura (o aviso no Início e no celular) não conta.
+_PAG_FATURA = re.compile(r"^(pagamento|pagto|pgto)\b|debito automatico|pagamento (recebido|online|da fatura|de fatura|efetuado)")
+
+
+def _sem_acento(t):
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "")) if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def cartao_maioria(lanc):
+    """A leitura é de uma fatura de cartão: mais da metade das linhas no cartão."""
+    return sum(1 for x in lanc if isinstance(x, dict) and x.get("cartao")) > len(lanc) / 2
+
+
+def e_pagamento_fatura(x, cartao=False):
+    """A IA marcou (pagamento_fatura) ou o nome diz, num recebimento no cartão (ou numa fatura de cartão)."""
+    if x.get("pagamento_fatura") is True:
+        return True
+    return x.get("tipo") == "receita" and (bool(x.get("cartao")) or cartao) and bool(_PAG_FATURA.search(_sem_acento(x.get("descricao"))))
+
+
+def sem_pagamentos_fatura(lanc):
+    """As linhas lidas, sem o pagamento da própria fatura."""
+    lanc = [x for x in lanc or [] if isinstance(x, dict)]
+    m = cartao_maioria(lanc)
+    return [x for x in lanc if not e_pagamento_fatura(x, m)]
+

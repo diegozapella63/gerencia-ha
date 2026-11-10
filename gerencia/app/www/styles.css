@@ -1244,9 +1244,9 @@ input[readonly] { opacity: .8; }
 #op-dicas .op-freq { margin: 2px 0 12px; }
 #op-dicas .op-freq button { flex: 1; }
 #op-dicas .campo { margin: 14px 0 0; }
-.quem { display: flex; flex-wrap: wrap; gap: 8px; }
-.quem-p { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 8px 14px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--card-2); color: var(--text); font: 500 15px/1.2 var(--font); cursor: pointer; }
-.quem-p b { font-weight: 600; }
+.quem { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.quem-p { display: flex; justify-content: center; min-width: 0; align-items: center; gap: 7px; min-height: 42px; padding: 8px 14px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--card-2); color: var(--text); font: 500 15px/1.2 var(--font); cursor: pointer; }
+.quem-p b { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quem-p span { color: var(--muted); font-size: 13px; }
 .quem-p.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--card-2)); }
 .quem-p.on .ic { color: var(--accent); }
@@ -1307,10 +1307,11 @@ input[readonly] { opacity: .8; }
 .op-todas { display: block; margin: 8px 0 0; }
 .dica-quando.erro { color: var(--danger); }
 .op-nota { margin: 12px 0 0; }
-.op-hora-l { display: flex; gap: 8px; }
-.op-hora-l .inp { flex: 1; min-width: 0; }
-.op-hora-l .btn { flex: 1; justify-content: center; }
-.op-dias { width: 132px; }
+.op-hora-l { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }  /* as duas metades iguais: Horário e Testar; A cada e o vazio */
+.op-hora-l > * { min-width: 0; }
+.op-hora-l .btn { justify-content: center; min-width: 0; padding-left: 10px; padding-right: 10px; }
+.op-hora-l > .pref.mini.op-dias { width: auto; }
+.pref.mini.larga.op-dias { width: auto; min-height: 50px; }  /* do tamanho do Horário */
 .nivel-l { margin-top: 10px; }
 .nivel-l .inp { width: 100%; }
 .nivel-meta { margin: 8px 0 0; }
@@ -1364,3 +1365,14 @@ input[readonly] { opacity: .8; }
 .ia-item-t .ia-fixo, .ia-item-t .ia-fixar { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; color: var(--accent-text); font-size: 13px; font-weight: 600; margin-top: 4px; padding: 2px 0; }
 .ia-item-t .ia-fixar { color: var(--muted); font-weight: 500; }
 .ia-fixos .op { width: 100%; }
+/* Sugestões no visual do app (no lugar da lista do celular do <datalist>) */
+.sug-box { display: flex; flex-direction: column; margin: 6px 0 0; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sug-op { text-align: left; padding: 11px 14px; font-size: 15px; color: var(--text); border-top: 1px solid var(--line); min-height: 44px; }
+.sug-op:first-child { border-top: 0; }
+.sug-op:active, .sug-op:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* Inativos no fim, recolhidos (padrão de todos os apps): o título com a contagem abre num toque */
+.recolhido { margin-top: 14px; border-top: 1px solid var(--line); }
+.recolhido-t { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 10px 0 6px; color: var(--accent-text); font: 600 15px/1.2 var(--font); text-align: left; }
+.recolhido-t .ic-s { transition: transform .15s; }
+.recolhido.on .recolhido-t .ic-s { transform: rotate(90deg); }
+.recolhido-c { padding-bottom: 4px; }

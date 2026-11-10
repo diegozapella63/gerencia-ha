@@ -67,6 +67,11 @@ class TestLista(TelaBen):
     def test_origem_que_acabou(self):
         fixo_fim = dict(FIXO, fim="2026-10")
         self.abrir_ben([CREDITO, dict(VIP, origem="conta:k-sumiu")], recorrencias=[fixo_fim])
+        # (pedido do dono: o que acabou fica no fim, recolhido, e abre num toque)
+        self.assertEqual(self.texto("#beneficios .vazio"), "Nenhum benefício valendo.")
+        self.assertEqual(self.texto('#beneficios [data-a="recolher"]'), "Encerrados (2)")
+        self.assertEqual(self.conta("#beneficios .ben-row"), 0, "fechado por padrão")
+        self.clicar('#beneficios [data-a="recolher"]')
         self.assertEqual(self.textos("#beneficios .ben-acabou"), ["o fixo acabou", "a conta saiu"])
 
 
