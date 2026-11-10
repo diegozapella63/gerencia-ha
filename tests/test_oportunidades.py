@@ -450,9 +450,9 @@ class TestAvisar(ComServidor):
             self.assertEqual(S.avisar_oport(d), 2, "os dois celulares da Ana")
         alvo, corpo = self.enviados[0]
         self.assertEqual(alvo, "mobile_app_pixel_8")
-        self.assertEqual(corpo["title"], "📈 Oportunidades de investimento: 2")
+        self.assertEqual(corpo["title"], "GerencIA · 📈 Oportunidades de investimento: 2")
         self.assertEqual(corpo["message"], "• Tesouro Prefixado 2032: 13,71% ao ano\n• Tesouro IPCA+ 2032: IPCA + 7,04%")
-        self.assertEqual(corpo["data"], {"tag": "gerencia-oportunidades", "group": "gerencia-oportunidades", "channel": "Oportunidades de investimento",
+        self.assertEqual(corpo["data"], {"tag": "gerencia-oportunidades", "group": "gerencia-oportunidades", "channel": "Oportunidades de investimento", "notification_icon": "mdi:wallet-outline",
                                          "url": "/app/a1b2_gerencia/oportunidades", "clickAction": "/app/a1b2_gerencia/oportunidades"})
         self.assertEqual(S.avisar_oport(d), 0, "cada uma uma vez")
         self.assertEqual(S.oport_ler()["avisadas"], {"td:tesouro-prefixado-2032": 13.71, "td:tesouro-ipca-mais-2032": 7.04})

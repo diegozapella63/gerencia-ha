@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.55.1
+
+- **Avisos no celular**: o título começa com **GerencIA** ("GerencIA · 💡 Dica de economia") e o ícone pequeno é o do app. Como todos os apps chegam como Home Assistant, agora dá para ver de qual app é cada aviso. Vale para todos os apps da família.
+
 ## 1.55.0
 
 - As taxas de **Valor dos bens por ano** (Mais › Invest) também valem no **InventarIA** (1.46.0 ou mais novo): ligando lá **Valor de hoje** (Mais › Configurações › Integrações › GerencIA), o patrimônio, os cômodos e o relatório de lá mostram o valor de hoje, com a mesma conta daqui. Mudou uma taxa aqui, muda lá.

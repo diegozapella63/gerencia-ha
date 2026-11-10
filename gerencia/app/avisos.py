@@ -90,6 +90,15 @@ def texto_oportunidades(linhas):
             "message": "\n".join(corpo)}
 
 
+
+APP_AVISO, ICONE_AVISO = "GerencIA", "mdi:wallet-outline"
+
+
+def titulo_do_app(titulo):
+    """O título do aviso com o nome do app na frente (uma vez só)."""
+    t = str(titulo or "").strip()
+    return t if t.startswith(APP_AVISO + " · ") else f"{APP_AVISO} · {t}" if t else APP_AVISO
+
 class Avisos:
     """As pessoas da casa e os celulares delas, e o envio do aviso. rest(metodo, caminho, corpo) fala com a API REST
     do Home Assistant; ws(comando) faz uma pergunta à API WebSocket (os registros de entidades e aparelhos)."""
@@ -127,14 +136,16 @@ class Avisos:
     def enviar(self, alvos, texto, tag, grupo="gerencia-dicas", canal="Dicas de economia", caminho=""):
         """Manda o aviso para estes celulares (notify.mobile_app_*); devolve quantos o Home Assistant aceitou. grupo e
         canal separam os avisos no Android (as dicas de um lado, as faturas do e-mail do outro); caminho: a tela que o
-        toque abre (/oportunidades, que a tela recebe do Home Assistant)."""
+        toque abre (/oportunidades, que a tela recebe do Home Assistant). Como em todos os apps da família, o título
+        começa pelo nome do app ("GerencIA · 💡 Dica de economia") e o ícone pequeno é o do app: no celular, todos
+        chegam como Home Assistant."""
         url = endereco_app()
         url = url + caminho if url else None
-        dados = {"tag": tag, "group": grupo, "channel": canal, **({"url": url, "clickAction": url} if url else {})}
+        dados = {"tag": tag, "group": grupo, "channel": canal, "notification_icon": ICONE_AVISO, **({"url": url, "clickAction": url} if url else {})}
         n = 0
         for alvo in alvos:
             try:
-                self.rest("POST", f"/services/notify/{alvo}", {"title": texto["title"], "message": texto["message"], "data": dados})
+                self.rest("POST", f"/services/notify/{alvo}", {"title": titulo_do_app(texto["title"]), "message": texto["message"], "data": dados})
                 n += 1
                 self.log(f"Aviso ({canal}) para {alvo}")
             except Exception as e:  # noqa: BLE001

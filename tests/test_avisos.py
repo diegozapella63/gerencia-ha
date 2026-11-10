@@ -134,9 +134,10 @@ class TestPessoas(unittest.TestCase):
         self.assertEqual(n, 1, "só o que o Home Assistant aceitou")
         alvo, corpo = enviados[0]
         self.assertEqual(alvo, "mobile_app_pixel_8")
-        self.assertEqual(corpo["title"], "T")
-        self.assertEqual(corpo["data"], {"tag": "gerencia-dicas", "group": "gerencia-dicas", "channel": "Dicas de economia",
+        self.assertEqual(corpo["title"], "GerencIA · T", "o nome do app na frente, como em todos os apps da família")
+        self.assertEqual(corpo["data"], {"tag": "gerencia-dicas", "group": "gerencia-dicas", "channel": "Dicas de economia", "notification_icon": "mdi:wallet-outline",
                                          "url": "/app/x_gerencia", "clickAction": "/app/x_gerencia"})
+        self.assertEqual((A.titulo_do_app("GerencIA · T"), A.titulo_do_app("")), ("GerencIA · T", "GerencIA"), "uma vez só")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -277,7 +278,7 @@ class TestAvisarDicas(unittest.TestCase):
     def test_dica_nova_vai_para_os_celulares_de_quem_foi_escolhido(self):
         self.assertEqual(S.avisar_dicas(self.d), 2, "os dois celulares da Ana")
         self.assertEqual([a for a, _ in self.enviados], ["mobile_app_pixel_8", "mobile_app_relogio_da_ana"])
-        self.assertEqual(self.enviados[0][1]["title"], "💡 Dica de economia")
+        self.assertEqual(self.enviados[0][1]["title"], "GerencIA · 💡 Dica de economia")
         self.assertIn("Spotify: R$ 40 por ano no plano anual", self.enviados[0][1]["message"])
         self.assertEqual(S.dicas_ler()["avisadas"], {"anual:r:r-sp": date.today().isoformat()})
 
