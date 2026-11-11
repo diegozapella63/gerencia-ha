@@ -1157,6 +1157,7 @@ class TestFalar(TelaIA):
         self.assertIn("Ouvindo…", self.texto("#folhas .voz-estado"))
         self.assertFalse(self.desligado('#folhas [data-a="fala-ok"]'), "Pronto liga enquanto grava")
         self.assertEqual(self.js("window.__grav.iniciou"), 1)
+        self.assertNotIn("Você confere", self.texto("#folhas"), "1.58.0: sem o aviso que só incha a tela")
 
     def test_pronto_mostra_transcrevendo(self):
         self.abrir(base(bancos=BANCOS))

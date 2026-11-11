@@ -518,12 +518,13 @@ code { background: var(--card-2); padding: 2px 6px; border-radius: 6px; font-siz
 #nav button { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font: 500 12px/1.2 var(--font); padding: 4px 0; white-space: nowrap; min-width: 0; }
 #nav button.on { color: var(--text); }
 #nav button.on svg { color: var(--accent-text); }
-#nav .add { color: var(--text); }
+/* Adicionar só com o + (1.58.0, em todos os apps da família): o botão já se destaca, sem o texto embaixo */
+#nav .add { color: var(--text); align-self: stretch; justify-content: center; }
 #nav .add span.pill {
-  width: 56px; height: 34px; border-radius: 12px; background: var(--accent); color: var(--on-accent);
-  display: grid; place-items: center; margin-top: -6px;
+  width: 60px; height: 42px; border-radius: 14px; background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center;
 }
-#nav .add span.pill svg { width: 22px; height: 22px; }
+#nav .add span.pill svg { width: 24px; height: 24px; }
 
 #toast {
   position: fixed; left: 50%; bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom, 0px)); z-index: 60;
@@ -1887,7 +1888,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.57.1';
+const VERSAO = '1.58.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4626,8 +4627,7 @@ function telaFala() {
         <div class="voz-estado">${on ? `<b>Ouvindo…</b> <span class="voz-tempo">0:00</span>` : s.rec === 'starting' ? 'Abrindo o microfone…' : 'Toque no microfone e fale'}</div>
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
-      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
-      <p class="nota" style="text-align:center">Você confere antes de lançar.</p>`,
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
@@ -7854,7 +7854,7 @@ const ABAS = [
 ];
 function pintarNav() {
   $('#nav .in').innerHTML = ABAS.map(([k, n, i]) => k === 'add'
-    ? `<button class="add" data-a="novo" aria-label="Adicionar"><span class="pill">${ic('plus')}</span>${n}</button>`
+    ? `<button class="add" data-a="novo" aria-label="${n}"><span class="pill">${ic('plus')}</span></button>`
     : `<button class="${S.ui.tab === k ? 'on' : ''}" data-a="tab" data-v="${k}" ${S.ui.tab === k ? 'aria-current="page"' : ''}>${ic(i)}${n}</button>`).join('');
 }
 

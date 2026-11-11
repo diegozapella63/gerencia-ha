@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.57.1';
+const VERSAO = '1.58.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2742,8 +2742,7 @@ function telaFala() {
         <div class="voz-estado">${on ? `<b>Ouvindo…</b> <span class="voz-tempo">0:00</span>` : s.rec === 'starting' ? 'Abrindo o microfone…' : 'Toque no microfone e fale'}</div>
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
-      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}
-      <p class="nota" style="text-align:center">Você confere antes de lançar.</p>`,
+      ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
@@ -5970,7 +5969,7 @@ const ABAS = [
 ];
 function pintarNav() {
   $('#nav .in').innerHTML = ABAS.map(([k, n, i]) => k === 'add'
-    ? `<button class="add" data-a="novo" aria-label="Adicionar"><span class="pill">${ic('plus')}</span>${n}</button>`
+    ? `<button class="add" data-a="novo" aria-label="${n}"><span class="pill">${ic('plus')}</span></button>`
     : `<button class="${S.ui.tab === k ? 'on' : ''}" data-a="tab" data-v="${k}" ${S.ui.tab === k ? 'aria-current="page"' : ''}>${ic(i)}${n}</button>`).join('');
 }
 

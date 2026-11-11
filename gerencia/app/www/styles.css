@@ -512,12 +512,13 @@ code { background: var(--card-2); padding: 2px 6px; border-radius: 6px; font-siz
 #nav button { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font: 500 12px/1.2 var(--font); padding: 4px 0; white-space: nowrap; min-width: 0; }
 #nav button.on { color: var(--text); }
 #nav button.on svg { color: var(--accent-text); }
-#nav .add { color: var(--text); }
+/* Adicionar só com o + (1.58.0, em todos os apps da família): o botão já se destaca, sem o texto embaixo */
+#nav .add { color: var(--text); align-self: stretch; justify-content: center; }
 #nav .add span.pill {
-  width: 56px; height: 34px; border-radius: 12px; background: var(--accent); color: var(--on-accent);
-  display: grid; place-items: center; margin-top: -6px;
+  width: 60px; height: 42px; border-radius: 14px; background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center;
 }
-#nav .add span.pill svg { width: 22px; height: 22px; }
+#nav .add span.pill svg { width: 24px; height: 24px; }
 
 #toast {
   position: fixed; left: 50%; bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom, 0px)); z-index: 60;

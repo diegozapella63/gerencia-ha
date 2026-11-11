@@ -1420,6 +1420,17 @@ class TestMenuMais(TelaMais):
         self.assertEqual(self.js("T.S.ui.maisAba"), "opcoes", "volta na última aba")
         self.assertEqual(self.guardado()["maisAba"], "opcoes")
 
+    def test_adicionar_so_com_o_mais(self):
+        # 1.58.0, em todos os apps da família: o botão do meio só com o +, o nome no aria-label, no meio da barra
+        self.abrir(base(bancos=BANCOS))
+        self.assertEqual(self.js("document.querySelector('#nav .add').textContent.trim()"), "")
+        self.assertEqual(self.js("document.querySelector('#nav .add').getAttribute('aria-label')"), "Adicionar")
+        meio = self.js("""(() => { const c = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+          return Math.abs(c(document.querySelector('#nav .add .pill')) - c(document.querySelector('#nav [data-v="inicio"]'))); })()""")
+        self.assertLessEqual(meio, 3, "o + no meio da barra")
+        self.clicar('#nav [data-a="novo"]')
+        self.assertEqual(self.folha(), "Adicionar")
+
     def test_atalho_no_celular(self):
         # Opções › Atalho no celular: o caminho do app no Home Assistant e o Copiar; fora do Home Assistant, nada
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
