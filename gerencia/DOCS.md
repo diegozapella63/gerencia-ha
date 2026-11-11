@@ -24,7 +24,7 @@ Na primeira vez, a Agora mostra **Vamos começar**: cadastrar o salário e os ga
 - O **olho** no alto esconde os valores na Agora, no Caixa e no Invest (cada aparelho lembra a escolha).
 - No celular, **arrastar para o lado** troca de aba: Agora ⇄ Caixa ⇄ Invest ⇄ Mais (não vale começando na borda da tela, num gráfico ou numa fileira que rola para o lado). Numa tela de Mais, arrastar para a direita volta ao menu.
 - **Mais** é um menu, como no InventarIA: cada linha abre a sua tela, com **‹ Mais** no alto para voltar (o Voltar do celular também volta ao menu).
-  - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão de débito e de crédito e o nível da conta e do cartão.
+  - **Bancos**: bancos, quem tem conta em cada um, quem tem cartão de débito e de crédito (também os globais, com a moeda) e o nível da conta e do cartão.
   - **Caixa**: fixos, categorias e dicas de economia.
   - **Invest**: índices de mercado, oportunidades de investimento e, com bens, a perda de valor por categoria.
   - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova, e as oportunidades: o que falta para ganhar mais.
@@ -74,6 +74,8 @@ Escolha **Repetir: Parcelado** e o número de parcelas. Cada parcela entra no m�
 Em **Mais › Bancos**, diga quem tem conta em cada banco e se a pessoa tem cartão, com o dia em que a fatura fecha e o dia em que vence. Exemplo: Banco Lua, Ana com cartão (fecha dia 3, vence dia 10) e Beto com cartão (fecha dia 28, vence dia 5).
 
 **Tem cartão de débito?** vem ligado em cada conta. Numa conta sem cartão de débito (desligado), a despesa fora do cartão de crédito aparece como **Pix** em vez de **Débito ou Pix**, e a lista de Bancos mostra "sem débito".
+
+**Tem cartão de débito global?** e **Tem cartão de crédito global?** (desligados de começo) dizem se a conta tem os cartões para gastar fora do país, cada um na sua **Moeda** (Dólar, Euro ou Libra; começa em Dólar). O de crédito global diz também se **tem cartão adicional**. A lista de Bancos mostra, por exemplo, "débito global em dólar, crédito global em euro com adicional", e a IA (o Identificar benefícios, a Conversa e o CorrerIA) sabe disso.
 
 Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os investimentos escolhidos nessa conta; os de antes, sem conta escolhida, vão para a conta de quem é dono) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".
 
@@ -250,8 +252,8 @@ Embaixo dos benefícios, **Oportunidades** mostra o que falta para ganhar mais, 
 - **Gastando**: gastar um valor por mês no cartão (ex.: sala VIP gastando R$ 3 mil por mês). Conta a média das faturas dos 3 meses antes deste, sem o pagamento da própria fatura (um estorno desconta): "faltam R$ 500 · média R$ 2.500". O valor por ano vira por mês.
 - **Outro plano**: um plano mais caro da mesma assinatura (ex.: o de 2 TB por R$ 130 em vez de R$ 110): "+R$ 20,00 por mês".
 - O que já dá fica no fim, com **Já dá**. Sem como saber, a linha diz o porquê (a conta não tem cartão, sem faturas nos últimos 3 meses).
-- **Cadastrar oportunidade**: o que ganha, como (Investindo, Gastando ou Outro plano), a conta, o cartão ou a assinatura, e o valor; embaixo, quanto você tem e quanto falta. Toque numa para mudar ou apagar.
-- **Ler com IA** e **Identificar benefícios** também acham as oportunidades na página, no print ou no texto do banco ou do plano: elas vêm na conferência, embaixo dos benefícios, em **Oportunidades**. Da página e do texto só entra o que está escrito lá, com o valor no trecho. Numa assinatura, a IA sabe quanto você paga e traz só os planos mais caros.
+- **Cadastrar** (sem a IA, **Cadastrar oportunidade**): o que ganha, como (Investindo, Gastando ou Outro plano), a conta, o cartão ou a assinatura, e o valor; embaixo, quanto você tem e quanto falta. Toque numa para mudar ou apagar.
+- **Ler com IA**, ao lado do Cadastrar (aqui e nos Benefícios), e **Identificar benefícios** também acham as oportunidades na página, no print ou no texto do banco ou do plano: elas vêm na conferência, embaixo dos benefícios, em **Oportunidades**. Da página e do texto só entra o que está escrito lá, com o valor no trecho. Numa assinatura, a IA sabe quanto você paga e traz só os planos mais caros.
 - Na **Conversa**, a IA também vê as oportunidades e quanto falta para cada uma.
 
 ## Oportunidades de investimento

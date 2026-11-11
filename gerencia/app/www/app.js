@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.61.0';
+const VERSAO = '1.62.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -630,7 +630,7 @@ function apiDemo() {
       await espera(600);
       const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
       const fonte = c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
-      if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios aqui.');
+      if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
       return { beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' };
     },
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
@@ -4261,12 +4261,23 @@ function salvarSenhaNova() {
 }
 
 // sem o cartão de crédito: Débito ou Pix; numa conta sem cartão de débito (Mais › Bancos), só Pix
+// 1.62.0: os cartões globais de cada conta (débito e crédito, cada um na sua moeda; o de crédito com ou sem adicional)
+const MOEDAS_GLOBAL = [['USD', 'Dólar'], ['EUR', 'Euro'], ['GBP', 'Libra']];
+const nomeMoedaGlobal = m => ((MOEDAS_GLOBAL.find(([v]) => v === m) || [])[1] || m || '').toLowerCase();
+function campoGlobal(c, i, k, rotulo) {
+  const on = !!c[k];
+  return `<div class="linha-sw"><div><b>${rotulo}</b></div><button class="sw${on ? ' on' : ''}" data-a="bc-global" data-k="${k}" data-i="${i}" aria-label="${rotulo.replace('?', '')}"></button></div>
+    ${on ? `<div class="lbl bc-moeda-l">Moeda</div><div class="seg mini bc-moeda" role="radiogroup" aria-label="Moeda do ${k === 'debito_global' ? 'débito' : 'crédito'} global">${MOEDAS_GLOBAL.map(([v, t]) =>
+      `<button type="button" class="${c[k] === v ? 'on' : ''}" role="radio" aria-checked="${c[k] === v}" data-a="bc-moeda" data-k="${k}" data-i="${i}" data-v="${v}">${t}</button>`).join('')}</div>` : ''}`;
+}
 const semCartao = k => (k && k.debito === false ? 'Pix' : 'Débito ou Pix');
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
 function resumoContas(b) {
   return (b.contas || []).map(c => {
     const adic = c.cartao ? (c.adicionais || []).map(a => a.pessoa).filter(Boolean) : [];
-    const extra = [c.nivel, c.debito === false ? 'sem débito' : '', c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : ''].filter(Boolean).join(', ');
+    const extra = [c.nivel, c.debito === false ? 'sem débito' : '', c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : '',
+      c.debito_global ? 'débito global em ' + nomeMoedaGlobal(c.debito_global) : '',
+      c.credito_global ? 'crédito global em ' + nomeMoedaGlobal(c.credito_global) + (c.credito_global_adicional ? ' com adicional' : '') : ''].filter(Boolean).join(', ');
     const m = metaNivel(c, b.id);
     return (c.pessoa || 'Conta') + (extra ? ` (${extra})` : '') + (m && m.falta > 0 ? ` · faltam ${brlCurto(m.falta)} para ${m.nome}` : m ? ` · já dá para ${m.nome}` : '');
   }).join(' · ');
@@ -4406,6 +4417,9 @@ function abrirBanco(id, nome, sobre) {
               <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="0" aria-label="Limite do adicional"></div>
                 <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>`).join('')}
             ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}
+            ${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
+            ${campoGlobal(c, i, 'credito_global', 'Tem cartão de crédito global?')}
+            ${c.credito_global ? `<div class="linha-sw"><div><b>Tem cartão adicional?</b></div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}
             ${botaoBenConta(c)}
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
@@ -4470,6 +4484,8 @@ function salvarBanco() {
     contas: FB.contas.map(c => {
       const k = { id: c.id, pessoa: (c.pessoa || '').trim(), cartao: !!c.cartao, fechamento: dia(c.fechamento, 1), vencimento: dia(c.vencimento, 10) };
       if (c.debito === false) k.debito = false; // sem cartão de débito (de começo, tem: como antes da 1.57.0)
+      for (const g of ['debito_global', 'credito_global']) if (MOEDAS_GLOBAL.some(([v]) => v === c[g])) k[g] = c[g];
+      if (k.credito_global && c.credito_global_adicional) k.credito_global_adicional = true;
       const txt = x => String(x || '').trim().slice(0, 30);
       if (txt(c.nivel)) k.nivel = txt(c.nivel);
       if (k.cartao && txt(c.cartao_nivel)) k.cartao_nivel = txt(c.cartao_nivel);
@@ -4981,8 +4997,9 @@ function cardMetas() {
   const ordem = x => x.p.ja ? 2 : x.p.sem ? 1 : 0;
   L.sort((a, b) => ordem(a) - ordem(b) || b.p.pct - a.p.pct || a.p.falta - b.p.falta);
   return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead('O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
-    ${L.length ? L.map(x => linhaMeta(x.m)).join('') : `<p class="vazio">Nenhuma oportunidade ainda.${iaOn() ? ' A leitura com IA também acha.' : ''}</p>`}
-    <button class="btn out larga" data-a="meta-nova">${ic('plus')}Cadastrar oportunidade</button></section>`;
+    ${L.length ? L.map(x => linhaMeta(x.m)).join('') : '<p class="vazio">Nenhuma oportunidade ainda.</p>'}
+    ${iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="meta-nova">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="meta-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
+    : `<button class="btn out larga" data-a="meta-nova">${ic('plus')}Cadastrar oportunidade</button>`}</section>`;
 }
 // o formulário: o que ganha, como (investindo, gastando no cartão, outro plano), de onde vem e o valor
 let FMETA = null;
@@ -5121,8 +5138,9 @@ function usarBeneficio(id) {
    e cadastra os escolhidos (depois dá para mudar cada um no formulário). */
 let BLER = null;
 // origem: já com De onde vêm escolhido (o Identificar benefícios de uma conta, em Editar banco, abre por cima dele)
-function abrirLerBeneficios(origem = '', sobre = false) {
-  BLER = { etapa: 'entrada', origem, texto: '', arquivo: null, itens: [], metas: [], erro: '' };
+// foco 'metas' (1.62.0): aberto das Oportunidades; a leitura é a mesma (acha os dois), só o título muda
+function abrirLerBeneficios(origem = '', sobre = false, foco = '') {
+  BLER = { etapa: 'entrada', origem, texto: '', arquivo: null, itens: [], metas: [], erro: '', foco };
   if (!S.ia && !DEMO) api.iaStatus().then(s => { S.ia = s; if (BLER && FOLHA) pintarFolha(); }).catch(() => {});
   abrirFolha(montarLerBeneficios, () => { BLER = null; }, sobre);
 }
@@ -5153,7 +5171,7 @@ function montarLerBeneficios() {
   }
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais › Configurações › Integrações.</span></div>` : '';
   return {
-    titulo: 'Ler benefícios com IA',
+    titulo: s.foco === 'metas' ? 'Ler oportunidades com IA' : 'Ler benefícios com IA',
     corpo: `${aviso}<div class="campo"><div class="lbl">De onde vêm</div>${chipsOrigem(s.origem, 'bler-origem')}</div>
       <div class="ia-arq">${arq ? prevArquivo(arq, 'bler-arq-rm') : `<button class="btn larga" data-a="bler-arq">${ic('image')}Escolher fotos ou PDF</button><button class="btn larga" data-a="bler-cam" style="margin-top:8px">${ic('scan')}Digitalizar com IA</button>`}</div>
       <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
@@ -6476,6 +6494,7 @@ document.addEventListener('click', ev => {
     case 'ben-editar': abrirBeneficio(id); break;
     case 'ben-usar': usarBeneficio(id); break;
     case 'ben-ler': abrirLerBeneficios(); break;
+    case 'meta-ler': abrirLerBeneficios('', false, 'metas'); break;
     case 'ben-identificar': abrirLerBeneficios(v, true); break;
     case 'meta-nova': abrirMeta(null); break;
     case 'meta-editar': abrirMeta(id); break;
@@ -6503,6 +6522,9 @@ document.addEventListener('click', ev => {
     case 'bc-add': FB.contas.push({ id: 'k-' + uid(), pessoa: '', cartao: false, fechamento: '', vencimento: '' }); pintarFolha(); break;
     case 'bc-rm': FB.contas.splice(+el.dataset.i, 1); pintarFolha(); break;
     case 'bc-cartao': { const c = FB.contas[+el.dataset.i]; c.cartao = !c.cartao; pintarFolha(); break; }
+    case 'bc-global': { const c = FB.contas[+el.dataset.i], k = el.dataset.k; if (c[k]) delete c[k]; else c[k] = 'USD'; pintarFolha(); break; }
+    case 'bc-moeda': { FB.contas[+el.dataset.i][el.dataset.k] = v; pintarFolha(); break; }
+    case 'bc-global-adic': { const c = FB.contas[+el.dataset.i]; c.credito_global_adicional = !c.credito_global_adicional; pintarFolha(); break; }
     case 'bc-debito': { const c = FB.contas[+el.dataset.i]; if (c.debito === false) delete c.debito; else c.debito = false; pintarFolha(); break; }
     case 'bc-adic': { const c = FB.contas[+el.dataset.i]; c.adicionais = (c.adicionais || []).length ? [] : [{ id: 'a-' + uid(), pessoa: '', limite: '' }]; pintarFolha(); break; }
     case 'bc-adic-add': { const c = FB.contas[+el.dataset.i]; (c.adicionais = c.adicionais || []).push({ id: 'a-' + uid(), pessoa: '', limite: '' }); pintarFolha(); break; }

@@ -246,7 +246,7 @@ class TestLerComIA(TelaBen):
         self.clicar('[data-a="ben-ler"]')
         self.preencher("#bler-txt", "Nada que sirva")
         self.ler()
-        self.assertEqual((self.folha(), self.texto("#folhas .msg-erro")), ("Ler benefícios com IA", "A IA não achou benefícios aqui."))
+        self.assertEqual((self.folha(), self.texto("#folhas .msg-erro")), ("Ler benefícios com IA", "A IA não achou benefícios nem oportunidades aqui."))
         self.preencher("#bler-txt", "")
         self.assertEqual(self.conta("#folhas .msg-erro"), 0, "digitando, o aviso sai")
         self.pg.evaluate(_SOLTAR, {"como": "colar", "tipo": "png", "nome": "beneficios.png"})
@@ -295,7 +295,7 @@ class TestLerComIA(TelaBen):
         # só oportunidades
         self.clicar('[data-a="ben-ler"]')
         self.preencher("#bler-txt", "Plano Família por R$ 34,99 por mês")
-        self.ler()
+        TestLerComIA.ler(self)
         self.assertEqual(self.folha(), "Oportunidades encontradas")
         self.assertEqual(self.conta("#folhas .bler-sec"), 0, "sem benefícios, sem o título")
         self.assertEqual(self.itens(), [[True, "Plano Família", "Plano Plano Família por R$ 34,99 por mês", ""]])
@@ -369,7 +369,17 @@ class TestOportunidades(TelaBen):
 
     def test_vazio(self):
         self.abrir_metas(bancos=BANCOS)
-        self.assertEqual(self.texto("#metas .vazio"), "Nenhuma oportunidade ainda. A leitura com IA também acha.")
+        self.assertEqual(self.texto("#metas .vazio"), "Nenhuma oportunidade ainda.")
+        # 1.62.0: Cadastrar e Ler com IA lado a lado, como nos Benefícios; a leitura é a mesma, com o título das oportunidades
+        self.assertEqual(self.textos("#metas .ben-botoes .btn"), ["Cadastrar", "Ler com IA"])
+        med = self.js("[...document.querySelectorAll('#metas .ben-botoes .btn')].map(b => [Math.round(b.getBoundingClientRect().top), Math.round(b.getBoundingClientRect().width), b.offsetHeight])")
+        self.assertTrue(med[0] == med[1], f"do mesmo tamanho, na mesma linha ({med})")
+        self.clicar('#metas [data-a="meta-ler"]')
+        self.assertEqual(self.folha(), "Ler oportunidades com IA")
+        self.preencher("#bler-txt", "Plano Básico por R$ 50 por mês\nPlano Família por R$ 150 por mês")
+        TestLerComIA.ler(self)
+        self.assertEqual(self.folha(), "Oportunidades encontradas")
+        self.js("(T.fecharFolha(), true)")
         self.abrir_metas(bancos=BANCOS, ajustes={"corrigir": True, "ia": False})
         self.assertEqual(self.texto("#metas .vazio"), "Nenhuma oportunidade ainda.")
         self.assertEqual(self.textos("#metas > .btn"), ["Cadastrar oportunidade"])

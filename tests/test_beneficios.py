@@ -4,6 +4,7 @@ com o nível e o cartão), o pedido à IA e a rota, com a IA simulada e páginas
 Plano Sol)."""
 import base64
 import os
+import json
 import unittest
 from unittest import mock
 
@@ -69,6 +70,9 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertEqual(B.nome_origem(D, "fixo:r-sol"), "Plano Sol")
         self.assertEqual(B.nome_origem(D, "conta:k1"), "Banco Azul, nível Prime, cartão Black")
         self.assertEqual(B.nome_origem(D, "conta:k2"), "Banco Azul")
+        d = json.loads(json.dumps(D))
+        next(c for bc in d["bancos"] for c in bc["contas"] if c["id"] == "k2").update(debito_global="USD", credito_global="EUR")
+        self.assertEqual(B.nome_origem(d, "conta:k2"), "Banco Azul, cartão de débito global em USD, cartão de crédito global em EUR", "1.62.0")
         self.assertEqual((B.nome_origem(D, "conta:x"), B.nome_origem(D, "fixo:x"), B.nome_origem(D, "")), ("", "", ""))
 
     def test_pedido_a_ia(self):
@@ -182,7 +186,7 @@ class TestLerNoServidor(unittest.TestCase):
         self.assertEqual([b["nome"] for b in r["beneficios"]], ["Frete grátis", "Cashback"])
         r = S.beneficios_ler({"anexo": {"b64": "data:image/jpeg;base64," + JPG}})
         self.assertEqual([b["nome"] for b in r["beneficios"]], ["Sala VIP", "Créditos de uso", "Seguro viagem"])
-        casos = [({}, "Envie um print"), ({"texto": "Nada que sirva"}, "A IA não achou benefícios aqui."),
+        casos = [({}, "Envie um print"), ({"texto": "Nada que sirva"}, "A IA não achou benefícios nem oportunidades aqui."),
                  ({"texto": self.falso.url + "/nao-existe"}, "Não deu para abrir a página"),
                  ({"texto": self.falso.url + "/vazia"}, "A página não mostrou o texto"),
                  ({"texto": "file:///data/senhas_pdf.json"}, "Cole um endereço que comece com https://."),

@@ -118,6 +118,10 @@ class TestOQueAIARecebe(unittest.TestCase):
         d = dados()
         d["bancos"][0]["contas"][1]["debito"] = False
         self.assertIn("k-beto | Banco Azul · Beto | sem cartão; sem cartão de débito (só Pix)", C.resumo(d, HOJE), "1.57.0")
+        d["bancos"][0]["contas"][1].update(debito_global="USD", credito_global="GBP", credito_global_adicional=True)
+        self.assertIn("sem cartão de débito (só Pix); cartão de débito global em USD; cartão de crédito global em GBP com adicional", C.resumo(d, HOJE), "1.62.0")
+        d["bancos"][0]["contas"][1]["credito_global_adicional"] = False
+        self.assertIn("cartão de crédito global em GBP\n", C.resumo(d, HOJE) + "\n")
 
     def test_caixa_do_mes(self):
         self.assertIn("Caixa: saldo de hoje R$ 4.909,00. Neste mês: entrou R$ 5.000,00, saiu R$ 90,00", self.r)

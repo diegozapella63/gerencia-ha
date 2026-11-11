@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.61.0"
+VERSAO = "1.62.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2001,7 +2001,7 @@ def beneficios_ler(corpo):
     metas, recusadas = beneficios.limpar_metas(parsed, conferir or None)
     if not itens and not metas:
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
-                         if recusados or recusadas else "A IA não achou benefícios aqui.")
+                         if recusados or recusadas else "A IA não achou benefícios nem oportunidades aqui.")
     return {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
 
 

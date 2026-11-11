@@ -632,6 +632,10 @@ details summary { list-style-position: inside; }
 .conta-l { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
 .conta-l .inp { flex: 1; }
 .conta-ed .linha-sw b { font-size: 15px; }
+/* 1.62.0: a moeda de cada cartão global, logo embaixo do interruptor */
+.conta-ed .bc-moeda-l { margin-top: 6px; }
+.conta-ed .seg.bc-moeda { margin: 6px 0 4px; }
+.conta-ed .seg.bc-moeda button { flex: 1 1 0; min-width: 0; }
 .conta-ed .linha-sw + .linha-sw { margin-top: 10px; } /* Tem cartão de débito? e Tem cartão de crédito? */
 
 /* ---------- imagens */

@@ -49,6 +49,10 @@ def nome_origem(d, origem):
                         partes.append("nível " + str(c["nivel"]).strip())
                     if c.get("cartao"):
                         partes.append(("cartão " + str(c.get("cartao_nivel") or "").strip()).strip())
+                    if c.get("debito_global"):
+                        partes.append(f"cartão de débito global em {c['debito_global']}")
+                    if c.get("credito_global"):
+                        partes.append(f"cartão de crédito global em {c['credito_global']}")
                     return ", ".join(partes)
     return ""
 

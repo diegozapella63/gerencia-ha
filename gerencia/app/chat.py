@@ -106,6 +106,10 @@ def resumo(d, hoje=None):
             cart = f"cartão, fecha dia {c.get('fechamento')}, vence dia {c.get('vencimento')}" if c.get("cartao") else "sem cartão"
             if c.get("debito") is False:
                 cart += "; sem cartão de débito (só Pix)"
+            if c.get("debito_global"):
+                cart += f"; cartão de débito global em {c['debito_global']}"
+            if c.get("credito_global"):
+                cart += f"; cartão de crédito global em {c['credito_global']}" + (" com adicional" if c.get("credito_global_adicional") else "")
             L.append(f"{cid} | {calc.nome_conta(c) or c.get('banco_nome', '')} | {cart}")
 
     cx = calc.caixa(d, hoje)

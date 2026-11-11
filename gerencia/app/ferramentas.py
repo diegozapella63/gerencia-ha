@@ -394,6 +394,10 @@ def _cadastros(d):
                     for a in (c.get("adicionais") or []) if isinstance(a, dict) and a.get("pessoa")]
             if adic:
                 it["cartao_de_credito"]["adicionais"] = adic
+        if c.get("debito_global"):
+            it["cartao_de_debito_global"] = {"moeda": c["debito_global"]}
+        if c.get("credito_global"):
+            it["cartao_de_credito_global"] = {"moeda": c["credito_global"], "adicional": c.get("credito_global_adicional") is True}
         contas.append(it)
     fixos = []
     for r in d.get("recorrencias", []):

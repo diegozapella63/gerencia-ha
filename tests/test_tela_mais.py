@@ -343,6 +343,33 @@ class TestMaisBancos(TelaMais):
         self.clicar('[data-a="b-salvar"]')
         self.assertNotIn("debito", next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0])
 
+    def test_1_62_cartoes_globais(self):
+        # débito global e crédito global, cada um com a moeda (Dólar de começo); o de crédito diz se tem adicional
+        self.abrir_bancos()
+        self.clicar('.btn[data-a="banco"]')
+        self.preencher("#b-nome", "Banco Roxo")
+        rotulos = lambda: self.js("[...document.querySelectorAll('.folha .conta-ed .linha-sw b')].map(b => b.textContent)")  # noqa: E731
+        self.assertEqual(rotulos(), ["Tem cartão de débito?", "Tem cartão de crédito?", "Tem cartão de débito global?", "Tem cartão de crédito global?"])
+        self.assertEqual(self.conta(".folha .bc-moeda"), 0, "desligados: sem moeda")
+        self.clicar('.folha [data-a="bc-global"][data-k="debito_global"]')
+        self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
+        self.assertEqual(self.textos('.folha .bc-moeda button.on'), ["Dólar", "Dólar"], "de começo, em dólar")
+        self.assertEqual(rotulos()[-1], "Tem cartão adicional?", "o adicional do crédito global")
+        self.clicar('.folha [data-a="bc-moeda"][data-k="credito_global"][data-v="EUR"]')
+        self.clicar('.folha [data-a="bc-global-adic"]')
+        med = self.js("[...document.querySelectorAll('.folha .bc-moeda')[0].querySelectorAll('button')].map(b => [Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().top)])")
+        self.assertTrue(len(med) == 3 and len({w for w, _ in med}) == 1 and len({t for _, t in med}) == 1, f"as moedas lado a lado, do mesmo tamanho ({med})")
+        self.clicar('[data-a="b-salvar"]')
+        roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
+        self.assertEqual({k: roxo.get(k) for k in ("debito_global", "credito_global", "credito_global_adicional")}, {"debito_global": "USD", "credito_global": "EUR", "credito_global_adicional": True})
+        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar, crédito global em euro com adicional)")
+        # desligar o crédito global tira a moeda e o adicional
+        self.clicar(f'.banco-row[data-id="{next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["id"]}"]')
+        self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
+        self.clicar('[data-a="b-salvar"]')
+        roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
+        self.assertEqual(("credito_global" in roxo, "credito_global_adicional" in roxo, roxo["debito_global"]), (False, False, "USD"))
+
     def test_nivel_da_conta_do_cartao_e_o_proximo(self):
         # Banco Azul: Ana tem 10.000 (CDB Azul, dela); o próximo nível pede 25.000
         self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
