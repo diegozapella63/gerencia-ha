@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.64.0"
+VERSAO = "1.64.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2779,15 +2779,23 @@ def url_promo(serv):
     return PROMOS_BASE + serv["id"] if PROMOS_BASE else serv["url"]
 
 
+_aparelhos = {"em": 0.0, "valor": ({}, False)}
+
+
 def promos_aparelhos(d):
-    """Os aparelhos da casa pelos itens do InventarIA (com Somar os bens ligado). Devolve ({aparelho: [itens]}, leu)."""
+    """Os aparelhos da casa pelos itens do InventarIA (com Somar os bens ligado). Devolve ({aparelho: [itens]}, leu).
+    Guardados por 10 minutos aqui, sem trocar o que os Bens da casa guardaram (1.64.1)."""
     if d["ajustes"].get("bens") is False:
         return {}, False
+    if time.time() - _aparelhos["em"] < bens.CACHE_S:
+        return _aparelhos["valor"]
     try:
-        return promocoes.aparelhos(BENS.ler().get("itens")), True
+        valor = (promocoes.aparelhos(BENS.ler(guardar=False).get("itens")), True)
     except Exception as e:  # noqa: BLE001
         log("Promoções: sem o InventarIA:", e)
-        return {}, False
+        valor = ({}, False)
+    _aparelhos.update(em=time.time(), valor=valor)
+    return valor
 
 
 def ler_pagina_promo(serv, d, velho=None):

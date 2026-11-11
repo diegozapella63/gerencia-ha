@@ -55,8 +55,9 @@ class Bens:
                 erro = e
         raise ErroBens(f"O InventarIA não respondeu ({erro}).")
 
-    def ler(self, forcar=False):
-        """{"itens": [...], "comodos": {id: nome}, "categorias": {id: nome}, "versao", "lido_em"}; erro vira ErroBens."""
+    def ler(self, forcar=False, guardar=True):
+        """{"itens": [...], "comodos": {id: nome}, "categorias": {id: nome}, "versao", "lido_em"}; erro vira ErroBens.
+        guardar=False (os aparelhos das promoções, 1.64.1): lê sem trocar o que os Bens da casa guardaram."""
         with self.trava:
             if not forcar and self.cache and time.time() - self.cache[0] < CACHE_S:
                 return self.cache[1]
@@ -74,7 +75,8 @@ class Bens:
             # as categorias da casa vêm do InventarIA (lá dá para renomear, criar e excluir); sem elas, as de costume
             dados = {"itens": lista, "comodos": comodos, "categorias": dict(itens.get("categorias") or NOMES_PADRAO),
                      "versao": itens.get("versao") or c.get("versao") or "", "lido_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
-            self.cache = (time.time(), dados)
+            if guardar:
+                self.cache = (time.time(), dados)
             return dados
 
 

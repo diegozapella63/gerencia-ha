@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.64.1
+
+- Com as promoções de assinaturas ligadas, os **Bens da casa** podiam ficar alguns minutos sem os itens do InventarIA logo depois de abrir o app. Agora aparecem na hora.
+
 ## 1.64.0
 
 - **Assinaturas em promoção** no alto das Oportunidades (Mais › Benefícios): as assinaturas de vídeo, música e jogos (Netflix, Prime Video, Disney+, HBO Max, Globoplay, Paramount+, YouTube Premium, Crunchyroll, Rakuten Viki, Spotify, Xbox Game Pass, GeForce NOW, Boosteroid, Blacknut e outras) com preço promocional na página oficial, conferido todo dia.

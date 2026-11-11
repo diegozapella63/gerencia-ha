@@ -136,6 +136,17 @@ class TestLeitura(unittest.TestCase):
         with self.assertRaisesRegex(bens.ErroBens, "não foi encontrado"):
             self.b.ler()
 
+    def test_ler_sem_guardar(self):
+        """1.64.1: os aparelhos das promoções leem sem trocar o que os Bens da casa guardaram."""
+        s = self.servidor()
+        self.conexao(url=s.url, chave="segredo")
+        self.assertEqual(len(self.b.ler(guardar=False)["itens"]), len(ITENS))
+        self.assertIsNone(self.b.cache, "nada guardado")
+        self.b.ler()
+        n = len(s.pedidos)
+        self.b.ler(guardar=False)
+        self.assertEqual(len(s.pedidos), n, "com o guardado valendo, usa ele")
+
     def test_le_com_a_chave_e_guarda_por_10_minutos(self):
         s = self.servidor(categorias={"moveis": "Móveis da casa"})
         self.conexao(url=s.url, chave="segredo")

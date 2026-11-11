@@ -310,10 +310,16 @@ class TestServidor(unittest.TestCase):
     def test_os_aparelhos_do_inventaria(self):
         Trocar(self, promos_aparelhos=APARELHOS_DE_VERDADE)
         d = S.ler()
-        with mock.patch.object(S.BENS, "ler", return_value={"itens": [{"nome": "Xbox Series S"}]}):
+        S._aparelhos.update(em=0.0)
+        with mock.patch.object(S.BENS, "ler", return_value={"itens": [{"nome": "Xbox Series S"}]}) as ler:
             self.assertEqual(S.promos_aparelhos(d), ({"xbox": ["Xbox Series S"]}, True))
+            self.assertEqual(ler.call_args.kwargs, {"guardar": False}, "1.64.1: sem trocar o que os Bens da casa guardaram")
+            self.assertEqual(S.promos_aparelhos(d), ({"xbox": ["Xbox Series S"]}, True))
+            self.assertEqual(ler.call_count, 1, "guardados por 10 minutos")
+        S._aparelhos.update(em=0.0)
         with mock.patch.object(S.BENS, "ler", side_effect=RuntimeError("sem InventarIA")):
             self.assertEqual(S.promos_aparelhos(d), ({}, False))
+        S._aparelhos.update(em=0.0)
         d["ajustes"]["bens"] = False
         self.assertEqual(S.promos_aparelhos(d), ({}, False), "Somar os bens desligado: sem o InventarIA")
 
