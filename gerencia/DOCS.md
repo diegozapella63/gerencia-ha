@@ -244,6 +244,24 @@ Em **Mais › Benefícios**, o que você ganha por pagar um plano ou ter um cart
 - **Na Agora**: "Benefício para usar" quando o que sobrou vence em até 30 dias (antes de renovar ou da validade), e "Benefício que vai parar" quando o fixo acabou ou a conta saiu de Bancos.
 - Os fixos (Mais › Caixa) e os bancos mostram quantos benefícios têm.
 
+### Milhas
+
+Em **Cadastrar**, o tipo **Milhas** é um programa de milhas ou pontos de uma pessoa (cada pessoa com o seu). Os programas ficam no alto da lista, no grupo **Milhas**: o saldo, o nível, as milhas que vencem primeiro e quantas trocas já dão.
+
+- **Programa**, **De quem**, **Saldo** e **Nível**. O saldo é o de hoje: ao mudar, os resgates de antes saem da conta.
+- **Próximo nível**: o nome, quanto ele pede (**Milhas** ou **Trechos**) e quanto você já tem; embaixo, quanto falta.
+- **Milhas que vencem** e quando. Os lotes que vencem depois (lidos pela IA) ficam embaixo, com o X para tirar.
+- **Cartão que acumula** (opcional): a conta de Mais › Bancos com cartão.
+- **Ler com IA** (só com a IA ligada), no alto do formulário:
+  - um **print** ou uma **foto** da tela do programa (no app ou no site) traz o saldo, o nível, as milhas qualificáveis e as que vencem;
+  - a **página oficial** do programa (o endereço) ou um texto colado trazem as vantagens do nível, o que o próximo nível pede, a tabela de troca e como trocar. Só entra o que está escrito lá, com o número no trecho.
+  - O que a IA leu vai para o formulário: confira e salve. O saldo de um programa não sai de uma página pública: vem do print ou digitado.
+- **Para trocar**: as trocas da tabela, da mais barata para a mais cara, cada uma com "já dá" ou quanto falta.
+- **Resgatei** pergunta quantas milhas saíram e desconta do saldo; os resgates aparecem no formulário e dá para tirar um lançado por engano.
+- O próximo nível aparece nas **Oportunidades** ("faltam 21.800 · tem 3.200"); tocar nele abre o programa.
+- **Na Agora**: "Milhas que vencem" quando um lote vence em até 60 dias (também no CronologIA, com a integração ligada).
+- Na **Conversa**, a IA sabe o saldo, o nível, o que vence e as trocas que já dão.
+
 ### Oportunidades (nos Benefícios)
 
 Embaixo dos benefícios, **Oportunidades** mostra o que falta para ganhar mais, do mais perto para o mais longe:

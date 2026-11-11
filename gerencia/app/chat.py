@@ -157,11 +157,25 @@ def resumo(d, hoje=None):
         ix = d.get("indices", {})
         L.append(f"Índices ao ano: CDI {calc.fmt_pct(ix.get('cdi', 0))}%, Selic {calc.fmt_pct(ix.get('selic', 0))}%, IPCA {calc.fmt_pct(ix.get('ipca', 0))}%.")
 
-    metas = [m for m in d.get("metas", []) if isinstance(m, dict)] + calc.metas_conta(d)
+    mil = [b for b in d.get("beneficios", []) if isinstance(b, dict) and b.get("tipo") == "milhas"]
+    if mil:  # Mais › Benefícios › Milhas (1.63.0): o saldo de hoje, o nível, o que vence e o que dá para trocar
+        L.append("\nMilhas (programa | de quem | saldo | nível | vencem | trocas que já dão):")
+        for b in mil[:20]:
+            m = calc.milhas_de(b, hoje)
+            vence = f"{calc.fmt_num(m['vence']['qtd'], 0)} em {m['vence']['data']}" if m["vence"] else "-"
+            da = "; ".join(f"{r['nome']} ({calc.fmt_num(r['milhas'], 0)})" for r in m["da"][-5:]) or "-"
+            L.append(f"{b.get('nome', '')} | {b.get('pessoa') or '-'} | {calc.fmt_num(m['saldo'], 0)} | {b.get('nivel') or '-'} | {vence} | {da}")
+    metas = [m for m in d.get("metas", []) if isinstance(m, dict)] + calc.metas_conta(d) + calc.metas_milhas(d, hoje)
     if metas:  # Mais › Benefícios › Oportunidades: o que falta para ganhar mais (o mesmo da tela)
         L.append("\nOportunidades nos benefícios (o que ganha | de onde | condição | situação):")
         for m in metas[:30]:
             pr = calc.progresso_meta(m, d, hoje)
+            if m.get("tipo") == "milhas":
+                cond = f"{calc.fmt_num(pr['pede'], 0)} qualificáveis"
+                sit = "já dá" if pr["ja"] else f"faltam {calc.fmt_num(pr['falta'], 0)} (tem {calc.fmt_num(pr['tem'] or 0, 0)})"
+                mb = next((x for x in mil if x.get("id") == m.get("milhas")), {})
+                L.append(f"nível {m.get('ganha')} | {mb.get('nome', '')}{' · ' + mb['pessoa'] if mb.get('pessoa') else ''} | {cond} | {sit}")
+                continue
             cond = (f"{_brl(pr['pede'])} investidos" if m.get("tipo") == "investido" else f"gastar {_brl(pr['pede'])} por mês no cartão"
                     if m.get("tipo") == "gasto" else f"plano {m.get('plano') or ''} de {_brl(pr['pede'])} por mês".replace("  ", " "))
             sit = ("sem como saber" if pr["sem"] else "já dá" if pr["ja"] else f"custa {_brl(pr['falta'])} a mais por mês" if m.get("tipo") == "plano"

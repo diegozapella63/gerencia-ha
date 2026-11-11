@@ -279,15 +279,24 @@ def avisos(d, emails_itens=(), hoje=None):
     if em and (hoje - em).days > 3:
         out.append({"id": "indices", "tipo": "indices", "titulo": "Índices sem atualizar", "caminho": "/agora",
                     "texto": f"{'O Banco Central não responde' if ind.get('erro') else 'Sem os do Banco Central'} desde {_dd_mm(em)}"})
-    usar, parar = [], []
+    usar, parar, vencem = [], [], []
     for b in d.get("beneficios") or []:
         if not isinstance(b, dict):
+            continue
+        if b.get("tipo") == "milhas":  # 1.63.0: as milhas que vencem em até 60 dias
+            v = calc.milhas_de(b, hoje)["vence"]
+            if v and (date.fromisoformat(v["data"]) - hoje).days <= 60:
+                vencem.append(f"{b.get('nome') or 'Milhas'}{' · ' + str(b['pessoa']) if b.get('pessoa') else ''}: "
+                              f"{calc.fmt_num(v['qtd'], 0)} em {_dd_mm(date.fromisoformat(v['data']))}")
             continue
         c, o = calc.ciclo_beneficio(b, hoje), calc.origem_beneficio(b, d, hoje)
         if not o["ativa"] and b.get("origem"):
             parar.append(f"{b.get('nome')}: " + (f"o fixo {o['nome']} acabou" if o["tipo"] == "fixo" else "a conta saiu de Bancos"))
         elif (c["restante"] or 0) > 0 and not c["vencido"] and c["ate"] and (date.fromisoformat(c["ate"]) - hoje).days <= 30:
             usar.append(f"{b.get('nome')} ({_qtd_beneficio(b, c['restante'])}) até {_dd_mm(date.fromisoformat(c['ate']))}")
+    if vencem:
+        out.append({"id": "ben:milhas", "tipo": "beneficio", "caminho": "/beneficios", "texto": ", ".join(vencem),
+                    "titulo": "Milhas que vencem" if len(vencem) == 1 else f"Milhas que vencem em {len(vencem)} programas"})
     if usar:
         out.append({"id": "ben:usar", "tipo": "beneficio", "caminho": "/beneficios", "texto": ", ".join(usar),
                     "titulo": "Benefício para usar" if len(usar) == 1 else f"{len(usar)} benefícios para usar"})

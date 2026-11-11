@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.63.0
+
+- **Milhas** em Mais › Benefícios: um tipo novo, para cada programa de milhas ou pontos de cada pessoa. Fica no alto da lista, com o saldo, o nível, as milhas que vencem e quantas trocas já dão.
+  - **Ler com IA** no formulário: um print ou uma foto da conta traz o saldo, o nível, as milhas qualificáveis e as que vencem; a página oficial do programa traz as vantagens do nível, o que o próximo nível pede, a tabela de troca e como trocar. Da página só entra o que está escrito lá. Ou digite tudo.
+  - **Para trocar**: cada troca da tabela diz "já dá" ou quanto falta.
+  - **Resgatei** desconta do saldo.
+  - O próximo nível entra nas **Oportunidades** ("faltam 21.800 milhas qualificáveis"), as milhas que vencem em até 60 dias aparecem nos **Avisos** da Agora (e no CronologIA), e a **Conversa** sabe das milhas.
+
 ## 1.62.0
 
 - **Oportunidades** (em Mais › Benefícios): **Ler com IA** ao lado do **Cadastrar**, como nos Benefícios.

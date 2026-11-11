@@ -155,7 +155,7 @@ class TestLerComIA(TelaBen):
 
     def ler(self):
         self.clicar('#folhas [data-a="bler-ler"]')
-        self.pg.wait_for_function("() => { const s = window.GERENCIA_TESTE.BLER; return s && s.etapa !== 'lendo'; }")
+        self.pg.wait_for_function("() => { const s = window.GERENCIA_TESTE.BLER; return !s || s.etapa !== 'lendo'; }")  # milhas: a folha fecha
         self.esperar()
 
     def itens(self):
@@ -448,6 +448,94 @@ class TestAvisosEContagem(TelaBen):
         self.assertIn("1 benefício", self.linha("#fixos .banco-row", "Plano Sol"))
         self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VIP, CREDITO, SEGURO]), ui={"tab": "mais", "maisTela": "bancos"})
         self.assertTrue(self.linha(".banco-row", "Banco Azul").endswith("2 benefícios"))
+
+
+
+VOA = {"id": "bn-voa", "tipo": "milhas", "nome": "Voa Mais", "pessoa": "Ana", "origem": "conta:k-ana", "saldo": 12300, "saldo_em": "2026-10-01",
+       "nivel": "Prata", "proximo": {"nivel": "Ouro", "pede": 25000, "tem": 3200, "unidade": "milhas"},
+       "vencem": [{"qtd": 2000, "data": "2026-12-31"}], "resgates": [{"nome": "Cidade A – Cidade B", "milhas": 7500}, {"nome": "Cidade A – Cidade C", "milhas": 12500}],
+       "usos": [{"id": "u1", "data": "2026-10-20", "qtd": 1000}]}
+
+
+class TestMilhas(TelaBen):
+    """1.63.0: o tipo Milhas: o programa de uma pessoa, com o saldo, o nível, o que vence e o próximo nível (nas
+    Oportunidades); Resgatei desconta; Ler com IA põe no formulário o que leu do print e da página do programa."""
+
+    def test_lista_oportunidade_e_aviso(self):
+        self.abrir_ben([VOA, VIP])
+        self.assertEqual(self.textos("#beneficios .ben-grupo-cab b"), ["Milhas", "Banco Azul · Ana"], "as milhas em cima")
+        self.assertEqual(self.linhas()[0], ["Voa Mais · Ana", "Prata · vencem 2.000 em 31/12/2026 · dá para 1 troca", "11.300", "milhas"])
+        meta = self.js("""(() => { const r = [...document.querySelectorAll('#metas .meta-row')].find(x => /Ouro/.test(x.textContent));
+            return [r.querySelector('.ben-t b').textContent, r.querySelector('.ben-t > span').textContent, r.querySelector('.ben-v b').textContent, r.querySelector('.ben-v small').textContent]; })()""")
+        self.assertEqual(meta, ["Nível Ouro", "Voa Mais · Ana · com 25.000 milhas qualificáveis", "faltam 21.800", "milhas · tem 3.200"])
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VOA]), ui={"tab": "inicio"})
+        self.assertIn("Milhas que vencem Voa Mais · Ana: 2.000 em 31/12", " ".join(self.tela().split()))
+        # com investimentos, o Início também mostra os avisos dos benefícios (1.63.0)
+        inv = {"id": "i1", "nome": "CDB Azul", "banco": "b-azul", "tipo": "cdb", "indexador": "cdi_pct", "taxa": 100, "valor": 1000, "data_valor": "2026-11-01", "inicio": "2026-01-01"}
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VOA], investimentos=[inv]), ui={"tab": "inicio"})
+        self.assertIn("Milhas que vencem Voa Mais · Ana: 2.000 em 31/12", " ".join(self.tela().split()))
+
+    def test_resgatei_desconta(self):
+        self.abrir_ben([VOA])
+        self.assertEqual(self.texto("#beneficios .mil-row .ben-usar"), "Resgatei")
+        self.clicar('#beneficios .mil-row [data-a="ben-usar"]')
+        self.assertEqual(self.folha(), "Quantas milhas resgatou de Voa Mais · Ana?")
+        self.preencher("#fben-usou", "500")
+        self.clicar('#folhas [data-a="fben-usou"]')
+        self.assertEqual(self.esperar_aviso("Voa Mais"), "Voa Mais · Ana: ficam 10.800 milhas")
+        self.assertEqual(self.linhas()[0][2], "10.800")
+
+    def test_cadastrar_lendo_o_print_e_a_pagina(self):
+        self.abrir_ben([])
+        self.clicar('[data-a="ben-novo"]')
+        self.clicar('#folhas [data-a="fben-seg"][data-k="tipo"][data-v="milhas"]')
+        self.assertEqual(self.folha(), "Novas milhas")
+        self.preencher("#fben-nome", "Voa Mais")
+        self.preencher("#fben-pessoa", "Ana")
+        # o print da conta (aqui, o texto dele): saldo, nível, qualificáveis e o que vence
+        self.clicar('#folhas [data-a="fmil-ler"]')
+        self.assertEqual(self.folha(), "Ler milhas com IA")
+        self.assertEqual(self.js("document.querySelectorAll('#folhas [data-a=\"bler-origem\"]').length"), 0, "sem De onde vêm")
+        self.preencher("#bler-txt", "Saldo: 12.000 milhas\nNível: Prata\nMilhas qualificáveis: 5.000\n3.000 milhas vencem em 31/01/2027")
+        TestLerComIA.ler(self)
+        self.assertEqual(self.folha(), "Novas milhas", "volta ao formulário")
+        self.assertEqual(self.esperar_aviso("Lido"), "Lido: saldo, nível, qualificáveis, o que vence. Confira e salve.")
+        self.assertEqual([self.js(f"document.getElementById('{i}').value") for i in ("fben-saldo", "fben-nivel", "fben-tem", "fben-venc", "fben-venc-data")],
+                         ["12000", "Prata", "5000", "3000", "2027-01-31"])
+        # a página do programa: o próximo nível, as vantagens, a tabela de resgate e como trocar
+        self.clicar('#folhas [data-a="fmil-ler"]')
+        self.preencher("#bler-txt", "voamais.exemplo/niveis")
+        TestLerComIA.ler(self)
+        self.assertEqual(self.esperar_aviso("Lido"), "Lido: próximo nível, 2 vantagens, 3 trocas, como trocar. Confira e salve.")
+        self.assertEqual(self.js("document.getElementById('fmil-st').textContent"), "Faltam 20.000 milhas qualificáveis para o Ouro.")
+        trocas = self.js("[...document.querySelectorAll('#folhas .mil-lista li')].filter(l => l.querySelector('b')).map(l => [...l.children].map(c => c.textContent).join(' '))")
+        self.assertEqual(trocas[:3], ["Cidade A – Cidade B 7.500 já dá", "Cidade A – Cidade C 12.500 faltam 500", "Cidade A – Cidade D 30.000 faltam 18.000"])
+        self.clicar('#folhas [data-a="fben-salvar"]')
+        self.esperar()
+        b = self.dados()["beneficios"][0]
+        self.assertEqual({k: b.get(k) for k in ("tipo", "nome", "pessoa", "saldo", "saldo_em", "nivel", "proximo", "vencem", "url")},
+                         {"tipo": "milhas", "nome": "Voa Mais", "pessoa": "Ana", "saldo": 12000, "saldo_em": "2026-11-02", "nivel": "Prata",
+                          "proximo": {"nivel": "Ouro", "pede": 25000, "tem": 5000, "unidade": "milhas"}, "vencem": [{"qtd": 3000, "data": "2027-01-31"}],
+                          "url": "https://voamais.exemplo/niveis"})
+        self.assertEqual((len(b["vantagens"]), [r["milhas"] for r in b["resgates"]], b["como"]),
+                         (2, [7500, 12500, 30000], ["Resgate no site ou no app, em Usar milhas"]))
+        self.assertEqual(self.linhas()[0], ["Voa Mais · Ana", "Prata · vencem 3.000 em 31/01/2027 · dá para 1 troca", "12.000", "milhas"])
+
+    def test_editar_e_apagar(self):
+        self.abrir_ben([dict(VOA, vencem=[{"qtd": 2000, "data": "2026-12-31"}, {"qtd": 700, "data": "2027-03-31"}])])
+        self.clicar('#beneficios .mil-row [data-a="ben-editar"]')
+        self.assertEqual(self.folha(), "Editar milhas")
+        self.assertEqual(self.js("document.querySelectorAll('#folhas [data-a=\"fben-seg\"][data-k=\"tipo\"]').length"), 0, "sem trocar o tipo")
+        self.assertEqual(self.js("document.getElementById('fmil-st').textContent"), "Faltam 21.800 milhas qualificáveis para o Ouro.")
+        self.assertIn("Hoje: 11.300 milhas, com os resgates.", self.folha_texto())
+        self.clicar('#folhas [data-a="fmil-lote-rm"]')
+        self.clicar('#folhas [data-a="fben-salvar"]')
+        self.esperar()
+        b = self.dados()["beneficios"][0]
+        self.assertEqual((b["vencem"], b["saldo_em"]), ([{"qtd": 2000, "data": "2026-12-31"}], "2026-10-01"), "o saldo não mudou: a data dele fica")
+        self.clicar('#beneficios .mil-row [data-a="ben-editar"]')
+        self.clicar('#folhas [data-a="fben-excluir"]')
+        self.assertIn("Voa Mais · Ana sai da lista, com os resgates.", self.folha_texto())
 
 
 if __name__ == "__main__":

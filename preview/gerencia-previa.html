@@ -1464,6 +1464,19 @@ input[readonly] { opacity: .8; }
 .bc-ben { margin-top: 12px; }
 .ajuda.bc-ben-n { margin-top: 6px; }
 
+/* Milhas (1.63.0): no formulário, o Ler com IA no alto, os lotes que vencem e as listas lidas da página do programa
+   (as vantagens do nível, a tabela de resgate com o que já dá, como trocar) */
+.mil-ler { margin-bottom: 12px; }
+.mil-lotes { margin: -6px 0 12px; }
+.mil-lotes .chip { gap: 6px; }
+.mil-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mil-lista li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.mil-lista li:last-child { border-bottom: 0; }
+.mil-lista li span { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.mil-lista li b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mil-lista li small { color: var(--muted); white-space: nowrap; }
+.mil-lista li.da small { color: var(--good); font-weight: 600; }
+
 </style>
 <main id="app" aria-live="polite"></main>
 <nav id="nav" aria-label="Menu principal"><div class="in"></div></nav>
@@ -1897,7 +1910,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.62.0';
+const VERSAO = '1.63.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2016,6 +2029,7 @@ const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
 /* ------------------------------------------------------------------ ícones */
 const P = {
+  plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
   'mic': '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
@@ -2425,6 +2439,7 @@ const apiServidor = {
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   beneficiosLer: corpo => fetch('api/beneficios/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
+  milhasLer: corpo => fetch('api/milhas/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
   bens: () => fetch('api/bens', { cache: 'no-store' }).then(jsonOk),
   bensAtualizar: () => fetch('api/bens/atualizar', { method: 'POST' }).then(jsonOk),
@@ -2526,6 +2541,15 @@ function apiDemo() {
       const fonte = c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
       if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
       return { beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' };
+    },
+    // milhas lidas pela IA na prévia: a IA simulada (igual à do servidor, milhas.simulados); a imagem vira um exemplo inventado
+    async milhasLer(c) {
+      await espera(600);
+      const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
+      const r = simMilhas(c.anexo || c.anexos ? MILHAS_EXEMPLO : url ? MILHAS_PAGINA : t);
+      if (!Object.keys(r).length) throw new Error('A IA não achou milhas aqui.');
+      if (url) r.url = /^https?:/i.test(t) ? t : 'https://' + t;
+      return Object.assign(r, { recusados: 0 });
     },
     // na prévia não há Home Assistant: as pessoas da casa são inventadas e o aviso não sai
     async avisoPessoas() { return { pessoas: [{ id: 'person.ana', nome: 'Ana', celular: true, eu: true }, { id: 'person.beto', nome: 'Beto', celular: false, eu: false }] }; },
@@ -2907,6 +2931,7 @@ function telaInicio() {
   // 3 dias (o Banco Central sem responder), para conferir ou digitar à mão; sem nada a fazer, nenhum cartão
   const avI = avisoIndices(d.indices, h);
   if (avI) av.push(avI);
+  av.push(...avisosBeneficios(h));  // 1.63.0: também com investimentos (as milhas que vencem, o benefício para usar)
   if (av.length) html += `<div class="card flush"><div class="rot">${rotIc('alert', 'aviso')}<span class="rot-t">Avisos</span></div>${av.join('')}</div>`;
   return html + '</div></div>';
 }
@@ -6782,6 +6807,31 @@ function origemBeneficio(b, d = S.d) {
   }
   return { tipo: '', nome: '', ativa: true };
 }
+/* Milhas (1.63.0): um benefício do tipo milhas é um programa de milhas ou pontos de uma pessoa: o saldo (do print
+   ou digitado, em saldo_em; os resgates depois dele descontam), as que vencem, o nível e o próximo (quanto pede, quanto
+   tem), o cartão que acumula (origem) e, lidos da página oficial, as vantagens do nível, a tabela de resgate e como
+   trocar. A mesma conta do calc.py (milhas_de, metas_milhas). */
+function milhasDe(b, h = hoje()) {
+  const desde = pData(b.saldo_em);
+  let resgatado = 0;
+  for (const u of b.usos || []) { const d = pData(u && u.data); if (d && (!desde || d >= desde)) resgatado += +u.qtd || 0; }
+  const saldo = Math.max(0, Math.round((+b.saldo || 0) - resgatado));
+  const lotes = (b.vencem || []).map(v => ({ qtd: Math.round(+(v && v.qtd) || 0), data: v && v.data })).filter(v => v.qtd > 0 && pData(v.data) && pData(v.data) >= h)
+    .sort((a, c) => String(a.data).localeCompare(String(c.data)));
+  const p = b.proximo || {}, pede = Math.round(+p.pede || 0), tem = Math.round(+p.tem || 0);
+  const proximo = p.nivel && pede > 0 ? { nivel: String(p.nivel), pede, tem, falta: Math.max(0, pede - tem), pct: Math.round(Math.min(100, Math.max(0, tem) / pede * 100) * 10) / 10,
+    ja: tem >= pede, unidade: p.unidade === 'trechos' ? 'trechos' : 'milhas' } : null;
+  const trocas = (b.resgates || []).filter(r => r && r.nome && +r.milhas > 0).map(r => ({ nome: String(r.nome), milhas: Math.round(+r.milhas), trecho: String(r.trecho || '') }))
+    .sort((a, c) => a.milhas - c.milhas);
+  return { saldo, vence: lotes[0] || null, proximo, da: trocas.filter(r => r.milhas <= saldo), falta: trocas.find(r => r.milhas > saldo) || null };
+}
+const ehMilhas = b => b && b.tipo === 'milhas';
+const nomeMilhas = b => (b.nome || 'Milhas') + (b.pessoa ? ' · ' + b.pessoa : '');
+// o próximo nível de cada programa também é uma oportunidade (como o próximo nível de uma conta)
+function metasMilhas(d = S.d) {
+  return (d.beneficios || []).filter(b => ehMilhas(b) && b.id).map(b => ({ b, p: milhasDe(b).proximo })).filter(x => x.p)
+    .map(({ b, p }) => ({ id: 'milhas:' + b.id, origem: b.origem || '', tipo: 'milhas', valor: p.pede, ganha: p.nivel, nivel: true, milhas: b.id }));
+}
 /* Oportunidades (Mais › Benefícios): o que falta para ganhar mais. investido: ter um valor no banco (a anuidade grátis
    com R$ 50 mil investidos; o próximo nível da conta, de Editar banco); gasto: gastar um valor por mês no cartão (a sala
    VIP gastando R$ 3 mil); plano: um plano mais caro do mesmo fixo (o de 2 TB por R$ 120 em vez de R$ 100). A conta é a
@@ -6822,6 +6872,11 @@ function progressoMeta(m, d = S.d, h = hoje()) {
     }
     return Object.assign(out, { tem: r2(tem), falta: r2(Math.max(0, pede - tem)), pct: pede > 0 ? Math.round(Math.min(100, Math.max(0, tem) / pede * 100) * 10) / 10 : 0, ja: tem >= pede });
   }
+  if (m.tipo === 'milhas') {
+    const b = (d.beneficios || []).find(x => x.id === m.milhas), p = b ? milhasDe(b, h).proximo : null;
+    if (!p) return Object.assign(out, { sem: 'origem' });
+    return Object.assign(out, { tem: p.tem, pede: p.pede, falta: p.falta, pct: p.pct, ja: p.ja });
+  }
   if (m.tipo === 'plano') {
     const r = o.startsWith('fixo:') ? d.recorrencias.find(x => x.id === o.slice(5)) : null;
     if (!r) return Object.assign(out, { sem: 'origem' });
@@ -6844,12 +6899,22 @@ function linhaBeneficio(b) {
     ${conta ? `<div class="ben-v"><b>${c.restante > 0 ? 'restam ' + esc(qtdBen(b, c.restante)) : 'acabou'}</b><small>de ${esc(qtdBen(b, +b.total || 0))}</small></div>
       <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${c.restante > 0 && !c.vencido ? '' : ' disabled'}>${b.tipo === 'saldo' ? 'Usei' : 'Usei 1'}</button>` : ''}</div>`;
 }
+// uma linha de Milhas: o programa e a pessoa, o nível, o que vence e quantas trocas já dão; o saldo e o Resgatei
+function linhaMilhas(b) {
+  const m = milhasDe(b);
+  const sub = [b.nivel || '', m.vence ? `vencem ${NF0.format(m.vence.qtd)} em ${fData(pData(m.vence.data))}` : '',
+    m.da.length ? (m.da.length === 1 ? 'dá para 1 troca' : `dá para ${m.da.length} trocas`) : ''].filter(Boolean).join(' · ');
+  return `<div class="ben-row mil-row"><button class="ben-t" data-a="ben-editar" data-id="${esc(b.id)}"><b>${esc(nomeMilhas(b))}</b><span>${esc(sub || 'Milhas')}</span></button>
+    <div class="ben-v"><b>${esc(NF0.format(m.saldo))}</b><small>milhas</small></div>
+    <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${m.saldo > 0 ? '' : ' disabled'}>Resgatei</button></div>`;
+}
 function maisBeneficios() {
-  // os vencidos e os de um fixo que acabou ou de uma conta que saiu: no fim, recolhidos
-  const encerrado = b => cicloBeneficio(b).vencido || (!!b.origem && !origemBeneficio(b).ativa);
-  const L = S.d.beneficios.filter(b => !encerrado(b)), fora = S.d.beneficios.filter(encerrado);
-  let h = `<section class="card" id="beneficios">${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens. Toque em Usei para descontar.')}`;
-  if (!L.length) h += `<p class="vazio">${fora.length ? 'Nenhum benefício valendo.' : 'Nenhum benefício ainda.'}</p>`;
+  // os vencidos e os de um fixo que acabou ou de uma conta que saiu: no fim, recolhidos (as milhas ficam sempre em cima)
+  const encerrado = b => !ehMilhas(b) && (cicloBeneficio(b).vencido || (!!b.origem && !origemBeneficio(b).ativa));
+  const M = S.d.beneficios.filter(ehMilhas), L = S.d.beneficios.filter(b => !ehMilhas(b) && !encerrado(b)), fora = S.d.beneficios.filter(encerrado);
+  let h = `<section class="card" id="beneficios">${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens e milhas. Toque em Usei para descontar.')}`;
+  if (!L.length && !M.length) h += `<p class="vazio">${fora.length ? 'Nenhum benefício valendo.' : 'Nenhum benefício ainda.'}</p>`;
+  if (M.length) h += `<div class="ben-grupo"><div class="ben-grupo-cab">${ic('plane', 'ic-s')}<b>Milhas</b></div>${M.map(linhaMilhas).join('')}</div>`;
   // por origem (o fixo, a conta), com o aviso quando o fixo acabou ou a conta saiu
   const porOrigem = lista => {
     const grupos = new Map();
@@ -6871,13 +6936,20 @@ const MSG_SEM_META = { origem: 'Diga de onde vem', cartao: 'A conta não tem car
 function condMeta(m, p) {
   if (m.tipo === 'investido') return `com ${brlCurto(p.pede)} investidos`;
   if (m.tipo === 'gasto') return `gastando ${brlCurto(p.pede)} por mês no cartão`;
+  if (m.tipo === 'milhas') { const b = S.d.beneficios.find(x => x.id === m.milhas), u = b && milhasDe(b).proximo; return `com ${NF0.format(p.pede)} ${u ? u.unidade : 'milhas'} qualificáveis`; }
   return `${m.plano ? m.plano + ' ' : ''}por ${brl(p.pede)} por mês`;
 }
 function linhaMeta(m) {
-  const p = progressoMeta(m), o = origemBeneficio(m);
-  const sub = [o.nome || 'Sem origem', condMeta(m, p)].join(' · ');
+  const p = progressoMeta(m), o = origemBeneficio(m), mb = m.tipo === 'milhas' ? S.d.beneficios.find(x => x.id === m.milhas) : null;
+  const sub = [mb ? nomeMilhas(mb) : o.nome || 'Sem origem', condMeta(m, p)].join(' · ');
   const barra = p.tem != null && m.tipo !== 'plano' ? `<span class="ben-barra" aria-hidden="true"><i style="width:${p.pct}%"></i></span>` : '';
-  const quanto = m.tipo === 'gasto' ? 'média ' + brlCurto(p.tem || 0) : 'tem ' + brlCurto(p.tem || 0);
+  const un = mb ? (milhasDe(mb).proximo || {}).unidade || 'milhas' : '';
+  const quanto = m.tipo === 'gasto' ? 'média ' + brlCurto(p.tem || 0) : mb ? `tem ${NF0.format(p.tem || 0)}` : 'tem ' + brlCurto(p.tem || 0);
+  if (mb) {  // milhas: faltam 14.500 milhas, tem 12.300; o toque abre o programa
+    const v = p.ja ? `<b class="meta-ja">${ic('check', 'ic-s')}Já dá</b><small>${esc(quanto)}</small>` : `<b>faltam ${esc(NF0.format(p.falta))}</b><small>${esc(un)} · ${esc(quanto)}</small>`;
+    return `<div class="ben-row meta-row${p.ja ? ' ja' : ''}"><button class="ben-t" data-a="ben-editar" data-id="${esc(mb.id)}"><b>${esc('Nível ' + m.ganha)}</b><span>${esc(sub)}</span>${barra}</button>
+    <div class="ben-v">${v}</div></div>`;
+  }
   const v = p.sem ? `<small>${esc(MSG_SEM_META[p.sem])}</small>`
     : p.ja ? `<b class="meta-ja">${ic('check', 'ic-s')}Já dá</b>${m.tipo !== 'plano' ? `<small>${esc(quanto)}</small>` : ''}`
     : m.tipo === 'plano' ? `<b>+${esc(brl(p.falta))}</b><small>por mês</small>` : `<b>faltam ${esc(brlCurto(p.falta))}</b><small>${esc(quanto)}</small>`;
@@ -6887,7 +6959,7 @@ function linhaMeta(m) {
     <div class="ben-v">${v}</div></div>`;
 }
 function cardMetas() {
-  const L = S.d.metas.concat(metasConta()).map(m => ({ m, p: progressoMeta(m) }));
+  const L = S.d.metas.concat(metasConta(), metasMilhas()).map(m => ({ m, p: progressoMeta(m) }));
   const ordem = x => x.p.ja ? 2 : x.p.sem ? 1 : 0;
   L.sort((a, b) => ordem(a) - ordem(b) || b.p.pct - a.p.pct || a.p.falta - b.p.falta);
   return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead('O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
@@ -6946,12 +7018,17 @@ function salvarMeta() {
 function avisosBeneficios(h) {
   const av = [], hj = h, usar = [], param = [];
   for (const b of S.d.beneficios) {
+    if (ehMilhas(b)) continue;
     const c = cicloBeneficio(b, hj), o = origemBeneficio(b);
     if (!o.ativa && b.origem) param.push(`${b.nome}: ${o.tipo === 'fixo' ? 'o fixo ' + o.nome + ' acabou' : 'a conta saiu de Bancos'}`);
     else if (c.restante > 0 && !c.vencido && c.ate && diasEntre(hj, pData(c.ate)) <= 30) usar.push(`${b.nome} (${qtdBen(b, c.restante)}) até ${fDataC(pData(c.ate))}`);
   }
   const linha = (icone, tom, titulo, itens) => `<button class="op" data-a="mais-tela" data-v="beneficios"><div class="op-ic ${tom}">${ic(icone)}</div>
     <div class="op-t"><b>${titulo}</b><span>${esc(itens.join(', '))}</span></div>${ic('chev', 'chev')}</button>`;
+  // milhas que vencem em até 60 dias (1.63.0)
+  const vencem = S.d.beneficios.filter(ehMilhas).map(b => ({ b, v: milhasDe(b, hj).vence })).filter(x => x.v && diasEntre(hj, pData(x.v.data)) <= 60)
+    .map(({ b, v }) => `${nomeMilhas(b)}: ${NF0.format(v.qtd)} em ${fDataC(pData(v.data))}`);
+  if (vencem.length) av.push(linha('plane', 'terc', vencem.length === 1 ? 'Milhas que vencem' : `Milhas que vencem em ${vencem.length} programas`, vencem));
   if (usar.length) av.push(linha('gift', 'terc', usar.length === 1 ? 'Benefício para usar' : `${usar.length} benefícios para usar`, usar));
   if (param.length) av.push(linha('alert', 'alerta', param.length === 1 ? 'Benefício que vai parar' : `${param.length} benefícios que vão parar`, param));
   return av;
@@ -6973,13 +7050,59 @@ function chipsOrigem(atual, acao, so = null) {
 // o formulário: nome, de onde vem, tipo, quanto, renova, desde, vale até e os usos do período
 let FBEN = null;
 const SUG_BEN = ['Sala VIP', 'Créditos de uso', 'Seguro viagem', 'Cashback', 'Frete grátis', 'Streaming', 'Milhas'];
+// Milhas no formulário: os campos do próximo nível e do próximo lote que vence ficam soltos (prox_*, venc_*) enquanto edita
+const SUG_MILHAS = ['AAdvantage', 'ConnectMiles', 'Esfera', 'LATAM Pass', 'Livelo', 'Smiles', 'TAP Miles&Go', 'TudoAzul'];
+function soltarMilhas(f) {
+  const p = f.proximo || {}, lotes = (f.vencem || []).slice().sort((a, c) => String(a.data).localeCompare(String(c.data)));
+  return Object.assign(f, { prox_nivel: p.nivel || '', prox_pede: p.pede || '', prox_tem: p.tem || '', prox_unidade: p.unidade === 'trechos' ? 'trechos' : 'milhas',
+    venc_qtd: lotes[0] ? lotes[0].qtd : '', venc_data: lotes[0] ? lotes[0].data : '', vencem_mais: lotes.slice(1), saldo_antes: f.saldo });
+}
+const numInt = v => Math.round(numDinheiro(v) || 0);
+function corpoMilhas(f, seg) {
+  const m = milhasDe({ saldo: numInt(f.saldo), saldo_em: numInt(f.saldo) !== numInt(f.saldo_antes) ? iso(hoje()) : f.saldo_em, usos: f.usos, resgates: f.resgates,
+    proximo: { nivel: f.prox_nivel, pede: numInt(f.prox_pede), tem: numInt(f.prox_tem), unidade: f.prox_unidade } });
+  const p = m.proximo, inp = (id, k, val, ph, extra = '') => `<input id="${id}" class="inp" inputmode="numeric" data-fben="${k}" value="${esc(String(val ?? ''))}" placeholder="${ph}"${extra}>`;
+  const resg = (f.usos || []).filter(u => { const d = pData(u.data), de = pData(f.saldo_em); return d && (!de || d >= de); });
+  const lista = (rot, itens) => itens.length ? `<div class="campo"><div class="lbl">${rot}</div><ul class="mil-lista">${itens.join('')}</ul></div>` : '';
+  return `${iaOn() ? `<button type="button" class="btn out larga mil-ler" data-a="fmil-ler">${ic('ia', 'ic-s')}Ler com IA</button>` : ''}
+    <div class="campo"><label for="fben-nome">Programa</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Nome do programa" data-sug="dl-mil" autocomplete="off">
+      <datalist id="dl-mil">${SUG_MILHAS.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+    <div class="campo"><label for="fben-pessoa">De quem</label><input id="fben-pessoa" class="inp" data-fben="pessoa" value="${esc(f.pessoa || '')}" placeholder="Ex.: Ana" data-sug="dl-mil-p" autocomplete="off">
+      <datalist id="dl-mil-p">${pessoasContas().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+    <div class="campo"><div class="duo"><div><label for="fben-saldo">Saldo</label><div class="pref${f.erro === 'saldo' ? ' erro' : ''}">${inp('fben-saldo', 'saldo', f.saldo, '12.300')}<span>milhas</span></div></div>
+      <div><label for="fben-nivel">Nível</label><input id="fben-nivel" class="inp" data-fben="nivel" value="${esc(f.nivel || '')}" placeholder="Ex.: Prata" autocomplete="off"></div></div>
+      ${resg.length ? `<div class="ajuda">Hoje: ${esc(NF0.format(m.saldo))} milhas, com os resgates.</div>` : ''}</div>
+    <div class="campo"><div class="duo"><div><label for="fben-prox">Próximo nível</label><input id="fben-prox" class="inp" data-fben="prox_nivel" value="${esc(f.prox_nivel || '')}" placeholder="Ex.: Ouro" autocomplete="off"></div>
+      <div><div class="lbl">Conta</div>${seg('prox_unidade', [['milhas', 'Milhas'], ['trechos', 'Trechos']])}</div></div>
+      <div class="duo"><div><label for="fben-pede">Pede</label>${inp('fben-pede', 'prox_pede', f.prox_pede, '25.000')}</div><div><label for="fben-tem">Você tem</label>${inp('fben-tem', 'prox_tem', f.prox_tem, '3.200')}</div></div>
+      ${p ? `<div class="ajuda" id="fmil-st">${p.ja ? 'Já dá para o ' + esc(p.nivel) + '.' : `Faltam ${esc(NF0.format(p.falta))} ${p.unidade} qualificáveis para o ${esc(p.nivel)}.`}</div>` : ''}</div>
+    <div class="campo"><label for="fben-venc">Milhas que vencem <span class="opc">(opcional)</span></label>${inp('fben-venc', 'venc_qtd', f.venc_qtd, '2.000')}</div>
+    ${campoData('fben-venc-data', 'Vencem em', f.venc_data || '', 'data-fben="venc_data"', { opcional: true })}
+    ${(f.vencem_mais || []).length ? `<div class="chips mil-lotes">${f.vencem_mais.map((v, k) => `<button type="button" class="chip" data-a="fmil-lote-rm" data-v="${k}" aria-label="Tirar ${esc(NF0.format(v.qtd))} em ${esc(fData(pData(v.data)))}">${esc(NF0.format(v.qtd))} em ${esc(fData(pData(v.data)))}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
+    <div class="campo"><div class="lbl">Cartão que acumula</div>${chipsOrigem(f.origem, 'fben-origem', v => !v || (v.startsWith('conta:') && !!(contaDe(v.slice(6)) || {}).cartao))}</div>
+    <div class="campo"><label for="fben-url">Página do programa <span class="opc">(opcional)</span></label><input id="fben-url" class="inp" type="url" inputmode="url" data-fben="url" value="${esc(f.url || '')}" placeholder="https://…" autocomplete="off"></div>
+    ${lista('Do seu nível', (f.vantagens || []).map(v => `<li>${esc(v.nome)}</li>`))}
+    ${lista('Para trocar', (f.resgates || []).slice().sort((a, c) => a.milhas - c.milhas).map(r => `<li class="${r.milhas <= m.saldo ? 'da' : ''}"><span>${esc(r.nome)}</span><b>${esc(NF0.format(r.milhas))}</b>
+      <small>${r.milhas <= m.saldo ? 'já dá' : 'faltam ' + esc(NF0.format(r.milhas - m.saldo))}</small></li>`))}
+    ${lista('Como trocar', (f.como || []).map(t => `<li>${esc(t)}</li>`))}
+    <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-obs" class="inp grow" rows="1" data-fben="obs" placeholder="Ex.: 2 pontos por dólar no cartão" autocomplete="off">${esc(f.obs || '')}</textarea></div>
+    ${resg.length ? `<div class="campo"><div class="lbl">Resgates depois do saldo</div>${resg.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(NF0.format(+u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este resgate">${ic('x', 'ic-s')}</button></div>`).join('')}</div>` : ''}`;
+}
 function abrirBeneficio(id) {
   const b = id && S.d.beneficios.find(x => x.id === id);
   FBEN = b ? clone(b) : { id: null, nome: '', origem: '', tipo: 'contagem', total: '', moeda: 'BRL', renova: 'ano', desde: iso(hoje()), validade: '', obs: '', usos: [] };
+  if (ehMilhas(FBEN)) soltarMilhas(FBEN);
   FBEN.erro = '';
   abrirFolha(() => {
-    const f = FBEN, conta = f.tipo !== 'vantagem', c = f.id ? cicloBeneficio(f) : null;
+    const f = FBEN, conta = f.tipo !== 'vantagem', c = f.id && !ehMilhas(f) ? cicloBeneficio(f) : null;
     const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fben-seg" data-k="${k}" data-v="${v}">${t}</button>`).join('')}</div>`;
+    const tipos = seg('tipo', [['contagem', 'Quantidade'], ['saldo', 'Saldo'], ['vantagem', 'Vantagem'], ['milhas', 'Milhas']]);
+    if (ehMilhas(f)) {
+      return { titulo: f.id ? 'Editar milhas' : 'Novas milhas',
+        cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
+        corpo: `${f.id ? '' : `<div class="campo"><div class="lbl">Tipo</div>${tipos}</div>`}${corpoMilhas(f, seg)}`,
+        pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-salvar">Salvar</button>` };
+    }
     const usos = (f.usos || []).filter(u => { const d = pData(u.data); return c && d && d >= pData(c.inicio) && (!c.fim || d < pData(c.fim)); });
     return {
       titulo: f.id ? 'Editar benefício' : 'Novo benefício',
@@ -6987,7 +7110,7 @@ function abrirBeneficio(id) {
       corpo: `<div class="campo"><label for="fben-nome">Nome</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Ex.: Sala VIP" data-sug="dl-ben" autocomplete="off">
           <datalist id="dl-ben">${SUG_BEN.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
         <div class="campo"><div class="lbl" id="fben-origem-l">De onde vem</div>${chipsOrigem(f.origem, 'fben-origem')}</div>
-        <div class="campo"><div class="lbl">Tipo</div>${seg('tipo', [['contagem', 'Quantidade'], ['saldo', 'Saldo'], ['vantagem', 'Vantagem']])}</div>
+        <div class="campo"><div class="lbl">Tipo</div>${tipos}</div>
         ${conta ? `<div class="campo"><label for="fben-total">${f.tipo === 'saldo' ? 'Valor' : 'Quantos'}</label><div class="duo">
             <div class="pref${f.erro === 'total' ? ' erro' : ''}">${f.tipo === 'saldo' ? `<span>${MOEDA_BEN[f.moeda] || 'R$'}</span>` : ''}<input id="fben-total" inputmode="decimal" data-fben="total" value="${esc(String(f.total ?? '').replace('.', ','))}" placeholder="${f.tipo === 'saldo' ? '100' : '6'}"></div>
             ${f.tipo === 'saldo' ? seg('moeda', [['BRL', 'Reais'], ['USD', 'Dólares']]) : '<div></div>'}</div></div>
@@ -7000,7 +7123,23 @@ function abrirBeneficio(id) {
     };
   });
 }
+// Milhas: o saldo mudou, a data dele vira hoje (os resgates de antes já estão no saldo novo)
+function salvarMilhas() {
+  const f = FBEN, nome = String(f.nome || '').trim().slice(0, 40), saldo = numInt(f.saldo);
+  if (!nome) { f.erro = 'nome'; pintarFolha(); toast('Diga o programa.'); return; }
+  const b = { id: f.id || 'bn-' + uid(), tipo: 'milhas', nome, origem: f.origem || '', saldo, saldo_em: saldo !== numInt(f.saldo_antes) || !f.saldo_em ? iso(hoje()) : f.saldo_em, usos: (f.usos || []).slice(-200) };
+  for (const k of ['pessoa', 'nivel', 'obs']) if (String(f[k] || '').trim()) b[k] = String(f[k]).trim().slice(0, k === 'obs' ? 80 : 40);
+  const url = String(f.url || '').trim();
+  if (/^https?:\/\/\S+$/i.test(url)) b.url = url.slice(0, 300);
+  if (String(f.prox_nivel || '').trim() && numInt(f.prox_pede) > 0) b.proximo = { nivel: String(f.prox_nivel).trim().slice(0, 30), pede: numInt(f.prox_pede), tem: numInt(f.prox_tem), unidade: f.prox_unidade === 'trechos' ? 'trechos' : 'milhas' };
+  const lotes = (numInt(f.venc_qtd) > 0 && f.venc_data ? [{ qtd: numInt(f.venc_qtd), data: f.venc_data }] : []).concat(f.vencem_mais || []);
+  if (lotes.length) b.vencem = lotes.sort((a, c) => String(a.data).localeCompare(String(c.data))).slice(0, 6);
+  for (const k of ['vantagens', 'resgates', 'como']) if ((f[k] || []).length) b[k] = f[k].slice(0, k === 'como' ? 5 : 15);
+  persistir(d => { const k = d.beneficios.findIndex(x => x.id === b.id); if (k >= 0) d.beneficios[k] = b; else d.beneficios.push(b); }, f.id ? 'Milhas salvas' : 'Milhas cadastradas')
+    .then(ok => { if (ok) fecharFolha(false, true); });
+}
 function salvarBeneficio() {
+  if (ehMilhas(FBEN)) { salvarMilhas(); return; }
   const f = FBEN, nome = String(f.nome || '').trim().slice(0, 60), conta = f.tipo !== 'vantagem', total = Math.round((numDinheiro(f.total) || 0) * 100) / 100;
   if (!nome) { f.erro = 'nome'; pintarFolha(); toast('Dê um nome ao benefício.'); return; }
   if (conta && !(total > 0)) { f.erro = 'total'; pintarFolha(); toast(f.tipo === 'saldo' ? 'Diga o valor.' : 'Diga quantos.'); return; }
@@ -7016,8 +7155,18 @@ function salvarBeneficio() {
 function usarBeneficio(id) {
   const b = S.d.beneficios.find(x => x.id === id);
   if (!b) return;
+  const mil = ehMilhas(b), resta = q => mil ? `${NF0.format(Math.max(0, milhasDe(b).saldo - q))} milhas` : qtdBen(b, Math.max(0, cicloBeneficio(b).restante - q));
   const lancar = qtd => persistir(d => { const x = d.beneficios.find(y => y.id === id); if (x) x.usos = (x.usos || []).concat([{ id: 'u-' + uid(), data: iso(hoje()), qtd }]).slice(-200); },
-    `${b.nome}: restam ${qtdBen(b, Math.max(0, cicloBeneficio(b).restante - qtd))}`);
+    `${mil ? nomeMilhas(b) : b.nome}: ${mil ? 'ficam' : 'restam'} ${resta(qtd)}`);
+  if (mil) {  // Resgatei: quantas milhas
+    FBEN = { usar: id, valor: '' };
+    abrirFolha(() => ({ titulo: `Quantas milhas resgatou de ${esc(nomeMilhas(b))}?`, corpo: `<div class="campo"><label for="fben-usou">Milhas</label><div class="pref"><input id="fben-usou" inputmode="numeric" data-fben="valor" value="${esc(FBEN.valor)}" placeholder="0"><span>milhas</span></div>
+      <div class="ajuda">Tem ${esc(NF0.format(milhasDe(b).saldo))}.</div></div>`,
+      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-usou">Descontar</button>` }));
+    setTimeout(() => { const i = $('#fben-usou'); if (i) i.focus(); }, 60);
+    FBEN.lancar = lancar;
+    return;
+  }
   if (b.tipo !== 'saldo') { lancar(1); return; }
   FBEN = { usar: id, valor: '' };
   abrirFolha(() => ({ titulo: `Quanto usou de ${esc(b.nome)}?`, corpo: `<div class="campo"><label for="fben-usou">Valor</label><div class="pref"><span>${MOEDA_BEN[b.moeda] || 'R$'}</span><input id="fben-usou" inputmode="decimal" data-fben="valor" value="${esc(FBEN.valor)}" placeholder="0"></div>
@@ -7064,12 +7213,13 @@ function montarLerBeneficios() {
     };
   }
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais › Configurações › Integrações.</span></div>` : '';
+  const mil = s.foco === 'milhas';  // 1.63.0: as milhas (aberto do formulário delas): o print da conta ou a página do programa
   return {
-    titulo: s.foco === 'metas' ? 'Ler oportunidades com IA' : 'Ler benefícios com IA',
-    corpo: `${aviso}<div class="campo"><div class="lbl">De onde vêm</div>${chipsOrigem(s.origem, 'bler-origem')}</div>
+    titulo: mil ? 'Ler milhas com IA' : s.foco === 'metas' ? 'Ler oportunidades com IA' : 'Ler benefícios com IA',
+    corpo: `${aviso}${mil ? '' : `<div class="campo"><div class="lbl">De onde vêm</div>${chipsOrigem(s.origem, 'bler-origem')}</div>`}
       <div class="ia-arq">${arq ? prevArquivo(arq, 'bler-arq-rm') : `<button class="btn larga" data-a="bler-arq">${ic('image')}Escolher fotos ou PDF</button><button class="btn larga" data-a="bler-cam" style="margin-top:8px">${ic('scan')}Digitalizar com IA</button>`}</div>
       <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
-        <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="Ex.: https://… (a página dos benefícios do cartão ou do plano)">${esc(s.texto)}</textarea></div>
+        <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="${mil ? 'Ex.: https://… (a página do programa: níveis, como trocar)' : 'Ex.: https://… (a página dos benefícios do cartão ou do plano)'}">${esc(s.texto)}</textarea></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
     pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
@@ -7093,6 +7243,15 @@ async function blerLer() {
     const corpo = { origem: s.origem, texto: s.texto.trim() };
     if (s.arquivo && (s.arquivo.paginas || []).length > 1) corpo.anexos = s.arquivo.paginas.map(b64 => ({ b64 }));
     else if (s.arquivo) corpo.anexo = { b64: s.arquivo.dataUrl };
+    if (s.foco === 'milhas') {  // as milhas lidas vão para o formulário, para conferir e salvar
+      const f = FBEN;
+      const r = await api.milhasLer(Object.assign(corpo, { programa: (f && f.nome) || '', nivel: (f && f.nivel) || '' }));
+      if (BLER !== s || FBEN !== f) return;
+      const novo = aplicarMilhas(f, r);
+      fecharFolha(false, true);
+      toast(novo.length ? 'Lido: ' + novo.join(', ') + '. Confira e salve.' : 'Nada novo nessa leitura.');
+      return;
+    }
     const r = await api.beneficiosLer(corpo);
     if (BLER !== s) return;
     // o que já está cadastrado (mesmo nome, mesma origem) vem desmarcado
@@ -7112,6 +7271,25 @@ async function blerLer() {
     s.etapa = 'entrada'; s.erro = e.message;
   }
   pintarFolha();
+}
+// o que a IA leu das milhas entra no formulário (o print traz saldo, nível, qualificáveis e o que vence; a página traz o
+// próximo nível, as vantagens, a tabela de resgate e como trocar); devolve o que mudou, em palavras
+function aplicarMilhas(f, r) {
+  const novo = [];
+  if (r.programa && !String(f.nome || '').trim()) f.nome = r.programa;
+  if (+r.saldo > 0) { f.saldo = Math.round(+r.saldo); novo.push('saldo'); }
+  if (r.nivel) { f.nivel = r.nivel; novo.push('nível'); }
+  if (r.proximo && r.proximo.nivel) { f.prox_nivel = r.proximo.nivel; f.prox_pede = Math.round(+r.proximo.pede || 0); f.prox_unidade = r.proximo.unidade === 'trechos' ? 'trechos' : 'milhas'; novo.push('próximo nível'); }
+  if (+r.qualificaveis > 0) { f.prox_tem = Math.round(+r.qualificaveis); if (!novo.includes('próximo nível')) novo.push('qualificáveis'); }
+  if ((r.vencem || []).length) {
+    const l = r.vencem.slice().sort((a, c) => String(a.data).localeCompare(String(c.data)));
+    f.venc_qtd = l[0].qtd; f.venc_data = l[0].data; f.vencem_mais = l.slice(1); novo.push('o que vence');
+  }
+  if ((r.vantagens || []).length) { f.vantagens = r.vantagens; novo.push(plural(r.vantagens.length, 'vantagem', 'vantagens')); }
+  if ((r.resgates || []).length) { f.resgates = r.resgates; novo.push(plural(r.resgates.length, 'troca', 'trocas')); }
+  if ((r.como || []).length) { f.como = r.como; novo.push('como trocar'); }
+  if (r.url && !f.url) f.url = r.url;
+  return novo;
 }
 // a oportunidade lida, em palavras: Investindo R$ 50 mil; Gastando R$ 3 mil por mês; Plano 2 TB por R$ 34,99 por mês
 function subMetaLida(x) {
@@ -7141,6 +7319,31 @@ function salvarLerBeneficios() {
   const ok = !nm ? (nb === 1 ? 'Benefício cadastrado' : `${nb} benefícios cadastrados`) : !nb ? (nm === 1 ? 'Oportunidade cadastrada' : `${nm} oportunidades cadastradas`)
     : `${plural(nb, 'benefício', 'benefícios')} e ${plural(nm, 'oportunidade', 'oportunidades')} cadastrados`;
   persistir(d => { d.beneficios.push(...novos); d.metas.push(...metas); }, ok).then(r => { if (r) fecharFolha(false, true); });
+}
+// as milhas na prévia: a IA simulada, como a do servidor (milhas.simulados); o print e a página são exemplos inventados
+const MILHAS_EXEMPLO = 'Programa Voa Mais\nSaldo: 12.300 milhas\nNível: Prata\nMilhas qualificáveis: 3.200\n2.000 milhas vencem em 30/06/2027';
+const MILHAS_PAGINA = 'Ouro: 25.000 milhas qualificáveis\nBagagem extra de 23 kg\nEmbarque com prioridade\nCidade A – Cidade B: 7.500 milhas\nCidade A – Cidade C: 12.500 milhas\nCidade A – Cidade D: 30.000 milhas\nResgate no site ou no app, em Usar milhas';
+function simMilhas(texto) {
+  const out = {}, vant = [], res = [], como = [], venc = [];
+  for (let ln of String(texto || '').split(/[\n;•]+/)) {
+    ln = ln.trim();
+    const n = semAcento(ln).replace(/[^a-z0-9: ]+/g, ' ').replace(/\s+/g, ' ').trim(), num = ln.match(/(\d{1,3}(?:\.\d{3})+|\d+)/), v = num ? +num[1].replace(/\./g, '') : 0;
+    if (!n) continue;
+    if (n.startsWith('programa ')) out.programa = ln.split(' ').slice(1).join(' ').trim();
+    else if (n.startsWith('saldo') && v) out.saldo = v;
+    else if (n.startsWith('nivel')) out.nivel = ln.split(':').pop().trim();
+    else if (n.startsWith('milhas qualificav') && ln.includes(':') && v) out.qualificaveis = v;
+    else if (n.includes('vencem') && v) { const d = ln.match(/(\d{2})\/(\d{2})\/(\d{4})/); if (d) venc.push({ qtd: v, data: `${d[3]}-${d[2]}-${d[1]}` }); }
+    else if (n.includes('qualificav') && ln.includes(':') && v) out.proximo = { nivel: ln.split(':')[0].trim(), pede: v, unidade: n.includes('trecho') ? 'trechos' : 'milhas', trecho: ln.slice(0, 120) };
+    else if (/\bmilhas\b/.test(n) && ln.includes(':') && v) res.push({ nome: ln.split(':')[0].trim(), milhas: v, trecho: ln.slice(0, 120) });
+    else if (/^(resgate|troque|para trocar)/.test(n)) como.push(ln);
+    else if (/bagagem|prioridade|sala vip|upgrade|assento|embarque/.test(n)) vant.push({ nome: ln.slice(0, 60), trecho: ln.slice(0, 120) });
+  }
+  if (venc.length) out.vencem = venc;
+  if (vant.length) out.vantagens = vant;
+  if (res.length) out.resgates = res.sort((a, b) => a.milhas - b.milhas);
+  if (como.length) out.como = como;
+  return out;
 }
 // a IA simulada da prévia: uma linha por benefício, como a do servidor (beneficios.simulados)
 const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\nAnuidade grátis com R$ 50 mil investidos';
@@ -7213,7 +7416,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { beneficios: 'Ler benefícios', ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
+const USO_TIPO = { beneficios: 'Ler benefícios', milhas: 'Ler milhas', ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -8407,12 +8610,14 @@ document.addEventListener('click', ev => {
     case 'bler-salvar': salvarLerBeneficios(); break;
     case 'fben-origem': if (FBEN) { FBEN.origem = v; pintarFolha(); } break;
     case 'bler-origem': if (BLER) { BLER.origem = v; pintarFolha(); } break;
-    case 'fben-seg': if (FBEN) { FBEN[el.dataset.k] = v; FBEN.erro = ''; pintarFolha(); } break;
+    case 'fben-seg': if (FBEN) { FBEN[el.dataset.k] = v; FBEN.erro = ''; if (el.dataset.k === 'tipo' && v === 'milhas' && FBEN.prox_unidade == null) soltarMilhas(FBEN); pintarFolha(); } break;
+    case 'fmil-ler': if (FBEN) abrirLerBeneficios('', true, 'milhas'); break;
+    case 'fmil-lote-rm': if (FBEN) { FBEN.vencem_mais = (FBEN.vencem_mais || []).filter((_, k) => k !== +v); pintarFolha(); } break;
     case 'fben-salvar': salvarBeneficio(); break;
     case 'fben-uso-rm': if (FBEN) { FBEN.usos = (FBEN.usos || []).filter(u => u.id !== v); pintarFolha(); } break;
     case 'fben-usou': if (FBEN && FBEN.lancar) { const q = Math.round((numDinheiro(FBEN.valor) || 0) * 100) / 100; if (!(q > 0)) { toast('Diga quanto usou.'); break; } const f = FBEN.lancar; fecharFolha(false, true); f(q); } break;
-    case 'fben-excluir': { const f = FBEN; confirmar({ titulo: 'Apagar benefício?', texto: `${esc(f.nome)} sai da lista, com os usos.`, botao: 'Apagar', perigo: true,
-      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, 'Benefício apagado', true) }); break; }
+    case 'fben-excluir': { const f = FBEN, mil = ehMilhas(f); confirmar({ titulo: mil ? 'Apagar milhas?' : 'Apagar benefício?', texto: `${esc(mil ? nomeMilhas(f) : f.nome)} sai da lista, com os ${mil ? 'resgates' : 'usos'}.`, botao: 'Apagar', perigo: true,
+      acao: () => persistir(d => { d.beneficios = d.beneficios.filter(x => x.id !== f.id); }, mil ? 'Milhas apagadas' : 'Benefício apagado', true) }); break; }
     case 'bc-add': FB.contas.push({ id: 'k-' + uid(), pessoa: '', cartao: false, fechamento: '', vencimento: '' }); pintarFolha(); break;
     case 'bc-rm': FB.contas.splice(+el.dataset.i, 1); pintarFolha(); break;
     case 'bc-cartao': { const c = FB.contas[+el.dataset.i]; c.cartao = !c.cartao; pintarFolha(); break; }

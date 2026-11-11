@@ -642,6 +642,51 @@ def ciclo_beneficio(b, hoje=None):
             "ate": ate.isoformat() if ate else None, "vencido": bool(validade and validade < hoje)}
 
 
+def milhas_de(b, hoje=None):
+    """Milhas (1.63.0; milhasDe no app.js): o saldo de hoje (o do print ou digitado em "saldo_em", menos os resgates
+    depois dele), o próximo lote que vence, o próximo nível ({nivel, pede, tem, falta, pct, ja, unidade}) e as trocas
+    da tabela que já dão (da) e a primeira que ainda não dá (falta)."""
+    hoje = hoje or date.today()
+    desde = parse_data(b.get("saldo_em"))
+    resgatado = 0.0
+    for u in b.get("usos") or []:
+        d = parse_data(u.get("data")) if isinstance(u, dict) else None
+        if d and (desde is None or d >= desde):
+            resgatado += num(u.get("qtd"))
+    saldo = max(0, round(num(b.get("saldo")) - resgatado))
+    lotes = []
+    for v in b.get("vencem") or []:
+        d = parse_data(v.get("data")) if isinstance(v, dict) else None
+        q = round(num(v.get("qtd"))) if isinstance(v, dict) else 0
+        if d and q > 0 and d >= hoje:
+            lotes.append({"qtd": q, "data": d.isoformat()})
+    lotes.sort(key=lambda x: x["data"])
+    p = b.get("proximo") if isinstance(b.get("proximo"), dict) else {}
+    pede, tem = round(num(p.get("pede"))), round(num(p.get("tem")))
+    proximo = None
+    if p.get("nivel") and pede > 0:
+        proximo = {"nivel": str(p["nivel"]), "pede": pede, "tem": tem, "falta": max(0, pede - tem),
+                   "pct": math.floor(min(100.0, max(0.0, tem) / pede * 100) * 10 + 0.5) / 10, "ja": tem >= pede,
+                   "unidade": "trechos" if p.get("unidade") == "trechos" else "milhas"}
+    trocas = sorted(({"nome": str(r["nome"]), "milhas": round(num(r.get("milhas"))), "trecho": str(r.get("trecho") or "")}
+                     for r in b.get("resgates") or [] if isinstance(r, dict) and r.get("nome") and num(r.get("milhas")) > 0),
+                    key=lambda r: r["milhas"])
+    return {"saldo": saldo, "vence": lotes[0] if lotes else None, "proximo": proximo,
+            "da": [r for r in trocas if r["milhas"] <= saldo], "falta": next((r for r in trocas if r["milhas"] > saldo), None)}
+
+
+def metas_milhas(data, hoje=None):
+    """O próximo nível de cada programa de milhas (metasMilhas no app.js) vira uma oportunidade nos Benefícios."""
+    out = []
+    for b in data.get("beneficios") or []:
+        if isinstance(b, dict) and b.get("tipo") == "milhas" and b.get("id"):
+            p = milhas_de(b, hoje)["proximo"]
+            if p:
+                out.append({"id": "milhas:" + b["id"], "origem": str(b.get("origem") or ""), "tipo": "milhas", "valor": p["pede"],
+                            "ganha": p["nivel"], "nivel": True, "milhas": b["id"]})
+    return out
+
+
 def _ym_mais(ym, n):
     a, m = int(ym[:4]), int(ym[5:7]) - 1 + n
     return f"{a + m // 12:04d}-{m % 12 + 1:02d}"
@@ -739,6 +784,14 @@ def progresso_meta(m, data, hoje=None):
                 out["sem"] = "faturas"
                 return out
         out.update(tem=_r2(tem), falta=_r2(max(0.0, pede - tem)), pct=math.floor(min(100.0, max(0.0, tem) / pede * 100) * 10 + 0.5) / 10 if pede > 0 else 0.0, ja=tem >= pede)
+        return out
+    if tipo == "milhas":  # o próximo nível de um programa de milhas (metas_milhas): as qualificáveis que a pessoa tem
+        b = next((x for x in data.get("beneficios") or [] if isinstance(x, dict) and x.get("id") == m.get("milhas")), None)
+        p = milhas_de(b, hoje)["proximo"] if b else None
+        if not p:
+            out["sem"] = "origem"
+            return out
+        out.update(tem=p["tem"], pede=p["pede"], falta=p["falta"], pct=p["pct"], ja=p["ja"])
         return out
     if tipo == "plano":
         r = next((x for x in data.get("recorrencias") or [] if x.get("id") == o[5:]), None) if o.startswith("fixo:") else None

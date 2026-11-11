@@ -37,8 +37,9 @@ import emails  # noqa: E402
 import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
+import milhas  # noqa: E402
 
-VERSAO = "1.62.0"
+VERSAO = "1.63.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1943,16 +1944,11 @@ def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240):
     return dados
 
 
-def beneficios_ler(corpo):
-    """Um print, uma foto, um PDF, um texto ou o endereço da página oficial: a IA lista os benefícios para a tela conferir.
-    Da página e do texto, só fica o que está escrito lá (beneficios.limpar)."""
+def _fonte_ia(corpo, rotulo):
+    """O que a pessoa mandou para a IA ler: (dados, texto, anexos, endereço). O endereço da página vira o texto dela."""
     d = ler()
     if not ia_ligada(d):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
-    origem = str(corpo.get("origem") or "")[:60]
-    de = beneficios.nome_origem(d, origem)
-    fixo = next((r for r in d.get("recorrencias") or [] if origem.startswith("fixo:") and r.get("id") == origem[5:]), None)
-    preco = calc.mensal_recorrencia(fixo) if fixo else 0  # o plano de agora: a IA só traz os mais caros
     texto = str(corpo.get("texto") or "").strip()[:20000]
     arquivos = _anexos(corpo)
     url = ""
@@ -1968,7 +1964,7 @@ def beneficios_ler(corpo):
                 bruto = r.read(4 * 1024 * 1024)
                 texto = assinaturas.html_texto(bruto.decode(r.headers.get_content_charset() or "utf-8", "replace"))
         except Exception as e:  # noqa: BLE001
-            log("Benefícios: não abriu", url, e)
+            log(f"{rotulo}: não abriu", url, e)
             raise ValueError("Não deu para abrir a página. Tente um print dela.") from None
         if len(re.findall(r"[A-Za-zÀ-ÿ]", texto)) < 40:
             raise ValueError("A página não mostrou o texto para o app (pode depender do navegador). Tente um print dela.")
@@ -1976,6 +1972,17 @@ def beneficios_ler(corpo):
         raise ValueError("Envie um print, uma foto ou um PDF, ou cole o texto ou o endereço da página.")
     if not ia_disponivel(d):
         raise ValueError("Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).")
+    return d, texto, arquivos, url
+
+
+def beneficios_ler(corpo):
+    """Um print, uma foto, um PDF, um texto ou o endereço da página oficial: a IA lista os benefícios para a tela conferir.
+    Da página e do texto, só fica o que está escrito lá (beneficios.limpar)."""
+    d, texto, arquivos, url = _fonte_ia(corpo, "Benefícios")
+    origem = str(corpo.get("origem") or "")[:60]
+    de = beneficios.nome_origem(d, origem)
+    fixo = next((r for r in d.get("recorrencias") or [] if origem.startswith("fixo:") and r.get("id") == origem[5:]), None)
+    preco = calc.mensal_recorrencia(fixo) if fixo else 0  # o plano de agora: a IA só traz os mais caros
     conferir = texto if not arquivos else ""  # do print e da foto não há texto para conferir
     if IA_MOCK:
         time.sleep(0.3)
@@ -2003,6 +2010,39 @@ def beneficios_ler(corpo):
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
                          if recusados or recusadas else "A IA não achou benefícios nem oportunidades aqui.")
     return {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
+
+
+def milhas_ler(corpo):
+    """Milhas (1.63.0): um print ou uma foto da conta do programa (saldo, nível, qualificáveis, o que vence), um texto ou a
+    página oficial (benefícios do nível, o próximo nível, como trocar, a tabela de resgate). Da página e do texto, só fica
+    o que está escrito lá (milhas.limpar); a tela põe o que veio no formulário para a pessoa conferir e salvar."""
+    d, texto, arquivos, url = _fonte_ia(corpo, "Milhas")
+    programa, nivel = str(corpo.get("programa") or "")[:40], str(corpo.get("nivel") or "")[:30]
+    conferir = texto if not arquivos else ""
+    if IA_MOCK:
+        time.sleep(0.3)
+        registrar_uso("milhas", "ai_task.simulada", 1500, 400, len(arquivos), 0.3, "ok")
+        dados = milhas.simulados(texto if not arquivos else milhas.EXEMPLO_ANEXO)
+    else:
+        mandar = milhas.trechos(texto) if url else texto[:14000]
+        try:
+            dados = ia_tarefa(d, "milhas", "GerencIA: ler milhas", milhas.prompt(programa, nivel, url, mandar, bool(arquivos)), arquivos)
+        except ErroHA as e:
+            extra = pdf_texto(arquivos[0][0]) if arquivos and arquivos[0][1] == "application/pdf" else ""
+            if not extra:
+                raise ValueError(str(e)) from None
+            conferir = (texto + "\n" + extra).strip()
+            try:
+                dados = ia_tarefa(d, "milhas", "GerencIA: ler milhas", milhas.prompt(programa, nivel, "", conferir[:14000]))
+            except ErroHA as e2:
+                raise ValueError(str(e2)) from None
+    lido, recusados = milhas.limpar(extrair_json(dados), conferir or None)
+    if not lido:
+        raise ValueError(("A IA citou coisas que não estão escritas " + ("na página" if url else "no texto") + ", então o app ignorou.")
+                         if recusados else "A IA não achou milhas aqui.")
+    if url:
+        lido["url"] = url
+    return dict(lido, recusados=recusados)
 
 
 # ---------------------------------------------------------------- conversar com a IA (o balão ao lado do microfone)
@@ -3135,6 +3175,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, ia_ler(self.corpo_json()))
             if p == "/api/beneficios/ler":
                 return self.enviar(200, beneficios_ler(self.corpo_json()))
+            if p == "/api/milhas/ler":
+                return self.enviar(200, milhas_ler(self.corpo_json()))
             if p == "/api/bens/atualizar":
                 return self.enviar(200, bens_estado(ler(), forcar=True))
             if p == "/api/senhas":

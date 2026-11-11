@@ -1457,3 +1457,16 @@ input[readonly] { opacity: .8; }
 .pref.grande input { padding-top: 4px; padding-bottom: 4px; }
 .bc-ben { margin-top: 12px; }
 .ajuda.bc-ben-n { margin-top: 6px; }
+
+/* Milhas (1.63.0): no formulário, o Ler com IA no alto, os lotes que vencem e as listas lidas da página do programa
+   (as vantagens do nível, a tabela de resgate com o que já dá, como trocar) */
+.mil-ler { margin-bottom: 12px; }
+.mil-lotes { margin: -6px 0 12px; }
+.mil-lotes .chip { gap: 6px; }
+.mil-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mil-lista li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.mil-lista li:last-child { border-bottom: 0; }
+.mil-lista li span { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.mil-lista li b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mil-lista li small { color: var(--muted); white-space: nowrap; }
+.mil-lista li.da small { color: var(--good); font-weight: 600; }
