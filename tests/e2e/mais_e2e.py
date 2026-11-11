@@ -20,7 +20,7 @@ ABAS = {
     'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'CorrerIA', 'IA do Home Assistant', 'Uso da IA', 'Faturas por e-mail', 'Senhas dos PDFs', 'Sensores no Home Assistant'],
     'Dados': ['Exportar', 'Backup na pasta share', 'Importar', 'Versões anteriores', 'Onde ficam os dados', 'Começar do zero'],
     'Aparência': ['Tema', 'Cor do app'],
-    'Opções': ['Agora', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos', 'Oportunidades de investimento'],
+    'Opções': ['Agora', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos', 'Oportunidades'],
 }
 def cheia(pg, nome):
     h=pg.evaluate('document.documentElement.scrollHeight')

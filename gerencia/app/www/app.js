@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.64.1';
+const VERSAO = '1.64.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4853,7 +4853,7 @@ function cardOportunidades() {
 // o aviso no celular (como o aviso de prazos do ResolvIA): o horário, Testar ao lado e quem recebe
 function opcoesOport() {
   const a = S.d.ajustes, aviso = a.op_aviso === true;
-  let h = `<section class="card" id="op-oport">${maisCab('target', 'Oportunidades de investimento')}
+  let h = `<section class="card" id="op-oport">${maisCab('target', 'Oportunidades')}
     ${linhaChave('op_aviso', aviso, 'Avisar no celular', !aviso ? 'Desligado.' : (a.op_dias || 1) > 1 ? `Ligado: a cada ${a.op_dias} dias, no horário.` : 'Ligado: todo dia, no horário.')}`;
   if (aviso) {
     const quem = quemRecebe('op_para', false), P = S.avisoPessoas, eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
@@ -4864,7 +4864,7 @@ function opcoesOport() {
     h += `<div class="op-hora-l campo"><div><label for="op-hora">Horário</label><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
       <div><label for="op-dias">A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div></div>${quem}
       <button class="btn out op-testar" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>
-      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
+      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus${iaOn() ? ', e as assinaturas em promoção' : ''}. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
   }
   return h + '</section>';
 }
@@ -5059,7 +5059,7 @@ function linhaMeta(m) {
 /* --------- Assinaturas em promoção (1.64.0): as assinaturas de vídeo, música e jogos que funcionam nos aparelhos do
    InventarIA, com o preço conferido na página oficial (o servidor lê uma vez por dia; promocoes.py). Ficam no alto das
    Oportunidades; a nova (dos últimos 7 dias) entra também nos Avisos da Agora. Vêm com as Dicas de economia e a IA. */
-const promosOn = () => iaOn() && S.d.ajustes.dicas !== false;
+const promosOn = () => iaOn();  // 1.64.2: a frequência e o aviso são os das oportunidades (Mais › Configurações › Opções)
 const ST_PROMO = { sem_acesso: 'a página não abriu', sem_precos: 'a página não mostra preços para o app', erro_ia: 'a IA não respondeu',
   nao_confere: 'os preços não bateram com a página', sem_ia: 'sem IA no Home Assistant', ia_desligada: 'IA desligada', pendente: 'ainda não conferida' };
 let promosPedido = null, promosTimer = null;

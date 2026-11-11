@@ -7,7 +7,7 @@ import os
 import re
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 from tests.base import ServidorFalso, Servidor, importar_servidor
@@ -161,7 +161,7 @@ class AvisosFalso:
         return [{"id": "person.ana", "nome": "Ana", "user_id": "u-ana", "celulares": ["mobile_app_ana"]}]
 
     def enviar(self, alvos, texto, tag, grupo="gerencia-dicas", canal="Dicas de economia", caminho=""):
-        self.enviados.append((alvos, texto, tag, caminho))
+        self.enviados.append((alvos, texto, tag, caminho, grupo, canal))
         return len(alvos)
 
 
@@ -176,7 +176,7 @@ class TestServidor(unittest.TestCase):
         Trocar(self, IA_MOCK=True, PROMOS_BASE=self.falso.url + "/", PROMOS_ARQ=arq, AVISOS=self.av,
                promos_aparelhos=lambda d: ({"tv_lg": ["TV da sala"], "playstation": ["PS5"]}, True))
         d = S.ler()
-        d["ajustes"].update(dicas_aviso=True, dicas_para=["person.ana"])
+        d["ajustes"].update(op_aviso=True, op_para=["person.ana"])  # 1.64.2: o aviso das oportunidades
         d["recorrencias"] = [{"id": "r1", "descricao": "Netflix", "valor": 44.9, "inicio": "2026-01", "tipo": "despesa", "dia": 5}]
         S.salvar(d)
 
@@ -194,10 +194,10 @@ class TestServidor(unittest.TestCase):
                          ("Netflix", 9.9, 3, 29.9, "novos assinantes", 44.9, date.today().isoformat(), P.POR_ID["netflix"]["url"]),
                          "a página que abre no toque é a oficial; você paga vem dos fixos")
         self.assertEqual(len(self.av.enviados), 1)
-        alvos, texto, tag, caminho = self.av.enviados[0]
-        self.assertEqual((alvos, texto["title"], texto["message"], tag, caminho),
+        alvos, texto, tag, caminho, grupo, canal = self.av.enviados[0]
+        self.assertEqual((alvos, texto["title"], texto["message"], tag, caminho, grupo, canal),
                          (["mobile_app_ana"], "🏷️ Assinatura em promoção", "• Netflix: R$ 9,90 por mês por 3 meses (depois R$ 29,90)",
-                          "gerencia-promocoes", "/promocoes"))
+                          "gerencia-promocoes", "/promocoes", "gerencia-oportunidades", "Assinaturas em promoção"))
         self.assertEqual(S.avisar_promos(S.ler()), 0, "cada promoção, uma vez")
         # a CronologIA e a Agora: a dos últimos 7 dias
         rec = S.promos_recentes(S.ler())
@@ -245,8 +245,8 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(S.ler_pagina_promo(P.POR_ID["netflix"], d, {"planos": [{"plano": "A", "mensal": 1}]}),
                          {"em": mock.ANY, "status": "sem_ia", "planos": [{"plano": "A", "mensal": 1}], "promocoes": []}, "sem IA, nem abre a página")
 
-    def test_desligado_sem_ia_ou_sem_dicas(self):
-        for aj in ({"ia": False}, {"dicas": False}):
+    def test_desligado_sem_ia(self):
+        for aj in ({"ia": False},):
             d = S.ler()
             d["ajustes"].update(aj)
             S.salvar(d)
@@ -257,12 +257,16 @@ class TestServidor(unittest.TestCase):
             S._conferir_promos()
             self.assertEqual(S.promos_ler(), {}, "nem confere")
             d = S.ler()
-            d["ajustes"].update(ia=True, dicas=True)
+            d["ajustes"].update(ia=True)
             S.salvar(d)
+        d = S.ler()
+        d["ajustes"]["dicas"] = False
+        S.salvar(d)
+        self.assertTrue(S.promos_estado(S.ler(), disparar=False)["ligado"], "1.64.2: não dependem das Dicas de economia")
 
     def test_sem_aviso_ligado_so_anota_e_quem_nao_tem_celular(self):
         d = S.ler()
-        d["ajustes"]["dicas_aviso"] = False
+        d["ajustes"]["op_aviso"] = False
         S.salvar(d)
         S._conferir_promos(avisar=True)
         self.assertEqual(self.av.enviados, [])
@@ -271,23 +275,37 @@ class TestServidor(unittest.TestCase):
         c = S.promos_ler()
         c["avisadas"] = {}
         S.promos_gravar(c)
-        d["ajustes"]["dicas_aviso"] = True
+        d["ajustes"]["op_aviso"] = True
         S.salvar(d)
         self.assertEqual(S.avisar_promos(S.ler()), 0, "sem ver as pessoas: tenta de novo depois")
 
-    def test_uma_vez_por_dia_no_horario_das_dicas(self):
+    def test_no_horario_e_a_cada_tantos_dias_das_oportunidades(self):
+        """1.64.2: com o Avisar no celular das oportunidades, no Horário, a cada tantos dias (A cada)."""
         chamadas = []
-        Trocar(self, iniciar_promos=lambda **k: chamadas.append(k) or True, hora_das_dicas=lambda d: True)
+        Trocar(self, iniciar_promos=lambda **k: chamadas.append(k) or True, hora_do_aviso_oport=lambda d, agora=None: True)
         self.assertTrue(S.promos_vez(S.ler()))
-        self.assertEqual(chamadas, [{"avisar": True}])
+        self.assertEqual(chamadas, [{"forcar": True, "avisar": True}], "lê as páginas de novo e avisa")
         c = S.promos_ler()
         c["dia"] = date.today().isoformat()
         S.promos_gravar(c)
         self.assertFalse(S.promos_vez(S.ler()), "hoje já foi")
-        Trocar(self, hora_das_dicas=lambda d: False)
+        d = S.ler()
+        d["ajustes"]["op_dias"] = 3
+        S.salvar(d)
+        c["dia"] = (date.today() - timedelta(days=2)).isoformat()
+        S.promos_gravar(c)
+        self.assertFalse(S.promos_vez(S.ler()), "a cada 3 dias: há 2, ainda não")
+        c["dia"] = (date.today() - timedelta(days=3)).isoformat()
+        S.promos_gravar(c)
+        self.assertTrue(S.promos_vez(S.ler()))
+        Trocar(self, hora_do_aviso_oport=lambda d, agora=None: False)
         c["dia"] = ""
         S.promos_gravar(c)
         self.assertFalse(S.promos_vez(S.ler()), "antes do horário")
+        Trocar(self, hora_do_aviso_oport=lambda d, agora=None: True)
+        d["ajustes"]["op_aviso"] = False
+        S.salvar(d)
+        self.assertFalse(S.promos_vez(S.ler()), "sem o aviso das oportunidades, só quando alguém olha")
 
     def test_iniciar_e_velhas(self):
         S._promos_conferindo.set()
@@ -301,6 +319,10 @@ class TestServidor(unittest.TestCase):
         self.assertTrue(S._promo_velha({"em": "2020-01-01T10:00:00", "status": "ok"}))
         self.assertFalse(S._promo_velha({"em": S.agora_iso(), "status": "sem_acesso"}), "o erro espera 6 horas")
         self.assertTrue(S._promo_velha({"em": "2020-01-01T10:00:00", "status": "sem_acesso"}))
+        ontem = (date.today() - timedelta(days=1)).isoformat() + "T10:00:00"
+        self.assertTrue(S._promo_velha({"em": ontem, "status": "ok"}), "todo dia: a de ontem")
+        self.assertFalse(S._promo_velha({"em": ontem, "status": "ok"}, dias=3), "a cada 3 dias: a de ontem ainda vale")
+        self.assertTrue(S._promo_velha({"em": "x", "status": "ok"}))
         est = S.promos_estado(S.ler())
         self.assertTrue(est["ligado"])
         with open(S.PROMOS_ARQ, "w") as f:

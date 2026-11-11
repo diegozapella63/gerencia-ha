@@ -200,7 +200,7 @@ class TestPaginas(TelaOport):
 class TestAvisoNoCelular(TelaOport):
     def test_ligar_comeca_com_quem_esta_usando(self):
         self.abrir(base(bancos=BANCOS), ui=OPCOES)
-        self.assertEqual(self.texto("#op-oport h2"), "Oportunidades de investimento")
+        self.assertEqual(self.texto("#op-oport h2"), "Oportunidades")
         self.assertIn("Desligado.", self.texto("#op-oport"))
         self.assertEqual(self.conta("#op-hora"), 0)
         self.clicar('#op-oport [data-a="ajuste"][data-k="op_aviso"]')
@@ -212,7 +212,7 @@ class TestAvisoNoCelular(TelaOport):
         self.assertEqual(self.pg.input_value("#op-hora"), "10:00")
         self.assertEqual(self.texto('#op-oport [data-a="op-testar"]'), "Testar no meu celular", "o mesmo nome dos outros avisos (padrão da família)")
         self.assertEqual(self.js("[...document.querySelectorAll('#op-oport .op-hora-l > div > label')].map(l => l.textContent)"), ["Horário", "A cada"], "lado a lado")
-        self.assertIn("O que chegou ao alvo ou, sem alvo, rende mais que os seus.", self.texto("#op-oport"))
+        self.assertIn("O que chegou ao alvo ou, sem alvo, rende mais que os seus, e as assinaturas em promoção.", self.texto("#op-oport"), "1.64.2: as promoções seguem este aviso")
         self.assertEqual(self.pg.input_value("#op-dias"), "1")
 
     def test_horario_quem_recebe_e_testar(self):

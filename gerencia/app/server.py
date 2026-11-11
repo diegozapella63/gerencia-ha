@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.64.1"
+VERSAO = "1.64.2"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2738,15 +2738,17 @@ def rotina_oport():
             d = ler()
             if d["ajustes"]["op_aviso"] and hora_do_aviso_oport(d) and dia_do_aviso_oport(d, oport_ler().get("dia")):
                 iniciar_oport(avisar=True, esperar=True)
+            promos_vez(d)  # 1.64.2: as assinaturas em promoção no mesmo horário (e a cada tantos dias)
         except Exception as e:  # noqa: BLE001
             log("Oportunidades:", e)
         time.sleep(60)
 
 
 # ---------------------------------------------------------------- assinaturas em promoção (Mais › Benefícios › Oportunidades)
-# As assinaturas do catálogo (promocoes.py) que funcionam nos aparelhos do InventarIA: a página oficial uma vez por dia
-# (a partir do horário das dicas, com Conferir sozinho ligado, ou quando alguém olha); a IA só lê a página que mudou.
-# Uma promoção nova vai para os celulares das Dicas de economia, entra nos Avisos da Agora e no CronologIA por 7 dias.
+# As assinaturas do catálogo (promocoes.py) que funcionam nos aparelhos do InventarIA, conferidas como as oportunidades
+# de investimento (1.64.2): com o Avisar no celular delas, no Horário, todo dia ou A cada tantos dias; sem o aviso,
+# quando alguém olha e a última leitura passou desse tanto de dias. A IA só lê a página que mudou. Uma promoção nova vai
+# para os celulares de Quem recebe das oportunidades e entra nos Avisos da Agora e no CronologIA por 7 dias.
 
 PROMOS_ARQ = os.path.join(DATA_DIR, "promocoes.json")
 PROMOS_BASE = os.environ.get("GERENCIA_PROMOS_BASE", "")  # só para testes: as páginas viram <base><id>
@@ -2771,8 +2773,13 @@ def promos_gravar(c):
 
 
 def promos_on(d):
-    """As promoções vêm com as Dicas de economia e precisam da IA."""
-    return ia_ligada(d) and d["ajustes"].get("dicas") is not False
+    """As promoções precisam da IA (para ler as páginas)."""
+    return ia_ligada(d)
+
+
+def promos_dias(d):
+    """De quantos em quantos dias (Mais › Configurações › Opções › Oportunidades › A cada)."""
+    return d["ajustes"].get("op_dias") or 1
 
 
 def url_promo(serv):
@@ -2837,12 +2844,16 @@ def ler_pagina_promo(serv, d, velho=None):
             "planos": lido["planos"] or (velho or {}).get("planos") or [], "promocoes": lido["promocoes"]}
 
 
-def _promo_velha(p, forcar=False):
-    """Ler de novo? Uma vez por dia; a página que não abriu ou a IA que falhou, depois de 6 horas."""
+def _promo_velha(p, forcar=False, dias=1):
+    """Ler de novo? Passados os dias das oportunidades (1: num outro dia); a página que não abriu ou a IA que falhou,
+    depois de 6 horas."""
     if forcar or not p or not p.get("em"):
         return True
     if p.get("status") in ("ok", "sem_precos", "nao_confere"):
-        return str(p["em"])[:10] != date.today().isoformat()
+        try:
+            return (date.today() - date.fromisoformat(str(p["em"])[:10])).days >= dias
+        except ValueError:
+            return True
     return _idade_s(p["em"]) >= 6 * 3600
 
 
@@ -2854,7 +2865,7 @@ def _conferir_promos(forcar=False, avisar=False):
         dentro, _ = promocoes.servicos(promos_aparelhos(d)[0])
         lidas = dict(promos_ler().get("servicos") or {})
         for s in dentro:
-            if _promo_velha(lidas.get(s["id"]), forcar):
+            if _promo_velha(lidas.get(s["id"]), forcar, promos_dias(d)):
                 lidas[s["id"]] = ler_pagina_promo(s, d, lidas.get(s["id"]))
                 log("Promoções:", s["nome"], lidas[s["id"]]["status"], len(lidas[s["id"]]["promocoes"]))
         hoje = date.today().isoformat()
@@ -2892,9 +2903,10 @@ def iniciar_promos(forcar=False, avisar=False, esperar=False):
 
 
 def promos_vez(d):
-    """Na rotina: com Conferir sozinho ligado, uma vez por dia a partir do horário das dicas, confere e avisa."""
-    if promos_on(d) and d["ajustes"].get("dicas_auto") is not False and hora_das_dicas(d) and promos_ler().get("dia") != date.today().isoformat():
-        return iniciar_promos(avisar=True)
+    """Na rotina das oportunidades: com o Avisar no celular delas, no Horário, todo dia ou a cada tantos dias, lê as
+    páginas de novo e avisa (a última vez fica em "dia")."""
+    if promos_on(d) and d["ajustes"]["op_aviso"] and hora_do_aviso_oport(d) and dia_do_aviso_oport(d, promos_ler().get("dia")):
+        return iniciar_promos(forcar=True, avisar=True)
     return False
 
 
@@ -2907,7 +2919,7 @@ def promos_estado(d, disparar=True):
     dentro, fora = promocoes.servicos(tem)
     c = promos_ler()
     lidas, vistas, paga = c.get("servicos") or {}, c.get("vistas") or {}, promocoes.de_quem_paga(d)
-    disparou = bool(disparar and any(_promo_velha(lidas.get(s["id"])) for s in dentro) and iniciar_promos())
+    disparou = bool(disparar and any(_promo_velha(lidas.get(s["id"]), dias=promos_dias(d)) for s in dentro) and iniciar_promos())
     lista, servs = [], []
     for s in dentro:
         l = lidas.get(s["id"]) or {}
@@ -2934,8 +2946,8 @@ def promos_recentes(d, hoje=None):
 
 
 def avisar_promos(d, silencioso=False):
-    """Uma promoção nova vai para os celulares das Dicas de economia (Avisar no celular), uma vez cada. silencioso:
-    só anota."""
+    """Uma promoção nova vai para os celulares de Quem recebe das oportunidades (Avisar no celular), uma vez cada.
+    silencioso: só anota."""
     aj = d["ajustes"]
     if not promos_on(d):
         return 0
@@ -2945,14 +2957,15 @@ def avisar_promos(d, silencioso=False):
         antes = c.get("avisadas") or {}
         novas = [x for k, x in atuais.items() if k not in antes]
         enviados = 0
-        if novas and aj.get("dicas_aviso") is True and not silencioso:
+        if novas and aj.get("op_aviso") is True and not silencioso:
             try:
-                alvos = _celulares_de(aj.get("dicas_para"))
+                alvos = _celulares_de(aj.get("op_para"))
             except Exception as e:  # noqa: BLE001
                 log("Aviso de promoções: não consegui ver as pessoas da casa:", e)
                 return 0
             enviados = AVISOS.enviar(alvos, avisos.texto_promocoes([promocoes.linha(x["nome"], x) for x in novas]),
-                                     "gerencia-promocoes", caminho="/promocoes") if alvos else 0
+                                     "gerencia-promocoes", grupo="gerencia-oportunidades", canal="Assinaturas em promoção",
+                                     caminho="/promocoes") if alvos else 0
         avisadas = {k: antes.get(k) or date.today().isoformat() for k in atuais}
         if avisadas != antes:
             c["avisadas"] = avisadas
@@ -4018,7 +4031,6 @@ def rotina():
             publicar_correria(d)
             dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
-            promos_vez(d)  # 1.64.0: as assinaturas em promoção, uma vez por dia a partir do horário das dicas
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)

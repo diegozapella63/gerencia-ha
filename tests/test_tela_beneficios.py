@@ -599,11 +599,12 @@ class TestPromocoes(TelaBen):
         self.pg.wait_for_function("window.__nConf === 1 && !!document.querySelector('#metas .promo-vazio')")
         self.assertEqual(self.texto("#metas .promo-vazio"), "Nenhuma agora.")
 
-    def test_some_sem_ia_ou_sem_dicas(self):
-        for aj in ({"ia": False}, {"dicas": False}):
-            self.abrir_p(**aj)
-            self.assertEqual(self.js("document.querySelectorAll('#metas .promo-grupo').length"), 0, aj)
-            self.assertEqual(self.textos("#metas .ben-grupo-cab b"), [], aj)
+    def test_some_sem_ia(self):
+        self.abrir_p(ia=False)
+        self.assertEqual(self.js("document.querySelectorAll('#metas .promo-grupo').length"), 0)
+        self.assertEqual(self.textos("#metas .ben-grupo-cab b"), [])
+        self.abrir_p(dicas=False)
+        self.assertEqual(self.js("document.querySelectorAll('#metas .promo-grupo').length"), 1, "1.64.2: não dependem das Dicas de economia")
 
     def test_desligado_no_servidor(self):
         self.abrir_p({"ligado": False})

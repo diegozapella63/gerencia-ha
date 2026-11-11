@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.64.2
+
+- As **assinaturas em promoção** seguem a configuração das **Oportunidades** (Mais › Configurações › Opções, que agora se chama só **Oportunidades**): conferidas no **Horário**, todo dia ou **a cada** tantos dias, e avisadas para quem está em **Quem recebe**. Não dependem mais das Dicas de economia.
+
 ## 1.64.1
 
 - Com as promoções de assinaturas ligadas, os **Bens da casa** podiam ficar alguns minutos sem os itens do InventarIA logo depois de abrir o app. Agora aparecem na hora.
