@@ -144,7 +144,7 @@ _ABRIR = """async (a) => {
   const u0 = JSON.parse(window.__UI0);
   for (const k of Object.keys(T.S.ui)) if (!(k in u0)) delete T.S.ui[k]; // o que um teste deixou (ex.: descAberto) não passa para o próximo
   Object.assign(T.S.ui, u0, a.ui || {});
-  Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, dicas: null, ia: null, uso: null, backups: null, senhas: undefined, senhasPedido: null, oport: undefined });
+  Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, promos: a.promos === undefined ? null : a.promos, dicas: null, ia: null, uso: null, backups: null, senhas: undefined, senhasPedido: null, oport: undefined });
   T.OP_TODAS = false;
   T.api._senhas = [];  // as senhas dos PDFs da prévia (na memória)
   T.S.d = T.normalizar(r);
@@ -194,9 +194,10 @@ class Tela(unittest.TestCase):
         self.js("(T.S.d = T.normalizar(a), T.S.bens = null, T.S.oculto = false, true)", d)
 
     # ---- a tela
-    def abrir(self, d=None, ui=None, bens=None):
-        """Abre o app com estes dados (gravados na prévia, como se viessem do servidor), na tela Início, sem janelas."""
-        self.pg.evaluate(_ABRIR, {"d": d if d is not None else base(), "ui": ui or {}, "bens": bens})
+    def abrir(self, d=None, ui=None, bens=None, promos=None):
+        """Abre o app com estes dados (gravados na prévia, como se viessem do servidor), na tela Início, sem janelas.
+        promos: o que /api/promocoes devolve (sem ele, nenhuma promoção de assinatura)."""
+        self.pg.evaluate(_ABRIR, {"d": d if d is not None else base(), "ui": ui or {}, "bens": bens, "promos": promos})
         self.esperar()
 
     def esperar(self):

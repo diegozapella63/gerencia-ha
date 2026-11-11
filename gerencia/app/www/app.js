@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.63.0';
+const VERSAO = '1.64.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -545,6 +545,8 @@ const apiServidor = {
   oportunidades: () => fetch('api/oportunidades', { cache: 'no-store' }).then(jsonOk),
   oportConferir: forcar => fetch('api/oportunidades/conferir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forcar: forcar !== false }) }).then(jsonOk),
   oportTestar: () => fetch('api/oportunidades/testar', { method: 'POST' }).then(jsonOk),
+  promocoes: () => fetch('api/promocoes', { cache: 'no-store' }).then(jsonOk),
+  promosConferir: () => fetch('api/promocoes/conferir', { method: 'POST' }).then(jsonOk),
   avisoPessoas: () => fetch('api/avisos/pessoas', { cache: 'no-store' }).then(jsonOk),
   senhas: () => fetch('api/senhas', { cache: 'no-store' }).then(jsonOk),
   senhaNova: (nome, senha) => fetch('api/senhas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, senha }) }).then(jsonOk),
@@ -627,6 +629,9 @@ function apiDemo() {
     async oportunidades() { await espera(200); return oportDemo(); },
     async oportConferir() { await espera(700); return oportDemo(); },
     async oportTestar() { throw new Error('Na prévia o aviso não é enviado.'); },
+    // assinaturas em promoção na prévia: serviços e preços inventados
+    async promocoes() { await espera(200); return promosDemo(); },
+    async promosConferir() { await espera(700); return promosDemo(); },
     // benefícios lidos pela IA na prévia: a IA simulada (igual à do servidor); a página e as imagens viram um exemplo inventado
     async beneficiosLer(c) {
       await espera(600);
@@ -5051,12 +5056,69 @@ function linhaMeta(m) {
   return `<div class="ben-row meta-row${p.ja ? ' ja' : ''}"><button class="ben-t" ${acao}><b>${esc(m.nivel ? 'Nível ' + m.ganha : m.ganha)}</b><span>${esc(sub)}</span>${barra}</button>
     <div class="ben-v">${v}</div></div>`;
 }
+/* --------- Assinaturas em promoção (1.64.0): as assinaturas de vídeo, música e jogos que funcionam nos aparelhos do
+   InventarIA, com o preço conferido na página oficial (o servidor lê uma vez por dia; promocoes.py). Ficam no alto das
+   Oportunidades; a nova (dos últimos 7 dias) entra também nos Avisos da Agora. Vêm com as Dicas de economia e a IA. */
+const promosOn = () => iaOn() && S.d.ajustes.dicas !== false;
+const ST_PROMO = { sem_acesso: 'a página não abriu', sem_precos: 'a página não mostra preços para o app', erro_ia: 'a IA não respondeu',
+  nao_confere: 'os preços não bateram com a página', sem_ia: 'sem IA no Home Assistant', ia_desligada: 'IA desligada', pendente: 'ainda não conferida' };
+let promosPedido = null, promosTimer = null;
+function carregarPromos(forcar) {
+  if (promosPedido && !forcar) return promosPedido;
+  const antes = S.promos;
+  promosPedido = (forcar ? api.promosConferir() : api.promocoes()).then(r => {
+    if (!forcar && S.promos !== antes) return;  // mudou enquanto esperava (os testes trocam): a resposta atrasada não volta
+    S.promos = r;
+    clearTimeout(promosTimer);
+    if (r && r.conferindo) promosTimer = setTimeout(() => carregarPromos(), 3000);
+    if (!FOLHA && (S.ui.tab === 'inicio' || maisTela() === 'beneficios')) render();
+  }).catch(() => { S.promos = S.promos || null; }).finally(() => { promosPedido = null; });
+  return promosPedido;
+}
+const promoNova = (x, h = hoje()) => !!x.visto && diasEntre(pData(x.visto), h) < 7;
+const mesesTxt = m => m ? `por ${m} ${m === 1 ? 'mês' : 'meses'}` : '';
+function linhaPromo(x) {
+  const sub = [x.plano, mesesTxt(x.meses), x.quem, x.ate ? 'até ' + fDataC(pData(x.ate)) : '', x.paga ? `você paga ${brl(x.paga)}` : ''].filter(Boolean).join(' · ');
+  return `<div class="ben-row promo-row"><a class="ben-t" href="${esc(x.url)}" target="_blank" rel="noopener"><b>${esc(x.nome)}${promoNova(x) ? '<i class="promo-nova">nova</i>' : ''}</b><span>${esc(sub)}</span></a>
+    <div class="ben-v"><b>${esc(brl(x.preco))}</b><small>${x.normal ? 'de ' + esc(brl(x.normal)) : 'por mês'}</small></div></div>`;
+}
+function blocoPromos() {
+  const P = S.promos;
+  if (P === undefined) carregarPromos();
+  if (!P || !P.ligado) return '';
+  const lista = P.promocoes || [], servs = P.servicos || [];
+  const sem = servs.filter(x => !['ok', 'pendente'].includes(x.status)), lidas = servs.filter(x => x.status === 'ok').length;
+  const quando = P.atualizado ? new Date(P.atualizado) : null;
+  const hora = quando ? quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const st = P.conferindo ? 'Conferindo as páginas oficiais…' : !quando ? 'Ainda não conferidas.'
+    : `${plural(lidas, 'assinatura conferida', 'assinaturas conferidas')} ${iso(quando) === iso(hoje()) ? 'hoje, às ' + hora : 'em ' + fDataC(quando)}.`;
+  const ap = (P.aparelhos || []).length ? ` Nos seus aparelhos: ${juntarE(P.aparelhos)}.` : '';
+  let h = `<div class="ben-grupo promo-grupo"><div class="ben-grupo-cab">${ic('percent', 'ic-s')}<b>Assinaturas em promoção</b></div>
+    ${lista.length ? lista.map(linhaPromo).join('') : `<p class="vazio promo-vazio">${P.conferindo && !quando ? 'Conferindo as páginas oficiais…' : 'Nenhuma agora.'}</p>`}
+    <p class="dica-quando promo-st">${ic(P.conferindo ? 'refresh' : 'clock', 'ic ic-s')}<span>${esc(st + ap)} ${P.conferindo ? '' : '<button class="link-in" data-a="promo-conferir">Conferir agora</button>'}</span></p>`;
+  h += recolhido('promo-sem', 'Sem como conferir', sem.length, sem.map(x => `<p class="promo-sem-l"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nome)}</a> <small>${esc(ST_PROMO[x.status] || '')}</small></p>`).join(''));
+  h += recolhido('promo-fora', 'Fora dos seus aparelhos', (P.fora || []).length, `<p class="nota">${esc(juntarE(P.fora || []))}</p>`);
+  return h + '</div>';
+}
+function promosDemo() {
+  const h = hoje(), d = n => iso(new Date(h.getTime() + n * 86400000));
+  const S1 = { id: 'cine_lua', nome: 'Cine Lua', url: 'https://example.com/cine-lua' }, S2 = { id: 'nuvem_jogos', nome: 'Nuvem Jogos', url: 'https://example.com/nuvem-jogos' };
+  return { ligado: true, conferindo: false, atualizado: new Date(h.getTime() - 2 * 3600000).toISOString(), inventaria: true, aparelhos: ['TV LG', 'PlayStation', 'celular'],
+    promocoes: [Object.assign({ id: 'promo:cine_lua:1', servico: S1.id, plano: 'Padrão', preco: 9.9, meses: 3, normal: 29.9, ate: d(20), quem: 'novos assinantes', visto: d(0) }, S1),
+      Object.assign({ id: 'promo:nuvem_jogos:1', servico: S2.id, plano: 'Mensal', preco: 19.9, meses: 0, normal: 39.9, ate: '', quem: '', visto: d(-12), paga: 39.9 }, S2)],
+    servicos: [Object.assign({ tipo: 'video', status: 'ok', promocoes: 1 }, S1), Object.assign({ tipo: 'jogos', status: 'ok', promocoes: 1 }, S2),
+      { id: 'som_mais', nome: 'Som Mais', tipo: 'musica', url: 'https://example.com/som-mais', status: 'ok', promocoes: 0 },
+      { id: 'tela_azul', nome: 'Tela Azul', tipo: 'video', url: 'https://example.com/tela-azul', status: 'sem_precos', promocoes: 0 }],
+    fora: ['Console Online'] };
+}
 function cardMetas() {
   const L = S.d.metas.concat(metasConta(), metasMilhas()).map(m => ({ m, p: progressoMeta(m) }));
   const ordem = x => x.p.ja ? 2 : x.p.sem ? 1 : 0;
   L.sort((a, b) => ordem(a) - ordem(b) || b.p.pct - a.p.pct || a.p.falta - b.p.falta);
-  return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead('O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
-    ${L.length ? L.map(x => linhaMeta(x.m)).join('') : '<p class="vazio">Nenhuma oportunidade ainda.</p>'}
+  const promos = promosOn() ? blocoPromos() : '';
+  const metas = L.length ? L.map(x => linhaMeta(x.m)).join('') : '<p class="vazio">Nenhuma oportunidade ainda.</p>';
+  return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead(promos ? 'Assinaturas em promoção e o que falta para ganhar mais.' : 'O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
+    ${promos ? `${promos}<div class="ben-grupo"><div class="ben-grupo-cab">${ic('trend', 'ic-s')}<b>Para ganhar mais</b></div>${metas}</div>` : metas}
     ${iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="meta-nova">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="meta-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
     : `<button class="btn out larga" data-a="meta-nova">${ic('plus')}Cadastrar oportunidade</button>`}</section>`;
 }
@@ -5121,6 +5183,13 @@ function avisosBeneficios(h) {
   // milhas que vencem em até 60 dias (1.63.0)
   const vencem = S.d.beneficios.filter(ehMilhas).map(b => ({ b, v: milhasDe(b, hj).vence })).filter(x => x.v && diasEntre(hj, pData(x.v.data)) <= 60)
     .map(({ b, v }) => `${nomeMilhas(b)}: ${NF0.format(v.qtd)} em ${fDataC(pData(v.data))}`);
+  // assinaturas em promoção que apareceram nos últimos 7 dias (1.64.0)
+  if (promosOn() && S.promos === undefined) carregarPromos();
+  const novas = promosOn() && S.promos && S.promos.ligado ? (S.promos.promocoes || []).filter(x => promoNova(x, hj)) : [];
+  if (novas.length) {
+    const n = new Set(novas.map(x => x.nome)).size;
+    av.push(linha('percent', '', n === 1 ? 'Assinatura em promoção' : `${n} assinaturas em promoção`, novas.slice(0, 5).map(x => `${x.nome}: ${brl(x.preco)} por mês${x.meses ? ' ' + mesesTxt(x.meses) : ''}`)));
+  }
   if (vencem.length) av.push(linha('plane', 'terc', vencem.length === 1 ? 'Milhas que vencem' : `Milhas que vencem em ${vencem.length} programas`, vencem));
   if (usar.length) av.push(linha('gift', 'terc', usar.length === 1 ? 'Benefício para usar' : `${usar.length} benefícios para usar`, usar));
   if (param.length) av.push(linha('alert', 'alerta', param.length === 1 ? 'Benefício que vai parar' : `${param.length} benefícios que vão parar`, param));
@@ -5509,7 +5578,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { beneficios: 'Ler benefícios', milhas: 'Ler milhas', ofertas: 'Ler ofertas de investimento', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
+const USO_TIPO = { beneficios: 'Ler benefícios', milhas: 'Ler milhas', ofertas: 'Ler ofertas de investimento', promocoes: 'Promoções de assinaturas', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -6406,6 +6475,7 @@ document.addEventListener('click', ev => {
     case 'dicas-conferir': if (S.dicas) S.dicas.conferindo = true; render(); carregarDicas(true); break;
     case 'op-conferir': if (S.oport) S.oport.conferindo = true; render(); carregarOport(true); break;
     case 'op-todas': OP_TODAS = !OP_TODAS; render(); break;
+    case 'promo-conferir': if (S.promos) S.promos.conferindo = true; render(); carregarPromos(true); break;
     case 'op-testar': api.oportTestar().then(r => toast(r.passam ? 'Aviso enviado para o seu celular.' : 'Aviso enviado para o seu celular (nada no alvo agora).'), e => toast(e.message)); break;
     case 'dicas-voltar': persistir(d => { d.ajustes.dicas_fora = []; }, 'Dicas de volta'); break;
     case 'dicas-freq': persistir(d => { d.ajustes.dicas_freq = v; }); break;
@@ -7205,6 +7275,7 @@ function irRotaHA() {
   // 1.61.0: o toque num aviso do GerencIA no Agora do CronologIA: os Avisos do Início ou os Benefícios
   else if (r === '/agora') { if (FOLHA) fecharFolha(); irPara('inicio'); }
   else if (r === '/beneficios') { if (FOLHA) fecharFolha(); irPara('mais', null, 'beneficios'); }
+  else if (r === '/promocoes') { if (FOLHA) fecharFolha(); irPara('mais', 'metas', 'beneficios'); }  // 1.64.0: o aviso no celular
 }
 if (window.parent !== window && !DEMO) {
   window.addEventListener('message', e => {

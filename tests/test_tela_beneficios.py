@@ -540,3 +540,94 @@ class TestMilhas(TelaBen):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# 1.64.0: o que /api/promocoes devolve (serviços e preços inventados)
+PROMOS = {"ligado": True, "conferindo": False, "atualizado": "2026-11-02T08:01:00-03:00", "inventaria": True, "aparelhos": ["TV LG", "PlayStation", "celular"],
+          "promocoes": [{"id": "promo:cine_lua:a", "servico": "cine_lua", "nome": "Cine Lua", "url": "https://example.com/cine-lua", "plano": "Padrão",
+                         "preco": 9.9, "meses": 3, "normal": 29.9, "ate": "2026-11-30", "quem": "novos assinantes", "visto": "2026-11-01"},
+                        {"id": "promo:nuvem:b", "servico": "nuvem", "nome": "Nuvem Jogos", "url": "https://example.com/nuvem", "plano": "Mensal",
+                         "preco": 19.9, "meses": 0, "normal": 39.9, "ate": "", "quem": "", "visto": "2026-10-10", "paga": 39.9}],
+          "servicos": [{"id": "cine_lua", "nome": "Cine Lua", "tipo": "video", "url": "https://example.com/cine-lua", "status": "ok", "promocoes": 1},
+                       {"id": "nuvem", "nome": "Nuvem Jogos", "tipo": "jogos", "url": "https://example.com/nuvem", "status": "ok", "promocoes": 1},
+                       {"id": "tela", "nome": "Tela Azul", "tipo": "video", "url": "https://example.com/tela", "status": "sem_precos", "promocoes": 0},
+                       {"id": "som", "nome": "Som Mais", "tipo": "musica", "url": "https://example.com/som", "status": "sem_acesso", "promocoes": 0}],
+          "fora": ["Console Online"]}
+
+
+class TestPromocoes(TelaBen):
+    """1.64.0: as assinaturas em promoção no alto das Oportunidades (Mais › Benefícios), conferidas na página oficial pelo
+    servidor; a nova entra nos Avisos da Agora; somem sem a IA ou sem as Dicas de economia."""
+
+    def abrir_p(self, promos=PROMOS, ui=BENS, **aj):
+        d = base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VIP])
+        d["ajustes"].update(aj)
+        self.abrir(d, ui=ui, promos=promos)
+
+    def test_no_alto_das_oportunidades(self):
+        self.abrir_p()
+        self.assertEqual(self.textos("#metas .ben-grupo-cab b"), ["Assinaturas em promoção", "Para ganhar mais"])
+        self.assertEqual(self.texto("#metas .painel-lead"), "Assinaturas em promoção e o que falta para ganhar mais.")
+        linhas = self.js("""[...document.querySelectorAll('#metas .promo-row')].map(r => [r.querySelector('.ben-t b').textContent, r.querySelector('.ben-t > span').textContent,
+            r.querySelector('.ben-v b').textContent, r.querySelector('.ben-v small').textContent, r.querySelector('a').getAttribute('href'), r.querySelector('a').target])""")
+        self.assertEqual([[" ".join(x.split()) for x in l[:4]] + l[4:] for l in linhas], [
+            ["Cine Luanova", "Padrão · por 3 meses · novos assinantes · até 30/11", "R$ 9,90", "de R$ 29,90", "https://example.com/cine-lua", "_blank"],
+            ["Nuvem Jogos", "Mensal · você paga R$ 39,90", "R$ 19,90", "de R$ 39,90", "https://example.com/nuvem", "_blank"]], "o toque abre a página oficial")
+        st = " ".join(self.texto("#metas .promo-st").split())
+        self.assertEqual(st, "2 assinaturas conferidas hoje, às 08:01. Nos seus aparelhos: TV LG, PlayStation e celular. Conferir agora")
+        self.assertEqual(self.textos("#metas .recolhido-t"), ["Sem como conferir (2)", "Fora dos seus aparelhos (1)"], "recolhidos no fim")
+        self.clicar('#metas [data-a="recolher"][data-v="promo-sem"]')
+        self.assertEqual([" ".join(x.split()) for x in self.textos("#metas .promo-sem-l")],
+                         ["Tela Azul a página não mostra preços para o app", "Som Mais a página não abriu"])
+        self.assertEqual(self.js("document.querySelectorAll('#metas .ben-grupo')[1].querySelector('.vazio').textContent"), "Nenhuma oportunidade ainda.",
+                         "as oportunidades de antes continuam embaixo, no grupo delas")
+
+    def test_nenhuma_e_conferindo(self):
+        self.abrir_p(dict(PROMOS, promocoes=[], fora=[]))
+        self.assertEqual(self.texto("#metas .promo-vazio"), "Nenhuma agora.")
+        self.assertEqual(self.textos("#metas .recolhido-t"), ["Sem como conferir (2)"])
+        self.abrir_p(dict(PROMOS, promocoes=[], conferindo=True, atualizado=None, aparelhos=[]))
+        self.assertEqual(self.texto("#metas .promo-vazio"), "Conferindo as páginas oficiais…")
+        self.assertEqual(" ".join(self.texto("#metas .promo-st").split()), "Conferindo as páginas oficiais…", "sem o Conferir agora enquanto confere")
+        self.abrir_p(dict(PROMOS, atualizado="2026-10-30T09:00:00-03:00", aparelhos=[]))
+        self.assertEqual(" ".join(self.texto("#metas .promo-st").split()), "2 assinaturas conferidas em 30/10. Conferir agora", "sem o InventarIA, sem os aparelhos")
+
+    def test_conferir_agora(self):
+        self.abrir_p()
+        self.js("(window.__nConf = 0, T.api.promosConferir = async () => { window.__nConf++; return Object.assign({}, T.S.promos, {conferindo: false, promocoes: []}); }, true)")
+        self.clicar('#metas [data-a="promo-conferir"]')
+        self.pg.wait_for_function("window.__nConf === 1 && !!document.querySelector('#metas .promo-vazio')")
+        self.assertEqual(self.texto("#metas .promo-vazio"), "Nenhuma agora.")
+
+    def test_some_sem_ia_ou_sem_dicas(self):
+        for aj in ({"ia": False}, {"dicas": False}):
+            self.abrir_p(**aj)
+            self.assertEqual(self.js("document.querySelectorAll('#metas .promo-grupo').length"), 0, aj)
+            self.assertEqual(self.textos("#metas .ben-grupo-cab b"), [], aj)
+
+    def test_desligado_no_servidor(self):
+        self.abrir_p({"ligado": False})
+        self.assertEqual(self.js("document.querySelectorAll('#metas .promo-grupo').length"), 0)
+
+    def test_a_nova_vai_para_os_avisos_da_agora(self):
+        self.abrir_p(ui={"tab": "inicio"})
+        t = " ".join(self.tela().split())
+        self.assertIn("Assinatura em promoção Cine Lua: R$ 9,90 por mês por 3 meses", t, "a dos últimos 7 dias")
+        self.assertNotIn("Nuvem Jogos", t, "a de antes não")
+        self.abrir_p(dict(PROMOS, promocoes=[dict(PROMOS["promocoes"][0]), dict(PROMOS["promocoes"][1], visto="2026-11-02")]), ui={"tab": "inicio"})
+        self.assertIn("2 assinaturas em promoção", " ".join(self.tela().split()))
+        self.clicar('#app .op[data-v="beneficios"]')
+        self.assertEqual(self.js("T.S.ui.maisTela"), "beneficios", "o toque abre os Benefícios")
+
+    def test_o_aviso_do_celular_abre_as_oportunidades(self):
+        self.abrir_p(ui={"tab": "inicio"})
+        self.js("(T.ROTA_HA = '/promocoes', T.irRotaHA(), true)")
+        self.esperar()
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "beneficios"])
+
+    def test_na_previa_vem_o_exemplo(self):
+        self.abrir_p(ui=BENS)
+        self.js("(T.S.promos = undefined, T.render(), true)")
+        self.pg.wait_for_function("!!document.querySelector('#metas .promo-row')")
+        self.assertEqual(self.textos("#metas .promo-row .ben-t b")[1], "Nuvem Jogos", "os serviços inventados da prévia")
+        self.js("(T.S.promos = null, true)")

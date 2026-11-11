@@ -41,7 +41,7 @@ for t in "${names[@]}"; do
   fi
   (cd "$ROOT/gerencia/app" && GERENCIA_DEV=1 GERENCIA_DATA="$D/data" GERENCIA_SHARE="$D/share/gerencia" GERENCIA_MEDIA="$D/media" GERENCIA_IA_MOCK=1 \
     GERENCIA_FONTES_MOCK="$HERE/fixtures/fontes" GERENCIA_DOLAR=5.04 GERENCIA_BCB="http://127.0.0.1:9/{s}" \
-    GERENCIA_TESOURO="file://$HERE/fixtures/tesouro-investir.csv" GERENCIA_TESOURO_DADOS="http://127.0.0.1:9/dados.csv" \
+    GERENCIA_TESOURO="file://$HERE/fixtures/tesouro-investir.csv" GERENCIA_TESOURO_DADOS="http://127.0.0.1:9/dados.csv" GERENCIA_PROMOS_BASE="http://127.0.0.1:9/promo/" \
     GERENCIA_INVENTARIO="$D/share/inventario/integracao.json" exec python3 server.py > "$D/server.log" 2>&1) &
   PIDS+=($!)
   esperar http://127.0.0.1:8099/api/rev || echo "   (o GerencIA demorou para subir)"

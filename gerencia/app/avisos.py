@@ -92,6 +92,16 @@ def texto_oportunidades(linhas):
 
 
 
+def texto_promocoes(linhas):
+    """O aviso: "🏷️ Assinatura em promoção" e uma linha por promoção (até 5), já escritas (promocoes.linha: "HBO Max:
+    R$ 9,90 por mês por 3 meses (depois R$ 29,90)")."""
+    corpo = [f"• {x}" for x in linhas[:5]]
+    if len(linhas) > 5:
+        corpo.append(f"e mais {len(linhas) - 5}")
+    return {"title": "🏷️ Assinatura em promoção" if len(linhas) == 1 else f"🏷️ Assinaturas em promoção: {len(linhas)}",
+            "message": "\n".join(corpo)}
+
+
 APP_AVISO, ICONE_AVISO = "GerencIA", "mdi:wallet-outline"
 
 

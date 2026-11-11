@@ -252,10 +252,11 @@ def _aviso_email(it):
             "caminho": "/agora"}
 
 
-def avisos(d, emails_itens=(), hoje=None):
+def avisos(d, emails_itens=(), hoje=None, promos=()):
     """[{id, tipo, titulo, texto, valor?, dias?, n?, caminho}]: tipo diz o ícone (email, whatsapp, senha, erro, venceu,
     vence, valores, indices, beneficio, beneficio_para) e caminho, onde o toque abre o GerencIA (/agora ou /beneficios).
-    emails_itens: os e-mails e fotos pendentes que a tela mostra (o server.py filtra pelas opções)."""
+    emails_itens: os e-mails e fotos pendentes que a tela mostra (o server.py filtra pelas opções); promos: as
+    assinaturas em promoção dos últimos 7 dias (server.promos_recentes)."""
     hoje = hoje or date.today()
     out = [_aviso_email(it) for it in emails_itens]
     invs = [i for i in d.get("investimentos") or [] if isinstance(i, dict)]
@@ -303,6 +304,12 @@ def avisos(d, emails_itens=(), hoje=None):
     if parar:
         out.append({"id": "ben:parar", "tipo": "beneficio_para", "caminho": "/beneficios", "texto": ", ".join(parar),
                     "titulo": "Benefício que vai parar" if len(parar) == 1 else f"{len(parar)} benefícios que vão parar"})
+    if promos:  # 1.64.0
+        nomes = list(dict.fromkeys(str(x.get("nome") or "") for x in promos))
+        out.append({"id": "promocoes", "tipo": "beneficio", "caminho": "/beneficios", "texto": ", ".join(
+                    f"{x.get('nome')}: {calc.fmt_brl(x['preco'])} por mês" + (f" por {x['meses']} {'mês' if x['meses'] == 1 else 'meses'}" if x.get("meses") else "")
+                    for x in promos[:5]),
+                    "titulo": "Assinatura em promoção" if len(nomes) == 1 else f"{len(nomes)} assinaturas em promoção"})
     return out
 
 

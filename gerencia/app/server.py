@@ -38,8 +38,9 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 import milhas  # noqa: E402
+import promocoes  # noqa: E402
 
-VERSAO = "1.63.0"
+VERSAO = "1.64.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2742,6 +2743,215 @@ def rotina_oport():
         time.sleep(60)
 
 
+# ---------------------------------------------------------------- assinaturas em promoção (Mais › Benefícios › Oportunidades)
+# As assinaturas do catálogo (promocoes.py) que funcionam nos aparelhos do InventarIA: a página oficial uma vez por dia
+# (a partir do horário das dicas, com Conferir sozinho ligado, ou quando alguém olha); a IA só lê a página que mudou.
+# Uma promoção nova vai para os celulares das Dicas de economia, entra nos Avisos da Agora e no CronologIA por 7 dias.
+
+PROMOS_ARQ = os.path.join(DATA_DIR, "promocoes.json")
+PROMOS_BASE = os.environ.get("GERENCIA_PROMOS_BASE", "")  # só para testes: as páginas viram <base><id>
+PROMOS_NOVA_DIAS = 7
+_promos_conferindo = threading.Event()
+_trava_promos = threading.Lock()
+_trava_promos_arq = threading.Lock()
+
+
+def promos_ler():
+    try:
+        with open(PROMOS_ARQ, encoding="utf-8") as f:
+            c = json.load(f)
+        return c if isinstance(c, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def promos_gravar(c):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    gravar_arquivo(PROMOS_ARQ, json.dumps(c, ensure_ascii=False, indent=1))
+
+
+def promos_on(d):
+    """As promoções vêm com as Dicas de economia e precisam da IA."""
+    return ia_ligada(d) and d["ajustes"].get("dicas") is not False
+
+
+def url_promo(serv):
+    return PROMOS_BASE + serv["id"] if PROMOS_BASE else serv["url"]
+
+
+def promos_aparelhos(d):
+    """Os aparelhos da casa pelos itens do InventarIA (com Somar os bens ligado). Devolve ({aparelho: [itens]}, leu)."""
+    if d["ajustes"].get("bens") is False:
+        return {}, False
+    try:
+        return promocoes.aparelhos(BENS.ler().get("itens")), True
+    except Exception as e:  # noqa: BLE001
+        log("Promoções: sem o InventarIA:", e)
+        return {}, False
+
+
+def ler_pagina_promo(serv, d, velho=None):
+    """Abre a página oficial; se os preços dela não mudaram desde a última leitura, fica a leitura de antes (sem a IA)."""
+    base = {"em": agora_iso(), "status": "erro", "planos": [], "promocoes": []}
+    if not ia_disponivel(d):  # sem uma IA que leia, nem abre a página
+        return {**base, "status": "sem_ia", "planos": (velho or {}).get("planos") or []}
+    try:
+        with _abrir_url(url_promo(serv)) as r:
+            pagina = r.read(4 * 1024 * 1024).decode(r.headers.get_content_charset() or "utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        log("Promoções: não abriu", serv["nome"], e)
+        return {**base, "status": "sem_acesso", "planos": (velho or {}).get("planos") or []}
+    texto = promocoes.texto_pagina(pagina)
+    trechos = promocoes.trechos(texto)
+    if not trechos:
+        return {**base, "status": "sem_precos"}
+    marca = promocoes.assinatura_trechos(trechos)
+    if velho and velho.get("hash") == marca and velho.get("status") in ("ok", "nao_confere"):
+        return {**velho, "em": base["em"]}
+    try:
+        if IA_MOCK:
+            dados = promocoes.simulados(texto)
+            registrar_uso("promocoes", "ai_task.simulada", len(trechos), 300, 0, 0.5, "ok")
+        else:
+            payload = {"task_name": f"GerencIA: promoções de {serv['nome']}", "instructions": promocoes.prompt(serv, trechos)}
+            if d["ajustes"].get("ia_entidade"):
+                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            dados = ((ia_chamar("promocoes", payload, 0) or {}).get("service_response") or {}).get("data")
+            if dados is None:
+                raise ValueError("A IA não devolveu resposta.")
+        antes = {assinaturas.normal(x["plano"]): x["mensal"] for x in (velho or {}).get("planos") or [] if isinstance(x, dict)}
+        lido, recusados = promocoes.limpar(extrair_json(dados), texto, date.today(), antes)
+    except (ErroHA, ValueError) as e:
+        log("Promoções: IA em", serv["nome"], e)
+        return {**base, "status": "erro_ia", "planos": (velho or {}).get("planos") or []}
+    vazio = not lido["planos"] and not lido["promocoes"]
+    return {**base, "status": "nao_confere" if recusados and vazio else "ok", "hash": marca,
+            "planos": lido["planos"] or (velho or {}).get("planos") or [], "promocoes": lido["promocoes"]}
+
+
+def _promo_velha(p, forcar=False):
+    """Ler de novo? Uma vez por dia; a página que não abriu ou a IA que falhou, depois de 6 horas."""
+    if forcar or not p or not p.get("em"):
+        return True
+    if p.get("status") in ("ok", "sem_precos", "nao_confere"):
+        return str(p["em"])[:10] != date.today().isoformat()
+    return _idade_s(p["em"]) >= 6 * 3600
+
+
+def _conferir_promos(forcar=False, avisar=False):
+    try:
+        d = ler()
+        if not promos_on(d):
+            return
+        dentro, _ = promocoes.servicos(promos_aparelhos(d)[0])
+        lidas = dict(promos_ler().get("servicos") or {})
+        for s in dentro:
+            if _promo_velha(lidas.get(s["id"]), forcar):
+                lidas[s["id"]] = ler_pagina_promo(s, d, lidas.get(s["id"]))
+                log("Promoções:", s["nome"], lidas[s["id"]]["status"], len(lidas[s["id"]]["promocoes"]))
+        hoje = date.today().isoformat()
+        with _trava_promos_arq:
+            c = promos_ler()
+            c["servicos"] = {k: v for k, v in lidas.items() if k in promocoes.POR_ID}
+            vistas = c.get("vistas") or {}
+            atuais = {promocoes.id_promo(k, x) for k, v in c["servicos"].items() for x in promocoes.valendo(v)}
+            c["vistas"] = {k: vistas.get(k, hoje) for k in atuais}  # quando cada promoção apareceu
+            c["em"] = agora_iso()
+            if avisar:
+                c["dia"] = hoje
+            promos_gravar(c)
+    except Exception as e:  # noqa: BLE001
+        log("Promoções:", e)
+    finally:
+        _promos_conferindo.clear()
+    if avisar:
+        try:
+            avisar_promos(ler())
+        except Exception as e:  # noqa: BLE001
+            log("Aviso de promoções:", e)
+
+
+def iniciar_promos(forcar=False, avisar=False, esperar=False):
+    with _trava_promos:
+        if _promos_conferindo.is_set():
+            return False
+        _promos_conferindo.set()
+    if esperar:
+        _conferir_promos(forcar, avisar)
+    else:
+        threading.Thread(target=_conferir_promos, args=(forcar, avisar), daemon=True).start()
+    return True
+
+
+def promos_vez(d):
+    """Na rotina: com Conferir sozinho ligado, uma vez por dia a partir do horário das dicas, confere e avisa."""
+    if promos_on(d) and d["ajustes"].get("dicas_auto") is not False and hora_das_dicas(d) and promos_ler().get("dia") != date.today().isoformat():
+        return iniciar_promos(avisar=True)
+    return False
+
+
+def promos_estado(d, disparar=True):
+    """Para a tela: as promoções que valem nos seus aparelhos (da mais nova para a mais velha), a situação de cada
+    assinatura e as que ficam de fora."""
+    if not promos_on(d):
+        return {"ligado": False}
+    tem, inv = promos_aparelhos(d)
+    dentro, fora = promocoes.servicos(tem)
+    c = promos_ler()
+    lidas, vistas, paga = c.get("servicos") or {}, c.get("vistas") or {}, promocoes.de_quem_paga(d)
+    disparou = bool(disparar and any(_promo_velha(lidas.get(s["id"])) for s in dentro) and iniciar_promos())
+    lista, servs = [], []
+    for s in dentro:
+        l = lidas.get(s["id"]) or {}
+        vale = promocoes.valendo(l)
+        servs.append({"id": s["id"], "nome": s["nome"], "tipo": s["tipo"], "url": s["url"], "status": l.get("status") or "pendente",
+                      "em": l.get("em"), "promocoes": len(vale)})
+        for x in vale:
+            pid = promocoes.id_promo(s["id"], x)
+            lista.append({**x, "id": pid, "servico": s["id"], "nome": s["nome"], "url": s["url"], "visto": vistas.get(pid, ""),
+                          **({"paga": paga[s["id"]]} if s["id"] in paga else {})})
+    lista.sort(key=lambda x: (x["nome"], x["preco"]))
+    lista.sort(key=lambda x: x["visto"] or "", reverse=True)  # as mais novas primeiro
+    return {"ligado": True, "promocoes": lista, "servicos": servs, "fora": [s["nome"] for s in fora],
+            "aparelhos": promocoes.nomes_aparelhos(tem) if tem else [], "inventaria": inv,
+            "conferindo": disparou or _promos_conferindo.is_set(), "atualizado": c.get("em")}
+
+
+def promos_recentes(d, hoje=None):
+    """As promoções que apareceram nos últimos 7 dias (os Avisos da Agora e do CronologIA)."""
+    if not promos_on(d):
+        return []
+    limite = ((hoje or date.today()) - timedelta(days=PROMOS_NOVA_DIAS - 1)).isoformat()
+    return [x for x in promos_estado(d, disparar=False)["promocoes"] if x["visto"] and x["visto"] >= limite]
+
+
+def avisar_promos(d, silencioso=False):
+    """Uma promoção nova vai para os celulares das Dicas de economia (Avisar no celular), uma vez cada. silencioso:
+    só anota."""
+    aj = d["ajustes"]
+    if not promos_on(d):
+        return 0
+    atuais = {x["id"]: x for x in promos_estado(d, disparar=False)["promocoes"]}
+    with _trava_promos_arq:
+        c = promos_ler()
+        antes = c.get("avisadas") or {}
+        novas = [x for k, x in atuais.items() if k not in antes]
+        enviados = 0
+        if novas and aj.get("dicas_aviso") is True and not silencioso:
+            try:
+                alvos = _celulares_de(aj.get("dicas_para"))
+            except Exception as e:  # noqa: BLE001
+                log("Aviso de promoções: não consegui ver as pessoas da casa:", e)
+                return 0
+            enviados = AVISOS.enviar(alvos, avisos.texto_promocoes([promocoes.linha(x["nome"], x) for x in novas]),
+                                     "gerencia-promocoes", caminho="/promocoes") if alvos else 0
+        avisadas = {k: antes.get(k) or date.today().isoformat() for k in atuais}
+        if avisadas != antes:
+            c["avisadas"] = avisadas
+            promos_gravar(c)
+    return enviados
+
+
 # ---------------------------------------------------------------- Falar (fala para texto do Home Assistant)
 
 VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get("GERENCIA_HA_WS"),
@@ -3069,7 +3279,7 @@ class Handler(BaseHTTPRequestHandler):
                 ate = date.fromisoformat(q.get("ate", [(hoje + timedelta(days=62)).isoformat()])[0])
                 d = ler()
                 return self.enviar(200, dict(integracao.listar(d, de, ate, hoje), versao=VERSAO, painel=avisos.endereco_app(),
-                                             avisos=integracao.avisos(d, emails_pendentes(d), hoje)))
+                                             avisos=integracao.avisos(d, emails_pendentes(d), hoje, promos_recentes(d, hoje))))
             if p == "/api/export/json":
                 return self.baixar(json.dumps(ler(), ensure_ascii=False, indent=1).encode(),
                                    "application/json", nome_arquivo("json"))
@@ -3098,6 +3308,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, dicas_estado(ler()))
             if p == "/api/oportunidades":
                 return self.enviar(200, oport_estado(ler()))
+            if p == "/api/promocoes":
+                return self.enviar(200, promos_estado(ler()))
             if p == "/api/senhas":
                 return self.enviar(200, {"senhas": senhas_listar()})
             if p == "/api/emails":
@@ -3205,6 +3417,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, oport_estado(ler(), disparar=False))
             if p == "/api/oportunidades/testar":
                 return self.enviar(200, testar_oport(self.headers.get("X-Remote-User-Id")))
+            if p == "/api/promocoes/conferir":
+                iniciar_promos(forcar=True)
+                return self.enviar(200, promos_estado(ler(), disparar=False))
             if p == "/api/dicas/conferir":
                 iniciar_conferencia(forcar=True, manual=True)
                 return self.enviar(200, dicas_estado(ler(), disparar=False))
@@ -3795,6 +4010,7 @@ def rotina():
             publicar_correria(d)
             dicas_estado(d)  # confere assinaturas novas e, a partir das 8h, os preços mais velhos que a frequência escolhida
             avisar_dicas(d)  # uma dica nova vai para o celular de quem foi escolhido
+            promos_vez(d)  # 1.64.0: as assinaturas em promoção, uma vez por dia a partir do horário das dicas
             publicar_uso_sensor()  # zera na virada do dia e volta depois que o Home Assistant reinicia
         except Exception as e:  # noqa: BLE001
             log("Rotina:", e)

@@ -95,10 +95,10 @@ class TelaMais(Tela):
         cls.pg.add_style_tag(content=SEM_ANIMACAO)
         cls.pg.set_default_timeout(5000)  # um clique que não acha o botão falha logo, sem esperar 30 s
 
-    def abrir(self, d=None, ui=None, bens=None):
-        # um pedido de dicas agendado por um teste anterior não entra no meio deste
-        self.js("(clearTimeout(T.dicasAgenda), clearTimeout(T.dicasTimer), true)")
-        super().abrir(d, ui, bens)
+    def abrir(self, d=None, ui=None, bens=None, promos=None):
+        # um pedido de dicas (ou das promoções) agendado por um teste anterior não entra no meio deste
+        self.js("(clearTimeout(T.dicasAgenda), clearTimeout(T.dicasTimer), clearTimeout(T.promosTimer), true)")
+        super().abrir(d, ui, bens, promos)
 
     def esperar_aviso(self, parte, ms=3000):
         """Espera o aviso (toast) com este texto e devolve o texto inteiro."""

@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.64.0
+
+- **Assinaturas em promoção** no alto das Oportunidades (Mais › Benefícios): as assinaturas de vídeo, música e jogos (Netflix, Prime Video, Disney+, HBO Max, Globoplay, Paramount+, YouTube Premium, Crunchyroll, Rakuten Viki, Spotify, Xbox Game Pass, GeForce NOW, Boosteroid, Blacknut e outras) com preço promocional na página oficial, conferido todo dia.
+  - Só as que funcionam nos seus aparelhos do InventarIA (TV, celular, videogame); as outras ficam em **Fora dos seus aparelhos**.
+  - O preço por mês, o de sempre, por quantos meses e até quando; tocar abre a página para assinar.
+  - A promoção nova aparece nos Avisos da Agora e do CronologIA e vai para o celular com o **Avisar no celular** das Dicas de economia.
+
 ## 1.63.0
 
 - **Milhas** em Mais › Benefícios: um tipo novo, para cada programa de milhas ou pontos de cada pessoa. Fica no alto da lista, com o saldo, o nível, as milhas que vencem e quantas trocas já dão.
