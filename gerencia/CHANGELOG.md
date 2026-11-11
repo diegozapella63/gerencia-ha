@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.61.0
+
+- Os **Avisos** do Início também aparecem no Agora do **CronologIA** (1.79.0 ou mais novo), com a integração ligada: as faturas que chegaram por e-mail para conferir, o investimento que vence logo ou venceu, os valores para atualizar, os índices parados e os benefícios para usar. Um toque lá abre o GerencIA no lugar certo. As contas continuam no card Contas a pagar de lá.
+
 ## 1.60.0
 
 - **Sensores novos** no Home Assistant (com **Sensores no Home Assistant** ligado em **Mais › Configurações › Integrações**):

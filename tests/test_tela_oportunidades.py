@@ -259,6 +259,11 @@ class TestAvisoNoCelular(TelaOport):
         self.pg.wait_for_selector("#oportunidades")
         self.js("(T.ROTA_HA = '/outra', T.irRotaHA(), true)")
         self.assertEqual(self.js("T.S.ui.maisTela"), "invest", "outro caminho não muda nada")
+        # 1.61.0: os avisos do GerencIA no Agora do CronologIA abrem o Início ou os Benefícios
+        self.js("(T.ROTA_HA = '/beneficios', T.irRotaHA(), true)")
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "beneficios"])
+        self.js("(T.ROTA_HA = '/agora', T.irRotaHA(), true)")
+        self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["inicio", ""])
 
     def test_menu_mais_fala_das_oportunidades(self):
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais"})

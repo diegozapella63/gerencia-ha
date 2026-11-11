@@ -6,7 +6,8 @@ cabeçalho Authorization: Bearer <chave>. Quem já lê a pasta share também lê
 GerencIA que ficam lá, então a chave não abre nada que já não estivesse aberto.
 
 Rotas:
-  GET  /api/integracao/contas?de=AAAA-MM-DD&ate=AAAA-MM-DD   contas a pagar (e pagas) no período
+  GET  /api/integracao/contas?de=AAAA-MM-DD&ate=AAAA-MM-DD   contas a pagar (e pagas) no período, os avisos do Início
+                                                             (avisos) e o endereço do app no Home Assistant (painel)
   POST /api/integracao/pagar     {id, valor?}                 dá baixa, como o "Paguei" do app
   POST /api/integracao/desfazer  {id}                         volta para "a pagar"
   POST /api/integracao/nova      {descricao, valor, vencimento, repete: nao|mensal|anual, categoria?}
@@ -205,6 +206,95 @@ def listar(d, de, ate, hoje=None):
     categorias = [{"id": c.get("id"), "nome": c.get("nome", "")} for c in d.get("categorias", [])
                   if c.get("tipo", "despesa") == "despesa"]
     return {"hoje": hoje.isoformat(), "contas": out, "categorias": categorias}
+
+
+# ---------------------------------------------------------------- avisos
+# Os avisos do Início (avisosEmail, os dos investimentos, avisoIndices e avisosBeneficios no app.js), para o Agora do
+# CronologIA. As contas atrasadas e as que vencem logo ficam de fora: lá elas já estão em Contas a pagar.
+def _plural(n, um, varios):
+    return f"{n} {um if n == 1 else varios}"
+
+
+def _dd_mm(d):
+    return f"{d.day:02d}/{d.month:02d}"
+
+
+def _quando_vence(dias):
+    return "venceu" if dias < 0 else "hoje" if dias == 0 else "amanhã" if dias == 1 else f"em {dias} dias"
+
+
+def _qtd_beneficio(b, v):
+    if b.get("tipo") == "saldo":
+        txt = calc.fmt_num(v, 2)
+        return f"{ {'USD': 'US$'}.get(b.get('moeda'), 'R$') } {txt[:-3] if txt.endswith(',00') else txt}"
+    return calc.fmt_num(v, 0)
+
+
+def _aviso_email(it):
+    """Uma fatura (ou foto pelo WhatsApp) para conferir: como no avisosEmail."""
+    estado, r = it.get("estado"), it.get("resultado") or {}
+    lanc = calc.sem_pagamentos_fatura(r.get("lancamentos"))
+    if estado == "lendo":
+        resumo = "lendo com IA…"
+    elif estado == "senha":
+        resumo = "o PDF tem senha"
+    elif estado == "erro":
+        resumo = it.get("erro") or "não consegui ler"
+    elif r.get("lancamentos"):
+        resumo = _plural(len(lanc), "lançamento", "lançamentos")
+    else:
+        resumo = _plural(len(r.get("investimentos") or []), "investimento", "investimentos")
+    total = sum((-1 if x.get("tipo") == "receita" else 1) * calc.num(x.get("valor")) for x in lanc) if estado == "conferir" else 0
+    zap = it.get("origem") == "whatsapp"
+    return {"id": f"email:{it.get('id')}", "tipo": "erro" if estado == "erro" else "senha" if estado == "senha" else "whatsapp" if zap else "email",
+            "titulo": f"Enviado por {it.get('de')}" if zap else f"Fatura {it.get('de') or it.get('endereco')}",
+            "texto": f"{'Pelo WhatsApp' if zap else 'Por e-mail'} · {resumo}", "valor": round(total, 2) if total > 0 else None,
+            "caminho": "/agora"}
+
+
+def avisos(d, emails_itens=(), hoje=None):
+    """[{id, tipo, titulo, texto, valor?, dias?, n?, caminho}]: tipo diz o ícone (email, whatsapp, senha, erro, venceu,
+    vence, valores, indices, beneficio, beneficio_para) e caminho, onde o toque abre o GerencIA (/agora ou /beneficios).
+    emails_itens: os e-mails e fotos pendentes que a tela mostra (o server.py filtra pelas opções)."""
+    hoje = hoje or date.today()
+    out = [_aviso_email(it) for it in emails_itens]
+    invs = [i for i in d.get("investimentos") or [] if isinstance(i, dict)]
+    vencidos = [i for i in invs if (calc.parse_data(i.get("vencimento")) or hoje) < hoje]
+    if vencidos:
+        out.append({"id": "inv:vencidos", "tipo": "venceu", "caminho": "/agora",
+                    "titulo": "Um investimento venceu" if len(vencidos) == 1 else f"{len(vencidos)} investimentos venceram",
+                    "texto": ", ".join(str(i.get("nome") or "") for i in vencidos)})
+    breve = sorted(((calc.parse_data(i.get("vencimento")), i) for i in invs if (calc.parse_data(i.get("vencimento")) or date.min) >= hoje),
+                   key=lambda x: x[0])
+    if breve and (breve[0][0] - hoje).days <= 30:
+        dias = (breve[0][0] - hoje).days
+        out.append({"id": "inv:vence", "tipo": "vence", "titulo": f"Vence {_quando_vence(dias)}", "dias": dias, "caminho": "/agora",
+                    "texto": f"{breve[0][1].get('nome') or ''} · decida para onde vai o dinheiro"})
+    velhos = [i for i in invs if i.get("indexador") != "parado" and (hoje - (calc.parse_data(i.get("data_valor")) or hoje)).days > 60]
+    if velhos:
+        out.append({"id": "inv:valores", "tipo": "valores", "titulo": "Atualize os valores", "n": len(velhos), "caminho": "/agora",
+                    "texto": (f"{velhos[0].get('nome') or ''} está" if len(velhos) == 1 else f"{len(velhos)} investimentos estão") + " sem atualizar há mais de 2 meses"})
+    ind = d.get("indices") or {}
+    em = calc.parse_data(str(ind.get("atualizado_em") or "")[:10]) if ind.get("fonte") == "bcb" and ind.get("auto") is not False else None
+    if em and (hoje - em).days > 3:
+        out.append({"id": "indices", "tipo": "indices", "titulo": "Índices sem atualizar", "caminho": "/agora",
+                    "texto": f"{'O Banco Central não responde' if ind.get('erro') else 'Sem os do Banco Central'} desde {_dd_mm(em)}"})
+    usar, parar = [], []
+    for b in d.get("beneficios") or []:
+        if not isinstance(b, dict):
+            continue
+        c, o = calc.ciclo_beneficio(b, hoje), calc.origem_beneficio(b, d, hoje)
+        if not o["ativa"] and b.get("origem"):
+            parar.append(f"{b.get('nome')}: " + (f"o fixo {o['nome']} acabou" if o["tipo"] == "fixo" else "a conta saiu de Bancos"))
+        elif (c["restante"] or 0) > 0 and not c["vencido"] and c["ate"] and (date.fromisoformat(c["ate"]) - hoje).days <= 30:
+            usar.append(f"{b.get('nome')} ({_qtd_beneficio(b, c['restante'])}) até {_dd_mm(date.fromisoformat(c['ate']))}")
+    if usar:
+        out.append({"id": "ben:usar", "tipo": "beneficio", "caminho": "/beneficios", "texto": ", ".join(usar),
+                    "titulo": "Benefício para usar" if len(usar) == 1 else f"{len(usar)} benefícios para usar"})
+    if parar:
+        out.append({"id": "ben:parar", "tipo": "beneficio_para", "caminho": "/beneficios", "texto": ", ".join(parar),
+                    "titulo": "Benefício que vai parar" if len(parar) == 1 else f"{len(parar)} benefícios que vão parar"})
+    return out
 
 
 def _materializar(l, **extra):

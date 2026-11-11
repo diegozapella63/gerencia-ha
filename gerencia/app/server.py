@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.60.0"
+VERSAO = "1.61.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3027,7 +3027,9 @@ class Handler(BaseHTTPRequestHandler):
                 hoje = date.today()
                 de = date.fromisoformat(q.get("de", [(hoje - timedelta(days=31)).isoformat()])[0])
                 ate = date.fromisoformat(q.get("ate", [(hoje + timedelta(days=62)).isoformat()])[0])
-                return self.enviar(200, dict(integracao.listar(ler(), de, ate, hoje), versao=VERSAO))
+                d = ler()
+                return self.enviar(200, dict(integracao.listar(d, de, ate, hoje), versao=VERSAO, painel=avisos.endereco_app(),
+                                             avisos=integracao.avisos(d, emails_pendentes(d), hoje)))
             if p == "/api/export/json":
                 return self.baixar(json.dumps(ler(), ensure_ascii=False, indent=1).encode(),
                                    "application/json", nome_arquivo("json"))
@@ -3445,6 +3447,15 @@ def emails_estado(forcar=False):
             "contas": contas_imap(forcar) if ligado else None,
             "procura": dict(PROCURA),
             "itens": [email_publico(x) for x in emails_ler()["itens"] if not _email_nunca(x, d)]}
+
+
+def emails_pendentes(d):
+    """Os e-mails e as fotos pelo WhatsApp que o Início mostra nos Avisos (emailsPendentes no app.js), para o CronologIA."""
+    aj = d["ajustes"]
+    if not ia_ligada(d) or not (aj.get("email") is True or aj.get("correria") is True):
+        return []
+    return [x for x in (email_publico(it) for it in emails_ler()["itens"] if not _email_nunca(it, d))
+            if x["estado"] in ("conferir", "senha", "lendo", "erro") and (aj.get("email") is True or x["origem"] == "whatsapp")]
 
 
 def _email_nunca(it, d):

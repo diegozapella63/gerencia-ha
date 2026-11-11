@@ -1893,7 +1893,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.60.0';
+const VERSAO = '1.61.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -8878,6 +8878,9 @@ function irRotaHA() {
   const r = ROTA_HA;
   ROTA_HA = null;
   if (r === '/oportunidades') { if (FOLHA) fecharFolha(); irPara('mais', 'oportunidades', 'invest'); }
+  // 1.61.0: o toque num aviso do GerencIA no Agora do CronologIA: os Avisos do Início ou os Benefícios
+  else if (r === '/agora') { if (FOLHA) fecharFolha(); irPara('inicio'); }
+  else if (r === '/beneficios') { if (FOLHA) fecharFolha(); irPara('mais', null, 'beneficios'); }
 }
 if (window.parent !== window && !DEMO) {
   window.addEventListener('message', e => {

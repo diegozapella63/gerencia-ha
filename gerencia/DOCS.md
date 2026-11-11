@@ -343,6 +343,7 @@ O [CronologIA](https://github.com/diegozapella63/cronologia-ha) é o app de agen
 
 - as contas a pagar, os fixos e as faturas do cartão aparecem no calendário do CronologIA, no dia do vencimento, e no card **Contas a pagar** da tela Agora (atrasadas primeiro);
 - **Paguei** no CronologIA dá baixa aqui: o fixo do mês vira um lançamento pago, a fatura fica toda paga e uma conta avulsa fica paga. **Desfazer** volta para "a pagar";
+- os **Avisos** do Início (as faturas que chegaram por e-mail ou pelo WhatsApp para conferir, o investimento que vence logo ou venceu, os valores para atualizar, os índices parados e os benefícios para usar) aparecem no card **Avisos do GerencIA** da Agora do CronologIA; um toque lá abre o GerencIA no Início ou nos Benefícios. As contas atrasadas e as que vencem logo ficam só no card Contas a pagar de lá;
 - o modelo **Conta a pagar** do CronologIA cria a conta aqui: única (lançamento a pagar) ou fixa, todo mês ou todo ano.
 
 Recebimentos, ajustes de saldo e despesas descontadas do salário não aparecem como contas. Os aportes aparecem, porque são compromissos (contas a pagar do tipo Aporte).

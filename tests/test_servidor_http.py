@@ -353,6 +353,27 @@ class TestConexaoComOCronologIA(unittest.TestCase):
         self.assertEqual((st, r["erro"]), (400, "Período inválido."))
         self.assertEqual(self.s.get("/api/integracao/contas?de=ontem", cabecalhos=self.auth)[0], 400, "data ruim")
 
+    def test_os_avisos_do_inicio_vao_junto(self):
+        # 1.61.0: os avisos do Início (aqui, uma foto pelo WhatsApp para conferir) e o endereço do app, para o Agora do CronologIA
+        arq = os.path.join(self.s.dirs["data"], "emails.json")
+        with open(arq, "w", encoding="utf-8") as f:
+            json.dump({"itens": [{"id": "0123456789ab", "estado": "conferir", "origem": "whatsapp", "de": "Ana",
+                                  "resultado": {"lancamentos": [{"tipo": "despesa", "valor": 42, "descricao": "Padaria"}]}},
+                                 {"id": "0123456789ac", "estado": "feito", "origem": "whatsapp", "de": "Ana"}]}, f)
+        try:
+            _, _, r = self.s.get("/api/integracao/contas", cabecalhos=self.auth)
+            self.assertEqual((r["avisos"], r["painel"]), ([], None), "sem a opção CorrerIA (nem e-mail), nada; fora do Home Assistant, sem endereço")
+            _, _, d = self.s.get("/api/state")
+            d["ajustes"]["correria"] = True
+            self.s.put("/api/state", d)
+            _, _, r = self.s.get("/api/integracao/contas", cabecalhos=self.auth)
+            self.assertEqual([(a["titulo"], a["texto"], a["valor"]) for a in r["avisos"]], [("Enviado por Ana", "Pelo WhatsApp · 1 lançamento", 42.0)])
+        finally:
+            os.remove(arq)
+            _, _, d = self.s.get("/api/state")
+            d["ajustes"]["correria"] = False
+            self.s.put("/api/state", d)
+
     def test_desligar_apaga_o_arquivo_e_fecha_a_porta(self):
         _, _, d = self.s.get("/api/state")
         d["ajustes"]["integracao"] = False

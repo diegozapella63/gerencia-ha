@@ -249,9 +249,6 @@ class TestNova(unittest.TestCase):
         self.assertIn(cid, [c["id"] for c in contas], "aparece na lista como fixo")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestBordasDoContrato(unittest.TestCase):
     """O que o CronologIA mostra e faz em casos de borda (o formato não pode mudar sem mudar o outro app)."""
@@ -412,3 +409,87 @@ class TestSensoresContas(unittest.TestCase):
         d["bancos"].append({"id": "b2", "nome": "Banco Azul", "contas": [{"id": "conta-x9", "pessoa": "Ana", "cartao": True}, {"id": "cc2", "pessoa": "Beto"}]})
         ids = sorted(e for e in I.sensores_contas(d, HOJE) if "fatura" in e)
         self.assertEqual(ids, ["sensor.gerencia_fatura_banco_azul_ana", "sensor.gerencia_fatura_banco_azul_ana_tax9"], "a conta sem cartão fica de fora")
+
+class TestAvisos(unittest.TestCase):
+    """1.61.0: os avisos do Início para o Agora do CronologIA (as contas ficam de fora: lá já estão em Contas a pagar)."""
+
+    def test_sem_nada(self):
+        self.assertEqual(I.avisos({"investimentos": [], "beneficios": []}, [], HOJE), [])
+
+    def test_faturas_e_fotos_para_conferir(self):
+        itens = [
+            {"id": "a1", "estado": "conferir", "origem": "email", "de": "Banco Azul", "endereco": "fatura@bancoazul.com.br",
+             "resultado": {"lancamentos": [{"tipo": "despesa", "valor": 100, "cartao": True}, {"tipo": "despesa", "valor": 20.5, "cartao": True},
+                                           {"tipo": "receita", "valor": 300, "cartao": True, "descricao": "Pagamento recebido"}]}},
+            {"id": "a2", "estado": "conferir", "origem": "email", "de": "", "endereco": "x@corretora.com", "resultado": {"investimentos": [{}]}},
+            {"id": "a3", "estado": "senha", "origem": "email", "de": "Banco Azul"},
+            {"id": "a4", "estado": "erro", "origem": "email", "de": "Banco Azul", "erro": ""},
+            {"id": "a5", "estado": "lendo", "origem": "whatsapp", "de": "Ana"},
+        ]
+        av = I.avisos({}, itens, HOJE)
+        self.assertEqual([(a["id"], a["tipo"], a["titulo"], a["texto"], a.get("valor")) for a in av], [
+            ("email:a1", "email", "Fatura Banco Azul", "Por e-mail · 2 lançamentos", 120.5),
+            ("email:a2", "email", "Fatura x@corretora.com", "Por e-mail · 1 investimento", None),
+            ("email:a3", "senha", "Fatura Banco Azul", "Por e-mail · o PDF tem senha", None),
+            ("email:a4", "erro", "Fatura Banco Azul", "Por e-mail · não consegui ler", None),
+            ("email:a5", "whatsapp", "Enviado por Ana", "Pelo WhatsApp · lendo com IA…", None)])
+        self.assertTrue(all(a["caminho"] == "/agora" for a in av))
+
+    def test_investimentos_e_indices(self):
+        invs = [{"nome": "CDB Azul", "vencimento": "2026-11-10", "data_valor": "2026-11-01"},
+                {"nome": "LCI Verde", "vencimento": "2026-12-01", "data_valor": "2026-11-01"},
+                {"nome": "CDB Lilás", "vencimento": "2026-11-15", "data_valor": "2026-08-01"},
+                {"nome": "Poupança", "indexador": "parado", "data_valor": "2025-01-01"}]
+        d = {"investimentos": invs, "indices": {"fonte": "bcb", "atualizado_em": "2026-11-10T08:00:00-03:00"}}
+        av = {a["id"]: a for a in I.avisos(d, [], HOJE)}
+        self.assertEqual((av["inv:vencidos"]["titulo"], av["inv:vencidos"]["texto"]), ("Um investimento venceu", "CDB Azul"))
+        self.assertEqual((av["inv:vence"]["titulo"], av["inv:vence"]["dias"], av["inv:vence"]["texto"]),
+                         ("Vence hoje", 0, "CDB Lilás · decida para onde vai o dinheiro"))
+        self.assertEqual((av["inv:valores"]["texto"], av["inv:valores"]["n"]), ("CDB Lilás está sem atualizar há mais de 2 meses", 1), "o parado fica de fora")
+        self.assertEqual(av["indices"]["texto"], "Sem os do Banco Central desde 10/11")
+        invs[1]["vencimento"] = "2026-11-16"
+        invs[3]["indexador"] = "cdi"
+        d["indices"].update(erro="sem resposta")
+        av = {a["id"]: a for a in I.avisos(d, [], HOJE)}
+        self.assertEqual((av["inv:vence"]["titulo"], av["inv:valores"]["texto"]), ("Vence hoje", "2 investimentos estão sem atualizar há mais de 2 meses"))
+        self.assertEqual(av["indices"]["texto"], "O Banco Central não responde desde 10/11")
+        invs[2]["vencimento"] = "2026-11-17"
+        self.assertEqual(next(a for a in I.avisos(d, [], HOJE) if a["id"] == "inv:vence")["titulo"], "Vence amanhã")
+        invs[1]["vencimento"] = invs[2]["vencimento"] = "2026-12-01"
+        self.assertEqual(next(a for a in I.avisos(d, [], HOJE) if a["id"] == "inv:vence")["titulo"], "Vence em 16 dias")
+        invs[1]["vencimento"] = invs[2]["vencimento"] = "2027-01-01"
+        invs[0]["vencimento"] = "2026-11-01"
+        invs.append({"nome": "LCA Rosa", "vencimento": "2026-10-01", "data_valor": "2026-11-01"})
+        d["indices"] = {"fonte": "bcb", "auto": False, "atualizado_em": "2026-10-01"}
+        av = {a["id"]: a for a in I.avisos(d, [], HOJE)}
+        self.assertEqual(av["inv:vencidos"]["titulo"], "2 investimentos venceram")
+        self.assertNotIn("inv:vence", av, "mais de 30 dias")
+        self.assertNotIn("indices", av, "à mão: sem aviso")
+        d["indices"] = {"fonte": "bcb", "atualizado_em": "2026-11-13T08:00:00-03:00"}
+        self.assertNotIn("indices", {a["id"] for a in I.avisos(d, [], HOJE)}, "até 3 dias, nada")
+
+    def test_beneficios(self):
+        d = dados()
+        d["beneficios"] = [
+            {"id": "b1", "nome": "Sala VIP", "origem": "conta:cc", "tipo": "contagem", "total": 4, "renova": "ano", "desde": "2025-12-01", "usos": [{"data": "2026-01-10", "qtd": 1}]},
+            {"id": "b2", "nome": "Créditos", "origem": "", "tipo": "saldo", "total": 50, "moeda": "USD", "renova": "mes", "desde": "2026-01-01", "usos": [{"data": "2026-11-02", "qtd": 12.5}]},
+            {"id": "b3", "nome": "Frete grátis", "origem": "fixo:sumiu", "tipo": "vantagem", "renova": "nunca"},
+            {"id": "b4", "nome": "Seguro", "origem": "conta:apagada", "tipo": "vantagem"},
+            {"id": "b5", "nome": "Cashback", "tipo": "saldo", "total": 30, "renova": "ano", "desde": "2026-06-01"},
+            {"id": "b6", "nome": "Milhas", "tipo": "saldo", "total": 30, "renova": "nunca", "validade": "2026-11-01"},
+        ]
+        av = {a["id"]: a for a in I.avisos(d, [], HOJE)}
+        self.assertEqual((av["ben:usar"]["titulo"], av["ben:usar"]["texto"], av["ben:usar"]["caminho"]),
+                         ("2 benefícios para usar", "Sala VIP (3) até 30/11, Créditos (US$ 37,50) até 30/11", "/beneficios"))
+        self.assertEqual((av["ben:parar"]["titulo"], av["ben:parar"]["texto"]),
+                         ("2 benefícios que vão parar", "Frete grátis: o fixo Fixo apagado acabou, Seguro: a conta saiu de Bancos"))
+        d["beneficios"] = [{"id": "b7", "nome": "Lavagem", "tipo": "saldo", "total": 100, "renova": "mes", "desde": "2026-01-01"}]
+        self.assertEqual([(a["titulo"], a["texto"]) for a in I.avisos(d, [], HOJE)], [("Benefício para usar", "Lavagem (R$ 100) até 30/11")])
+        d["beneficios"] = [{"id": "b8", "nome": "Netflix", "origem": "fixo:r-net", "tipo": "vantagem"}, "lixo"]
+        self.assertEqual(I.avisos(d, [], HOJE), [], "o fixo continua: nada")
+        d["beneficios"][0]["origem"] = "conta:apagada"
+        self.assertEqual([a["titulo"] for a in I.avisos(d, [], HOJE)], ["Benefício que vai parar"])
+
+
+if __name__ == "__main__":
+    unittest.main()
