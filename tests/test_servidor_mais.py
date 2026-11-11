@@ -1064,6 +1064,8 @@ class TestRotina(unittest.TestCase):
             raise Para()
 
         Trocar(self, BCB=srv.url + "/serie/{s}", FONTES_MOCK=FONTES, IA_MOCK=True)
+        # os sensores em segundo plano ficariam rodando depois daqui e chegariam no Home Assistant de mentira do próximo teste
+        Trocar(self, publicar_sensores_async=lambda d: None)
         Trocar(self, time=type("T", (), {"sleep": staticmethod(dormir), "time": staticmethod(time.time)}))
         with self.assertRaises(Para):
             S.rotina()
