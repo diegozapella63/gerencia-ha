@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.60.0
+
+- **Sensores novos** no Home Assistant (com **Sensores no Home Assistant** ligado em **Mais › Configurações › Integrações**):
+  - `sensor.gerencia_proxima_conta`: a próxima conta a pagar, quando vence e quantos dias faltam;
+  - `binary_sensor.gerencia_conta_vencida`: ligado com alguma conta vencida;
+  - `sensor.gerencia_fatura_<cartão>`: a fatura aberta de cada cartão, quando fecha e vence e quanto do limite está usado.
+- A aba **Documentação** traz exemplos de automação com eles.
+
 ## 1.59.0
 
 - **Início agora se chama Agora** (a aba, a barra lateral e o título), com o ícone do relógio, como a primeira aba de todos os apps da família.

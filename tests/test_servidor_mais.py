@@ -80,7 +80,7 @@ class TestSensores(unittest.TestCase):
         Trocar(self, TOKEN="token-teste", HA_API=self.ha.url, IA_MOCK=False)
         antes = dict(S._sensores)
         self.addCleanup(lambda: S._sensores.update(antes))
-        S._sensores["ligado"] = None
+        S._sensores.update(ligado=None, faturas=set())
 
     def enviados(self, metodo):
         return {p[1].split("/states/")[1]: json.loads(p[3] or b"{}") for p in self.ha.pedidos if p[0] == metodo and "/states/" in p[1]}
@@ -112,6 +112,32 @@ class TestSensores(unittest.TestCase):
         self.assertEqual(s["sensor.gerencia_saldo_caixa"]["state"], 200)
         self.assertEqual(s["sensor.gerencia_bens"]["attributes"]["itens"], 3)
         self.assertEqual(self.ha.pedidos[0][2]["Authorization"], "Bearer token-teste")
+
+    # 1.60.0: a próxima conta, a conta vencida e a fatura de cada cartão
+    def test_contas_e_faturas(self):
+        hoje = date.today()
+        d = dados(bancos=[{"id": "b", "nome": "Banco Azul", "contas": [{"id": "c1", "pessoa": "Ana", "cartao": True, "fechamento": 5, "vencimento": 10, "limite": 2000}]}],
+                  lancamentos=[{"id": "l", "tipo": "despesa", "descricao": "Luz", "valor": 150, "data": (hoje + timedelta(days=3)).isoformat(), "pago": False},
+                               {"id": "k", "tipo": "despesa", "descricao": "Mercado", "valor": 500, "data": hoje.isoformat(), "conta": "c1", "cartao": True, "pago": False}])
+        d["ajustes"]["sensores"] = True
+        S.publicar_sensores(d)
+        s = self.enviados("POST")
+        self.assertEqual((s["sensor.gerencia_proxima_conta"]["state"], s["sensor.gerencia_proxima_conta"]["attributes"]["dias"]), (150, 3))
+        self.assertEqual(s["binary_sensor.gerencia_conta_vencida"]["state"], "off")
+        f = s["sensor.gerencia_fatura_banco_azul_ana"]
+        self.assertEqual((f["state"], f["attributes"]["uso_limite"]), (500, 25.0))
+        self.assertEqual(S._sensores["faturas"], {"sensor.gerencia_fatura_banco_azul_ana"})
+        # o cartão mudou de nome: o sensor de antes some
+        d["bancos"][0]["contas"][0]["pessoa"] = "Beto"
+        S.publicar_sensores(d)
+        self.assertIn("sensor.gerencia_fatura_banco_azul_ana", self.enviados("DELETE"))
+        self.assertIn("sensor.gerencia_fatura_banco_azul_beto", self.enviados("POST"))
+        # desligado: os de todos os cartões somem
+        self.ha.pedidos.clear()
+        d["ajustes"]["sensores"] = False
+        S.publicar_sensores(d)
+        self.assertEqual(set(self.enviados("DELETE")), set(S.SENSORES) | {"sensor.gerencia_fatura_banco_azul_beto"})
+        self.assertEqual(S._sensores["faturas"], set())
 
     def test_home_assistant_recusando_para_no_primeiro(self):
         self.ha.rotas = _Tudo(500)

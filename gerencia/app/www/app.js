@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.59.0';
+const VERSAO = '1.60.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5273,18 +5273,28 @@ function simBeneficios(texto) {
   return out;
 }
 
+// o sensor da fatura de cada cartão (sensor.gerencia_fatura_banco_azul_ana): igual ao _id_cartao do integracao.py
+function sensoresFatura() {
+  const usados = new Set();
+  return contas().filter(c => c.cartao).map(c => {
+    const base = semAcento(nomeConta(c)).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'cartao';
+    const s = usados.has(base) ? `${base}_${String(c.id).toLowerCase().replace(/[^a-z0-9]/g, '').slice(-4)}` : base;
+    usados.add(s);
+    return '_fatura_' + s;
+  });
+}
 /* --------- Integrações: outros apps, IA, uso da IA e sensores */
 function maisIntegracoes() {
   const a = S.d.ajustes, sens = a.sensores === true;
   // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
-  const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes',
-    ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
+  const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes', '_proxima_conta',
+    ...sensoresFatura(), ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
   // a ordem da família: os outros apps › CorrerIA › IA do Home Assistant (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
   return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para painéis e automações.')}
       ${linhaChave('sensores', sens, 'Criar os sensores', sens
-        ? `Ligado: <code>sensor.gerencia_patrimonio</code>, ${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}. Atualizam a cada mudança e a cada 15 minutos.`
+        ? `Ligado: <code>sensor.gerencia_patrimonio</code>, ${lista.join(', ')} e <code>binary_sensor.gerencia_conta_vencida</code>. Atualizam a cada mudança e a cada 15 minutos.`
         : 'Desligado: nenhum sensor no Home Assistant.')}
       ${sens && iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
     </section>`;

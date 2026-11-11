@@ -769,16 +769,27 @@ class TestIntegracoes(TelaMais):
         self.assertEqual(self.conta("#sensores .nota"), 0, "desligados: sem a nota do sensor de IA")
         self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
         t = self.texto("#sensores")
-        self.assertIn("_saidas_mes e _ia_hoje. Atualizam", t, "sem o InventarIA, sem o sensor dos bens")
+        self.assertIn("_fatura_banco_azul_beto, _ia_hoje e binary_sensor.gerencia_conta_vencida. Atualizam", t, "sem o InventarIA, sem o sensor dos bens")
         self.assertNotIn("_bens", t)
         self.assertEqual(self.texto("#sensores .nota"), "sensor.gerencia_ia_hoje: chamadas de IA de hoje, com erros, cota e tokens.")
         self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=sens), bens=BENS)
-        self.assertIn("_saidas_mes, _ia_hoje e _bens. Atualizam", self.texto("#sensores"), "com o InventarIA, o dos bens")
+        self.assertIn("_ia_hoje, _bens e binary_sensor.gerencia_conta_vencida. Atualizam", self.texto("#sensores"), "com o InventarIA, o dos bens")
         self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=dict(sens, ia=False)), bens=BENS)
         t = self.texto("#sensores")
-        self.assertIn("_saidas_mes e _bens. Atualizam", t, "com a IA desligada, sem o sensor da IA")
+        self.assertIn("_proxima_conta, _fatura_banco_azul_ana, _fatura_banco_azul_beto, _bens e binary_sensor.gerencia_conta_vencida. Atualizam", t, "com a IA desligada, sem o sensor da IA; a fatura de cada cartão")
         self.assertNotIn("_ia_hoje", t)
         self.assertEqual(self.conta("#sensores .nota"), 0)
+
+    # 1.60.0: o nome do sensor da fatura na tela é o mesmo que o servidor cria (acentos, sem pessoa, nome repetido)
+    def test_sensor_da_fatura_igual_ao_do_servidor(self):
+        import integracao as I
+        bancos = [{"id": "b1", "nome": "Banco Ômega", "contas": [{"id": "k-1", "pessoa": "Zé", "cartao": True}, {"id": "k-2", "pessoa": "", "cartao": True},
+                                                                 {"id": "k-3", "pessoa": "Ana", "cartao": False}]},
+                  {"id": "b2", "nome": "Banco Ômega", "contas": [{"id": "conta-B7", "pessoa": "Zé", "cartao": True}]}]
+        self.abrir_int(base(bancos=bancos, ajustes={"corrigir": True, "sensores": True}))
+        esperado = [e.replace("sensor.gerencia", "") for e in I.sensores_contas({"bancos": bancos, "lancamentos": [], "recorrencias": []}) if "_fatura_" in e]
+        self.assertEqual(esperado, ["_fatura_banco_omega_ze", "_fatura_banco_omega", "_fatura_banco_omega_ze_tab7"])
+        self.assertIn(", ".join(esperado), self.texto("#sensores"))
 
     # (era bug até a 1.28.0: o quadro mandava para Mais › Invest, que não tinha as categorias do InventarIA)
     def test_bens_sem_item_com_valor_nao_manda_para_mais_invest(self):

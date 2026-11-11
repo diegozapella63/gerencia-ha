@@ -38,7 +38,7 @@ import pdf  # noqa: E402
 import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 
-VERSAO = "1.59.0"
+VERSAO = "1.60.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -318,23 +318,36 @@ def atualizar_indices():
 
 SENSORES = ("sensor.gerencia_patrimonio", "sensor.gerencia_meu", "sensor.gerencia_terceiros",
             "sensor.gerencia_rendimento_mensal", "sensor.gerencia_saldo_caixa", "sensor.gerencia_entradas_mes",
-            "sensor.gerencia_saidas_mes", "sensor.gerencia_ia_hoje", "sensor.gerencia_bens")
-_sensores = {"ligado": None}  # o último estado visto: desligar apaga os sensores uma vez
+            "sensor.gerencia_saidas_mes", "sensor.gerencia_ia_hoje", "sensor.gerencia_bens",
+            "sensor.gerencia_proxima_conta", "binary_sensor.gerencia_conta_vencida")
+# o último estado visto (desligar apaga os sensores uma vez) e os sensores das faturas já criados (um por cartão)
+_sensores = {"ligado": None, "faturas": set()}
 
 
 def sensores_ligados(d):
     return (d or {}).get("ajustes", {}).get("sensores") is True
 
 
-def remover_sensores():
-    """Sensores no Home Assistant desligado: os sensores que o app criou somem do Home Assistant."""
-    for ent in SENSORES:
-        req = urllib.request.Request(f"{HA_API}/states/{ent}", method="DELETE",
-                                     headers={"Authorization": f"Bearer {TOKEN}"})
-        try:
-            urllib.request.urlopen(req, timeout=10).read()
-        except Exception:  # noqa: BLE001  (já não existia, ou o Home Assistant está fora: some no próximo reinício)
-            pass
+def _apagar_sensor(ent):
+    req = urllib.request.Request(f"{HA_API}/states/{ent}", method="DELETE",
+                                 headers={"Authorization": f"Bearer {TOKEN}"})
+    try:
+        urllib.request.urlopen(req, timeout=10).read()
+    except Exception:  # noqa: BLE001  (já não existia, ou o Home Assistant está fora: some no próximo reinício)
+        pass
+
+
+def remover_sensores(d=None):
+    """Sensores no Home Assistant desligado: os sensores que o app criou somem do Home Assistant (as faturas: as
+    criadas desde que o app abriu e as dos cartões de agora)."""
+    faturas = set(_sensores.get("faturas") or ())
+    try:
+        faturas |= {e for e in integracao.sensores_contas(d) if e.startswith("sensor.gerencia_fatura_")} if d else set()
+    except Exception:  # noqa: BLE001
+        pass
+    _sensores["faturas"] = set()
+    for ent in sorted(faturas) + list(SENSORES):
+        _apagar_sensor(ent)
 
 
 def publicar_sensores(d):
@@ -344,7 +357,7 @@ def publicar_sensores(d):
     antes, _sensores["ligado"] = _sensores["ligado"], ligado
     if not ligado:
         if antes is not False:
-            remover_sensores()
+            remover_sensores(d)
         return
     t = calc.totais(d)
     base = {"unit_of_measurement": "BRL", "device_class": "monetary", "state_class": "total"}
@@ -370,10 +383,18 @@ def publicar_sensores(d):
     if b.get("ok"):
         sensores["sensor.gerencia_bens"] = (b["hoje"], "GerencIA Bens da casa", "mdi:sofa", {"registrado": b["registrado"], "perde_por_ano": b["perde_ano"], "itens": b["n"]})
         sensores["sensor.gerencia_patrimonio"][3]["com_bens"] = round(t["meu"] + b["hoje"], 2)
-    for ent, (valor, nome, icone, extra) in sensores.items():
-        corpo = json.dumps({"state": valor, "attributes": {**base, "friendly_name": nome, "icon": icone, **extra}})
+    corpos = {ent: {"state": valor, "attributes": {**base, "friendly_name": nome, "icon": icone, **extra}}
+              for ent, (valor, nome, icone, extra) in sensores.items()}
+    # 1.60.0: a próxima conta, a conta vencida e a fatura de cada cartão (sem state_class: não é um total que só cresce)
+    contas = integracao.sensores_contas(d)
+    corpos.update({ent: {"state": valor, "attributes": attrs} for ent, (valor, attrs) in contas.items()})
+    faturas = {e for e in contas if e.startswith("sensor.gerencia_fatura_")}
+    for ent in sorted(_sensores["faturas"] - faturas):  # um cartão que saiu (ou mudou de nome): o sensor dele some
+        _apagar_sensor(ent)
+    _sensores["faturas"] = faturas
+    for ent, corpo in corpos.items():
         req = urllib.request.Request(
-            f"{HA_API}/states/{ent}", data=corpo.encode(), method="POST",
+            f"{HA_API}/states/{ent}", data=json.dumps(corpo).encode(), method="POST",
             headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
         try:
             urllib.request.urlopen(req, timeout=10).read()

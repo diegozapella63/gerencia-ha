@@ -289,8 +289,41 @@ Com **Sensores no Home Assistant** ligado (em Mais › Configurações › Integ
 - `sensor.gerencia_saidas_mes` (atributos `a_pagar` e `atrasado`)
 - `sensor.gerencia_ia_hoje` (com a IA ligada): chamadas de IA de hoje, com erros, cota excedida, tokens estimados, por tipo, últimos 7 dias e mês
 - `sensor.gerencia_bens` (com o InventarIA): os bens da casa, já com a perda de valor (atributos `registrado`, `perde_por_ano` e `itens`)
+- `sensor.gerencia_proxima_conta`: o valor da próxima conta a pagar (hoje ou depois), com `descricao`, `vencimento`, `dias` (quantos faltam), `tipo` (conta, fixo ou fatura), `conta`, `categoria`, `vence_hoje` (quantas), `a_pagar_7_dias` e `proximas` (as dos próximos 30 dias); sem nada a pagar, fica desconhecido
+- `binary_sensor.gerencia_conta_vencida`: ligado com alguma conta vencida e não paga (dos últimos 2 meses), com `quantidade`, `total` e `contas`
+- `sensor.gerencia_fatura_<cartão>` (um por cartão de crédito, pelo nome do banco e da pessoa: `sensor.gerencia_fatura_banco_azul_ana`): a fatura aberta, a que pega uma compra de hoje, com `fecha`, `vence`, `dias_para_fechar`, `fechada` (a que já fechou e falta pagar: `valor` e `vence`) e, com o limite preenchido em Mais › Bancos, `limite`, `usado` (as compras ainda não pagas), `disponivel` e `uso_limite` (%)
 
 Eles são atualizados a cada alteração e a cada 15 minutos. Depois de reiniciar o Home Assistant, voltam em até 15 minutos.
+
+Exemplos de automação:
+
+```yaml
+# às 9h, um dia antes de vencer, um aviso no celular
+triggers:
+  - trigger: time
+    at: "09:00:00"
+conditions:
+  - condition: template
+    value_template: "{{ state_attr('sensor.gerencia_proxima_conta', 'dias') == 1 }}"
+actions:
+  - action: notify.mobile_app_celular_da_ana
+    data:
+      title: "Vence amanhã: {{ state_attr('sensor.gerencia_proxima_conta', 'descricao') }}"
+      message: "R$ {{ states('sensor.gerencia_proxima_conta') }}"
+```
+
+```yaml
+# o cartão passou de 80% do limite
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.gerencia_fatura_banco_azul_ana
+    attribute: uso_limite
+    above: 80
+actions:
+  - action: notify.mobile_app_celular_da_ana
+    data:
+      message: "O cartão já usou {{ state_attr('sensor.gerencia_fatura_banco_azul_ana', 'uso_limite') }}% do limite."
+```
 
 ## Bens no InventarIA
 

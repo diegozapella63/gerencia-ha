@@ -311,3 +311,74 @@ def nova(d, corpo):
     l = dict(base, id=uid(), data=venc.isoformat(), pago=False)
     d["lancamentos"].append(l)
     return l["id"]
+
+
+# ---------------------------------------------------------------- sensores das contas (1.60.0)
+
+def _curta(c):
+    return {"descricao": c["descricao"], "vencimento": c["vencimento"], "valor": c["valor"]}
+
+
+def _id_cartao(c, usados):
+    """sensor.gerencia_fatura_<banco_pessoa>: pelo nome do cartão, sem acento; repetido, com o fim do id da conta."""
+    base = re.sub(r"[^a-z0-9]+", "_", calc._sem_acento(calc.nome_conta(c)).lower()).strip("_") or "cartao"
+    s = base if base not in usados else f"{base}_{re.sub(r'[^a-z0-9]', '', str(c['id']).lower())[-4:]}"
+    usados.add(s)
+    return "sensor.gerencia_fatura_" + s
+
+
+def sensores_contas(d, hoje=None):
+    """Os sensores das contas a pagar e dos cartões, {entidade: (estado, atributos)}:
+    - sensor.gerencia_proxima_conta: o valor da próxima conta que vence (hoje ou depois), com o que é, quando vence e as
+      próximas de 30 dias;
+    - binary_sensor.gerencia_conta_vencida: ligado com alguma conta vencida e não paga (as dos últimos 2 meses, como no
+      CronologIA);
+    - sensor.gerencia_fatura_<cartão>: a fatura aberta de cada cartão (a que pega uma compra de hoje), quando fecha e
+      vence, a fechada que falta pagar e quanto do limite está usado (as compras não pagas, como no Bancos)."""
+    hoje = hoje or date.today()
+    contas = listar(d, hoje, hoje + timedelta(days=60), hoje)["contas"]
+    abertas = [c for c in contas if not c["pago"]]
+    vencidas = [c for c in abertas if c["atrasada"]]
+    proximas = [c for c in abertas if not c["atrasada"]]
+    out = {}
+    p = proximas[0] if proximas else None
+    em30 = [c for c in proximas if date.fromisoformat(c["vencimento"]) <= hoje + timedelta(days=30)]
+    em7 = [c for c in proximas if date.fromisoformat(c["vencimento"]) <= hoje + timedelta(days=7)]
+    out["sensor.gerencia_proxima_conta"] = (
+        p["valor"] if p else "unknown",
+        {"friendly_name": "GerencIA Próxima conta", "icon": "mdi:calendar-alert", "unit_of_measurement": "BRL",
+         "device_class": "monetary", "descricao": p["descricao"] if p else None, "vencimento": p["vencimento"] if p else None,
+         "dias": (date.fromisoformat(p["vencimento"]) - hoje).days if p else None, "tipo": p["tipo"] if p else None,
+         "conta": (p["conta"] or None) if p else None, "categoria": (p["categoria"] or None) if p else None,
+         "vence_hoje": len([c for c in proximas if c["vencimento"] == hoje.isoformat()]),
+         "a_pagar_7_dias": round(sum(c["valor"] for c in em7), 2), "proximas": [_curta(c) for c in em30[:10]]})
+    out["binary_sensor.gerencia_conta_vencida"] = (
+        "on" if vencidas else "off",
+        {"friendly_name": "GerencIA Conta vencida", "device_class": "problem", "icon": "mdi:cash-remove" if vencidas else "mdi:cash-check",
+         "quantidade": len(vencidas), "total": round(sum(c["valor"] for c in vencidas), 2), "contas": [_curta(c) for c in vencidas[:10]]})
+    # os cartões: a fatura aberta e a fechada que falta pagar, de todas as faturas que o caixa já tem
+    mapa = calc.mapa_contas(d)
+    faturas, _ = _faturas_e_contas(d, _ocorrencias(d, add_ym(hoje.isoformat()[:7], -2), add_ym(hoje.isoformat()[:7], 3)))
+    usados = set()
+    for cid, c in mapa.items():
+        if not c.get("cartao"):
+            continue
+        venc = calc.data_caixa({"data": hoje.isoformat(), "cartao": True, "conta": cid}, mapa)
+        fech_dia = int(c.get("fechamento") or 1)
+        fecha = calc._data_mes(hoje.year, hoje.month + (1 if hoje.day >= fech_dia else 0), fech_dia)
+        do_cartao = [f for f in faturas if f["id"].startswith(f"f:{cid}|")]
+        aberta = next((f for f in do_cartao if f["vencimento"] == venc.isoformat()), None)
+        fechada = min((f for f in do_cartao if not f["pago"] and hoje.isoformat() <= f["vencimento"] < venc.isoformat()),
+                      key=lambda f: f["vencimento"], default=None)
+        lim = round(calc.num(c.get("limite")), 2)
+        usado = max(0.0, round(sum((-1 if l.get("tipo") == "receita" else 1) * calc.num(l.get("valor")) for l in d.get("lancamentos", [])
+                                   if l.get("conta") == cid and l.get("cartao") and not l.get("pago") and not l.get("pulado")
+                                   and not l.get("ajuste")), 2))
+        attrs = {"friendly_name": f"GerencIA Fatura {calc.nome_conta(c)}", "icon": "mdi:credit-card-outline", "unit_of_measurement": "BRL",
+                 "device_class": "monetary", "cartao": calc.nome_conta(c), "fecha": fecha.isoformat(), "vence": venc.isoformat(),
+                 "dias_para_fechar": (fecha - hoje).days,
+                 "fechada": {"valor": fechada["valor"], "vence": fechada["vencimento"]} if fechada else None}
+        if lim > 0:
+            attrs.update({"limite": lim, "usado": usado, "disponivel": round(lim - usado, 2), "uso_limite": round(usado / lim * 100, 1)})
+        out[_id_cartao(c, usados)] = (round(aberta["valor"], 2) if aberta else 0, attrs)
+    return out

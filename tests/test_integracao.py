@@ -366,3 +366,49 @@ class TestBordasDoContrato(unittest.TestCase):
         I.pagar(d, cid, valor=210)
         self.assertEqual([(l["valor"], l["competencia"]) for l in d["lancamentos"]], [(210, "2026-11")])
         self.assertEqual(d["recorrencias"][0]["valor"], 200, "pagar com outro valor não muda o fixo")
+
+
+class TestSensoresContas(unittest.TestCase):
+    """1.60.0: a próxima conta, a conta vencida e a fatura de cada cartão."""
+
+    def test_proxima_e_vencidas(self):
+        s = I.sensores_contas(dados(), HOJE)
+        valor, p = s["sensor.gerencia_proxima_conta"]
+        self.assertEqual(valor, 180.46)
+        self.assertEqual((p["descricao"], p["vencimento"], p["dias"], p["tipo"], p["categoria"], p["conta"]),
+                         ("Luz", "2026-11-20", 5, "conta", "Casa", None))
+        self.assertEqual((p["device_class"], p["unit_of_measurement"], p["a_pagar_7_dias"], p["vence_hoje"]), ("monetary", "BRL", 180.46, 0))
+        self.assertNotIn("state_class", p)
+        self.assertEqual([c["descricao"] for c in p["proximas"]], ["Luz", "Internet", "Fatura Banco Azul · Ana"])
+        estado, v = s["binary_sensor.gerencia_conta_vencida"]
+        self.assertEqual((estado, v["device_class"], v["quantidade"], v["total"]), ("on", "problem", 3, 290.0))
+        self.assertEqual(v["contas"][1], {"descricao": "Atrasada", "vencimento": "2026-10-01", "valor": 50.0})
+        self.assertNotIn("Muito antiga", json.dumps(v), "mais de 2 meses: fica de fora, como no CronologIA")
+
+    def test_nada_a_pagar(self):
+        s = I.sensores_contas({"lancamentos": [], "recorrencias": [], "bancos": []}, HOJE)
+        valor, p = s["sensor.gerencia_proxima_conta"]
+        self.assertEqual((valor, p["descricao"], p["dias"], p["proximas"]), ("unknown", None, None, []))
+        self.assertEqual(s["binary_sensor.gerencia_conta_vencida"][0], "off")
+        self.assertEqual(len(s), 2, "sem cartão, sem sensor de fatura")
+
+    def test_fatura_aberta_e_limite(self):
+        d = dados()
+        d["bancos"][0]["contas"][0]["limite"] = 1000
+        valor, f = I.sensores_contas(d, HOJE)["sensor.gerencia_fatura_banco_azul_ana"]
+        self.assertEqual(valor, 125.0, "a compra de hoje cai na fatura de 10/12: mercado, farmácia e o estorno")
+        self.assertEqual((f["fecha"], f["vence"], f["dias_para_fechar"], f["fechada"]), ("2026-12-05", "2026-12-10", 20, None))
+        self.assertEqual((f["limite"], f["usado"], f["disponivel"], f["uso_limite"]), (1000.0, 40.0, 960.0, 4.0), "usado: as compras não pagas")
+        self.assertEqual(f["friendly_name"], "GerencIA Fatura Banco Azul · Ana")
+
+    def test_fatura_fechada_falta_pagar(self):
+        valor, f = I.sensores_contas(dados(), date(2026, 12, 7))["sensor.gerencia_fatura_banco_azul_ana"]
+        self.assertEqual(valor, 0, "a de janeiro ainda não tem nada")
+        self.assertEqual((f["fecha"], f["vence"], f["fechada"]), ("2027-01-05", "2027-01-10", {"valor": 125.0, "vence": "2026-12-10"}))
+        self.assertNotIn("limite", f, "sem limite: sem o uso do limite")
+
+    def test_dois_cartoes_com_o_mesmo_nome(self):
+        d = dados()
+        d["bancos"].append({"id": "b2", "nome": "Banco Azul", "contas": [{"id": "conta-x9", "pessoa": "Ana", "cartao": True}, {"id": "cc2", "pessoa": "Beto"}]})
+        ids = sorted(e for e in I.sensores_contas(d, HOJE) if "fatura" in e)
+        self.assertEqual(ids, ["sensor.gerencia_fatura_banco_azul_ana", "sensor.gerencia_fatura_banco_azul_ana_tax9"], "a conta sem cartão fica de fora")
