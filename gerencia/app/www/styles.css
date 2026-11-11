@@ -385,6 +385,9 @@ svg { display: block; }
   padding: 12px 14px; font: 400 16px/1.4 var(--font); outline: none; min-height: 50px;
 }
 .inp:focus { border-color: var(--accent); }
+/* um texto de uma linha que pode ser longo (descrição, nome, observação) mostra tudo: cresce com o texto e aumenta
+   puxando o canto (textareas.js), como nos outros apps da família */
+textarea.inp.grow { field-sizing: content; max-height: 40vh; display: block; }
 .inp.erro { border-color: var(--danger); }
 input[type="date"].inp { padding-right: 10px; }
 .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -700,6 +703,8 @@ details summary { list-style-position: inside; }
 .dica-fonte .ic-s { color: var(--good); flex: none; }
 .dica-fonte a { color: var(--accent-text); }
 .dica-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0 55px; }
+/* 1.59.0: Mudar para anual e Agora não dividem a linha, do mesmo tamanho (como os outros botões da família) */
+.dica-acoes .btn { flex: 1 1 calc(50% - 4px); min-width: fit-content; justify-content: center; } /* sem caber os dois, um embaixo do outro */
 .dica-conf { display: flex; align-items: center; gap: 12px; color: var(--text-2); font-size: 15px; }
 .dica-conf .giro { width: 22px; height: 22px; border-width: 2px; flex: none; }
 .dica-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

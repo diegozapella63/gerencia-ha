@@ -203,6 +203,16 @@ class TestNovoLancamento(Caixa):
         self.assertEqual(self.aviso(), "Lançado")
         self.assertIsNone(self.folha(), "a janela fecha")
 
+    def test_descricao_mostra_o_texto_todo(self):
+        # 1.59.0: a descrição cresce com o texto (nada cortado) e aumenta puxando o canto; o Enter não quebra a linha
+        self.caixa()
+        self.nova()
+        self.assertEqual(self.js("document.querySelector('#lf-desc').tagName"), "TEXTAREA")
+        self.preencher('#lf-desc', 'Compra grande no mercado do bairro com as coisas da festa de aniversário da Ana')
+        self.pg.press('#lf-desc', 'Enter')
+        info = self.js("(() => { const e = document.querySelector('#lf-desc'); return [e.value.includes(String.fromCharCode(10)), e.scrollHeight <= e.clientHeight + 2, e.clientHeight > 50]; })()")
+        self.assertEqual(info, [False, True, True], "sem quebra de linha, o texto todo à vista")
+
     def test_descricao_ja_usada_traz_categoria_e_conta(self):
         self.caixa(lancamentos=[
             desp("l1", "Padaria Sol", 12.5, "2026-10-01", True, categoria="c-mercado", conta="k-beto", cartao=True),

@@ -1295,7 +1295,7 @@ class TestOpcoes(TelaSistema):
         self.assertEqual(self.textos("#app .mais-painel .linha-sw b"), ["Dicas de economia", "Conferir sozinho", "Avisar no celular",
                                                                       "Prever o dia a dia", "Corrigir valores pelo rendimento", "Avisar no celular"])
         self.assertEqual(self.textos_opcoes(), [
-            "Ligado: no Início, planos anuais mais baratos e categorias acima da média.",
+            "Ligado: na Agora, planos anuais mais baratos e categorias acima da média.",
             "Ligado: uma assinatura nova é conferida logo.",
             "Desligado.",  # o aviso no celular começa desligado
             "Ligado: os próximos meses somam a média do dia a dia, R$ 617 por mês.",  # (450 + 500 + 900) / 3
@@ -1306,7 +1306,7 @@ class TestOpcoes(TelaSistema):
 
     def test_com_a_ia_desligada_as_dicas_explicam_que_planos_anuais_precisam_dela(self):
         self.abrir(self.casa(ia=False), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})
-        self.assertEqual(self.textos_opcoes()[0], "Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.")
+        self.assertEqual(self.textos_opcoes()[0], "Ligado: na Agora, categorias acima da média. Planos anuais precisam da IA.")
 
     def test_desligar_as_dicas_tira_do_inicio(self):
         self.abrir(self.casa(), ui={"tab": "mais", "maisTela": "config", "maisAba": "opcoes"})

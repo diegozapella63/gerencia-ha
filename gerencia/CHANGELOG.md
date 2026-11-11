@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.59.0
+
+- **Início agora se chama Agora** (a aba, a barra lateral e o título), com o ícone do relógio, como a primeira aba de todos os apps da família.
+- **Campos que mostram o texto todo**: a **Descrição** do lançamento, o **Nome** na conferência da IA e as **Observações** do banco e do benefício crescem com o texto (nada cortado) e aumentam puxando o canto.
+- **Mudar para anual** e **Agora não**, nas dicas, do mesmo tamanho.
+
 ## 1.58.0
 
 - **Adicionar só com o +**: o botão do meio da barra de baixo fica só com o ícone, sem o texto embaixo, como em todos os apps da família.

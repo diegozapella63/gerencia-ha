@@ -5,7 +5,7 @@
 Um App do Home Assistant para cuidar do **seu dinheiro**: o **caixa do dia a dia** (recebimentos, despesas, fixos, parcelas e faturas de cartão), os **investimentos** com rendimento no padrão de mercado e quanto eles vão render, os **bens da casa** e a **IA**, que lê faturas em PDF, prints e mensagens do WhatsApp e conversa sobre as suas contas.
 
 <p align="center">
-  <img src="docs/inicio.png" width="24%" alt="Início com o placar do patrimônio">
+  <img src="docs/inicio.png" width="24%" alt="Agora com o placar do patrimônio">
   <img src="docs/caixa.png" width="24%" alt="Fluxo de caixa mensal">
   <img src="docs/invest.png" width="24%" alt="Evolução projetada dos investimentos">
   <img src="docs/chat.png" width="24%" alt="Conversar com a IA">
@@ -29,7 +29,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 
 ## O que tem
 
-- **Início** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: o seu patrimônio (investimentos e bens) e quanto rende por mês, com o caixa do mês, as dicas e os avisos logo abaixo.
+- **Agora** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: o seu patrimônio (investimentos e bens) e quanto rende por mês, com o caixa do mês, as dicas e os avisos logo abaixo.
 - **Caixa do mês**: quanto entrou, quanto saiu, o que falta pagar e o saldo previsto para o fim do mês.
 - **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.
@@ -50,7 +50,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
 - **Oportunidades de investimento**: as taxas do Tesouro Direto e as ofertas dos bancos que você cadastrou (a IA lê a página de ofertas de cada um), comparadas com o que você já tem, com aviso no celular no horário escolhido.
 - **Benefícios** dos cartões e planos (salas VIP, créditos, vantagens): quanto ainda resta no período. A IA lê o regulamento, um print ou a página oficial e cadastra.
-- **Faturas por e-mail**: com a integração IMAP do Home Assistant, as faturas, recibos e assinaturas em PDF que chegam por e-mail aparecem no Início para conferir. Cada remetente pode virar **Nunca considerar**, **É um fixo** ou **Novo fixo**.
+- **Faturas por e-mail**: com a integração IMAP do Home Assistant, as faturas, recibos e assinaturas em PDF que chegam por e-mail aparecem na Agora para conferir. Cada remetente pode virar **Nunca considerar**, **É um fixo** ou **Novo fixo**.
 - **PDF com senha**: as senhas das faturas ficam guardadas aqui e abrem as próximas sozinhas.
 - **CorrerIA**: com o [CorrerIA](https://github.com/diegozapella63/CorrerIA-ha), as finanças no WhatsApp, no Claude e no Gemini (perguntar, lançar, pagar, atualizar saldos).
 - **Imagens** nos investimentos (comprovante, print do banco).

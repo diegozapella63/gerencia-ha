@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.58.0';
+const VERSAO = '1.59.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -924,7 +924,7 @@ function telaInicio() {
   const h = hoje();
   const t = totais();
   const olho = `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`;
-  let html = cabecalho('Início', olho);
+  let html = cabecalho('Agora', olho);
   if (d.exemplo) html += avisoExemplo();
   if (!d.investimentos.length) {
     const r = resumoMes(ymHoje());
@@ -1063,7 +1063,7 @@ function avisoExemplo() {
 }
 
 function telaBoasVindas() {
-  return `${cabecalho('Início')}
+  return `${cabecalho('Agora')}
     ${placar({ cab: 'Bem-vindo', data: fData(hoje()), valor: 'GERENCIA', palavra: true, rotulo: 'GerencIA', texto: 'Seu dinheiro, seus investimentos e quanto eles vão render.' })}
     <div class="comeco"><h2>Vamos começar</h2>
     <p>Comece pelo que entra e sai todo mês e pelos seus investimentos.</p>
@@ -2240,7 +2240,7 @@ function montarFormLanc() {
     : `<div class="campo"><label for="lf-valor">${rotValor}</label><div class="pref grande${err('valor')}"><span>R$</span><input id="lf-valor" data-lf="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"></div>${msg('valor')}</div>`;
   c += secaoDescontos(f);
   const sugest = [...new Set(S.d.lancamentos.filter(l => l.tipo === f.tipo && !l.ajuste).map(l => l.descricao))].slice(-60);
-  c += `<div class="campo"><label for="lf-desc">Descrição</label><input id="lf-desc" class="inp" data-lf="descricao" value="${esc(f.descricao)}" placeholder="${rec ? 'Ex.: Salário, Pix do João' : apo ? 'Ex.: Aporte nos investimentos, Tesouro do mês' : 'Ex.: Mercado, Aluguel, iFood'}" data-sug="dl-desc" autocomplete="off">
+  c += `<div class="campo"><label for="lf-desc">Descrição</label><textarea id="lf-desc" class="inp grow" rows="1" data-lf="descricao" placeholder="${rec ? 'Ex.: Salário, Pix do João' : apo ? 'Ex.: Aporte nos investimentos, Tesouro do mês' : 'Ex.: Mercado, Aluguel, iFood'}" data-sug="dl-desc" autocomplete="off">${esc(f.descricao)}</textarea>
     <datalist id="dl-desc">${sugest.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>`;
   if (!f.ajuste && !apo) {
     c += `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${cats.map(k =>
@@ -3513,7 +3513,7 @@ function revisarItemHTML() {
   const valor = `<div class="campo"><label for="iae-v">${ex ? 'Saldo de agora' : 'Valor de hoje'}</label><div class="pref grande"><span>R$</span><input id="iae-v" data-iae="valor" inputmode="numeric" value="${r.valor ? NF2.format(r.valor) : ''}" placeholder="0,00"></div>
       ${ex ? `<div class="ajuda">${esc(ex.nome)}: ${brl(valorHoje(ex))} hoje.</div>` : ''}</div>`;
   let corpo = valor;
-  if (!ex) corpo += `<div class="campo"><label for="iae-nome">Nome</label><input id="iae-nome" class="inp" data-iae="nome" value="${esc(r.nome)}" autocomplete="off"></div>
+  if (!ex) corpo += `<div class="campo"><label for="iae-nome">Nome</label><textarea id="iae-nome" class="inp grow" rows="1" data-iae="nome" autocomplete="off">${esc(r.nome)}</textarea></div>
       <div class="campo"><label for="iae-banco">Banco</label><input id="iae-banco" class="inp" data-iae="banco" value="${esc(r.banco)}" data-sug="dl-iae-bancos" autocomplete="off">
         <datalist id="dl-iae-bancos">${[...new Set([...S.d.bancos.map(b => b.nome), ...BANCOS_COMUNS])].map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
@@ -4063,7 +4063,7 @@ function cardEmail() {
   if (on && S.emails === undefined) carregarEmails(true);
   const E = S.emails;
   let h = `<section class="card" id="email">${maisCab('mail', 'Faturas por e-mail')}
-    ${maisLead('As faturas que chegam no seu e-mail são lidas pela IA e esperam a conferência no Início.')}
+    ${maisLead('As faturas que chegam no seu e-mail são lidas pela IA e esperam a conferência na Agora.')}
     ${linhaChave('email', on, 'Ler as faturas do e-mail', on ? (E && E.conectada ? 'Ligado: recebendo os e-mails pelo Home Assistant.' : 'Ligado.') : 'Desligado.')}`;
   if (!on) return h + '</section>';
   // a conta de e-mail é a integração IMAP do Home Assistant
@@ -4344,8 +4344,8 @@ function sugMostrar(inp) {
   }
   SUG.box.innerHTML = ops.map(v => `<button type="button" class="sug-op" role="option" data-sugv="${esc(v)}">${esc(v)}</button>`).join('');
 }
-document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('input[data-sug]')) sugMostrar(e.target); });
-document.addEventListener('input', e => { if (e.target.matches && e.target.matches('input[data-sug]')) sugMostrar(e.target); });
+document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('input[data-sug], textarea[data-sug]')) sugMostrar(e.target); });
+document.addEventListener('input', e => { if (e.target.matches && e.target.matches('input[data-sug], textarea[data-sug]')) sugMostrar(e.target); });
 document.addEventListener('focusout', e => { if (SUG && e.target === SUG.inp) setTimeout(() => { if (SUG && document.activeElement !== SUG.inp) sugFechar(); }, 120); });
 // o toque na sugestão não tira o foco do campo (pointerdown), e o campo recebe o valor como se fosse digitado
 document.addEventListener('pointerdown', e => {
@@ -4411,7 +4411,7 @@ function abrirBanco(id, nome, sobre) {
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
         <div class="campo"><label for="b-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-          <input id="b-obs" class="inp" data-fb="obs" value="${esc(FB.obs || '')}" placeholder="Agência, conta, gerente…" autocomplete="off"></div>
+          <textarea id="b-obs" class="inp grow" rows="1" data-fb="obs" placeholder="Agência, conta, gerente…" autocomplete="off">${esc(FB.obs || '')}</textarea></div>
         ${iaOn() ? `<div class="campo"><label for="b-ofertas">Página de ofertas <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
           <input id="b-ofertas" class="inp${FB.erroOf ? ' erro' : ''}" data-fb="ofertas" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(FB.ofertas || '')}"
             placeholder="${paginaPronta(FB.nome) ? 'Automática: ' + esc(dominioUrl(paginaPronta(FB.nome))) : 'https://…'}">
@@ -5083,7 +5083,7 @@ function abrirBeneficio(id) {
           <div class="campo"><div class="lbl">Renova</div>${seg('renova', [['mes', 'Todo mês'], ['ano', 'Todo ano'], ['nunca', 'Não renova']])}</div>` : ''}
         ${campoData('fben-desde', conta && f.renova !== 'nunca' ? 'Renova a partir de' : 'Desde', f.desde || '', 'data-fben="desde"', { tipo: 'livre' })}
         ${campoData('fben-validade', 'Vale até <span class="opc">(opcional)</span>', f.validade || '', 'data-fben="validade"', { opcional: true })}
-        <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input id="fben-obs" class="inp" data-fben="obs" value="${esc(f.obs || '')}" placeholder="Ex.: com 1 acompanhante" autocomplete="off"></div>
+        <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-obs" class="inp grow" rows="1" data-fben="obs" placeholder="Ex.: com 1 acompanhante" autocomplete="off">${esc(f.obs || '')}</textarea></div>
         ${f.id && conta ? `<div class="campo"><div class="lbl">Usos deste período · ${esc(qtdBen(f, c.usado))} de ${esc(qtdBen(f, +f.total || 0))}</div>${usos.length ? usos.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(qtdBen(f, +u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este uso">${ic('x', 'ic-s')}</button></div>`).join('') : '<p class="nota" style="margin:0">Nenhum uso ainda.</p>'}</div>` : ''}`,
       pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-salvar">Salvar</button>`,
     };
@@ -5400,11 +5400,11 @@ function maisAparencia() {
 /* --------- Opções: o jeito de o app funcionar, para a casa toda */
 function maisOpcoes() {
   const a = S.d.ajustes;
-  return `<section class="card" id="op-inicio">${maisCab('home', 'Início')}
+  return `<section class="card" id="op-inicio">${maisCab('clock', 'Agora')}
       ${linhaChave('dicas', a.dicas !== false, 'Dicas de economia', a.dicas === false
         ? 'Desligado: sem dicas.'
-        : iaOn() ? 'Ligado: no Início, planos anuais mais baratos e categorias acima da média.'
-          : 'Ligado: no Início, categorias acima da média. Planos anuais precisam da IA.')}</section>
+        : iaOn() ? 'Ligado: na Agora, planos anuais mais baratos e categorias acima da média.'
+          : 'Ligado: na Agora, categorias acima da média. Planos anuais precisam da IA.')}</section>
     ${opcoesDicas()}
     ${opcoesEmail()}
     <section class="card" id="op-caixa">${maisCab('fluxo', 'Fluxo de caixa')}
@@ -5964,7 +5964,7 @@ function abrirVersoes() {
 
 /* ------------------------------------------------------------------ render */
 const ABAS = [
-  ['inicio', 'Início', 'home'], ['caixa', 'Caixa', 'fluxo'], ['add', 'Adicionar', 'plus'],
+  ['inicio', 'Agora', 'clock'], ['caixa', 'Caixa', 'fluxo'], ['add', 'Adicionar', 'plus'],
   ['investimentos', 'Invest', 'wallet'], ['mais', 'Mais', 'dots'],
 ];
 function pintarNav() {
@@ -5991,7 +5991,7 @@ function pintarLado() {
   const link = (k, n, i, extra = '') => `<button class="side-link" data-a="tab" data-v="${k}"${tab === k && !(k === 'investimentos' && itemAberto) ? ' aria-current="page"' : ''}>${ic(i)}<span>${n}</span>${extra}</button>`;
   const nAtr = temCaixa() ? memo('nAtr', () => { avisosCaixa(hoje()); return S.nAtrasadas || 0; }) : 0;
   let h = `<div class="side-brand">${iconeApp()}Gerenc<span>IA</span></div><nav class="side-nav" aria-label="Seções">
-    ${link('inicio', 'Início', 'home')}
+    ${link('inicio', 'Agora', 'clock')}
     ${d.investimentos.length ? `<button class="side-link" data-a="buscar">${ic('search')}<span>Buscar</span><kbd aria-hidden="true">/</kbd></button>` : ''}
     ${link('caixa', 'Caixa', 'fluxo', nAtr ? `<span class="side-badge" title="${plural(nAtr, 'conta atrasada', 'contas atrasadas')}">${nAtr}</span>` : '')}
     ${link('investimentos', 'Investimentos', 'wallet')}
@@ -6759,6 +6759,8 @@ document.addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
+  // um texto de uma linha numa caixa que mostra tudo (1.59.0): o Enter não quebra a linha
+  if (ev.key === 'Enter' && !ev.shiftKey && ev.target.matches && ev.target.matches('textarea.grow')) { ev.preventDefault(); return; }
   if (ev.key === 'Enter' && ev.target.dataset && (ev.target.dataset.opAlvo || ev.target.matches('[data-op-simular], [data-op-dias]'))) { ev.preventDefault(); ev.target.blur(); return; }
   if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('#per-atras, #per-frente, #hz-anos')) { ev.preventDefault(); const ok = $('.folha-pe .btn.pri'); if (ok) ok.click(); }
 });

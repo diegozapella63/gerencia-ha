@@ -27,7 +27,7 @@ with sync_playwright() as p:
     igual((pg.locator('#lado').is_visible(), pg.locator('#nav').is_visible(), pg.locator('.cab .brand').is_visible()), (True, False, False), 'barra lateral no lugar das abas de baixo (a marca fica nela)')
     igual(pg.inner_text('.cab .eyebrow').lower(), 'olá, ana', 'cumprimenta pelo primeiro nome')
     lado = pg.inner_text('#lado')
-    for t in ('Início', 'Buscar', 'Caixa', 'Investimentos', 'Mais', 'Bancos', 'De terceiros'):
+    for t in ('Agora', 'Buscar', 'Caixa', 'Investimentos', 'Mais', 'Bancos', 'De terceiros'):
         tem(lado, t, f'barra lateral: {t}')
     igual(pg.inner_text('#lado .side-badge'), '1', 'barra lateral: Caixa com o número de contas atrasadas (o IPTU)')
     bancos = pg.locator('#lado [data-a="lado-banco"]')

@@ -264,7 +264,7 @@ class TestInicio(TelaMais):
         self.assertEqual(self.js("[T.S.ui.tab, T.S.ui.maisTela]"), ["mais", "invest"])
         self.assertTrue(self.visivel("#indices"), "a seção Índices de mercado (Mais › Invest) na tela")
         self.voltar()
-        self.assertEqual((self.js("T.S.ui.tab"), self.texto(".cab h1")), ("inicio", "Início"), "o Voltar volta para o Início, de onde veio")
+        self.assertEqual((self.js("T.S.ui.tab"), self.texto(".cab h1")), ("inicio", "Agora"), "o Voltar volta para a Agora, de onde veio")
 
     def test_bens_do_inventaria_somam_no_patrimonio(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS), bens=BENS)
@@ -1025,6 +1025,9 @@ class TestDicas(TelaMais):
                          "a economia real: o desconto menos o que o dinheiro renderia")
         self.assertIn(f"Desconto de {brl0(real['desconto'])} menos {brl0(real['rende'])}", card)
         self.assertIn("Preço conferido em spotify.com em 18/10/2026", card)
+        # 1.59.0: Mudar para anual e Agora não dividem a linha, do mesmo tamanho
+        ws = self.js("[...document.querySelectorAll('.card.dicas .dica-acoes .btn')].map((b) => Math.round(b.getBoundingClientRect().width))")
+        self.assertTrue(len(ws) == 2 and abs(ws[0] - ws[1]) <= 1, ws)
 
     def test_agora_nao_dispensa_a_dica(self):
         self.abrir_dicas(base(bancos=BANCOS, recorrencias=[SPOTIFY]))
@@ -1693,7 +1696,7 @@ class TestNavegacao(TelaMais):
 
     def test_menu_de_baixo_troca_de_aba(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS, lancamentos=LANC))
-        for aba, titulo in (("caixa", "Caixa"), ("investimentos", "Investimentos"), ("mais", "Mais"), ("inicio", "Início")):
+        for aba, titulo in (("caixa", "Caixa"), ("investimentos", "Investimentos"), ("mais", "Mais"), ("inicio", "Agora")):
             self.ir(aba)
             self.assertEqual(self.js("document.querySelector('.cab h1').textContent"), titulo)
             self.assertEqual(self.js("document.querySelector('#nav [aria-current=\"page\"]').dataset.v"), aba, "a aba aberta fica marcada")
@@ -1807,7 +1810,7 @@ class TestComputador(TelaMais):
         self.assertFalse(self.visivel("#nav"))
         self.assertEqual([t.strip() for t in self.textos(".top-acts .btn")], ["Ler com IA", "Adicionar"], "as ações no alto à direita")
         nomes = self.js("[...document.querySelectorAll('#lado .side-nav .side-link span:first-of-type')].map(s => s.textContent)")
-        self.assertEqual(nomes, ["Início", "Buscar", "Caixa", "Investimentos", "Mais"])
+        self.assertEqual(nomes, ["Agora", "Buscar", "Caixa", "Investimentos", "Mais"])
         self.clicar('#lado [data-a="tab"][data-v="mais"]')
         self.assertEqual(self.js("[...document.querySelectorAll('#lado [aria-current=\"page\"]')].map(e => e.textContent.trim())"), ["Mais"], "a seção aberta marcada")
         self.clicar('#app .menu-row[data-v="config"]')
