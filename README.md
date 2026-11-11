@@ -54,7 +54,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **PDF com senha**: as senhas das faturas ficam guardadas aqui e abrem as próximas sozinhas.
 - **CorrerIA**: com o [CorrerIA](https://github.com/diegozapella63/CorrerIA-ha), as finanças no WhatsApp, no Claude e no Gemini (perguntar, lançar, pagar, atualizar saldos).
 - **Imagens** nos investimentos (comprovante, print do banco).
-- **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens e uso da IA.
+- **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens, uso da IA, a próxima conta, a conta vencida e a fatura de cada cartão (com o uso do limite).
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.
 - **Mais**, um menu: Bancos, Caixa (fixos, categorias e dicas), Invest (índices, oportunidades e perda de valor dos bens), Benefícios, Relatório de patrimônio (com **Baixar PDF**), Configurações e Sobre, na mesma ordem dos outros apps da família.
 - **Tema claro e escuro** (escolhido em cada aparelho) e **Cor do dia**: a cor do app muda todo dia, ou fica a que você escolher entre as 12 cores da família.

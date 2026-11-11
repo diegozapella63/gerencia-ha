@@ -109,7 +109,7 @@ Se o saldo do app não bater com o do banco, use **Ajustar saldo** na aba Caixa.
 
 ## Dicas de economia
 
-O app procura assinaturas nos seus fixos e nas cobranças que se repetem nas faturas e confere se o plano anual sai mais barato. Hoje ele reconhece Nabu Casa (Home Assistant Cloud), Claude, Spotify, Microsoft 365 e Deezer.
+O app procura assinaturas nos seus fixos e nas cobranças que se repetem nas faturas e confere se o plano anual sai mais barato. Hoje ele reconhece Home Assistant Cloud, Claude, Spotify, Microsoft 365 e Deezer.
 
 A dica só aparece quando dá para confirmar na origem:
 
