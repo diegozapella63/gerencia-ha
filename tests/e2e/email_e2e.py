@@ -48,7 +48,7 @@ with sync_playwright() as p:
             ir_mais(pg, 'config', 'integracoes')
             card = pg.locator('#email'); card.scroll_into_view_if_needed(); pg.wait_for_timeout(300)
             igual(sorted(pg.locator('#email .emails .email-l em, #email .emails .email-l button.btn').all_inner_texts()), sorted(['Precisa da senha', 'Para conferir', 'Ler']), 'Recebidos com o estado de cada um')
-            igual(pg.locator('#email .emails [data-a="email-remetente"]').count(), 3, 'cada um com o ⋯ do remetente')
+            igual(pg.locator('#email .emails [data-a="email-menu"]').count(), 3, 'cada um com o ⋯ (Abrir o PDF e E-mails deste remetente)')
             card.screenshot(path=f'{SP}/shots/email-card.png')
             # Opções: avisar no celular
             pg.click('#app .mais-abas [data-a="mais-aba"][data-v="opcoes"]'); pg.wait_for_timeout(300)

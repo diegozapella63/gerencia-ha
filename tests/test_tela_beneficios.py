@@ -33,6 +33,8 @@ class TestLista(TelaBen):
         self.assertEqual(self.linha(".menu-row", "Benefícios"), "Benefícios Salas VIP, créditos e vantagens dos seus planos e cartões.")
         self.abrir_ben([VIP, CREDITO, SEGURO])
         self.assertEqual(self.texto("#app .cab h1"), "Benefícios")
+        self.assertEqual(self.texto("#beneficios .mais-head h2"), "Benefícios", "1.70.0: o cartão com o cabeçalho, como Oportunidades")
+        self.assertGreater(self.js("document.querySelector('#beneficios .mais-head .mais-ic svg').childElementCount"), 0, "com o ícone")
         self.assertEqual(self.textos("#beneficios .ben-grupo-cab b"), ["Banco Azul · Ana", "Plano Sol"])
         self.assertEqual(self.linhas(), [
             ["Sala VIP", "6 por ano · renova em 15/03/2027", "restam 5", "de 6"],  # o uso de janeiro foi no período anterior
@@ -578,9 +580,25 @@ class TestPromocoes(TelaBen):
         self.assertEqual(self.textos("#metas .recolhido-t"), ["Sem como conferir (2)", "Fora dos seus aparelhos (1)"], "recolhidos no fim")
         self.clicar('#metas [data-a="recolher"][data-v="promo-sem"]')
         self.assertEqual([" ".join(x.split()) for x in self.textos("#metas .promo-sem-l")],
-                         ["Tela Azul a página não mostra preços para o app", "Som Mais a página não abriu"])
+                         ["Tela Azul o preço em reais só aparece no navegador", "Som Mais o site não deixa o app abrir a página"],
+                         "1.70.0: o motivo escrito pelo que acontece")
         self.assertEqual(self.js("document.querySelectorAll('#metas .ben-grupo')[1].querySelector('.vazio').textContent"), "Nenhuma oportunidade ainda.",
                          "as oportunidades de antes continuam embaixo, no grupo delas")
+
+    def test_1_70_achada_pela_busca_da_ia(self):
+        """A página não trouxe o preço em reais: a busca da IA achou; a linha diz e o toque abre a página onde ela viu."""
+        busca = {"id": "promo:tela:c", "servico": "tela", "nome": "Tela Azul", "url": "https://www.example.com/tela/planos", "plano": "Padrão",
+                 "preco": 14.9, "meses": 2, "normal": 34.9, "ate": "", "quem": "", "visto": "2026-11-02", "busca": True}
+        servs = [dict(x, status="ok", busca=True, promocoes=1) if x["id"] == "tela" else x for x in PROMOS["servicos"]]
+        servs.append({"id": "jogo", "nome": "Jogo Mais", "tipo": "jogos", "url": "https://example.com/jogo", "status": "busca_vazia", "promocoes": 0, "busca": True})
+        self.abrir_p(dict(PROMOS, promocoes=[busca] + PROMOS["promocoes"], servicos=servs))
+        r = self.js("""(() => { const r = document.querySelector('#metas .promo-row'); return [r.querySelector('.ben-t > span').textContent, r.querySelector('a').getAttribute('href')]; })()""")
+        self.assertEqual(r, ["Padrão · por 2 meses · pela busca da IA", "https://www.example.com/tela/planos"])
+        self.assertIn("3 assinaturas conferidas hoje", " ".join(self.texto("#metas .promo-st").split()), "a achada pela busca conta como conferida")
+        self.clicar('#metas [data-a="recolher"][data-v="promo-sem"]')
+        self.assertEqual([" ".join(x.split()) for x in self.textos("#metas .promo-sem-l")],
+                         ["Som Mais o site não deixa o app abrir a página", "Jogo Mais nem a busca da IA achou o preço por mês"])
+        self.clicar('#metas [data-a="recolher"][data-v="promo-sem"]')  # recolhe de novo (fica aberto até sair do app)
 
     def test_nenhuma_e_conferindo(self):
         self.abrir_p(dict(PROMOS, promocoes=[], fora=[]))

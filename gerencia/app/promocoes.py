@@ -13,6 +13,7 @@ Só biblioteca padrão do Python.
 import hashlib
 import json
 import re
+import urllib.parse
 from datetime import date
 
 import assinaturas
@@ -211,6 +212,64 @@ def prompt(serv, t):
     return PROMPT.format(nome=serv["nome"], url=serv["url"], trechos=t)
 
 
+# 1.70.0: a página não abriu (o site recusa o app) ou não trouxe o preço em reais (só aparece no navegador, depois dos
+# scripts): a IA busca na web, no site oficial. Fica só o que tem o preço em reais no trecho e a fonte no site do serviço.
+PROMPT_BUSCA = """Use a busca na web agora. Procure no site oficial de {nome} no Brasil ({url} ou outra página do mesmo
+site) os preços em reais das assinaturas de {nome}, como estão hoje.
+Responda só com JSON válido, sem texto antes ou depois:
+{{"fonte": "o endereço da página oficial onde você viu os preços",
+ "planos": [{{"plano": "nome do plano", "mensal": 29.9, "trecho": "..."}}],
+ "promocoes": [{{"plano": "nome do plano", "preco": 9.9, "total": 0, "meses": 3, "depois": 29.9, "ate": "AAAA-MM-DD",
+   "quem": "para quem vale, curto", "trecho": "..."}}]}}
+Regras:
+- Só o site oficial de {nome}: nada de notícias, lojas, cupons ou comparadores. Só preços em reais (R$), nunca de memória.
+- planos: o preço de sempre de cada plano pago mês a mês (o número escrito; não calcule).
+- promocoes: só preços promocionais por tempo limitado: os primeiros meses mais baratos, um desconto até uma data, Black
+  Friday. O plano anual ou semestral de sempre não é promoção, nem teste grátis.
+- preco: o preço por mês na promoção, como está escrito; se a página só escrever o total, deixe 0 e ponha o total em "total".
+- meses, depois, ate e quem: como estão escritos (senão 0 ou "").
+- trecho: copie exatamente o pedaço da página com o preço em reais (até 160 caracteres), com as palavras em volta
+  (como "oferta por tempo limitado" ou "até 30/11").
+Se não conseguir buscar na web, responda {{"erro": "sem_busca"}}. Sem preço em reais no site oficial, "planos": [] e
+"promocoes": []."""
+
+
+def prompt_busca(serv):
+    return PROMPT_BUSCA.format(nome=serv["nome"], url=serv["url"])
+
+
+def _dominio(url):
+    """O site de um endereço: www.ea.com/pt-br → ea.com; globoplay.globo.com → globo.com; loja.exemplo.com.br → exemplo.com.br."""
+    host = (urllib.parse.urlparse(str(url or "")).hostname or "").lower().rstrip(".")
+    partes = host.split(".")
+    n = 3 if len(partes) >= 3 and partes[-1] == "br" and partes[-2] in ("com", "net", "org", "gov", "art", "tv") else 2
+    return ".".join(partes[-n:]) if len(partes) >= n else ""
+
+
+def fonte_oficial(serv, fonte):
+    """A fonte que a IA deu é uma página do site do serviço (https, o mesmo site do endereço do catálogo)?"""
+    u = urllib.parse.urlparse(str(fonte or "").strip())
+    host = (u.hostname or "").lower()
+    base = _dominio(serv["url"])
+    return u.scheme == "https" and bool(base) and (host == base or host.endswith("." + base))
+
+
+def limpar_busca(parsed, serv, hoje=None, antes=None):
+    """O que a busca da IA achou: sem a fonte no site do serviço, nada; os trechos sem R$, fora; o resto com as mesmas
+    regras da página (o número no trecho, por tempo limitado, mais barata), com os trechos fazendo as vezes da página.
+    Devolve ({planos, promocoes}, recusados, fonte)."""
+    p = parsed if isinstance(parsed, dict) else {}
+    fonte = str(p.get("fonte") or "").strip()[:300]
+    if not fonte_oficial(serv, fonte):
+        return {"planos": [], "promocoes": []}, len(p.get("planos") or []) + len(p.get("promocoes") or []), ""
+    com_rs = lambda L: [x for x in (L if isinstance(L, list) else [])[:16] if isinstance(x, dict) and _PRECO_BR.search(str(x.get("trecho") or ""))]  # noqa: E731
+    planos, promos = com_rs(p.get("planos")), com_rs(p.get("promocoes"))
+    texto = "\n\n".join(_linha(x.get("trecho"), 200) for x in planos + promos)  # uma linha cada, separadas
+    lido, recusados = limpar({"planos": planos, "promocoes": promos}, texto, hoje, antes)
+    sem_rs = len(p.get("planos") or []) + len(p.get("promocoes") or []) - len(planos) - len(promos)
+    return lido, recusados + max(0, sem_rs), fonte
+
+
 # ---------------------------------------------------------------- o que a IA leu, conferido
 
 # o que diz que é por tempo limitado (perto do preço, na página)
@@ -330,12 +389,13 @@ def linha(nome, x):
 
 TEXTOS = {
     "pendente": "ainda não conferida",
-    "sem_acesso": "a página não abriu",
-    "sem_precos": "a página não mostra preços para o app",
+    "sem_acesso": "o site não deixa o app abrir a página",
+    "sem_precos": "o preço em reais só aparece no navegador",
     "erro_ia": "a IA não conseguiu ler",
     "nao_confere": "a IA citou preços que não estão na página",
     "ia_desligada": "a IA está desligada",
     "sem_ia": "sem IA no Home Assistant",
+    "busca_vazia": "nem a busca da IA achou o preço por mês",
 }
 
 # ---------------------------------------------------------------- a IA simulada (testes e desenvolvimento)

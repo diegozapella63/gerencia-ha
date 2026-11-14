@@ -165,6 +165,39 @@ class AvisosFalso:
         return len(alvos)
 
 
+# 1.70.0: o que a "busca da IA" devolve (inventado): a página da Paramount+ só mostra o preço em reais no navegador
+BUSCA_PARAMOUNT = {"fonte": "https://www.paramountplus.com/br/planos/",
+                   "planos": [{"plano": "Essencial", "mensal": 24.9, "trecho": "Essencial R$ 24,90/mês"},
+                              {"plano": "Premium", "mensal": 8.99, "trecho": "Premium $8.99/month"}],
+                   "promocoes": [{"plano": "Essencial", "preco": 12.45, "meses": 3, "depois": 24.9, "ate": "", "quem": "",
+                                  "trecho": "Oferta por tempo limitado: Essencial por R$ 12,45/mês nos 3 primeiros meses, depois R$ 24,90"}]}
+
+
+class TestBusca(unittest.TestCase):
+    def test_a_fonte_tem_de_ser_do_site_do_servico(self):
+        ea = {"url": "https://www.ea.com/pt-br/ea-play"}
+        self.assertTrue(P.fonte_oficial(ea, "https://www.ea.com/pt-br/ea-play"))
+        self.assertTrue(P.fonte_oficial(ea, "https://help.ea.com/br/artigo"))
+        self.assertTrue(P.fonte_oficial({"url": "https://globoplay.globo.com/assine/"}, "https://ajuda.globo.com/planos"), "o mesmo site, outro endereço")
+        self.assertTrue(P.fonte_oficial({"url": "https://loja.exemplo.com.br/x"}, "https://www.exemplo.com.br/planos"))
+        self.assertFalse(P.fonte_oficial({"url": "https://loja.exemplo.com.br/x"}, "https://outro.com.br/planos"), "com.br: o site é exemplo.com.br")
+        for f in ("https://tecnoblog.net/ea-play-preco", "http://www.ea.com/pt-br", "https://ea.com.golpe.net/x", "", "ea.com/pt-br"):
+            self.assertFalse(P.fonte_oficial(ea, f), f)
+        self.assertFalse(P.fonte_oficial({"url": ""}, "https://ea.com"))
+
+    def test_o_que_a_busca_achou_conferido(self):
+        lido, rec, fonte = P.limpar_busca(BUSCA_PARAMOUNT, P.POR_ID["paramount"], HOJE)
+        self.assertEqual(fonte, "https://www.paramountplus.com/br/planos/")
+        self.assertEqual(lido["planos"], [{"plano": "Essencial", "mensal": 24.9}], "o de dólar fica de fora")
+        self.assertEqual([(x["preco"], x["meses"], x["normal"]) for x in lido["promocoes"]], [(12.45, 3, 24.9)])
+        self.assertEqual(rec, 1)
+        lido, rec, fonte = P.limpar_busca(dict(BUSCA_PARAMOUNT, fonte="https://comparador.exemplo/paramount"), P.POR_ID["paramount"], HOJE)
+        self.assertEqual((lido, rec, fonte), ({"planos": [], "promocoes": []}, 3, ""), "fora do site oficial: nada")
+        self.assertEqual(P.limpar_busca("lixo", P.POR_ID["paramount"], HOJE), ({"planos": [], "promocoes": []}, 0, ""))
+        self.assertIn("Use a busca na web agora.", P.prompt_busca(P.POR_ID["paramount"]))
+        self.assertIn("https://www.paramountplus.com/br/", P.prompt_busca(P.POR_ID["paramount"]))
+
+
 class TestServidor(unittest.TestCase):
     def setUp(self):
         if os.path.exists(S.ARQ):
@@ -204,6 +237,57 @@ class TestServidor(unittest.TestCase):
         av = integracao.avisos(S.ler(), [], date.today(), rec)
         self.assertIn({"id": "promocoes", "tipo": "beneficio", "caminho": "/beneficios", "titulo": "Assinatura em promoção",
                        "texto": "Netflix: R$ 9,90 por mês por 3 meses"}, av)
+
+    def test_1_70_busca_da_ia_quando_a_pagina_nao_traz_o_preco(self):
+        S._conferir_promos()
+        st = {k: v["status"] for k, v in S.promos_ler()["servicos"].items()}
+        self.assertEqual((st["paramount"], st["disney"]), ("sem_precos", "sem_acesso"), "a IA simulada sem a página da busca: não busca")
+        self.falso.rotas["/paramount-busca"] = (200, json.dumps(BUSCA_PARAMOUNT))
+        self.falso.rotas["/disney-busca"] = (200, json.dumps({"fonte": "https://www.disneyplus.com/pt-br/planos", "planos": [], "promocoes": []}))
+        S._conferir_promos(forcar=True)
+        lidas = S.promos_ler()["servicos"]
+        self.assertEqual((lidas["paramount"]["status"], lidas["paramount"]["via"], lidas["paramount"]["fonte"]), ("ok", "busca", BUSCA_PARAMOUNT["fonte"]))
+        self.assertEqual((lidas["disney"]["status"], lidas["disney"]["via"]), ("busca_vazia", "busca"), "a busca não achou o preço por mês")
+        est = S.promos_estado(S.ler(), disparar=False)
+        p = next(x for x in est["promocoes"] if x["servico"] == "paramount")
+        self.assertEqual((p["preco"], p["url"], p.get("busca")), (12.45, BUSCA_PARAMOUNT["fonte"], True), "o toque abre a página onde a IA viu")
+        sv = {x["id"]: x for x in est["servicos"]}
+        self.assertTrue(sv["paramount"].get("busca"))
+        self.assertNotIn("busca", sv["netflix"])
+        # a busca de 3 em 3 dias (gasta mais a IA); a página que abre, todo dia
+        ontem = (date.today() - timedelta(days=1)).isoformat() + "T08:00:00"
+        self.assertFalse(S._promo_velha(dict(lidas["paramount"], em=ontem)))
+        self.assertTrue(S._promo_velha(dict(lidas["netflix"], em=ontem)))
+        tres = (date.today() - timedelta(days=3)).isoformat() + "T08:00:00"
+        self.assertTrue(S._promo_velha(dict(lidas["disney"], em=tres)))
+        # a resposta estragada: fica o motivo de antes
+        self.falso.rotas["/paramount-busca"] = (200, "não é JSON")
+        self.assertEqual(S.ler_pagina_promo(P.POR_ID["paramount"], S.ler())["status"], "sem_precos")
+
+    def test_1_70_busca_com_a_ia_de_verdade(self):
+        pedidos, resposta = [], {"v": json.dumps(BUSCA_PARAMOUNT)}
+
+        def chamar(tipo, payload, n, timeout=None):
+            pedidos.append((tipo, payload))
+            if isinstance(resposta["v"], Exception):
+                raise resposta["v"]
+            return {"service_response": {"data": resposta["v"]}}
+        Trocar(self, IA_MOCK=False, ia_disponivel=lambda d: True, ia_chamar=chamar)
+        d = S.ler()
+        d["ajustes"]["ia_entidade"] = "ai_task.casa"
+        lida = S.ler_pagina_promo(P.POR_ID["paramount"], d, {"planos": [{"plano": "Essencial", "mensal": 24.9}]})
+        self.assertEqual((lida["status"], lida["via"], len(lida["promocoes"])), ("ok", "busca", 1))
+        self.assertEqual((pedidos[0][0], pedidos[0][1]["task_name"], pedidos[0][1]["entity_id"]), ("promocoes", "GerencIA: busca de Paramount+", "ai_task.casa"))
+        self.assertIn("Use a busca na web agora.", pedidos[0][1]["instructions"])
+        resposta["v"] = '{"erro": "sem_busca"}'
+        self.assertEqual(S.ler_pagina_promo(P.POR_ID["paramount"], d)["status"], "sem_precos", "a IA que não busca na web: o motivo de antes")
+        resposta["v"] = S.ErroHA("caiu")
+        velho = {"planos": [{"plano": "A", "mensal": 1}]}
+        self.assertEqual(S.ler_pagina_promo(P.POR_ID["disney"], d, velho)["planos"], velho["planos"], "não abriu e a busca falhou: os planos de antes")
+        del d["ajustes"]["ia_entidade"]
+        resposta["v"] = None
+        Trocar(self, ia_chamar=lambda *a, **k: {})
+        self.assertEqual(S.ler_pagina_promo(P.POR_ID["paramount"], d)["status"], "sem_precos", "a IA sem resposta")
 
     def test_a_ia_so_le_a_pagina_que_mudou(self):
         S._conferir_promos()

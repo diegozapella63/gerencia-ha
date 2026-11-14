@@ -81,6 +81,7 @@ with sync_playwright() as p:
     igual(pg.locator('.conta-ed').count(), 2, 'duas pessoas no Banco Lua')
     pg.click('[data-a="bc-add"]'); pg.wait_for_timeout(150)
     pg.fill('[data-fbc="pessoa"][data-i="2"]', 'Ana')
+    pg.click('[data-a="bc-aba"][data-i="2"][data-v="cartoes"]'); pg.wait_for_timeout(150)  # 1.68.0: o cartão fica na aba Cartões
     pg.click('[data-a="bc-cartao"][data-i="2"]'); pg.wait_for_timeout(150)
     pg.fill('[data-fbc="fechamento"][data-i="2"]', '7'); pg.fill('[data-fbc="vencimento"][data-i="2"]', '15')
     pg.screenshot(path=f'{SP}/shots/d6-banco.png')

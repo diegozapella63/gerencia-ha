@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.70.0
+
+- **Assinaturas em promoção**: quando o site só mostra o preço em reais no navegador (como EA Play e Boosteroid) ou não deixa o app abrir a página (como Ubisoft+), a IA busca no site oficial. A promoção achada assim diz **pela busca da IA**, e o toque abre a página onde ela viu.
+- **Sem como conferir**: os motivos ficaram mais claros: "o site não deixa o app abrir a página", "o preço em reais só aparece no navegador" e "nem a busca da IA achou o preço por mês".
+- **Benefícios**: o primeiro cartão ganhou o cabeçalho com o ícone, como o de Oportunidades.
+
 ## 1.69.0
 
 - **Faturas por e-mail**: lançou só algumas linhas? A fatura continua em **Para conferir**, só com as que ficaram, até você lançar todas. O **Ignorar** encerra o resto.

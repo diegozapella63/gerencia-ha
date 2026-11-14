@@ -6,7 +6,7 @@ from _confere import igual, tem, sim, ir_mais
 SP = sys.argv[1]; erros = []
 B = 'http://localhost:8099/'
 def get(p): return json.loads(urllib.request.urlopen(B + p).read())
-STATUS = 'Falar: pronto. A voz vira texto com “{}”; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.'
+STATUS = 'Falar: pronto. A voz vira texto com “{}”.'
 with sync_playwright() as p:
     b = p.chromium.launch()
     pg = b.new_page(viewport={'width': 412, 'height': 900}, color_scheme='dark')

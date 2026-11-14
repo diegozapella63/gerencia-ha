@@ -32,5 +32,5 @@ with sync_playwright() as p:
     # Falar: texto do status
     ir_mais(pg, 'config', 'integracoes', 1200)
     t = [x for x in pg.locator('#integ-ia .status, .status').all_inner_texts() if x.startswith('Falar')]
-    igual(t, ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.'], 'o status do Falar')
+    igual(t, ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”.'], 'o status do Falar')
     print('ERROS', erros); b.close()

@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.69.0"
+VERSAO = "1.70.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2823,11 +2823,11 @@ def ler_pagina_promo(serv, d, velho=None):
             pagina = r.read(4 * 1024 * 1024).decode(r.headers.get_content_charset() or "utf-8", "replace")
     except Exception as e:  # noqa: BLE001
         log("Promoções: não abriu", serv["nome"], e)
-        return {**base, "status": "sem_acesso", "planos": (velho or {}).get("planos") or []}
+        return promo_busca(serv, d, base, velho, "sem_acesso")
     texto = promocoes.texto_pagina(pagina)
     trechos = promocoes.trechos(texto)
     if not trechos:
-        return {**base, "status": "sem_precos"}
+        return promo_busca(serv, d, base, velho, "sem_precos")
     marca = promocoes.assinatura_trechos(trechos)
     if velho and velho.get("hash") == marca and velho.get("status") in ("ok", "nao_confere"):
         return {**velho, "em": base["em"]}
@@ -2852,12 +2852,45 @@ def ler_pagina_promo(serv, d, velho=None):
             "planos": lido["planos"] or (velho or {}).get("planos") or [], "promocoes": lido["promocoes"]}
 
 
+def promo_busca(serv, d, base, velho, motivo):
+    """1.70.0: a página não abriu (o site recusa o app) ou não trouxe o preço em reais (ele só aparece no navegador,
+    depois dos scripts): a IA busca na web, no site oficial. Fica só o que tem o R$ no trecho e a fonte no site do
+    serviço. A IA que não busca na web ou falhou: fica o motivo de antes."""
+    velhos = (velho or {}).get("planos") or []
+    try:
+        if IA_MOCK:  # nos testes, a resposta da "busca" é a página <id>-busca (sem ela, a IA simulada não busca)
+            try:
+                with _abrir_url(url_promo(serv) + "-busca") as r:
+                    dados = r.read(256 * 1024).decode("utf-8", "replace")
+            except Exception:  # noqa: BLE001
+                dados = '{"erro": "sem_busca"}'
+            registrar_uso("promocoes", "ai_task.simulada", 400, 300, 0, 0.5, "ok")
+        else:
+            payload = {"task_name": f"GerencIA: busca de {serv['nome']}", "instructions": promocoes.prompt_busca(serv)}
+            if d["ajustes"].get("ia_entidade"):
+                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            dados = ((ia_chamar("promocoes", payload, 0) or {}).get("service_response") or {}).get("data")
+        parsed = extrair_json(dados) if dados is not None else None
+        if not isinstance(parsed, dict) or parsed.get("erro"):
+            return {**base, "status": motivo, "planos": velhos if motivo == "sem_acesso" else []}
+        antes = {assinaturas.normal(x["plano"]): x["mensal"] for x in velhos if isinstance(x, dict)}
+        lido, _, fonte = promocoes.limpar_busca(parsed, serv, date.today(), antes)
+    except (ErroHA, ValueError) as e:
+        log("Promoções: busca da IA em", serv["nome"], e)
+        return {**base, "status": motivo, "planos": velhos if motivo == "sem_acesso" else []}
+    if not lido["planos"] and not lido["promocoes"]:
+        return {**base, "status": "busca_vazia", "via": "busca"}
+    return {**base, "status": "ok", "via": "busca", "fonte": fonte, "planos": lido["planos"], "promocoes": lido["promocoes"]}
+
+
 def _promo_velha(p, forcar=False, dias=1):
     """Ler de novo? Passados os dias das oportunidades (1: num outro dia); a página que não abriu ou a IA que falhou,
     depois de 6 horas."""
     if forcar or not p or not p.get("em"):
         return True
-    if p.get("status") in ("ok", "sem_precos", "nao_confere"):
+    if p.get("via") == "busca":
+        dias = max(dias, 3)  # 1.70.0: a busca na web, de 3 em 3 dias (gasta mais a IA)
+    if p.get("status") in ("ok", "sem_precos", "nao_confere", "busca_vazia"):
         try:
             return (date.today() - date.fromisoformat(str(p["em"])[:10])).days >= dias
         except ValueError:
@@ -2932,12 +2965,13 @@ def promos_estado(d, disparar=True):
     for s in dentro:
         l = lidas.get(s["id"]) or {}
         vale = promocoes.valendo(l)
+        busca = l.get("via") == "busca"  # 1.70.0: achada pela busca da IA: o toque abre a página onde ela viu
         servs.append({"id": s["id"], "nome": s["nome"], "tipo": s["tipo"], "url": s["url"], "status": l.get("status") or "pendente",
-                      "em": l.get("em"), "promocoes": len(vale)})
+                      "em": l.get("em"), "promocoes": len(vale), **({"busca": True} if busca else {})})
         for x in vale:
             pid = promocoes.id_promo(s["id"], x)
-            lista.append({**x, "id": pid, "servico": s["id"], "nome": s["nome"], "url": s["url"], "visto": vistas.get(pid, ""),
-                          **({"paga": paga[s["id"]]} if s["id"] in paga else {})})
+            lista.append({**x, "id": pid, "servico": s["id"], "nome": s["nome"], "url": (busca and l.get("fonte")) or s["url"], "visto": vistas.get(pid, ""),
+                          **({"paga": paga[s["id"]]} if s["id"] in paga else {}), **({"busca": True} if busca else {})})
     lista.sort(key=lambda x: (x["nome"], x["preco"]))
     lista.sort(key=lambda x: x["visto"] or "", reverse=True)  # as mais novas primeiro
     return {"ligado": True, "promocoes": lista, "servicos": servs, "fora": [s["nome"] for s in fora],

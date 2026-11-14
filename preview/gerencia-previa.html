@@ -1956,7 +1956,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.69.0';
+const VERSAO = '1.70.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -7048,7 +7048,7 @@ function maisBeneficios() {
   // os vencidos e os de um fixo que acabou ou de uma conta que saiu: no fim, recolhidos (as milhas ficam sempre em cima)
   const encerrado = b => !ehMilhas(b) && (cicloBeneficio(b).vencido || (!!b.origem && !origemBeneficio(b).ativa));
   const M = S.d.beneficios.filter(ehMilhas), L = S.d.beneficios.filter(b => !ehMilhas(b) && !encerrado(b)), fora = S.d.beneficios.filter(encerrado);
-  let h = `<section class="card" id="beneficios">${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens e milhas. Toque em Usei para descontar.')}`;
+  let h = `<section class="card" id="beneficios">${maisCab('gift', 'Benefícios')}${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens e milhas. Toque em Usei para descontar.')}`;
   if (!L.length && !M.length) h += `<p class="vazio">${fora.length ? 'Nenhum benefício valendo.' : 'Nenhum benefício ainda.'}</p>`;
   if (M.length) h += `<div class="ben-grupo"><div class="ben-grupo-cab">${ic('plane', 'ic-s')}<b>Milhas</b></div>${M.map(linhaMilhas).join('')}</div>`;
   // por origem (o fixo, a conta), com o aviso quando o fixo acabou ou a conta saiu
@@ -7098,8 +7098,11 @@ function linhaMeta(m) {
    InventarIA, com o preço conferido na página oficial (o servidor lê uma vez por dia; promocoes.py). Ficam no alto das
    Oportunidades; a nova (dos últimos 7 dias) entra também nos Avisos da Agora. Vêm com as Dicas de economia e a IA. */
 const promosOn = () => iaOn();  // 1.64.2: a frequência e o aviso são os das oportunidades (Mais › Configurações › Opções)
-const ST_PROMO = { sem_acesso: 'a página não abriu', sem_precos: 'a página não mostra preços para o app', erro_ia: 'a IA não respondeu',
-  nao_confere: 'os preços não bateram com a página', sem_ia: 'sem IA no Home Assistant', ia_desligada: 'IA desligada', pendente: 'ainda não conferida' };
+// 1.70.0: os motivos escritos pelo que acontece (o site que recusa o app; o preço que só aparece no navegador); a busca da IA
+// tenta antes de cair aqui
+const ST_PROMO = { sem_acesso: 'o site não deixa o app abrir a página', sem_precos: 'o preço em reais só aparece no navegador', erro_ia: 'a IA não respondeu',
+  nao_confere: 'os preços não bateram com a página', sem_ia: 'sem IA no Home Assistant', ia_desligada: 'IA desligada', pendente: 'ainda não conferida',
+  busca_vazia: 'nem a busca da IA achou o preço por mês' };
 let promosPedido = null, promosTimer = null;
 function carregarPromos(forcar) {
   if (promosPedido && !forcar) return promosPedido;
@@ -7116,7 +7119,8 @@ function carregarPromos(forcar) {
 const promoNova = (x, h = hoje()) => !!x.visto && diasEntre(pData(x.visto), h) < 7;
 const mesesTxt = m => m ? `por ${m} ${m === 1 ? 'mês' : 'meses'}` : '';
 function linhaPromo(x) {
-  const sub = [x.plano, mesesTxt(x.meses), x.quem, x.ate ? 'até ' + fDataC(pData(x.ate)) : '', x.paga ? `você paga ${brl(x.paga)}` : ''].filter(Boolean).join(' · ');
+  const sub = [x.plano, mesesTxt(x.meses), x.quem, x.ate ? 'até ' + fDataC(pData(x.ate)) : '', x.paga ? `você paga ${brl(x.paga)}` : '',
+    x.busca ? 'pela busca da IA' : ''].filter(Boolean).join(' · ');  // 1.70.0: não conferida na página (o site só mostra no navegador)
   return `<div class="ben-row promo-row"><a class="ben-t" href="${esc(x.url)}" target="_blank" rel="noopener"><b>${esc(x.nome)}${promoNova(x) ? '<i class="promo-nova">nova</i>' : ''}</b><span>${esc(sub)}</span></a>
     <div class="ben-v"><b>${esc(brl(x.preco))}</b><small>${x.normal ? 'de ' + esc(brl(x.normal)) : 'por mês'}</small></div></div>`;
 }
