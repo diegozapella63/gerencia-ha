@@ -35,6 +35,14 @@ CONFERE = """() => {
   if (vis(tt) && !tt.querySelector('.mais-ic svg')) ruins.push('tela sem ícone no título: ' + tt.textContent.trim());
   const fh = document.querySelector('#folhas .folha-cab h2');
   if (vis(fh) && !fh.querySelector('.folha-ic svg')) ruins.push('janela sem ícone no título: ' + fh.textContent.trim());
+  // 1.71.2: as abas que não cabem mostram a seta do lado de onde há mais (por cima das abas); as que cabem, nenhuma
+  const tb = document.querySelector('#app .abas-wrap > .mais-abas');
+  if (vis(tb)) {
+    const w = tb.parentElement, mais = tb.scrollWidth > tb.clientWidth + 2;
+    if (mais !== (w.classList.contains('tem-dir') || w.classList.contains('tem-esq'))) ruins.push('abas: a seta não bate com o que cabe');
+    const f = w.querySelector('.abas-fim.dir');
+    if (w.classList.contains('tem-dir')) { const r = f.getBoundingClientRect(); f.style.pointerEvents = 'auto'; const e = document.elementFromPoint(r.right - 6, (r.top + r.bottom) / 2); f.style.pointerEvents = ''; if (!(e && e.closest('.abas-fim'))) ruins.push('abas: a seta escondida'); }
+  }
   for (const l of document.querySelectorAll('#app .card .opts, #app .card .opts > li')) {
     if (vis(l) && (parseFloat(getComputedStyle(l).borderTopWidth) > 0 || parseFloat(getComputedStyle(l).borderBottomWidth) > 0)) { ruins.push('linha na lista de opções: ' + l.textContent.trim().slice(0, 30)); break; }
   }
@@ -118,6 +126,9 @@ class TestSubOpcoes(Tela):
         self.assertEqual(self.conta('#op-dicas .sub-box [data-a="dicas-freq"]'), 3)
         self.assertEqual(self.conta('#op-dicas .sub-box [data-a="aviso-testar"]'), 1)
         self.assertEqual(self.conta('#op-oport .sub-box [data-op-hora]'), 1)
+        # 1.71.2: o que cada seção faz, no começo dela
+        self.assertEqual([self.texto(f"#{i} .painel-lead")[:30].strip() for i in ("op-dicas", "op-email", "op-oport")],
+                         ["A IA confere as assinaturas e", "A fatura que chega por e-mail", "Avisa quando um investimento c"])
 
 
 if __name__ == "__main__":

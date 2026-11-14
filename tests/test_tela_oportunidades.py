@@ -212,7 +212,9 @@ class TestAvisoNoCelular(TelaOport):
         self.assertEqual(self.pg.input_value("#op-hora"), "10:00")
         self.assertEqual(self.texto('#op-oport [data-a="op-testar"]'), "Testar no meu celular", "o mesmo nome dos outros avisos (padrão da família)")
         self.assertEqual(self.js("[...document.querySelectorAll('#op-oport .op-hora-l > div > label')].map(l => l.textContent)"), ["Horário", "A cada"], "lado a lado")
-        self.assertIn("O que chegou ao alvo ou, sem alvo, rende mais que os seus, e as assinaturas em promoção.", self.texto("#op-oport"), "1.64.2: as promoções seguem este aviso")
+        # 1.71.2: o que a seção faz fica no começo dela (antes, uma nota no fim do aviso)
+        self.assertEqual(" ".join(self.texto("#op-oport .painel-lead").split()), "Avisa quando um investimento chega ao alvo ou, sem alvo, rende mais que os seus, e as assinaturas em promoção. Os alvos ficam em Mais › Invest.")
+        self.assertEqual(self.conta("#op-oport .sub-box .nota"), 0, "sem a nota no quadro do aviso")
         self.assertEqual(self.pg.input_value("#op-dias"), "1")
 
     def test_horario_quem_recebe_e_testar(self):

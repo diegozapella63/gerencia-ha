@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.71.1';
+const VERSAO = '1.71.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4681,8 +4681,9 @@ function telaMais() {
     const aba = maisAba();
     if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
     const painel = { integracoes: maisIntegracoes, dados: maisDados, aparencia: maisAparencia, opcoes: maisOpcoes }[aba]();
-    corpo = `<div class="mais-abas" role="tablist" aria-label="Seções de Configurações">${CONFIG_ABAS.map(([k, n, i]) =>
+    corpo = `<div class="abas-wrap"><div class="mais-abas" role="tablist" aria-label="Seções de Configurações">${CONFIG_ABAS.map(([k, n, i]) =>
         `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
+      <span class="abas-fim esq" aria-hidden="true">${ic('back', 'ic-s')}</span><span class="abas-fim dir" aria-hidden="true">${ic('chev', 'ic-s')}</span></div>
       <div class="mais-painel abas" role="tabpanel" aria-label="${CONFIG_ABAS.find(([k]) => k === aba)[1]}">${painel}</div>`;
   }
   return `${cabecalho(MAIS_TELAS[tela], '', status, true)}${corpo}${maisPe()}`;
@@ -4951,6 +4952,7 @@ function cardOportunidades() {
 function opcoesOport() {
   const a = S.d.ajustes, aviso = a.op_aviso === true;
   let h = `<section class="card" id="op-oport">${maisCab('target', 'Oportunidades')}
+    ${maisLead(`Avisa quando um investimento chega ao alvo ou, sem alvo, rende mais que os seus${iaOn() ? ', e as assinaturas em promoção' : ''}. Os alvos ficam em <button class="link-in" data-a="tab" data-v="mais" data-ancora="oportunidades">Mais › Invest</button>.`)}
     ${linhaChave('op_aviso', aviso, 'Avisar no celular', !aviso ? 'Desligado.' : (a.op_dias || 1) > 1 ? `Ligado: a cada ${a.op_dias} dias, no horário.` : 'Ligado: todo dia, no horário.')}`;
   if (aviso) {
     const quem = quemRecebe('op_para', false), P = S.avisoPessoas, eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
@@ -4960,8 +4962,7 @@ function opcoesOport() {
     if (!horas.includes(hora)) horas.push(hora), horas.sort();
     h += subOpcoes(`<div class="op-hora-l campo"><div><label for="op-hora">${ic('clock', 'ic-s')}Horário</label><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
       <div><label for="op-dias">${ic('repeat', 'ic-s')}A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div></div>${quem}
-      <button class="btn out op-testar" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>
-      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus${iaOn() ? ', e as assinaturas em promoção' : ''}. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">${ic('target', 'ic-s')}Alvos em Mais › Invest</button></p>`);
+      <button class="btn out op-testar" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>`);
   }
   return h + '</section>';
 }
@@ -5833,6 +5834,7 @@ function opcoesDicas() {
   if (a.dicas === false || !iaOn()) return '';
   const auto = a.dicas_auto !== false, aviso = a.dicas_aviso === true, freq = DICAS_FREQ[a.dicas_freq] ? a.dicas_freq : 'mes';
   let h = `<section class="card" id="op-dicas">${maisCab('percent', 'Dicas de economia')}
+    ${maisLead('A IA confere as assinaturas e mostra no Agora onde dá para economizar.')}
     ${linhaChave('dicas_auto', auto, 'Conferir sozinho', auto ? 'Ligado: uma assinatura nova é conferida logo.' : 'Desligado: só no Conferir agora.')}`;
   // de quanto em quanto tempo, como as escolhas do ResolvIA (a assinatura nova é conferida logo)
   if (auto) h += subOpcoes(`<div class="seg mini op-freq" role="radiogroup" aria-label="De quanto em quanto tempo">${Object.entries(DICAS_FREQ).map(([k, [n]]) =>
@@ -5846,6 +5848,7 @@ function opcoesEmail() {
   if (!emailOn()) return '';
   const aviso = S.d.ajustes.email_aviso === true;
   return `<section class="card" id="op-email">${maisCab('mail', 'Faturas por e-mail')}
+    ${maisLead('A fatura que chega por e-mail é lida pela IA e fica para conferir no Agora.')}
     ${linhaChave('email_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando uma fatura do e-mail fica pronta para conferir.' : 'Desligado.')}
     ${aviso ? subOpcoes(quemRecebe('email_para', true, 'email')) : ''}</section>`;
 }
@@ -6457,6 +6460,23 @@ function desenharGraficos() {
 }
 try { document.fonts.ready.then(() => { ajustarTextos(); desenharGraficos(); }); } catch (e) { /* ok */ }
 
+// 1.71.2 (padrão da família): quando as abas não cabem, a ponta de onde há mais some aos poucos, com uma seta; o tamanho
+// de cada aba é acompanhado (muda quando a fonte do app termina de carregar)
+let OLHO_ABAS = null;
+function marcarAbas() {
+  const t = $('.abas-wrap > .mais-abas');
+  if (!t) return;
+  t.parentElement.classList.toggle('tem-esq', t.scrollLeft > 2);
+  t.parentElement.classList.toggle('tem-dir', t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
+  if (window.ResizeObserver && (!OLHO_ABAS || OLHO_ABAS.t !== t)) {
+    if (OLHO_ABAS) OLHO_ABAS.ro.disconnect();
+    const ro = new ResizeObserver(() => marcarAbas());
+    ro.observe(t);
+    t.querySelectorAll('button').forEach(b => ro.observe(b));
+    OLHO_ABAS = { t, ro };
+  }
+}
+document.addEventListener('scroll', ev => { if (ev.target.classList && ev.target.classList.contains('mais-abas')) marcarAbas(); }, true);
 function render() {
   if (!S.d) return;
   aplicarTema();
@@ -6469,6 +6489,7 @@ function render() {
   marcarTela();
   desenharGraficos();
   { const t = $('.mais-abas'), on = t && $('button.on', t); if (on) { const l = on.offsetLeft - 8, r = on.offsetLeft + on.offsetWidth + 8; if (l < t.scrollLeft) t.scrollLeft = l; else if (r > t.scrollLeft + t.clientWidth) t.scrollLeft = r - t.clientWidth; } }
+  marcarAbas();
   ajustarTextos();
   requestAnimationFrame(ajustarTextos);
   // um pedido de cada vez: enquanto a resposta não chega, redesenhar Mais não pede de novo

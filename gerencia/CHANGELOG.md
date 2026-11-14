@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.71.2
+
+- **Oportunidades**, **Faturas por e-mail** e **Dicas de economia** (Configurações › Opções): o que cada seção faz fica no começo dela, numa linha só. Saiu a nota do fim do aviso das Oportunidades.
+- **Configurações**: quando as abas não cabem, a ponta de onde há mais some aos poucos, com uma seta.
+
 ## 1.71.1
 
 - **Exportar** (Configurações › Dados): cada arquivo com o seu ícone e sem as linhas entre eles, como as outras opções.
