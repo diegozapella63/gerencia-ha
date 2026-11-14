@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.68.0"
+VERSAO = "1.69.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3434,6 +3434,10 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     _email_mudar(eid, estado="feito" if p.endswith("feito") else "ignorado", erro="")
                 return self.enviar(200, emails_estado())
+            if p == "/api/emails/resto":  # 1.69.0: lançou parte; a fatura fica para conferir só com o resto
+                c = self.corpo_json()
+                email_resto(str(c.get("id") or ""), c.get("lancamentos"), c.get("investimentos"), c.get("sem_fixo") is True)
+                return self.enviar(200, emails_estado())
             if p == "/api/emails/procurar":
                 return self.enviar(200, email_procurar())
             if p == "/api/emails/simular":
@@ -3669,6 +3673,25 @@ def emails_carimbo():
         return os.path.getmtime(EMAILS_ARQ)
     except OSError:
         return 0
+
+
+def email_resto(eid, lancamentos, investimentos, sem_fixo=False):
+    """Lançou parte da fatura: ela fica para conferir só com as linhas que sobraram (os números delas na leitura). Sem
+    nenhuma, está lançada. sem_fixo: o fixo do remetente já foi lançado, o resto não vai para ele."""
+    idx = lambda v: {k for k in v if isinstance(k, int) and not isinstance(k, bool)} if isinstance(v, list) else set()  # noqa: E731
+    it = next((x for x in emails_ler()["itens"] if x["id"] == eid), None)
+    if not it or it.get("estado") != "conferir" or not isinstance(it.get("resultado"), dict):
+        raise ValueError("Esse e-mail não está mais aqui.")
+    r = it["resultado"]
+    li, ii = idx(lancamentos), idx(investimentos)
+    L = [x for k, x in enumerate(r.get("lancamentos") or []) if k in li]
+    I = [x for k, x in enumerate(r.get("investimentos") or []) if k in ii]
+    if not L and not I:
+        return _email_mudar(eid, estado="feito", erro="")
+    novo = dict(r, lancamentos=L, investimentos=I)
+    if sem_fixo:
+        novo["sem_fixo"] = True
+    return _email_mudar(eid, se="conferir", resultado=novo)
 
 
 def _email_mudar(eid, se=None, **campos):

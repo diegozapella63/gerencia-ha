@@ -1956,7 +1956,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.68.0';
+const VERSAO = '1.69.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2508,6 +2508,7 @@ const apiServidor = {
   emails: forcar => fetch('api/emails' + (forcar ? '?forcar=1' : ''), { cache: 'no-store' }).then(jsonOk),
   emailPdf: id => fetch('api/emails/pdf?id=' + encodeURIComponent(id), { cache: 'no-store' }).then(jsonOk),
   emailAcao: (acao, id) => fetch('api/emails/' + acao, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
+  emailResto: (id, resto) => fetch('api/emails/resto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id }, resto)) }).then(jsonOk),
   emailProcurar: () => fetch('api/emails/procurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(jsonOk),
   chat: () => fetch('api/chat', { cache: 'no-store' }).then(jsonOk),
   chatEnviar: corpo => fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
@@ -2614,6 +2615,10 @@ function apiDemo() {
     async emailPdf() { throw new Error('Na prévia não há PDF.'); },
     async emailProcurar() { throw new Error('Na prévia não há caixa de entrada.'); },
     async emailAcao(acao, id) { const it = (this._emails || []).find(x => x.id === id); if (!it) throw new Error('Esse e-mail não está mais aqui.'); it.estado = acao === 'ler' ? 'lendo' : acao === 'feito' ? 'feito' : 'ignorado'; it.erro = ''; if (acao !== 'ler') delete it.resultado; return this.emails(); },
+    async emailResto(id, resto) { const it = (this._emails || []).find(x => x.id === id); if (!it || !it.resultado) throw new Error('Esse e-mail não está mais aqui.');
+      const r = it.resultado, L = (r.lancamentos || []).filter((_, k) => resto.lancamentos.includes(k)), I = (r.investimentos || []).filter((_, k) => resto.investimentos.includes(k));
+      if (!L.length && !I.length) return this.emailAcao('feito', id);
+      it.resultado = Object.assign({}, r, { lancamentos: L, investimentos: I }, resto.sem_fixo ? { sem_fixo: true } : {}); return this.emails(); },
     // a conversa com a IA na prévia: guardada na memória, com respostas de exemplo (chatDemo)
     async chat() { return { mensagens: clone(CHAT_DEMO) }; },
     async chatEnviar(c) {
@@ -2923,9 +2928,9 @@ function telaInicio() {
   html += `<div class="ini-ga">${temCaixa() ? cardCaixaInicio() + cardDicas() : ''}</div>`;
   // destaques
   const rows = [];
-  const tr = tm.total > 0 ? tm : t;  // só com dinheiro de terceiros, mostra o rendimento dele
-  rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${tm.total > 0 ? 'Rende por mês' : 'Rende por mês, de terceiros'}</div>
-    <div class="hl-v">Média de ${pct(tr.rMed * 100)}% a.a.</div></div><div class="hl-n">${brl(tr.mes, 0)}<small>antes do IR</small></div></button>`);
+  // 1.69.0: só o rendimento do que é seu (o de terceiros fica no Invest, filtro Terceiros); sem nada seu, sem a linha
+  if (tm.total > 0) rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">Rende por mês</div>
+    <div class="hl-v">Média de ${pct(tm.rMed * 100)}% a.a.</div></div><div class="hl-n">${brl(tm.mes, 0)}<small>antes do IR</small></div></button>`);
   const fixos = d.investimentos.filter(i => i.indexador !== 'estimado' && i.indexador !== 'parado');
   if (fixos.length) {
     const melhor = fixos.reduce((a, b) => taxaAnual(b) > taxaAnual(a) ? b : a);
@@ -2965,7 +2970,7 @@ function telaInicio() {
     av.push(`<button class="op" data-a="inv" data-id="${vencidos[0].id}"><div class="op-ic alerta">${ic('alert')}</div>
       <div class="op-t"><b>${vencidos.length === 1 ? 'Um investimento venceu' : `${vencidos.length} investimentos venceram`}</b><span>${esc(vencidos.map(i => i.nome).join(', '))}</span></div>${ic('chev', 'chev')}</button>`);
   }
-  const breve = comVenc.filter(x => diasEntre(h, x.dt) <= 30);
+  const breve = comVenc.filter(x => diasEntre(h, x.dt) <= 1); // 1.69.0: o aviso só na véspera e no dia (antes: 30 dias)
   if (breve.length) {
     const x = breve[0];
     av.push(`<button class="op" data-a="inv" data-id="${x.i.id}"><div class="op-ic terc">${ic('calendar')}</div>
@@ -5258,8 +5263,8 @@ function iaResultado(r) {
     if (!it.existente && (s.saldos || s.soInvest)) it.existente = acharInvSaldo(it, s.pessoa || it.dono);
   }
   if (!lanc.length && !invs.length) { s.etapa = 'entrada'; s.erro = s.saldos ? 'A IA não encontrou nenhum saldo. Tente outro print ou cole a lista.' : s.soInvest ? 'A IA não encontrou investimento. Tente outra imagem ou cole o texto.' : 'A IA não encontrou gasto, recebimento, conta nem investimento. Tente outra imagem ou cole o texto.'; pintarFolha(); return; }
-  s.itens = lanc.map(it => Object.assign({ marcado: true }, it));
-  s.invs = invs.map(it => Object.assign({ marcado: true }, it));
+  s.itens = lanc.map((it, k) => Object.assign({ marcado: true, _k: k }, it)); // _k: a linha na leitura (a fatura que fica para conferir)
+  s.invs = invs.map((it, k) => Object.assign({ marcado: true, _k: k }, it));
   if (s.itens.length) prepararRevisaoCaixa();
   s.etapa = 'revisao';
   pintarFolha();
@@ -5424,7 +5429,14 @@ async function salvarIA() {
     if (mi.length) aplicarIAInvest(d, mi);
   }, msg).then(ok => {
     if (!ok) return;
-    if (s.email) api.emailAcao('feito', s.email).then(r => { S.emails = r; render(); }).catch(() => {});
+    // 1.69.0: a fatura do e-mail fica para conferir até lançar todas as linhas, só com as que ficaram (sem as que parecem
+    // já lançadas e os pagamentos da fatura); o Ignorar encerra o resto
+    if (s.email) {
+      const resto = { lancamentos: s.itens.filter(i => !i.marcado && !i.dup && !i.desconsiderado).map(i => i._k), investimentos: s.invs.filter(i => !i.marcado).map(i => i._k) };
+      resto.sem_fixo = !!s.itens.find(i => i.fixo && i.marcado); // o fixo (ou um novo) já lançado: o resto não vai para ele
+      (resto.lancamentos.length || resto.investimentos.length ? api.emailResto(s.email, resto) : api.emailAcao('feito', s.email))
+        .then(r => { S.emails = r; render(); }).catch(() => {});
+    }
     if (s.chat) { fecharFolha(false, true); marcarAcaoChat(s.chat.id, s.chat.chave); return; } // aberta do chat: volta para a conversa
     fecharFolha();
     if (ml.length) { S.ui.tab = 'caixa'; S.ui.cxModo = 'lista'; } else { S.ui.tab = 'investimentos'; S.ui.invModo = 'carteira'; }
@@ -6066,7 +6078,7 @@ function abrirEmail(id) {
   if (!it || it.estado === 'lendo') return;
   if (it.estado === 'erro') { emailAcao('ler', id, 'Lendo de novo'); return; }
   abrirIA('caixa');
-  Object.assign(IAS, { email: id, so: 'arquivo', fixoEmail: fixoDoEmail(it) });
+  Object.assign(IAS, { email: id, so: 'arquivo', fixoEmail: it.resultado && it.resultado.sem_fixo ? '' : fixoDoEmail(it) }); // o fixo já foi lançado: o resto não é o fixo
   if (it.estado === 'conferir') { iaResultado(clone(it.resultado)); return; }
   IAS.erro = 'Abrindo o PDF…';
   pintarFolha();

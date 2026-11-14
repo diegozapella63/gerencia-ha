@@ -1247,8 +1247,11 @@ class TestVencimentosEDono(_TelaInvest):
                 self.assertEqual("alerta" in n.get_attribute("class"), alerta, "em destaque até 30 dias")
 
     def test_avisos_de_vencimento(self):
+        # 1.69.0: o aviso só na véspera (e no dia), não 30 dias antes
         self.abrir(base(bancos=BANCOS, investimentos=[dict(CDB, vencimento="2026-11-12"), dict(LCI, vencimento="2026-10-01")]))
-        av = self.pg.locator('#app .op:has-text("Vence em 10 dias")')
+        self.assertEqual(self.conta('#app .op:has-text("Vence em")'), 0, "em 10 dias: ainda não")
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(CDB, vencimento="2026-11-03"), dict(LCI, vencimento="2026-10-01")]))
+        av = self.pg.locator('#app .op:has-text("Vence amanhã")')
         self.assertEqual(av.locator(".op-t span").inner_text(), "CDB Azul 2028 · decida para onde vai o dinheiro")
         self.assertEqual(self.texto('#app .op:has-text("venceu") .op-t'), "Um investimento venceu\nLCI Verde")
         self.abrir(base(bancos=BANCOS, investimentos=[dict(CDB, vencimento="2026-09-15"), dict(LCI, vencimento="2026-10-01")]))

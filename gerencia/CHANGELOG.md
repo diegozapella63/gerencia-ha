@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.69.0
+
+- **Faturas por e-mail**: lançou só algumas linhas? A fatura continua em **Para conferir**, só com as que ficaram, até você lançar todas. O **Ignorar** encerra o resto.
+- **Agora**: o aviso de um investimento que vence aparece só na véspera e no dia (antes, 30 dias antes).
+- **Agora**: saiu o **Rende por mês** de terceiros; fica só o rendimento do que é seu.
+
 ## 1.68.0
 
 - **Editar banco em abas**: cada pessoa tem **Conta** (nível, próximo nível e benefícios), **Cartões** (débito, crédito, limite e adicionais) e **Global** (débito e crédito global). Um ponto na aba mostra que tem algo ligado lá.

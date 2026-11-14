@@ -469,6 +469,32 @@ class TestEmailChegou(ComServidor):
         with self.assertRaisesRegex(ValueError, "Esse e-mail não está mais aqui."):
             S._email_mudar("000000000000", estado="feito")
 
+    def test_lancou_parte_fica_para_conferir_com_o_resto(self):
+        """1.69.0: lançou só algumas linhas; a fatura continua para conferir só com as que ficaram (o PDF também fica)."""
+        eid = S.email_chegou(evento())
+        r = self.itens()[0]["resultado"]
+        r["lancamentos"] = [{"descricao": d, "valor": v} for d, v in (("Mercado Bom", 10), ("Farmácia Sol", 20), ("Padaria Pão", 30))]
+        r["investimentos"] = [{"nome": "CDB Banco Azul"}]
+        S._email_mudar(eid, resultado=r)
+        S.email_resto(eid, [0, 2, "x", True, 9], [], sem_fixo=True)
+        it = self.itens()[0]
+        self.assertEqual(it["estado"], "conferir")
+        self.assertEqual([x["descricao"] for x in it["resultado"]["lancamentos"]], ["Mercado Bom", "Padaria Pão"], "só os números que valem")
+        self.assertEqual((it["resultado"]["investimentos"], it["resultado"]["sem_fixo"]), ([], True))
+        self.assertTrue(os.path.isfile(S._email_pdf(eid)))
+        S.email_resto(eid, [1], None)
+        self.assertEqual([x["descricao"] for x in self.itens()[0]["resultado"]["lancamentos"]], ["Padaria Pão"])
+        self.assertTrue(self.itens()[0]["resultado"]["sem_fixo"], "o fixo lançado antes continua lançado")
+        S.email_resto(eid, [], [])
+        it = self.itens()[0]
+        self.assertEqual(it["estado"], "feito", "sem nada sobrando, está lançada")
+        self.assertNotIn("resultado", it)
+        self.assertFalse(os.path.exists(S._email_pdf(eid)))
+        with self.assertRaisesRegex(ValueError, "Esse e-mail não está mais aqui."):
+            S.email_resto(eid, [0], [])
+        with self.assertRaisesRegex(ValueError, "Esse e-mail não está mais aqui."):
+            S.email_resto("000000000000", [0], [])
+
     def test_leitura_que_termina_depois_nao_volta_para_conferir(self):
         eid = S.email_chegou(evento())
         S._email_mudar(eid, estado="feito")
@@ -714,6 +740,18 @@ class TestRotas(unittest.TestCase):
         st, _, r = self.s.post("/api/emails/feito", {"id": it["id"]})
         self.assertEqual(next(x for x in r["itens"] if x["id"] == it["id"])["estado"], "feito")
         st, _, r = self.s.post("/api/emails/feito", {"id": "000000000000"})
+        self.assertEqual((st, r["erro"]), (400, "Esse e-mail não está mais aqui."))
+        # 1.69.0: lançou parte, fica o resto
+        self.chegar(assunto="Fatura D")
+        self.assertTrue(esperar(lambda: any(x["assunto"] == "Fatura D" and x["estado"] == "conferir" for x in self.itens()), 15))
+        it = next(x for x in self.itens() if x["assunto"] == "Fatura D")
+        n = len(it["resultado"]["lancamentos"])
+        st, _, r = self.s.post("/api/emails/resto", {"id": it["id"], "lancamentos": [0], "investimentos": []})
+        it2 = next(x for x in r["itens"] if x["id"] == it["id"])
+        self.assertEqual((st, it2["estado"], it2["resultado"]["lancamentos"]), (200, "conferir", it["resultado"]["lancamentos"][:1]), n)
+        st, _, r = self.s.post("/api/emails/resto", {"id": it["id"], "lancamentos": [], "investimentos": []})
+        self.assertEqual(next(x for x in r["itens"] if x["id"] == it["id"])["estado"], "feito")
+        st, _, r = self.s.post("/api/emails/resto", {"id": it["id"], "lancamentos": [0]})
         self.assertEqual((st, r["erro"]), (400, "Esse e-mail não está mais aqui."))
 
     def test_procurar_na_caixa_de_entrada(self):

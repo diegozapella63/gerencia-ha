@@ -224,6 +224,14 @@ class TestInicio(TelaMais):
         self.assertNotIn("Dinheiro de terceiros", self.texto("#app"))
         self.assertEqual(self.conta('#app [data-a="pessoa"]'), 0)
 
+    def test_1_69_rende_por_mes_so_o_seu(self):
+        # antes, sem nada seu, a linha virava "Rende por mês, de terceiros"; o dono pediu só o seu
+        so_terceiros = [dict(i, titular="terceiros", terceiro="Carla") for i in INVS]
+        self.abrir(base(bancos=BANCOS, investimentos=so_terceiros))
+        self.assertIsNone(self.linha(".hl-row", "Rende por mês"), "sem nada seu, sem a linha")
+        self.abrir(base(bancos=BANCOS, investimentos=INVS))
+        self.assertEqual(self.textos('.hl-row .hl-k')[0], "Rende por mês", "com o seu, só o seu")
+
     def test_destaques_batem_com_os_investimentos(self):
         self.abrir(base(bancos=BANCOS, investimentos=INVS))
         self.assertIn(brl0(RENDE_MEU), self.linha(".hl-row", "Rende por mês"))
@@ -241,8 +249,10 @@ class TestInicio(TelaMais):
 
     def test_investimento_que_vence_em_breve_avisa(self):
         self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, vencimento="2026-11-20")]))
-        self.assertEqual(self.linha("#app .op", "Vence em"), "Vence em 18 dias CDB Azul · decida para onde vai o dinheiro 18 dias")
-        self.assertIn("em 18 dias", self.linha(".hl-row", "Vence primeiro"))
+        self.assertIsNone(self.linha("#app .op", "Vence em"), "1.69.0: 18 dias antes, sem aviso")
+        self.assertIn("em 18 dias", self.linha(".hl-row", "Vence primeiro"), "o destaque continua")
+        self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, vencimento="2026-11-03")]))
+        self.assertEqual(self.linha("#app .op", "Vence amanhã"), "Vence amanhã CDB Azul · decida para onde vai o dinheiro 1 dias")
 
     def test_investimento_vencido_avisa(self):
         self.abrir(base(bancos=BANCOS, investimentos=[dict(INV_CDB, vencimento="2026-10-01")]))

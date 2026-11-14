@@ -456,14 +456,14 @@ class TestAvisos(unittest.TestCase):
         invs[2]["vencimento"] = "2026-11-17"
         self.assertEqual(next(a for a in I.avisos(d, [], HOJE) if a["id"] == "inv:vence")["titulo"], "Vence amanhã")
         invs[1]["vencimento"] = invs[2]["vencimento"] = "2026-12-01"
-        self.assertEqual(next(a for a in I.avisos(d, [], HOJE) if a["id"] == "inv:vence")["titulo"], "Vence em 16 dias")
+        self.assertNotIn("inv:vence", {a["id"] for a in I.avisos(d, [], HOJE)}, "1.69.0: em 16 dias ainda não avisa (só na véspera)")
         invs[1]["vencimento"] = invs[2]["vencimento"] = "2027-01-01"
         invs[0]["vencimento"] = "2026-11-01"
         invs.append({"nome": "LCA Rosa", "vencimento": "2026-10-01", "data_valor": "2026-11-01"})
         d["indices"] = {"fonte": "bcb", "auto": False, "atualizado_em": "2026-10-01"}
         av = {a["id"]: a for a in I.avisos(d, [], HOJE)}
         self.assertEqual(av["inv:vencidos"]["titulo"], "2 investimentos venceram")
-        self.assertNotIn("inv:vence", av, "mais de 30 dias")
+        self.assertNotIn("inv:vence", av, "longe do vencimento")
         self.assertNotIn("indices", av, "à mão: sem aviso")
         d["indices"] = {"fonte": "bcb", "atualizado_em": "2026-11-13T08:00:00-03:00"}
         self.assertNotIn("indices", {a["id"] for a in I.avisos(d, [], HOJE)}, "até 3 dias, nada")

@@ -267,7 +267,7 @@ def avisos(d, emails_itens=(), hoje=None, promos=()):
                     "texto": ", ".join(str(i.get("nome") or "") for i in vencidos)})
     breve = sorted(((calc.parse_data(i.get("vencimento")), i) for i in invs if (calc.parse_data(i.get("vencimento")) or date.min) >= hoje),
                    key=lambda x: x[0])
-    if breve and (breve[0][0] - hoje).days <= 30:
+    if breve and (breve[0][0] - hoje).days <= 1:  # 1.69.0: só na véspera e no dia (igual à Agora daqui)
         dias = (breve[0][0] - hoje).days
         out.append({"id": "inv:vence", "tipo": "vence", "titulo": f"Vence {_quando_vence(dias)}", "dias": dias, "caminho": "/agora",
                     "texto": f"{breve[0][1].get('nome') or ''} · decida para onde vai o dinheiro"})

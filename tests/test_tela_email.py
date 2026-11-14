@@ -120,6 +120,29 @@ class TestConferir(TelaEmail):
         self.ir("inicio")
         self.assertEqual(self.avisos(), [], "o aviso some")
 
+    def test_lancar_parte_deixa_o_resto_para_conferir(self):
+        """1.69.0: a fatura fica para conferir até lançar todas as linhas; o Ignorar encerra o resto."""
+        self.abrir_com([email(1, "conferir")])
+        self.clicar('[data-a="email-abrir"]')
+        self.clicar('#folhas [data-a="ia-marca"][data-i="1"]')
+        self.assertEqual(self.textos("#folhas .folha-pe .btn"), ["Ignorar", "Lançar 1 · −R$ 123"])
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FOLHA")
+        self.pg.wait_for_function("() => (window.GERENCIA_TESTE.api._emails[0].resultado || {lancamentos: []}).lancamentos.length === 1")
+        self.esperar()
+        self.assertEqual(self.estados(), ["conferir"])
+        self.assertIn("Mercado Bom", [l["descricao"] for l in self.dados()["lancamentos"]])
+        self.ir("inicio")
+        self.assertEqual(self.avisos()[0][1], "Por e-mail · 1 lançamento", "o aviso continua, só com o que falta")
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.textos("#folhas .ia-item-t b"), ["Farmácia Sol"])
+        self.voltar()
+        self.clicar('[data-a="email-abrir"]')
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => window.GERENCIA_TESTE.api._emails[0].estado === 'feito'")
+        self.assertEqual(sorted(l["descricao"] for l in self.dados()["lancamentos"]), ["Farmácia Sol", "Feira", "Mercado Bom"])
+        self.assertNotIn('"_k"', __import__("json").dumps(self.dados()), "o número da linha não vai para os dados")
+
     def test_ignorar_fecha_sem_lancar(self):
         self.abrir_com([email(1, "conferir")])
         self.clicar('[data-a="email-abrir"]')
@@ -431,6 +454,25 @@ class TestRemetente(TelaEmail):
         self.esperar()
         lc = [l for l in self.dados()["lancamentos"] if l.get("recorrencia") == "r-nuvem"]
         self.assertEqual([(l["id"], l["valor"], l["conta"]) for l in lc], [("l-nv", 31.9, "k-verde")], "o mês já lançado muda o valor, na conta do fixo")
+
+    def test_1_69_o_resto_nao_vai_de_novo_para_o_fixo(self):
+        """Lançou a linha do fixo e deixou outra: ao abrir de novo, a que ficou não vai para o fixo."""
+        res = {"lancamentos": [lanc("Nuvem", 31.9, "c-outros-gastos", "2026-11-05"), lanc("Nuvem extra", 5, "c-outros-gastos", "2026-11-05")], "investimentos": []}
+        self.js("(T.api._emails = a, T.S.emails = undefined, T.S.emailsPedido = null, clearTimeout(T.S.emailsTimer), true)", [email(1, "conferir", "Nuvem", resultado=res)])
+        self.abrir(base(bancos=BANCOS, recorrencias=[self.FIXO],
+                        ajustes={"email": True, "email_de": [], "email_remetentes": [{"de": "nuvem.com.br", "acao": "fixo", "fixo": "r-nuvem"}]}))
+        self.js("T.carregarEmails()")
+        self.esperar()
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.textos("#folhas .ia-fixo"), ["Fixo Nuvem Sol · nov/26"])
+        self.clicar('#folhas [data-a="ia-marca"][data-i="1"]')
+        self.clicar('#folhas [data-a="ia-salvar"]')
+        self.pg.wait_for_function("() => (window.GERENCIA_TESTE.api._emails[0].resultado || {}).sem_fixo === true")
+        self.esperar()
+        self.ir("inicio")
+        self.clicar('[data-a="email-abrir"]')
+        self.assertEqual(self.textos("#folhas .ia-item-t b"), ["Nuvem extra"])
+        self.assertEqual(self.conta("#folhas .ia-fixo"), 0, "o fixo já foi lançado")
 
     def test_na_conferencia_uma_despesa_vira_fixo(self):
         # (pedido do dono: da conferência, criar uma despesa fixa ou ligar a linha a um fixo que já existe)
