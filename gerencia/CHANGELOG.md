@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.71.3
+
+- **IA do Home Assistant** (Configurações › Integrações): o estado da IA e do Falar, a IA usada pelo app, a fala para texto e o Verificar de novo ficam num quadro embaixo de **Usar IA**, porque dependem dela.
+
 ## 1.71.2
 
 - **Oportunidades**, **Faturas por e-mail** e **Dicas de economia** (Configurações › Opções): o que cada seção faz fica no começo dela, numa linha só. Saiu a nota do fim do aviso das Oportunidades.

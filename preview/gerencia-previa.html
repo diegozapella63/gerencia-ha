@@ -2043,7 +2043,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.71.2';
+const VERSAO = '1.71.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -6108,13 +6108,14 @@ function cardIA() {
     : v.pronta && s && s.pronta === false ? ['manual', 'Falar: só com a IA pronta.']
     : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
-  return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
+  // 1.71.3: tudo o que depende de Usar IA fica no quadro recuado, logo abaixo dela
+  return cab + subOpcoes(`<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">${ic('ia', 'ic-s')}IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
     ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">${ic('mic', 'ic-s')}Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
       <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
-    <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p></section>`;
+    <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p>`) + `</section>`;
 }
 
 /* --------- Faturas por e-mail: a integração IMAP do Home Assistant (o Gmail, com uma senha de app) avisa cada e-mail

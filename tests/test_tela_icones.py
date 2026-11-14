@@ -129,6 +129,10 @@ class TestSubOpcoes(Tela):
         # 1.71.2: o que cada seção faz, no começo dela
         self.assertEqual([self.texto(f"#{i} .painel-lead")[:30].strip() for i in ("op-dicas", "op-email", "op-oport")],
                          ["A IA confere as assinaturas e", "A fatura que chega por e-mail", "Avisa quando um investimento c"])
+        # 1.71.3: e o que depende de Usar IA (o estado, a IA, a fala para texto e o Verificar de novo)
+        self.abrir(base(ajustes=aj), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.assertEqual(self.js("(b => b && [!!b.querySelector('.status'), !!b.querySelector('#ia-ent'), !!b.querySelector('[data-a=ia-verificar]'), b.parentElement.previousElementSibling.querySelector('.sw').dataset.k])(document.querySelector('#ia .sub-box'))"),
+                         [True, True, True, "ia"])
 
 
 if __name__ == "__main__":
