@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.65.0
+
+- **Vencimentos** em Invest › Divisão › Liquidez: quando o dinheiro de **Só no vencimento** libera, num gráfico por ano e, em **Por mês**, pelos meses de cada ano (‹ › passa pelos anos com vencimento). Os de liquidez diária ficam de fora, mesmo com data: o dinheiro deles já está livre. Embaixo, os investimentos em ordem de data, com o que já venceu em vermelho. Tocar numa coluna mostra o valor e só os investimentos dela; tocar num investimento abre ele.
+
 ## 1.64.2
 
 - As **assinaturas em promoção** seguem a configuração das **Oportunidades** (Mais › Configurações › Opções, que agora se chama só **Oportunidades**): conferidas no **Horário**, todo dia ou **a cada** tantos dias, e avisadas para quem está em **Quem recebe**. Não dependem mais das Dicas de economia.

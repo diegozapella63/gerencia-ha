@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.64.2';
+const VERSAO = '1.65.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -318,7 +318,7 @@ const S = {
   oculto: store.get('oculto', false),
   ui: Object.assign({
     tab: 'inicio', filtro: 'todos', pessoa: null, banco: null, busca: '', buscaAberta: false,
-    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gSemBens: false, gAgrup: 'banco', gSel: null,
+    invModo: 'carteira', gEscopo: 'tudo', gAnos: 5, gIR: false, gSemBens: false, gAgrup: 'banco', gSel: null, gVenc: '', gVencSel: null,
     cxModo: 'lista', cxMes: null, cxFiltro: 'tudo', cxPeriodo: 'meio', cxAtras: 24, cxFrente: 0, cxCatTipo: 'despesa', cxSel: null, faturaAberta: null,
     maisTela: '', maisAba: 'integracoes',
   }, uiGuardada(), { gIR: false, gSemBens: false }), // Descontar IR e Ocultar bens começam desligados toda vez
@@ -327,8 +327,8 @@ const S = {
   bens: null,
 };
 const salvarUI = () => {
-  const { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba } = S.ui;
-  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAgrup, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba });
+  const { tab, filtro, invModo, gEscopo, gAnos, gAgrup, gVenc, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba } = S.ui;
+  store.set('ui', { tab, filtro, invModo, gEscopo, gAnos, gAgrup, gVenc, cxModo, cxFiltro, cxPeriodo, cxAtras, cxFrente, cxCatTipo, maisTela, maisAba });
 };
 
 function normalizar(d) {
@@ -1430,7 +1430,42 @@ function grafComposicao(lista) {
       <div class="vl">${brl(g.v, 0)}<small>${pct1(g.v / total * 100)}%</small></div>
       <div class="barra"><i style="width:${(g.v / gs[0].v * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
   </div>`;
-  return html + (temBensG() ? `<div class="ctrl">${chaveSemBens()}</div>` : '');
+  return html + (u.gAgrup === 'liq' ? grafVencimentos(lista) : '') + (temBensG() ? `<div class="ctrl">${chaveSemBens()}</div>` : '');
+}
+
+// Divisão › Liquidez: quando o dinheiro de Só no vencimento libera, por ano ou pelos meses de um ano (o valor de hoje), e os
+// investimentos em ordem de data (os de liquidez diária já estão livres, mesmo com data). Tocar numa coluna mostra o valor
+// dela e só os investimentos dela; tocar de novo desmarca.
+function grafVencimentos(lista) {
+  const u = S.ui, esteAno = String(hoje().getFullYear()), h = iso(hoje());
+  const itens = lista.map(i => ({ i, d: i.liquidez === 'diaria' ? null : pData(i.vencimento) })).filter(x => x.d)
+    .map(x => Object.assign(x, { v: valorHoje(x.i), ano: String(x.d.getFullYear()), ym: iso(x.d).slice(0, 7), passou: iso(x.d) < h }))
+    .sort((a, b) => a.d - b.d || b.v - a.v);
+  if (!itens.length) return '';
+  const anos = [...new Set(itens.map(x => x.ano))];
+  const proximo = anos.find(a => a >= esteAno) || anos[anos.length - 1];
+  const ano = u.gVenc ? (anos.includes(u.gVenc) ? u.gVenc : proximo) : '';
+  const cols = (ano ? MESES.map((m, k) => { const ym = `${ano}-${String(k + 1).padStart(2, '0')}`; return { k: ym, rot: m, nome: maiuscula(nomeMes(ym)), l: itens.filter(x => x.ym === ym) }; })
+    : anos.map(a => ({ k: a, rot: a, nome: a, l: itens.filter(x => x.ano === a) })))
+    .map(c => Object.assign(c, { v: c.l.reduce((s, x) => s + x.v, 0) }));
+  const sel = cols.find(c => c.k === u.gVencSel && c.l.length);
+  const max = Math.max(1, ...cols.map(c => c.v));
+  const mostra = sel ? sel.l : ano ? itens.filter(x => x.ano === ano) : itens;
+  const k = anos.indexOf(ano), antes = anos[k - 1], depois = k >= 0 ? anos[k + 1] : undefined;
+  const rotulos = !ano && cols.length <= 8; // por ano, o valor em cima de cada coluna (com muitas, não cabe)
+  const passo = (v, txt, n) => `<button class="icbtn" data-a="g-venc" data-k="ano" data-v="${v || ''}" aria-label="${txt}"${v ? '' : ' disabled'}>${ic(n < 0 ? 'chevL' : 'chev')}</button>`;
+  return `<div class="graf-card venc-card"><h3 class="g-tit">${rotIc('calendar')}<span>Vencimentos</span></h3>
+    <div class="chips c2"><button class="chip${ano ? '' : ' on'}" data-a="g-venc" data-k="ano" data-v="">Por ano</button>
+      <button class="chip${ano ? ' on' : ''}" data-a="g-venc" data-k="ano" data-v="${ano || (sel ? sel.k : proximo)}">Por mês</button></div>
+    ${ano ? `<div class="mes-nav venc-nav">${passo(antes, 'Ano anterior com vencimento', -1)}<div class="mes-nome">${ano}</div>${passo(depois, 'Próximo ano com vencimento', 1)}</div>` : ''}
+    <div class="venc-cap" aria-live="polite"><b>${esc(sel ? sel.nome : ano || 'Com vencimento')}</b> · ${brl(mostra.reduce((s, x) => s + x.v, 0), 0)} · ${plural(mostra.length, 'investimento', 'investimentos')}</div>
+    <div class="venc-chart${ano ? ' meses' : ''}${sel ? ' sel' : ''}" role="group" aria-label="Vencimentos por ${ano ? 'mês de ' + ano : 'ano'}">${cols.map(c =>
+      `<button class="venc-bar" data-a="g-venc" data-k="sel" data-v="${c.k}" aria-pressed="${c === sel}" aria-label="${esc(c.nome)}: ${c.l.length ? `${brl(c.v, 0)}, ${plural(c.l.length, 'investimento', 'investimentos')}` : 'nada vence'}"${c.l.length ? '' : ' disabled'}>${rotulos ? `<small>${compacto(c.v)}</small>` : ''}<i style="height:${c.l.length ? Math.max(3, Math.round(c.v / max * (rotulos ? 80 : 96))) : 0}%"></i></button>`).join('')}</div>
+    <div class="venc-eixo${ano ? ' meses' : ''}" aria-hidden="true">${cols.map(c => `<span${c.k === (ano ? h.slice(0, 7) : esteAno) ? ' class="hoje"' : ''}>${c.rot}</span>`).join('')}</div>
+    <div class="venc-lista">${mostra.map(x => { const b = bancoDe(x.i.banco); return `<button class="venc-it" data-a="inv" data-id="${esc(x.i.id)}" style="--c:${corOk(b?.cor) || 'var(--c0)'}">
+      <span class="sq"></span><span class="nm"><b>${esc(x.i.nome)}</b><span class="sub">${esc(bancoDoInvest(x.i) || 'Sem banco')} · ${esc(tipoDe(x.i.tipo).nome)}</span></span>
+      <span class="vl">${brl(x.v, 0)}<small${x.passou ? ' class="alerta"' : ''}>${x.passou ? 'venceu' : 'vence'} ${fData(x.d)}</small></span></button>`; }).join('')}</div>
+  </div>`;
 }
 
 /* ------------------------------------------------------------------ caixa: base */
@@ -6635,6 +6670,10 @@ document.addEventListener('click', ev => {
       else { S.ui[k] = v; if (k === 'gAgrup') S.ui.gSel = null; }
       salvarUI(); render(); break;
     }
+    case 'g-venc': // Vencimentos: Por ano (''), Por mês ou ‹ › (o ano), ou tocar numa coluna (sel: marca e desmarca)
+      if (el.dataset.k === 'sel') S.ui.gVencSel = S.ui.gVencSel === v ? null : v;
+      else { S.ui.gVenc = v; S.ui.gVencSel = null; }
+      salvarUI(); render(); break;
     case 'carregar-exemplo': {
       const ex = gerarExemplo();
       persistir(d => { d.bancos = ex.bancos; d.investimentos = ex.investimentos; d.lancamentos = ex.lancamentos; d.recorrencias = ex.recorrencias; d.categorias = ex.categorias; d.exemplo = true; d._hist = ex.historico; }, 'Exemplo carregado');

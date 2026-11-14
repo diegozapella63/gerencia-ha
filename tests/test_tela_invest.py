@@ -478,6 +478,168 @@ class TestDivisao(_TelaInvest):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# Divisão › Liquidez › Vencimentos (1.65.0): quando o dinheiro de Só no vencimento libera, por ano ou por mês, com o valor de hoje
+VELHO = inv("velho", "CDB que já venceu", 3000, "cdi_pct", 100, banco="b-azul", vencimento="2026-10-01")
+DEZ = inv("dez", "CDB de dezembro", 4000, "cdi_pct", 105, banco="b-verde", vencimento="2026-12-10")
+LCA = inv("lca", "LCA Verde", 7000, "cdi_pct", 92, banco="b-verde", tipo="lci", vencimento="2027-09-20")
+IPCA35 = inv("ipca", "Tesouro IPCA+ 2035", 9000, "ipca_mais", 6.5, banco="b-azul", tipo="tesouro", vencimento="2035-05-15")
+SELIC29 = inv("selic29", "Tesouro Selic 2029", 6000, "selic_mais", 0, banco="b-azul", tipo="tesouro", liquidez="diaria", vencimento="2029-03-01")
+COM_DATA = INVS + [VELHO, DEZ, LCA, IPCA35, SELIC29]
+# por ano: 2026 = 3.000 + 4.000 · 2027 = 5.000 (LCI) + 7.000 · 2028 = 10.000 (CDB) · 2035 = 9.000
+# o Tesouro Selic 2029 tem data, mas liquidez diária: o dinheiro já está livre, não entra
+
+
+class TestVencimentos(_TelaInvest):
+    CARD = "#app .venc-card"
+
+    def liq(self, invs=COM_DATA, **ui):
+        self.invest(base(bancos=BANCOS, investimentos=invs), ui=dict({"invModo": "divisao", "gAgrup": "liq"}, **ui))
+
+    def cap(self):
+        return self.texto(self.CARD + " .venc-cap")
+
+    def lista(self):
+        """As linhas: (nome, banco · tipo, valor, quando)."""
+        return [tuple(x) for x in self.js("[...document.querySelectorAll('#app .venc-it')].map(c => [c.querySelector('.nm b').textContent, "
+                                          "c.querySelector('.sub').textContent, c.querySelector('.vl').firstChild.textContent, c.querySelector('.vl small').textContent])")]
+
+    def barras(self):
+        """As colunas: (v do data-v, aria-label, apertada, desligada)."""
+        return [tuple(x) for x in self.js("[...document.querySelectorAll('#app .venc-bar')].map(b => [b.dataset.v, b.getAttribute('aria-label'), "
+                                          "b.getAttribute('aria-pressed'), b.disabled])")]
+
+    def test_so_na_liquidez_e_so_com_alguma_data(self):
+        self.liq(gAgrup="banco")
+        self.assertEqual(self.conta(self.CARD), 0, "por banco, não")
+        self.clicar('#app [data-k="gAgrup"][data-v="liq"]')
+        self.assertEqual(self.conta(self.CARD), 1)
+        self.assertEqual(self.texto(self.CARD + " .g-tit"), "Vencimentos")
+        self.assertEqual(self.comps()[0][0], "Só no vencimento", "a divisão por liquidez continua igual, em cima")
+        self.liq([TES, DIN, POUP, CX])
+        self.assertEqual(self.conta(self.CARD), 0, "nenhum com data: não aparece")
+        self.liq([TES, SELIC29])
+        self.assertEqual(self.conta(self.CARD), 0, "só de liquidez diária, mesmo com data: o dinheiro já está livre")
+        self.liq(gEscopo="terc")
+        self.assertEqual(self.conta(self.CARD), 0, "De terceiros: só os deles, e nenhum tem data")
+
+    def test_por_ano(self):
+        self.liq()
+        self.assertEqual(self.textos(self.CARD + ' [data-k="ano"]'), ["Por ano", "Por mês"])
+        self.assertEqual(self.texto(self.CARD + ' [data-k="ano"].on'), "Por ano")
+        self.assertEqual(self.cap(), "Com vencimento · R$ 38.000 · 6 investimentos")
+        self.assertEqual(self.barras(), [("2026", "2026: R$ 7.000, 2 investimentos", "false", False), ("2027", "2027: R$ 12.000, 2 investimentos", "false", False),
+                                         ("2028", "2028: R$ 10.000, 1 investimento", "false", False), ("2035", "2035: R$ 9.000, 1 investimento", "false", False)])
+        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), ["7\xa0mil", "12\xa0mil", "10\xa0mil", "9\xa0mil"], "o valor em cima de cada coluna (o espaço que não quebra)")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["2026", "2027", "2028", "2035"], "só os anos com vencimento")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), ["2026"], "este ano em destaque")
+        alturas = self.js("[...document.querySelectorAll('#app .venc-bar i')].map(i => parseFloat(i.style.height))")
+        self.assertEqual(alturas, [round(7000 / 12000 * 80), 80, round(10000 / 12000 * 80), round(9000 / 12000 * 80)], "na proporção do maior")
+        self.assertEqual(self.lista(), [("CDB que já venceu", "Banco Azul · Ana · CDB", "R$ 3.000", "venceu 01/10/2026"),
+                                        ("CDB de dezembro", "Banco Verde · CDB", "R$ 4.000", "vence 10/12/2026"),
+                                        ("LCI Verde", "Banco Verde · LCI/LCA", "R$ 5.000", "vence 01/06/2027"),
+                                        ("LCA Verde", "Banco Verde · LCI/LCA", "R$ 7.000", "vence 20/09/2027"),
+                                        ("CDB Azul 2028", "Banco Azul · Ana · CDB", "R$ 10.000", "vence 15/03/2028"),
+                                        ("Tesouro IPCA+ 2035", "Banco Azul · Ana · Tesouro", "R$ 9.000", "vence 15/05/2035")], "em ordem de data")
+        self.assertEqual(self.conta('#app .venc-it .vl small.alerta'), 1, "o que já venceu em vermelho")
+        self.assertTrue(self.cabe(self.CARD + " .venc-it .vl, " + self.CARD + " .venc-bar small"), "nenhum número cortado")
+
+    def test_tocar_num_ano_mostra_o_valor_e_os_dele(self):
+        self.liq()
+        self.clicar(self.CARD + ' .venc-bar[data-v="2027"]')
+        self.assertEqual(self.cap(), "2027 · R$ 12.000 · 2 investimentos")
+        self.assertEqual([n for n, *_ in self.lista()], ["LCI Verde", "LCA Verde"])
+        self.assertEqual([p for _, _, p, _ in self.barras()], ["false", "true", "false", "false"])
+        self.assertEqual(self.conta(self.CARD + " .venc-chart.sel"), 1, "as outras colunas apagadas")
+        self.clicar(self.CARD + ' .venc-bar[data-v="2027"]')
+        self.assertEqual(self.cap(), "Com vencimento · R$ 38.000 · 6 investimentos", "tocar de novo desmarca")
+        self.assertEqual(len(self.lista()), 6)
+
+    def test_por_mes(self):
+        self.liq()
+        self.clicar(self.CARD + ' .venc-bar[data-v="2027"]')
+        self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por mês")')
+        self.assertEqual(self.texto(self.CARD + ' [data-k="ano"].on'), "Por mês")
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2027", "abre o ano marcado")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"])
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), [], "nov/26 não está em 2027")
+        b = self.barras()
+        self.assertEqual([x for x in b if not x[3]], [("2027-06", "Junho de 2027: R$ 5.000, 1 investimento", "false", False),
+                                                      ("2027-09", "Setembro de 2027: R$ 7.000, 1 investimento", "false", False)])
+        self.assertEqual(b[0], ("2027-01", "Janeiro de 2027: nada vence", "false", True), "mês sem nada: sem coluna e sem toque")
+        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), [], "por mês, sem o valor em cima (não cabe)")
+        self.assertEqual(self.cap(), "2027 · R$ 12.000 · 2 investimentos")
+        self.clicar(self.CARD + ' .venc-bar[data-v="2027-09"]')
+        self.assertEqual(self.cap(), "Setembro de 2027 · R$ 7.000 · 1 investimento")
+        self.assertEqual([n for n, *_ in self.lista()], ["LCA Verde"])
+        # ‹ › passam pelos anos com vencimento (2028 e depois 2035, sem os do meio)
+        self.clicar(self.CARD + ' [aria-label="Próximo ano com vencimento"]')
+        self.assertEqual((self.texto(self.CARD + " .mes-nome"), self.cap()), ("2028", "2028 · R$ 10.000 · 1 investimento"), "trocar de ano desmarca o mês")
+        self.clicar(self.CARD + ' [aria-label="Próximo ano com vencimento"]')
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2035")
+        self.assertTrue(self.pg.locator(self.CARD + ' [aria-label="Próximo ano com vencimento"]').is_disabled(), "o último")
+        for _ in range(3):
+            self.clicar(self.CARD + ' [aria-label="Ano anterior com vencimento"]')
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2026")
+        self.assertTrue(self.pg.locator(self.CARD + ' [aria-label="Ano anterior com vencimento"]').is_disabled(), "o primeiro")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), ["nov"], "este mês em destaque")
+        self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por ano")')
+        self.assertEqual((self.conta(self.CARD + " .mes-nome"), self.cap()), (0, "Com vencimento · R$ 38.000 · 6 investimentos"))
+
+    def test_por_mes_sem_ano_marcado_abre_o_proximo_vencimento(self):
+        antigo = inv("antigo", "CDB de 2025", 2000, "cdi_pct", 100, banco="b-azul", vencimento="2025-04-10")
+        self.liq(INVS + [antigo])
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["2025", "2027", "2028"])
+        self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por mês")')
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2027", "o primeiro a partir deste ano, não o que já passou")
+        self.liq([antigo])
+        self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por mês")')
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2025", "só um que já passou: ele mesmo")
+
+    def test_ano_guardado_e_ano_que_sumiu(self):
+        self.liq()
+        self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por mês")')
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2026")
+        self.clicar(self.CARD + ' [aria-label="Próximo ano com vencimento"]')
+        self.assertEqual(self.ui_guardada().get("gVenc"), "2027", "fica guardado, como os outros filtros")
+        self.liq(gVenc="2031")
+        self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2026", "um ano sem vencimento volta para o próximo")
+
+    def test_muitos_anos_sem_o_valor_em_cima(self):
+        anos = [inv(f"a{a}", f"CDB {a}", 1000, "cdi_pct", 100, vencimento=f"{a}-01-15") for a in range(2027, 2036)]
+        self.liq(anos)
+        self.assertEqual(len(self.barras()), 9)
+        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), [], "9 colunas: o valor fica no toque")
+        self.clicar(self.CARD + ' .venc-bar[data-v="2030"]')
+        self.assertEqual(self.cap(), "2030 · R$ 1.000 · 1 investimento")
+
+    def test_tocar_na_linha_abre_o_investimento(self):
+        self.liq()
+        self.clicar('#app .venc-it[data-id="lca"]')
+        self.assertEqual(self.folha(), "Editar investimento")
+        self.assertEqual(self.pg.input_value('.folha #f-nome'), "LCA Verde")
+
+    def test_olho_esconde_os_valores(self):
+        self.liq()
+        self.clicar('#app [data-a="olho"]')
+        self.assertEqual(self.cap(), "Com vencimento · R$ ••••• · 6 investimentos")
+        self.assertEqual(set(self.textos(self.CARD + " .venc-bar small")), {"•••"})
+        self.assertEqual({v for _, _, v, _ in self.lista()}, {"R$ •••••"})
+
+
+class TestVencimentos320(TestVencimentos):
+    """Os mesmos, no celular pequeno (320 px), e os nomes dos 12 meses cabem cada um na sua coluna."""
+    LARGURA = 320
+
+    def test_os_meses_cabem(self):
+        self.liq(gVenc="2027")
+        larguras = self.js("[...document.querySelectorAll('#app .venc-eixo span')].map(e => { const r = document.createRange(); r.selectNodeContents(e); "
+                           "return [r.getBoundingClientRect().width, e.getBoundingClientRect().width]; })")
+        self.assertEqual(len(larguras), 12)
+        self.assertTrue(all(t <= c for t, c in larguras), larguras)
+        self.assertEqual(self.js("document.documentElement.scrollWidth"), 320, "nada passa da largura")
+
+
+# ---------------------------------------------------------------------------------------------------------------
 class TestGuardadoEDesligado(_TelaInvest):
     def test_filtros_e_abas_ficam_guardados(self):
         self.invest()

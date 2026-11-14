@@ -472,6 +472,33 @@ details summary { cursor: pointer; font-weight: 600; }
 .comp .vl { text-align: right; font: 600 19px/1 var(--font-d); white-space: nowrap; }
 .comp .vl small { display: block; font: 400 13px var(--font); color: var(--muted); margin-top: 3px; }
 .comp.on { background: var(--card-2); border-radius: 10px; }
+/* Divisão › Liquidez: Vencimentos (colunas por ano ou pelos meses de um ano, e os investimentos em ordem de data) */
+.venc-nav { margin: 0 -6px 4px; }
+.venc-cap { min-height: 22px; margin: 0 2px 6px; color: var(--text-2); font-size: 14px; }
+.venc-chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; align-items: end; height: 150px; border-bottom: 1px solid var(--line); }
+.venc-bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.venc-bar:disabled { cursor: default; }
+.venc-bar i { display: block; width: 100%; max-width: 44px; border-radius: 5px 5px 0 0; background: var(--accent); transition: background .15s; }
+.venc-bar small { font: 600 12px/1 var(--font); color: var(--text-2); white-space: nowrap; }
+.venc-chart.sel .venc-bar[aria-pressed="false"] i { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+.venc-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.venc-eixo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding-top: 6px; font-size: 12.5px; color: var(--muted); text-align: center; }
+.venc-eixo .hoje { color: var(--text); font-weight: 700; }
+/* os 12 meses: colunas mais juntas e nomes menores, para caber em 320 px */
+.venc-chart.meses, .venc-eixo.meses { gap: 2px; }
+.venc-eixo.meses { font-size: 11.5px; }
+@media (max-width: 359px) { .venc-eixo.meses { font-size: 10.5px; letter-spacing: -.02em; } }
+.venc-lista { margin-top: 10px; }
+.venc-it { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; width: 100%; padding: 11px 2px; border-bottom: 1px solid var(--line); text-align: left; }
+.venc-it:last-child { border-bottom: 0; }
+.venc-it .sq { width: 12px; height: 12px; border-radius: 3px; background: var(--c); }
+.venc-it .nm { min-width: 0; }
+.venc-it .nm b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.venc-it .sub { display: block; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.venc-it .vl { text-align: right; font: 600 19px/1 var(--font-d); white-space: nowrap; }
+.venc-it .vl small { display: block; font: 400 13px var(--font); color: var(--muted); margin-top: 3px; }
+.venc-it .vl small.alerta { color: var(--danger); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .venc-bar i { transition: none; } }
 
 /* ---------- Mais */
 .banco-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -1097,7 +1124,7 @@ details summary { list-style-position: inside; }
   #app .rot-ic { width: 38px; height: 38px; border-radius: 11px; }
   #app .rot-ic .ic { width: 21px; height: 21px; }
   #app .card .op { padding: 13px 8px; border-top: 0; border-bottom: 1px solid var(--line); }
-  #app .op:hover, .hl-row:hover, .cx-card-pe:hover, .comp:hover { background: var(--card-2); }
+  #app .op:hover, .hl-row:hover, .cx-card-pe:hover, .comp:hover, .venc-it:hover { background: var(--card-2); }
   #app .cx-card .cx-resumo { border-top: 0; }
   #app .cx-card-pe { padding: 12px 8px; }
   #app .card.dicas .dica:first-of-type { padding-top: 16px; }
