@@ -1110,7 +1110,7 @@ class TestEditar(_TelaInvest):
         self.invest(base(bancos=BANCOS, investimentos=[dict(PRE, data_valor="2026-08-03")]))
         self.editar("pre")
         hoje = 10000 * 1.12 ** (65 / 252)
-        self.assertEqual(self.texto("#aj-valor"), f"Hoje: ≈ {brl(hoje)}, corrigido desde 03/08/2026. Usar este valor")
+        self.assertEqual(" ".join(self.texto("#aj-valor").split()), f"Hoje: ≈ {brl(hoje)}, corrigido desde 03/08/2026. Usar este valor")
         self.clicar('.folha [data-a="f-usar-est"]')
         self.assertEqual((self.pg.input_value("#f-valor"), self.pg.input_value("#f-data")), (brl(hoje)[3:], HOJE_ISO))
         self.clicar(SALVAR)

@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.71.0
+
+- **Ícones em tudo**, como nos outros apps: cada seção tem o cabeçalho com ícone (agora também Bancos), cada linha de opção tem um ícone antes do título (Usar IA, Cor do dia, Horário, Quem recebe…), os recolhidos e as Últimas chamadas também, e todo botão com texto tem ícone (Cancelar, Salvar, Voltar, as escolhas como Todo mês, Tudo, Entradas…). Os destaques do Agora também ganharam o ícone.
+- **Também com ícone**: o título de cada tela (Agora, Caixa, Bancos…), o título de cada janela (Nova despesa, Editar banco, Apagar…) e o título da lista de cada caixa de seleção.
+- **Menos linhas**: sem a linha entre as opções de uma seção nem a de cima dos recolhidos.
+- **Sub-opções num quadro**: o "de quanto em quanto tempo" fica num quadro recuado embaixo de **Conferir sozinho**, e o Quem recebe e o Testar no meu celular embaixo de **Avisar no celular** (Dicas de economia, Faturas por e-mail e Oportunidades).
+- Os nomes de investimento, de benefício e de categoria aumentam puxando o canto, como os outros campos de texto.
+
 ## 1.70.0
 
 - **Assinaturas em promoção**: quando o site só mostra o preço em reais no navegador (como EA Play e Boosteroid) ou não deixa o app abrir a página (como Ubisoft+), a IA busca no site oficial. A promoção achada assim diz **pela busca da IA**, e o toque abre a página onde ela viu.

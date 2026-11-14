@@ -181,7 +181,8 @@ svg { display: block; }
   padding: 14px 2px; border-bottom: 1px solid var(--line);
 }
 .hl-row > div:first-child { flex: 1; min-width: 0; }
-.hl-k { color: var(--muted); font-size: 14px; }
+.hl-k { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.hl-k .ic-s { color: var(--accent-text); }
 .hl-v { font-size: 17px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl-n { font: 600 25px/1.1 var(--font-d); white-space: nowrap; text-align: right; max-width: 58%; }
 .hl-n small { display: block; font: 400 13px/1.3 var(--font); color: var(--muted); margin-top: 2px; }
@@ -299,7 +300,9 @@ svg { display: block; }
 .sw.on::after { transform: translateX(24px); }
 .linha-sw { display: flex; align-items: center; gap: 14px; }
 .linha-sw > div { flex: 1; min-width: 0; }
-.linha-sw b { display: block; font-size: 16px; font-weight: 600; }
+.linha-sw b { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+.linha-sw b > .ic-s { color: var(--accent-text); }
+.linha-sw b:has(> .ic-s) + span { display: block; padding-left: 26px; }
 .linha-sw span { color: var(--muted); font-size: 14px; }
 
 .cores { display: flex; flex-wrap: wrap; gap: 12px; }
@@ -358,6 +361,10 @@ svg { display: block; }
   padding: 14px max(10px, env(safe-area-inset-right, 0px)) 12px max(20px, env(safe-area-inset-left, 0px));
 }
 .folha-cab h2 { flex: 1; margin: 0; font: 600 22px/1.15 var(--font-d); }
+.folha-cab h2 { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.folha-ic { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 17%, transparent); color: var(--accent-text); }
+.folha-ic .ic { width: 18px; height: 18px; }
+.folha-tt { min-width: 0; overflow-wrap: anywhere; }
 .folha-corpo {
   overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding-block: 18px 22px;
   padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
@@ -747,9 +754,21 @@ details summary { list-style-position: inside; }
 .dica-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 /* Mais: os botões de ação todos do mesmo tamanho, como nos outros apps. No celular ocupam a largura toda;
    do tablet para cima, a mesma largura fixa (no Exportar, ao lado do texto) */
-.mais-painel .card > .btn:not(.peq), .mais-painel .opts .btn, .mais-painel .dica-btns .btn { width: 100%; flex: 1 1 100%; justify-content: center; }
+.mais-painel .card > .btn:not(.peq), .mais-painel .sub-box > .btn:not(.peq), .mais-painel .opts .btn, .mais-painel .dica-btns .btn { width: 100%; flex: 1 1 100%; justify-content: center; }
 @media (min-width: 600px) {
-  .mais-painel .card > .btn:not(.peq), .mais-painel .opts .btn, .mais-painel .dica-btns .btn { width: 250px; flex: none; }
+  .mais-painel .card > .btn:not(.peq), .mais-painel .sub-box > .btn:not(.peq), .mais-painel .opts .btn, .mais-painel .dica-btns .btn { width: 250px; flex: none; }
+}
+/* 1.71.0: as sub-opções (o Horário e o A cada do Conferir sozinho, o Quem recebe e o Testar do Avisar no celular) num
+   quadro recuado logo abaixo da chave, para ver de qual opção são (o mesmo do Apps detectados do InventarIA) */
+.sub-op { padding: 0 0 12px 26px; }
+.sub-box { padding: 12px 14px 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--card-2) 55%, var(--card)); }
+.sub-box > :first-child { margin-top: 0; }
+.sub-box > :last-child { margin-bottom: 0; }
+.sub-box > .campo:first-child > label { margin-top: 0; }
+@media (max-width: 360px) {  /* num celular bem estreito, menos recuo, para as escolhas caberem */
+  .sub-op { padding-left: 10px; }
+  .sub-box { padding: 10px; }
+  #op-dicas .sub-box .op-freq button { padding: 4px 3px; gap: 3px; font-size: 13px; }
 }
 .ass-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .ass-row .ini { width: 40px; height: 40px; border-radius: 12px; font-size: 18px; }
@@ -858,7 +877,7 @@ details summary { list-style-position: inside; }
 .mais-aside { font: 600 17px/1 var(--font-d); color: var(--text-2); white-space: nowrap; }
 .painel-lead { margin: 0 0 14px; color: var(--muted); font-size: 15px; max-width: 64ch; }
 .painel-lead code, .card .linha-sw code { font-size: 13px; }
-.card .linha-sw { padding: 12px 0; border-top: 1px solid var(--line); }
+.card .linha-sw { padding: 10px 0; } /* 1.71.0: sem a linha entre as opções: o ícone marca onde cada uma começa */
 .card .mais-head + .linha-sw { border-top: 0; padding-top: 4px; }
 .card .painel-lead + .linha-sw { margin-top: 2px; }
 .foot { margin: 36px 0 8px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -950,8 +969,8 @@ details summary { list-style-position: inside; }
 .uso-ult { margin: 0 0 6px; }
 .uso-ult summary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; color: var(--accent-text); font-weight: 600; cursor: pointer; list-style: none; }
 .uso-ult summary::-webkit-details-marker { display: none; }
-.uso-ult summary .ic-s { transition: transform .15s; }
-.uso-ult[open] summary .ic-s { transform: rotate(90deg); }
+.uso-ult summary > .ic-s:first-child { transition: transform .15s; }
+.uso-ult[open] summary > .ic-s:first-child { transform: rotate(90deg); }
 .uso-ult ul { list-style: none; margin: 4px 0 0; padding: 0; }
 .uso-ult li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
 .uso-ult li b { color: var(--text); font-weight: 600; }
@@ -1038,6 +1057,9 @@ details summary { list-style-position: inside; }
 .cab-topo .eyebrow { flex: 1; min-width: 0; }
 .cab-linha { display: flex; align-items: flex-end; gap: 4px; }
 .cab-linha h1 { flex: 1; min-width: 0; }
+.cab-linha h1:has(> .mais-ic) { display: flex; align-items: center; gap: 12px; }
+.cab-linha h1 > .mais-ic { width: 42px; height: 42px; border-radius: 12px; }
+.cab-linha h1 > .mais-ic .ic { width: 23px; height: 23px; }
 .mic-top { flex: none; width: 44px; height: 44px; margin: -6px -2px -6px 0; border-radius: 50%; display: grid; place-items: center;
   background: color-mix(in srgb, var(--accent) 17%, transparent); color: var(--accent-text); }
 .mic-top .ic { width: 22px; height: 22px; }
@@ -1295,6 +1317,7 @@ input[readonly] { opacity: .8; }
 
 /* Opções › Dicas de economia: o horário, quem recebe o aviso (as pessoas da casa no Home Assistant) e Testar */
 #op-dicas .op-freq { margin: 2px 0 12px; }
+#op-dicas .sub-box .op-freq { margin: 0; }
 #op-dicas .op-freq button { flex: 1; }
 #op-dicas .campo { margin: 14px 0 0; }
 .quem { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -1432,10 +1455,10 @@ input[readonly] { opacity: .8; }
 .sug-op:first-child { border-top: 0; }
 .sug-op:active, .sug-op:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* Inativos no fim, recolhidos (padrão de todos os apps): o título com a contagem abre num toque */
-.recolhido { margin-top: 14px; border-top: 1px solid var(--line); }
+.recolhido { margin-top: 14px; }
 .recolhido-t { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 10px 0 6px; color: var(--accent-text); font: 600 15px/1.2 var(--font); text-align: left; }
-.recolhido-t .ic-s { transition: transform .15s; }
-.recolhido.on .recolhido-t .ic-s { transform: rotate(90deg); }
+.recolhido-t > .ic-s:first-child { transition: transform .15s; }
+.recolhido.on .recolhido-t > .ic-s:first-child { transform: rotate(90deg); }
 .recolhido-c { padding-bottom: 4px; }
 
 /* Editar banco: os cartões adicionais (para quem e o limite, com a lixeira ao lado do limite) */
@@ -1516,3 +1539,29 @@ input[readonly] { opacity: .8; }
 .promo-sem-l a { color: var(--text); }
 .promo-sem-l small { color: var(--muted); }
 .promo-grupo .recolhido { margin-top: 8px; }
+
+/* 1.71.0 (padrão da família): todo botão com texto tem ícone; os que não são .btn alinham o ícone com o texto */
+.chip, .link, .link-in, #toast .toast-a, .cam-pronto { display: inline-flex; align-items: center; gap: 6px; }
+.link-in .ic-s, .link .ic-s { width: 16px; height: 16px; }
+.mes-nome { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.mes-nome .ic-s { color: var(--accent-text); }
+.chips:not(.rola) > .chip .ic-s { flex: none; }
+.chips.c4 > .chip:has(> .ic-s), .chips.c5 > .chip:has(> .ic-s) { flex-direction: column; gap: 3px; }
+/* três escolhas lado a lado (Toda semana, A cada 15 dias, Todo mês): o ícone ao lado e o texto em até duas linhas, para caber */
+#op-dicas .op-freq button { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px; padding: 4px 6px; font-size: 14px; line-height: 1.15; white-space: normal; text-align: left; }
+#op-dicas .op-freq button > .ic-s { flex: none; width: 16px; height: 16px; }
+/* as escolhas lado a lado com ícone: com quatro ou mais (ou três num celular estreito), o ícone em cima do texto, para caber */
+.seg:not(.bc-abas):has(> button:nth-child(4)) > button:has(> svg) { flex-direction: column; gap: 2px; padding: 3px 4px; font-size: 13.5px; line-height: 1.15; }
+.seg:has(> button:nth-child(4)) > button > svg { flex: none; width: 16px; height: 16px; }
+@media (max-width: 360px) {
+  .seg:not(.bc-abas):has(> button:nth-child(3)) > button:has(> svg):not(:has(> small)) { flex-direction: column; gap: 2px; padding: 3px 4px; font-size: 13.5px; line-height: 1.15; }
+  .seg:has(> button:nth-child(3)) > button:not(:has(> small)) > svg { flex: none; width: 16px; height: 16px; }
+  .seg:not(:has(> button:nth-child(3))) > button:has(> svg) { white-space: normal; line-height: 1.15; padding: 3px 6px; gap: 5px; font-size: 14px; }
+  .seg > button:has(> small) { gap: 4px; padding-left: 4px; padding-right: 4px; }
+  .seg > button:has(> small) > svg { flex: none; width: 15px; height: 15px; }
+}
+/* num celular bem estreito (320 px), os dois botões do pé da janela (Salvar e lançar outro, Salvar) sem o ícone, para o texto caber */
+@media (max-width: 360px) { .folha-pe .btn > .ic { display: none; } }
+/* os títulos das linhas com campo (IA usada pelo app, Horário, Quem recebe…) com o ícone antes */
+.campo label:has(> .ic-s), .campo .lbl:has(> .ic-s), .ctrl > .lbl:has(> .ic-s) { display: flex; align-items: center; gap: 8px; }
+.campo label > .ic-s, .campo .lbl > .ic-s, .ctrl > .lbl > .ic-s { color: var(--accent-text); }

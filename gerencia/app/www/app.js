@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.70.0';
+const VERSAO = '1.71.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -23,6 +23,11 @@ const corDoDia = (d = new Date()) => CORES_DIA[((numeroDoDia(d) % CORES_DIA.leng
 const BANCOS_COMUNS = ['Nubank', 'Itaú', 'Bradesco', 'Banco do Brasil', 'Caixa', 'Santander', 'Inter', 'BTG Pactual',
   'XP', 'C6 Bank', 'Sicredi', 'Sicoob', 'Mercado Pago', 'PicPay', 'Rico', 'Banrisul', 'Safra', 'Viacredi'];
 
+// 1.71.0: o ícone de cada escolha em botões (todo botão com texto tem ícone, padrão da família)
+const SEG_IC = { investido: 'wallet', gasto: 'card', plano: 'repeat', mes: 'calendar-days', ano: 'calendar', nunca: 'x', milhas: 'plane', trechos: 'plane',
+  contagem: 'list-checks', saldo: 'wallet', vantagem: 'gift', BRL: 'wallet', USD: 'wallet' };
+const TIPO_IC = { cdb: 'bank', lci: 'bank', tesouro: 'bank', poupanca: 'wallet', caixinha: 'package', fundo: 'layers', acoes: 'trend', ouro: 'zap',
+  dinheiro: 'wallet', bens: 'sofa', previdencia: 'clock', outro: 'dots' };
 const TIPOS = [
   { id: 'cdb', nome: 'CDB', ir: 'reg', p: { indexador: 'cdi_pct', taxa: 100, liquidez: 'vencimento' } },
   { id: 'lci', nome: 'LCI/LCA', ir: 'isento', p: { indexador: 'cdi_pct', taxa: 90, liquidez: 'vencimento' } },
@@ -150,6 +155,7 @@ const P = {
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   chev: '<path d="m9 6 6 6-6 6"/>',
+  back: '<path d="m15 6-6 6 6 6"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
@@ -236,7 +242,7 @@ function dcCorpo(id, valor) {
   const at = atalhosData(o.tipo).filter(([, x]) => dentro(x)), rapido = at.some(([, x]) => x === v);
   const outra = v && !rapido;
   return `<input type="hidden" id="${id}" ${o.liga} data-dcv value="${esc(v)}">
-    <div class="chips dc-ch" role="group" aria-labelledby="${id}-l">${at.map(([t, x]) => `<button type="button" class="chip${x === v ? ' on' : ''}" aria-pressed="${x === v}" data-a="dc" data-id="${id}" data-v="${x}">${t}</button>`).join('')}
+    <div class="chips dc-ch" role="group" aria-labelledby="${id}-l">${at.map(([t, x]) => `<button type="button" class="chip${x === v ? ' on' : ''}" aria-pressed="${x === v}" data-a="dc" data-id="${id}" data-v="${x}">${ic('calendar-days', 'ic-s')}${t}</button>`).join('')}
       <button type="button" class="chip dc-outra${outra ? ' on' : ''}" aria-pressed="${outra}" aria-expanded="${!!o.mes}" data-a="dc-cal" data-id="${id}">${ic('calendar', 'ic-s')}<span>${outra ? dataCurta(v) : 'Outra data'}</span></button>
       ${o.opcional && v ? `<button type="button" class="chip" data-a="dc" data-id="${id}" data-v="">${ic('x', 'ic-s')}<span>Sem data</span></button>` : ''}</div>
     ${o.mes ? dcMes(id, v) : ''}${o.ajuda ? `<div class="ajuda">${o.ajuda}</div>` : ''}`;
@@ -857,7 +863,7 @@ let toastT;
    família) e mais tempo na tela. */
 function toast(msg, acao) {
   const el = toastEl();
-  el.innerHTML = `<span class="toast-t">${esc(msg)}</span>${acao ? `<button type="button" class="toast-a">${esc(acao.rotulo)}</button>` : ''}`;
+  el.innerHTML = `<span class="toast-t">${esc(msg)}</span>${acao ? `<button type="button" class="toast-a">${ic(acao.icone || 'back', 'ic-s')}${esc(acao.rotulo)}</button>` : ''}`;
   el.classList.toggle('com-acao', !!acao);
   el.classList.add('on');
   clearTimeout(toastT);
@@ -887,11 +893,13 @@ const iconeApp = () => `<svg class="app-ic" viewBox="0 0 32 32" aria-hidden="tru
   <text x="23.4" y="23.2" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="18.5" fill="var(--on-accent)">$</text></svg>`;
 // status: [classe, texto] da linha embaixo do título (sem ele, a dos índices; false, sem a linha);
 // volta: numa tela de Mais, o caminho de volta para o menu no alto ("‹ Mais"), como no InventarIA
+// 1.71.0 (padrão da família): o título de cada tela com o ícone (o da aba de baixo ou o da linha do Mais), como as seções
+const ICONE_TELA = { Agora: 'clock', Caixa: 'fluxo', Investimentos: 'trend', Mais: 'dots', Bancos: 'bank', Invest: 'trend', 'Benefícios': 'gift', 'Configurações': 'sliders', Sobre: 'info' };
 function cabecalho(titulo, acoes = '', status = null, volta = false) {
   const [cls, txt] = status || syncInfo();
   return `<header class="cab"><div class="cab-topo"><p class="eyebrow"><span class="brand">${iconeApp()}Gerenc<span>IA</span></span>${S.usuario ? `<span class="eb-sep"> · </span>Olá, ${esc(S.usuario.split(' ')[0])}` : ''}</p>${botaoChat()}${botaoFalar()}</div>
     ${volta ? `<button class="uplink" data-a="mais-volta">${ic('chevL', 'ic-s')}Mais</button>` : ''}
-    <div class="cab-linha"><h1>${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
+    <div class="cab-linha"><h1>${ICONE_TELA[titulo] ? `<span class="mais-ic" aria-hidden="true">${ic(ICONE_TELA[titulo])}</span>` : ''}${titulo}</h1>${acoes}</div>${acoesTopo(acoes)}</header>
     ${status === false ? '' : `<p class="sync ${cls}"><span class="dot" aria-hidden="true"></span><span>${txt}</span></p>`}`;
 }
 
@@ -976,35 +984,35 @@ function telaInicio() {
   // destaques
   const rows = [];
   // 1.69.0: só o rendimento do que é seu (o de terceiros fica no Invest, filtro Terceiros); sem nada seu, sem a linha
-  if (tm.total > 0) rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">Rende por mês</div>
+  if (tm.total > 0) rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${ic('trend', 'ic-s')}Rende por mês</div>
     <div class="hl-v">Média de ${pct(tm.rMed * 100)}% a.a.</div></div><div class="hl-n">${brl(tm.mes, 0)}<small>antes do IR</small></div></button>`);
   const fixos = d.investimentos.filter(i => i.indexador !== 'estimado' && i.indexador !== 'parado');
   if (fixos.length) {
     const melhor = fixos.reduce((a, b) => taxaAnual(b) > taxaAnual(a) ? b : a);
-    rows.push(`<button class="hl-row" data-a="inv" data-id="${melhor.id}"><div><div class="hl-k">Melhor rendimento</div>
+    rows.push(`<button class="hl-row" data-a="inv" data-id="${melhor.id}"><div><div class="hl-k">${ic('percent', 'ic-s')}Melhor rendimento</div>
       <div class="hl-v">${esc(melhor.nome)}</div></div><div class="hl-n">${pct(taxaAnual(melhor) * 100)}%<small>${esc(rotuloTaxa(melhor))}</small></div></button>`);
   }
   const comVenc = d.investimentos.map(i => ({ i, dt: pData(i.vencimento) })).filter(x => x.dt && x.dt >= h).sort((a, b) => a.dt - b.dt);
   if (comVenc.length) {
     const { i, dt } = comVenc[0];
     const dias = diasEntre(h, dt);
-    rows.push(`<button class="hl-row" data-a="inv" data-id="${i.id}"><div><div class="hl-k">Vence primeiro</div>
+    rows.push(`<button class="hl-row" data-a="inv" data-id="${i.id}"><div><div class="hl-k">${ic('calendar', 'ic-s')}Vence primeiro</div>
       <div class="hl-v">${esc(i.nome)}</div></div><div class="hl-n${dias <= 30 ? ' alerta' : ''}">${dias <= 90 ? quandoVence(dias) : fData(dt)}<small>${brl(valorHoje(i), 0)}</small></div></button>`);
   }
-  if (B) rows.push(`<button class="hl-row" data-a="bens"><div><div class="hl-k">Bens da casa</div>
+  if (B) rows.push(`<button class="hl-row" data-a="bens"><div><div class="hl-k">${ic('sofa', 'ic-s')}Bens da casa</div>
       <div class="hl-v">${plural(B.n, 'item', 'itens')} no InventarIA</div></div><div class="hl-n">${brl(B.hoje, 0)}<small>${varAno(B.perde_ano)}</small></div></button>`);
   const pb = {};
   for (const i of d.investimentos) pb[i.banco || ''] = (pb[i.banco || ''] || 0) + valorHoje(i);
   const [bId, bVal] = Object.entries(pb).sort((a, b) => b[1] - a[1])[0] || [];
   if (bVal) {
-    rows.push(`<button class="hl-row" data-a="graf-comp" data-v="banco"><div><div class="hl-k">Maior banco</div>
+    rows.push(`<button class="hl-row" data-a="graf-comp" data-v="banco"><div><div class="hl-k">${ic('bank', 'ic-s')}Maior banco</div>
       <div class="hl-v">${esc(bancoDe(bId)?.nome || 'Sem banco')}</div></div><div class="hl-n">${pct(Math.round(bVal / t.total * 100))}%<small>${brl(bVal, 0)}</small></div></button>`);
   }
   const alvo = meus.length ? meus : d.investimentos;
   const apM = aporteMensal();
   const pr = projetar(alvo, 1, apM, false).pts;
   const ganho = pr[12].valor - pr[0].valor;
-  rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${meus.length ? 'Seu dinheiro em 1 ano' : 'Em 1 ano'}</div>
+  rows.push(`<button class="hl-row" data-a="inv-modo" data-v="evolucao"><div><div class="hl-k">${ic('chart', 'ic-s')}${meus.length ? 'Seu dinheiro em 1 ano' : 'Em 1 ano'}</div>
     <div class="hl-v">${apM ? `Com aporte de ${brl(apM, 0)} por mês` : 'Sem novos aportes'}</div></div><div class="hl-n">${brl(pr[12].valor, 0)}<small>+${brl(ganho, 0)}</small></div></button>`);
   html += `<div class="hl">${rows.join('')}</div><div class="ini-gb">`;
 
@@ -1081,7 +1089,7 @@ function avisosInicio(h) {
 
 function avisoExemplo() {
   return `<div class="exemplo"><b>Exemplo.</b> Estes valores são de demonstração. Quando quiser usar com os seus, apague o exemplo e comece a cadastrar.
-    <div><button class="btn out peq" data-a="apagar-exemplo">Apagar exemplo</button></div></div>`;
+    <div><button class="btn out peq" data-a="apagar-exemplo">${ic('trash', 'ic-s')}Apagar exemplo</button></div></div>`;
 }
 
 function telaBoasVindas() {
@@ -1094,7 +1102,7 @@ function telaBoasVindas() {
       <button class="btn" data-a="novo-inv">${ic('wallet')}Cadastrar investimento</button>
       <button class="btn" data-a="ia" data-v="caixa">${ic('ia')}Ler fatura ou print com IA</button>
       <button class="btn" data-a="importar">${ic('upload')}Importar backup</button>
-      <button class="link" data-a="carregar-exemplo">Ver com dados de exemplo</button>
+      <button class="link" data-a="carregar-exemplo">${ic('eye', 'ic-s')}Ver com dados de exemplo</button>
     </div></div>`;
 }
 
@@ -1122,20 +1130,20 @@ function telaInvest() {
   html += `<div class="busca inv-busca">${ic('search', 'ic-s')}<input id="q" type="search" data-ui="busca" value="${esc(u.busca)}" placeholder="Buscar por nome, banco ou pessoa" autocomplete="off" enterkeyhint="search" aria-label="Buscar investimentos">
     ${u.busca ? `<button class="icbtn mini" data-a="busca-limpar" aria-label="Limpar busca">${ic('x', 'ic-s')}</button>` : '<kbd aria-hidden="true">/</kbd>'}</div>`;
   html += `<div class="seg">${[['carteira', 'Carteira'], ['evolucao', 'Evolução'], ['divisao', 'Divisão']].map(([k, n]) =>
-    `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
+    `<button class="${u.invModo === k ? 'on' : ''}" data-a="inv-modo" data-v="${k}">${ic({ carteira: 'wallet', evolucao: 'trend', divisao: 'chart-column' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
   if (u.invModo !== 'carteira') return html + invGraficos();
   html += `<div class="inv-filtros"><div class="seg">
-    <button class="${u.filtro === 'todos' ? 'on' : ''}" data-a="filtro" data-v="todos">Todos <small>${d.investimentos.length}</small></button>
-    <button class="${u.filtro === 'meus' ? 'on' : ''}" data-a="filtro" data-v="meus">Meus <small>${nMeu}</small></button>
-    <button class="${u.filtro === 'terc' ? 'on' : ''}" data-a="filtro" data-v="terc">Terceiros <small>${nTerc}</small></button></div></div>`;
+    <button class="${u.filtro === 'todos' ? 'on' : ''}" data-a="filtro" data-v="todos">${ic('layers', 'ic-s')}Todos <small>${d.investimentos.length}</small></button>
+    <button class="${u.filtro === 'meus' ? 'on' : ''}" data-a="filtro" data-v="meus">${ic('user', 'ic-s')}Meus <small>${nMeu}</small></button>
+    <button class="${u.filtro === 'terc' ? 'on' : ''}" data-a="filtro" data-v="terc">${ic('users', 'ic-s')}Terceiros <small>${nTerc}</small></button></div></div>`;
   const ps = pessoas();
   if (u.filtro === 'terc' && ps.length > 1) {
-    html += `<div class="chips rola"><button class="chip${!u.pessoa ? ' on' : ''}" data-a="pessoa-f" data-v="">Todas as pessoas</button>
-      ${ps.map(p => `<button class="chip${u.pessoa === p ? ' on' : ''}" data-a="pessoa-f" data-v="${esc(p)}">${esc(p)}</button>`).join('')}</div>`;
+    html += `<div class="chips rola"><button class="chip${!u.pessoa ? ' on' : ''}" data-a="pessoa-f" data-v="">${ic('users', 'ic-s')}Todas as pessoas</button>
+      ${ps.map(p => `<button class="chip${u.pessoa === p ? ' on' : ''}" data-a="pessoa-f" data-v="${esc(p)}">${ic('user', 'ic-s')}${esc(p)}</button>`).join('')}</div>`;
   }
   const usados = [...new Set(d.investimentos.map(i => i.banco || ''))];
   if (usados.length > 1) {
-    html += `<div class="chips rola"><button class="chip${!u.banco ? ' on' : ''}" data-a="banco-f" data-v="">Todos os bancos</button>
+    html += `<div class="chips rola"><button class="chip${!u.banco ? ' on' : ''}" data-a="banco-f" data-v="">${ic('bank', 'ic-s')}Todos os bancos</button>
       ${usados.map(id => { const b = bancoDe(id); return `<button class="chip${u.banco === (id || '-') ? ' on' : ''}" data-a="banco-f" data-v="${esc(id || '-')}" style="--c:${corOk(b?.cor) || 'var(--c0)'}"><span class="bol"></span>${esc(b?.nome || 'Sem banco')}</button>`; }).join('')}</div>`;
   }
   if (u.filtro === 'terc' && nTerc && iaOn()) html += `<button class="btn out larga ia-saldos-btn" data-a="ia-saldos" data-v="${esc(u.pessoa || '')}">${ic('ia', 'ic-s')}Atualizar saldos${u.pessoa ? ' de ' + esc(u.pessoa) : ''} com IA</button>`;
@@ -1187,7 +1195,7 @@ function invGraficos() {
   const temTerc = porEscopo('terc').length > 0;
   if (temTerc) {
     html += `<div class="chips c3">${[['tudo', 'Tudo'], ['meu', 'Só o meu'], ['terc', 'De terceiros']].map(([k, n]) =>
-      `<button class="chip${u.gEscopo === k ? ' on' : ''}" data-a="g" data-k="gEscopo" data-v="${k}">${n}</button>`).join('')}</div>`;
+      `<button class="chip${u.gEscopo === k ? ' on' : ''}" data-a="g" data-k="gEscopo" data-v="${k}">${ic({ tudo: 'layers', meu: 'user', terc: 'users' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
   } else if (u.gEscopo !== 'tudo') u.gEscopo = 'tudo';
   const lista = porEscopo(u.gEscopo).filter(i => !(u.gSemBens && i.tipo === 'bens'));
   if (!lista.length && !comBensG()) return html + '<div class="vazio">Nada nesse filtro.</div>' + chaveSemBens();
@@ -1198,7 +1206,7 @@ function invGraficos() {
 const comBensG = () => bensOn() && S.ui.gEscopo !== 'terc' && !S.ui.gSemBens;
 // a chave só aparece quando há bens (do InventarIA ou do tipo Bens) no que está na tela
 const temBensG = () => (bensOn() && S.ui.gEscopo !== 'terc') || porEscopo(S.ui.gEscopo).some(i => i.tipo === 'bens');
-const chaveSemBens = (estilo = '') => temBensG() ? `<div class="linha-sw"${estilo}><div><b>Ocultar bens e imóveis</b><span>Só os investimentos, sem os bens do InventarIA e os do tipo Bens.</span></div>
+const chaveSemBens = (estilo = '') => temBensG() ? `<div class="linha-sw"${estilo}><div>${tituloLinha('eye', 'Ocultar bens e imóveis')}<span>Só os investimentos, sem os bens do InventarIA e os do tipo Bens.</span></div>
       <button class="sw${S.ui.gSemBens ? ' on' : ''}" data-a="g" data-k="gSemBens" data-v="${S.ui.gSemBens ? '' : '1'}" role="switch" aria-checked="${!!S.ui.gSemBens}" aria-label="Ocultar bens e imóveis"></button></div>` : '';
 const bensEm = m => (S.bens.categorias || []).reduce((a, c) => a + c.hoje * Math.pow(1 - (c.taxa || 0) / 100, m / 12), 0);
 
@@ -1233,10 +1241,10 @@ function grafEvolucao(lista) {
     </div></div>`;
   const outroAnos = !HZ_FIXOS.includes(u.gAnos);
   html += `<div class="ctrl"><div class="lbl">Horizonte</div><div class="chips c5">${HZ_FIXOS.map(a =>
-    `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}<button class="chip${outroAnos ? ' on' : ''}" data-a="g-anos-outro" aria-label="Outro horizonte">${outroAnos ? u.gAnos + ' anos' : 'Outro'}</button></div>
+    `<button class="chip${u.gAnos === a ? ' on' : ''}" data-a="g" data-k="gAnos" data-v="${a}">${ic('calendar', 'ic-s')}${a === 1 ? '1 ano' : a + ' anos'}</button>`).join('')}<button class="chip${outroAnos ? ' on' : ''}" data-a="g-anos-outro" aria-label="Outro horizonte">${ic('sliders', 'ic-s')}${outroAnos ? u.gAnos + ' anos' : 'Outro'}</button></div>
     ${u.gEscopo === 'terc' ? `<div class="lbl">Aporte por mês</div><p class="ajuda" style="margin:0">Aportes contam só nos seus investimentos.</p>` : aporteInfo(ap)}
     <div class="sep" style="margin:18px 0"></div>
-    <div class="linha-sw"><div><b>Descontar imposto de renda</b><span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
+    <div class="linha-sw"><div>${tituloLinha('percent', 'Descontar imposto de renda')}<span>Tabela regressiva na renda fixa e 15% em ações. LCI, LCA e poupança são isentas.</span></div>
       <button class="sw${u.gIR ? ' on' : ''}" data-a="g" data-k="gIR" data-v="${u.gIR ? '' : '1'}" aria-label="Descontar IR"></button></div>
     ${chaveSemBens(' style="margin-top:14px"')}
   </div>
@@ -1255,9 +1263,9 @@ function abrirHorizonte() {
   abrirFolha(() => ({
     titulo: 'Horizonte da projeção',
     corpo: `<p class="ajuda" style="margin:0 0 12px">De 1 a ${HZ_MAX} anos.</p>
-      <div class="chips c3">${pre.map(a => `<button class="chip${S.ui.gAnos === a ? ' on' : ''}" data-a="g-anos-pre" data-v="${a}">${a} anos</button>`).join('')}</div>
+      <div class="chips c3">${pre.map(a => `<button class="chip${S.ui.gAnos === a ? ' on' : ''}" data-a="g-anos-pre" data-v="${a}">${ic('calendar', 'ic-s')}${a} anos</button>`).join('')}</div>
       <div class="campo"><label class="lbl" for="hz-anos">Anos</label><input id="hz-anos" class="inp" type="number" inputmode="numeric" min="1" max="${HZ_MAX}" step="1" value="${HZ_FIXOS.includes(S.ui.gAnos) ? 20 : S.ui.gAnos}"></div>`,
-    pe: `<button class="btn pri larga" data-a="g-anos-ok">Ver a projeção</button>`,
+    pe: `<button class="btn pri larga" data-a="g-anos-ok">${ic('trend')}Ver a projeção</button>`,
   }));
 }
 function aplicarHorizonte(v) {
@@ -1424,7 +1432,7 @@ function grafComposicao(lista) {
   const total = gs.reduce((s, g) => s + g.v, 0) || 1;
   const sel = gs.find(g => g.k === u.gSel);
   const opts = [['banco', 'Banco'], ['dono', 'De quem'], ['tipo', 'Tipo'], ['liq', 'Liquidez']];
-  let html = `<div class="chips c4">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${n}</button>`).join('')}</div>`;
+  let html = `<div class="chips c4">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${ic({ banco: 'bank', dono: 'user', tipo: 'layers', liq: 'clock' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card" style="padding:18px 18px 8px">
     <div class="stat-duo" style="margin:0 0 10px"><div><span>Total</span><b>${brl(total, 0)}</b></div><div><span>Rende por mês</span><b>${brl(gs.reduce((s, g) => s + g.mes, 0), 0)}</b></div></div>
     <div class="pilha-cap">${sel ? `<b>${esc(sel.nome)}</b> · ${brl(sel.v, 0)} · ${pct1(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
@@ -1469,8 +1477,8 @@ function grafVencimentos(lista) {
   const tpl = comImed && cols.length > 1 ? ` style="grid-template-columns:minmax(56px,1fr) repeat(${cols.length - 1},minmax(0,1fr))"` : '';
   const quando = x => x.passou ? `venceu ${fData(x.d)}` : x.venceHoje ? 'vence hoje' : !x.imed ? `vence ${fData(x.d)}` : x.i.liquidez === 'diaria' ? 'liquidez diária' : 'sem vencimento';
   return `<div class="graf-card venc-card"><h3 class="g-tit">${rotIc('calendar')}<span>Vencimentos</span></h3>
-    <div class="chips c2"><button class="chip${ano ? '' : ' on'}" data-a="g-venc" data-k="ano" data-v="">Por ano</button>
-      <button class="chip${ano ? ' on' : ''}" data-a="g-venc" data-k="ano" data-v="${ano || (sel && sel.k !== 'imediato' ? sel.k : proximo)}">Por mês</button></div>
+    <div class="chips c2"><button class="chip${ano ? '' : ' on'}" data-a="g-venc" data-k="ano" data-v="">${ic('calendar', 'ic-s')}Por ano</button>
+      <button class="chip${ano ? ' on' : ''}" data-a="g-venc" data-k="ano" data-v="${ano || (sel && sel.k !== 'imediato' ? sel.k : proximo)}">${ic('calendar-days', 'ic-s')}Por mês</button></div>
     ${ano ? `<div class="mes-nav venc-nav">${passo(antes, 'Ano anterior com vencimento', -1)}<div class="mes-nome">${ano}</div>${passo(depois, 'Próximo ano com vencimento', 1)}</div>` : ''}
     <div class="venc-cap" aria-live="polite"><b>${esc(sel ? sel.nome : ano || 'Todos')}</b> · ${brl(mostra.reduce((s, x) => s + x.v, 0), 0)} · ${plural(mostra.length, 'investimento', 'investimentos')}</div>
     <div class="venc-chart${denso ? ' denso' : ''}${sel ? ' sel' : ''}" role="group" aria-label="Vencimentos por ${ano ? 'mês de ' + ano : 'ano'}"${tpl}>${cols.map(c =>
@@ -1816,7 +1824,7 @@ function marcarFaturasPagas(d) {
 function mesCaixa() { return S.ui.cxMes || ymHoje(); }
 function navMes(ym) {
   return `<div class="mes-nav"><button class="icbtn" data-a="cx-mes" data-v="-1" aria-label="Mês anterior">${ic('chevL')}</button>
-    <button class="mes-nome" data-a="cx-mes" data-v="0">${maiuscula(nomeMes(ym))}${ym === ymHoje() ? '' : '<small>voltar para hoje</small>'}</button>
+    <button class="mes-nome" data-a="cx-mes" data-v="0">${ic('calendar', 'ic-s')}${maiuscula(nomeMes(ym))}${ym === ymHoje() ? '' : '<small>voltar para hoje</small>'}</button>
     <button class="icbtn" data-a="cx-mes" data-v="1" aria-label="Próximo mês">${ic('chev')}</button></div>`;
 }
 
@@ -1824,7 +1832,7 @@ function telaCaixa() {
   const u = S.ui;
   let html = cabecalho('Caixa', `<button class="icbtn" data-a="olho" aria-label="${S.oculto ? 'Mostrar' : 'Esconder'} valores">${ic(S.oculto ? 'eyeOff' : 'eye')}</button>`);
   html += `<div class="seg">${[['lista', 'Lançamentos'], ['fluxo', 'Fluxo'], ['categorias', 'Categorias']].map(([k, n]) =>
-    `<button class="${u.cxModo === k ? 'on' : ''}" data-a="cx-modo" data-v="${k}">${n}</button>`).join('')}</div>`;
+    `<button class="${u.cxModo === k ? 'on' : ''}" data-a="cx-modo" data-v="${k}">${ic({ lista: 'list-checks', fluxo: 'fluxo', categorias: 'chart-column' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
   if (!temCaixa()) {
     return html + `<div class="vazio"><b>Comece pelo que entra e sai todo mês.</b><br><br>
       <div class="btns" style="justify-content:center"><button class="btn pri" data-a="lanc-novo" data-v="despesa">${ic('minus')}Despesa</button>
@@ -1850,9 +1858,9 @@ function caixaLista() {
   const saldoTxt = atual ? 'Saldo em caixa hoje' : ym < ymHoje() ? 'Saldo no fim do mês' : 'Saldo previsto no fim do mês';
   const saldoV = atual ? saldoCaixa() : ym < ymHoje() ? saldoCaixa(dataNoMes(ym, 31)) : saldoPrevisto(ym);
   html += `<div class="cx-saldo"><div><span>${saldoTxt}</span><b>${brl(saldoV)}</b>${atual ? `<small>No fim do mês: ${brl(saldoPrevisto(ym), 0)}</small>` : ''}</div>
-    ${atual ? `<button class="btn peq" data-a="cx-ajuste">Ajustar saldo</button>` : ''}</div></div><div class="cx-lista">`;
+    ${atual ? `<button class="btn peq" data-a="cx-ajuste">${ic('sliders', 'ic-s')}Ajustar saldo</button>` : ''}</div></div><div class="cx-lista">`;
   html += `<div class="chips c4">${[['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['pendentes', 'A pagar e receber']].map(([k, n]) =>
-    `<button class="chip${u.cxFiltro === k ? ' on' : ''}" data-a="cx-filtro" data-v="${k}">${n}</button>`).join('')}</div>`;
+    `<button class="chip${u.cxFiltro === k ? ' on' : ''}" data-a="cx-filtro" data-v="${k}">${ic({ tudo: 'layers', entradas: 'plus', saidas: 'minus', pendentes: 'clock' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
   let lista = lancamentosEntre(ym, ym);
   if (u.cxFiltro === 'entradas') lista = lista.filter(ehRec);
   if (u.cxFiltro === 'saidas') lista = lista.filter(l => !ehRec(l));
@@ -1957,12 +1965,12 @@ function abrirPeriodo() {
   abrirFolha(() => ({
     titulo: 'Período do fluxo',
     corpo: `<p class="ajuda" style="margin:0 0 12px">Para trás conta o mês atual. Até ${PER_MAX} de cada lado.</p>
-      <div class="chips c3">${pre.map(([a, f]) => `<button class="chip${S.ui.cxPeriodo === 'outro' && a === a0 && f === f0 ? ' on' : ''}" data-a="cx-per-pre" data-v="${a},${f}">${rotPeriodo(a, f)}</button>`).join('')}</div>
+      <div class="chips c3">${pre.map(([a, f]) => `<button class="chip${S.ui.cxPeriodo === 'outro' && a === a0 && f === f0 ? ' on' : ''}" data-a="cx-per-pre" data-v="${a},${f}">${ic('calendar', 'ic-s')}${rotPeriodo(a, f)}</button>`).join('')}</div>
       <div class="campos-2">
         <div class="campo"><label class="lbl" for="per-atras">Meses para trás</label><input id="per-atras" class="inp" type="number" inputmode="numeric" min="0" max="${PER_MAX}" step="1" value="${a0}"></div>
         <div class="campo"><label class="lbl" for="per-frente">Meses à frente</label><input id="per-frente" class="inp" type="number" inputmode="numeric" min="0" max="${PER_MAX}" step="1" value="${f0}"></div>
       </div>`,
-    pe: `<button class="btn pri larga" data-a="cx-per-ok">Ver no fluxo</button>`,
+    pe: `<button class="btn pri larga" data-a="cx-per-ok">${ic('fluxo')}Ver no fluxo</button>`,
   }));
 }
 function aplicarPeriodo(a, f) {
@@ -2002,7 +2010,7 @@ function caixaFluxo() {
   const soma = (l, k) => l.reduce((s, m) => s + m[k], 0);
   const outroOn = u.cxPeriodo === 'outro';
   let html = `<div class="chips c4">${[['passado', '12 atrás'], ['meio', '6 + 6'], ['futuro', '12 à frente'], ['outro', outroOn ? rotPeriodo(...mesesFluxo()) : 'Outro']].map(([k, n]) =>
-    `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}"${k === 'outro' ? ' aria-label="Outro período"' : ''}>${n}</button>`).join('')}</div>`;
+    `<button class="chip${u.cxPeriodo === k ? ' on' : ''}" data-a="cx-periodo" data-v="${k}"${k === 'outro' ? ' aria-label="Outro período"' : ''}>${ic(k === 'outro' ? 'sliders' : 'calendar', 'ic-s')}${n}</button>`).join('')}</div>`;
   html += `<div class="graf-card"><h3 class="g-tit">${rotIc('chart')}<span>Fluxo de caixa mensal</span></h3>
     <div class="stat-duo">${passado.length ? `<div><span>Sobrou por mês, em média</span><b>${brlS(soma(passado, 'net') / passado.length, 0)}</b><small>${nomeMes(passado[0].ym, true)} a ${nomeMes(passado[passado.length - 1].ym, true)}</small></div>` : ''}
       ${futuro.length ? `<div><span>Deve sobrar à frente</span><b>${brlS(soma(futuro, 'net'), 0)}</b><small>${S.d.ajustes.prever_dia !== false ? 'fixos, parcelas, faturas e dia a dia' : 'fixos, parcelas e faturas já lançados'}</small></div>` : ''}</div>
@@ -2011,7 +2019,7 @@ function caixaFluxo() {
       ${serie.some(m => m.apo > 0) ? '<span><i class="sw-q" style="--kc:var(--apo)"></i>Aportes</span>' : ''}
       ${S.d.ajustes.prever_dia !== false ? '<span><i class="sw-q est"></i>Dia a dia (média)</span>' : ''}<span><i class="pt-q"></i>Sobrou</span><span><i class="sw-q prev"></i>Previsto</span></div>
     <div class="sep" style="margin:14px 6px"></div>
-    <div class="linha-sw" style="margin:0 6px"><div><b>Prever o dia a dia</b><span>Média dos gastos que não são fixos nem parcelas: ${brl(mediaVariaveis(), 0)} por mês.</span></div>
+    <div class="linha-sw" style="margin:0 6px"><div>${tituloLinha('fluxo', 'Prever o dia a dia')}<span>Média dos gastos que não são fixos nem parcelas: ${brl(mediaVariaveis(), 0)} por mês.</span></div>
       ${chave('prever_dia', S.d.ajustes.prever_dia !== false, 'Prever o dia a dia')}</div></div>`;
   html += `<div class="graf-card"><h3 class="g-tit">${rotIc('wallet', 'bom')}<span>Saldo em caixa</span></h3>
     <div class="stat-duo"><div><span>Hoje</span><b>${brl(saldoCaixa(), 0)}</b></div>
@@ -2146,8 +2154,8 @@ function desenharSaldo() {
 function caixaCategorias() {
   const u = S.ui, ym = mesCaixa(), tipo = u.cxCatTipo;
   let html = navMes(ym);
-  html += `<div class="seg"><button class="${tipo === 'despesa' ? 'on' : ''}" data-a="cx-cat-tipo" data-v="despesa">Gastos</button>
-    <button class="${tipo === 'receita' ? 'on' : ''}" data-a="cx-cat-tipo" data-v="receita">Recebimentos</button></div>`;
+  html += `<div class="seg"><button class="${tipo === 'despesa' ? 'on' : ''}" data-a="cx-cat-tipo" data-v="despesa">${ic('minus')}Gastos</button>
+    <button class="${tipo === 'receita' ? 'on' : ''}" data-a="cx-cat-tipo" data-v="receita">${ic('plus')}Recebimentos</button></div>`;
   const agrupar = lista => {
     const m = new Map();
     for (const l of lista) {
@@ -2203,8 +2211,8 @@ function escolher({ titulo, texto, opcoes }) {
   abrirFolha(() => ({
     titulo,
     corpo: `<p style="margin:0 0 4px;color:var(--text-2)">${texto}</p>`,
-    pe: `<div class="pe-col">${opcoes.map((o, i) => `<button class="btn${o.perigo ? ' perigo' : o.pri ? ' pri' : ''}" data-a="escolha" data-v="${i}">${o.rotulo}</button>`).join('')}
-      <button class="btn" data-a="fechar">Cancelar</button></div>`,
+    pe: `<div class="pe-col">${opcoes.map((o, i) => `<button class="btn${o.perigo ? ' perigo' : o.pri ? ' pri' : ''}" data-a="escolha" data-v="${i}">${ic(o.icone || (o.perigo ? 'trash' : o.pri ? 'check' : 'chev'), 'ic-s')}${o.rotulo}</button>`).join('')}
+      <button class="btn" data-a="fechar">${ic('x')}Cancelar</button></div>`,
   }), null, !!FOLHA);
   FOLHA.opcoes = opcoes;
 }
@@ -2315,14 +2323,14 @@ function montarFormLanc() {
     if (f.novaCat) {
       c += `<div class="mini-form"><input class="inp" data-lf="novaCat" value="${esc(f.novaCat.nome)}" placeholder="Nome da categoria" autocomplete="off">
         <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${f.novaCat.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="lf-cat-cor" data-v="${cr}" aria-label="Cor ${cr}"></button>`).join('')}</div>
-        <button class="btn out peq" data-a="lf-cat-ok">Usar esta categoria</button></div>`;
+        <button class="btn out peq" data-a="lf-cat-ok">${ic('check', 'ic-s')}Usar esta categoria</button></div>`;
     }
     c += `</div>`;
   }
   c += campoData('lf-data', noCartao ? 'Data da compra' : 'Data', f.data, 'data-lf="data"', { tipo: 'livre' }) + `
     <div class="campo"><div class="lbl">Situação</div>${vinc ? `<p class="vinc-st">${ic('repeat', 'ic-s')}Baixa com ${esc(vinc.descricao)}</p>` : `<div class="seg mini" style="margin:0">
-      <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago'}</button>
-      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div>`;
+      <button class="${f.pago ? 'on' : ''}" data-a="lf-pago" data-v="1">${ic('check', 'ic-s')}${rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago'}</button>
+      <button class="${!f.pago ? 'on' : ''}" data-a="lf-pago" data-v="">${ic('clock', 'ic-s')}${rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar'}</button></div>`}</div>`;
   if (apo && f.pago && !f.pagoOrig) c += campoInvestimentoAporte(f);
   const recsFixos = rec || apo || f.ajuste ? [] : recebimentosFixos();
   if (recsFixos.length || vinc) {
@@ -2332,10 +2340,10 @@ function montarFormLanc() {
   }
   if (!vinc) {
   c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : apo ? 'De onde sai' : 'Como pagou'}</div><div class="chips" style="margin:0">
-    <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">Sem conta</button>
+    <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">${ic('x', 'ic-s')}Sem conta</button>
     ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
   if (!rec && !apo && conta?.cartao) {
-    c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">${semCartao(conta)}</button>
+    c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">${ic('wallet', 'ic-s')}${semCartao(conta)}</button>
       <button class="${f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>`;
     if (noCartao) c += `<div class="ajuda">Entra na fatura que vence em <b>${fData(pData(dc))}</b> (fecha dia ${conta.fechamento}, vence dia ${conta.vencimento}).</div>`;
   }
@@ -2343,10 +2351,10 @@ function montarFormLanc() {
   }
   if (!f.id) {
     c += `<div class="campo"><div class="lbl">Repetir</div><div class="seg mini" style="margin:0">
-      <button class="${f.repete === 'nao' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="nao">Uma vez</button>
-      <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">Todo mês</button>
-      <button class="${f.repete === 'anual' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="anual">Todo ano</button>
-      <button class="${f.repete === 'parcelado' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="parcelado">Parcelado</button></div>`;
+      <button class="${f.repete === 'nao' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="nao">${ic('calendar')}Uma vez</button>
+      <button class="${f.repete === 'mensal' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="mensal">${ic('repeat')}Todo mês</button>
+      <button class="${f.repete === 'anual' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="anual">${ic('repeat')}Todo ano</button>
+      <button class="${f.repete === 'parcelado' ? 'on' : ''}" data-a="lf-set" data-k="repete" data-v="parcelado">${ic('card')}Parcelado</button></div>`;
     if (f.repete === 'mensal') c += `<div class="ajuda">Todo dia ${+f.data.slice(8, 10)}, a partir de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}.</div>`;
     if (f.repete === 'anual') c += `<div class="ajuda">Todo ano em ${+f.data.slice(8, 10)} de ${MESES_LONGOS[+f.data.slice(5, 7) - 1]}.</div>`;
     if (f.repete === 'parcelado') {
@@ -2362,10 +2370,10 @@ function montarFormLanc() {
   if (r && !rec && !r.aporte && iaOn()) c += `<div class="campo">${botaoBen('fixo:' + r.id)}</div>`;
   const cab = f.id ? `<button class="icbtn" data-a="lf-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   let pe;
-  if (!f.id) pe = `<button class="btn" data-a="lf-salvar" data-mais="1">Salvar e lançar outro</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
-  else if (f.recorrencia) pe = anualR ? `<button class="btn" data-a="lf-salvar" data-v="este">Só este ano</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os anos</button>`
-    : `<button class="btn" data-a="lf-salvar" data-v="este">Só este mês</button><button class="btn pri" data-a="lf-salvar" data-v="todos">Todos os meses</button>`;
-  else pe = `<button class="btn" data-a="lf-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="lf-salvar">Salvar</button>`;
+  if (!f.id) pe = `<button class="btn" data-a="lf-salvar" data-mais="1">${ic('plus')}Salvar e lançar outro</button><button class="btn pri" data-a="lf-salvar">${ic('check')}Salvar</button>`;
+  else if (f.recorrencia) pe = anualR ? `<button class="btn" data-a="lf-salvar" data-v="este">${ic('calendar')}Só este ano</button><button class="btn pri" data-a="lf-salvar" data-v="todos">${ic('calendar')}Todos os anos</button>`
+    : `<button class="btn" data-a="lf-salvar" data-v="este">${ic('calendar-days')}Só este mês</button><button class="btn pri" data-a="lf-salvar" data-v="todos">${ic('calendar')}Todos os meses</button>`;
+  else pe = `<button class="btn" data-a="lf-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="lf-salvar">${ic('check')}Salvar</button>`;
   return { titulo, corpo: c, pe, cab };
 }
 
@@ -2531,7 +2539,7 @@ function abrirPagar(id, chat, valor) {
       <div class="campo"><label for="pg-v">Quanto ${ehRec(l) ? 'entrou' : ehAporte(l) ? 'você aplicou' : 'saiu'}</label><div class="pref grande"><span>R$</span><input id="pg-v" data-pg="valor" inputmode="numeric" value="${NF2.format(PG.valor)}"></div>
       ${r ? `<div class="ajuda">Os próximos meses continuam com ${brl(r.valor)}.</div>` : ''}</div>
       ${ehAporte(l) ? campoInvestimentoAporte({ get investimento() { return PG.inv; }, set investimento(x) { PG.inv = x; }, valor: PG.valor, erroInv: PG.erroInv }, 'pg-inv') : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="pg-ok">${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="pg-ok">${ic('check')}${ehRec(l) ? 'Recebi' : ehAporte(l) ? 'Apliquei' : 'Paguei'}</button>`,
   }), null, !!chat);
 }
 function confirmarPagar() {
@@ -2583,9 +2591,9 @@ function abrirAjuste() {
   abrirFolha(() => ({
     titulo: 'Ajustar saldo',
     corpo: `<div class="campo"><label for="aj-v">Quanto você tem em conta hoje, somando tudo</label><div class="pref grande"><span>R$</span><input id="aj-v" data-aj="valor" inputmode="numeric" value="${ajTexto()}"></div>
-      <div class="seg aj-sinal">${[['+', 'Positivo'], ['-', 'Negativo']].map(([k, n]) => `<button class="${(k === '-') === AJ.neg ? 'on' : ''}" data-a="aj-sinal" data-v="${k}">${n}</button>`).join('')}</div>
+      <div class="seg aj-sinal">${[['+', 'Positivo'], ['-', 'Negativo']].map(([k, n]) => `<button class="${(k === '-') === AJ.neg ? 'on' : ''}" data-a="aj-sinal" data-v="${k}">${ic(k === '-' ? 'minus' : 'plus', 'ic-s')}${n}</button>`).join('')}</div>
       <div class="ajuda">A diferença entra como "Ajuste de saldo", fora das entradas, saídas e categorias.</div></div>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="aj-ok">Ajustar</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="aj-ok">${ic('sliders')}Ajustar</button>`,
   }));
 }
 function confirmarAjuste() {
@@ -2609,11 +2617,11 @@ function abrirCategoria(id, tipo) {
     return {
       titulo: FC.id ? 'Editar categoria' : 'Nova categoria',
       cab: FC.id ? `<button class="icbtn" data-a="cat-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
-      corpo: `${FC.id ? '' : `<div class="seg"><button class="${FC.tipo === 'despesa' ? 'on' : ''}" data-a="cat-tipo" data-v="despesa">Gasto</button><button class="${FC.tipo === 'receita' ? 'on' : ''}" data-a="cat-tipo" data-v="receita">Recebimento</button></div>`}
-        <div class="campo"><label for="cat-nome">Nome</label><input id="cat-nome" class="inp${FC.erro ? ' erro' : ''}" data-fc="nome" value="${esc(FC.nome)}" placeholder="${FC.tipo === 'despesa' ? 'Ex.: Farmácia, Viagens' : 'Ex.: Aluguel recebido'}" autocomplete="off">${FC.erro ? `<div class="msg-erro">${FC.erro}</div>` : ''}</div>
+      corpo: `${FC.id ? '' : `<div class="seg"><button class="${FC.tipo === 'despesa' ? 'on' : ''}" data-a="cat-tipo" data-v="despesa">${ic('minus')}Gasto</button><button class="${FC.tipo === 'receita' ? 'on' : ''}" data-a="cat-tipo" data-v="receita">${ic('plus')}Recebimento</button></div>`}
+        <div class="campo"><label for="cat-nome">Nome</label><textarea id="cat-nome" rows="1" class="inp grow${FC.erro ? ' erro' : ''}" data-fc="nome" placeholder="${FC.tipo === 'despesa' ? 'Ex.: Farmácia, Viagens' : 'Ex.: Aluguel recebido'}" autocomplete="off">${esc(FC.nome)}</textarea>${FC.erro ? `<div class="msg-erro">${FC.erro}</div>` : ''}</div>
         <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(cr => `<button class="cor${FC.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${cr}">${FC.cor === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'lançamento usa', 'lançamentos usam')} esta categoria.</p>` : ''}`,
-      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="cat-salvar">Salvar</button>`,
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="cat-salvar">${ic('check')}Salvar</button>`,
     };
   });
 }
@@ -2809,7 +2817,7 @@ function telaFala() {
         <p class="voz-dica">${on ? 'Toque de novo quando terminar.' : `Por exemplo: ${ex}.`}</p>
       </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fala-ok"${on ? '' : ' disabled'}>${ic('ia', 'ic-s')}Pronto</button>`,
   };
 }
 const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<span>“${esc(s.ouvido)}”</span></div>` : '';
@@ -2870,7 +2878,7 @@ function cartaoAcaoChat(m, g, i) {
   const lista = i == null ? m.acoes[g] : [m.acoes[g][i]];
   const titulo = g === 'pagar' ? (lista[0].tipo === 'fatura' ? 'Pagar fatura' : 'Pagar conta') : g === 'lancamentos' ? (lista.length > 1 ? `Lançar ${lista.length}` : 'Lançar') : 'Investimentos';
   const pe = est === 'feito' ? `<p class="ch-feito">${ic('check', 'ic-s')}${CH_FEITO[g]}</p>` : est === 'dispensado' ? '<p class="ch-feito off">Deixado de lado</p>'
-    : `<div class="ch-bts"><button class="btn" data-a="ch-editar" data-id="${esc(m.id)}" data-g="${chave}">Editar</button><button class="btn pri" data-a="ch-ok" data-id="${esc(m.id)}" data-g="${chave}">Confirmar</button></div>`;
+    : `<div class="ch-bts"><button class="btn" data-a="ch-editar" data-id="${esc(m.id)}" data-g="${chave}">${ic('edit')}Editar</button><button class="btn pri" data-a="ch-ok" data-id="${esc(m.id)}" data-g="${chave}">${ic('check')}Confirmar</button></div>`;
   return `<div class="ch-acao${est ? ' ' + est : ''}" data-g="${chave}"><p class="ch-acao-t">${titulo}</p><ul class="ch-itens">${linhasAcaoChat(g, lista, est === 'feito')}</ul>${pe}</div>`;
 }
 function acoesChatHTML(m) {
@@ -2884,7 +2892,7 @@ function montarChat() {
   if (!s.msgs) corpo = '<div class="ia-lendo"><span class="giro"></span><p>Abrindo a conversa…</p></div>';
   else {
     const vazio = s.msgs.length ? '' : `<div class="ch-vazio"><p>Pergunte sobre o que está na tela, peça para lançar, pagar ou atualizar um saldo, ou converse sobre outro assunto.</p>
-      <div class="ch-sug">${(CH_SUGESTOES[S.ui.tab] || CH_SUGESTOES.inicio).map(t => `<button class="chip" data-a="ch-sug" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`;
+      <div class="ch-sug">${(CH_SUGESTOES[S.ui.tab] || CH_SUGESTOES.inicio).map(t => `<button class="chip" data-a="ch-sug" data-v="${esc(t)}">${ic('chat', 'ic-s')}${esc(t)}</button>`).join('')}</div></div>`;
     const msgs = s.msgs.map(m => m.papel === 'eu'
       ? `<div class="ch-msg eu"><div class="ch-bolha">${m.fala ? ic('mic', 'ic-s') : ''}${esc(m.texto).replace(/\n/g, '<br>')}</div></div>`
       : `<div class="ch-msg ia"><div class="ch-bolha">${fmtIA(m.texto)}</div>${acoesChatHTML(m)}</div>`).join('');
@@ -3091,7 +3099,7 @@ function montarIA() {
   // aberto do Novo investimento (ou do Invest): os textos falam de investimentos; a IA continua separando sozinha
   const inv = s.dica === 'invest';
   const prevArq = arq ? `<div class="ia-arq">${prevArquivo(arq)}</div>` : '';
-  const pe = `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`;
+  const pe = `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`;
   const erro = s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : '';
   if (s.so === 'texto') return {
     titulo: 'Colar mensagem',
@@ -3114,7 +3122,7 @@ function montarIA() {
           : 'Ex.: mensagens do WhatsApp (“gastei 45 no mercado”, “recebi 300 do João”, “boleto do IPVA vence dia 10”, “apliquei 2 mil no CDB do Inter”), fatura, extrato ou e-mail do banco'}">${esc(s.texto)}</textarea>
         <div class="ajuda">${inv ? 'Dá para colar um print aqui.' : 'Dá para colar um print aqui. A IA separa sozinha o que é cada coisa.'}</div></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}${campoSenhaPdf()}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
 function prevArquivo(arq, tirar = 'ia-arq-rm') {
@@ -3131,14 +3139,14 @@ function entradaSaldos(aviso) {
     titulo: s.pessoa && s.pessoa !== 'meu' ? `Atualizar saldos de ${esc(s.pessoa)}` : 'Atualizar saldos',
     corpo: `${aviso}<p class="da-intro" style="margin:0 0 14px">O valor de agora de cada investimento. O aporte é a diferença para o valor de hoje.</p>
       <div class="campo"><div class="lbl">De quem são</div><div class="chips" style="margin:0">${donosSaldos().map(([k, n]) =>
-        `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${esc(n)}</button>`).join('')}</div></div>
+        `<button class="chip${s.pessoa === k ? ' on' : ''}" data-a="ias-pessoa" data-v="${esc(k)}">${ic(k === 'varios' ? 'users' : 'user', 'ic-s')}${esc(n)}</button>`).join('')}</div></div>
       <div class="ia-arq">${arq ? prevArquivo(arq)
         : `<button class="btn larga" data-a="ia-arq">${ic('image')}Escolher fotos ou PDF</button>${botaoCam()}`}</div>
       <div class="campo"><label for="ia-txt">Ou cole a lista</label>
         <textarea id="ia-txt" class="inp" data-ias="texto" rows="6" placeholder="Ex.:&#10;Nubank, valor atualizado, R$ 500&#10;Serasa, valor atualizado, R$ 600">${esc(s.texto)}</textarea>
       </div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler os saldos</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="ia-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler os saldos</button>`,
   };
 }
 // o dono que a IA leu ("mãe") como está nos investimentos ("Mãe"); "" é da própria pessoa
@@ -3233,7 +3241,7 @@ function pintarCamera() {
     <p class="cam-dica">${c.status === 'abrindo' ? 'Abrindo a câmera…' : n ? `${plural(n, 'página', 'páginas')}. ${n < CAM_MAX ? 'Fotografe outra ou toque em Pronto.' : 'Toque em Pronto.'}` : 'Enquadre a fatura, a nota ou a lista e toque no botão'}</p>`}
     ${c.status === 'erro' ? '' : `<div class="cam-baixo"><div class="cam-fotos">${c.fotos.slice(-3).map(f => `<img src="${f}" alt="">`).join('')}${n > 3 ? `<span>+${n - 3}</span>` : ''}</div>
       <button class="cam-disparo" data-a="cam-foto" aria-label="Fotografar"${c.status !== 'ao-vivo' || n >= CAM_MAX ? ' disabled' : ''}><span></span></button>
-      <button class="cam-pronto" data-a="cam-pronto"${n ? '' : ' disabled'}>Pronto${n ? ` (${n})` : ''}</button></div>`}`;
+      <button class="cam-pronto" data-a="cam-pronto"${n ? '' : ' disabled'}>${ic('check', 'ic-s')}Pronto${n ? ` (${n})` : ''}</button></div>`}`;
 }
 function fecharCamera(semHistorico) {
   if (!CAM) return;
@@ -3393,7 +3401,7 @@ function revisaoIA() {
   const n = ml.length + mi.length;
   const rot = s.saldos ? `Atualizar ${n}` : ni && !nl ? `Salvar ${n}` : nl && !ni ? `Lançar ${n} · ${total < 0 ? '−' : ''}${brl(Math.abs(total), 0)}` : `Salvar ${n}`;
   return { titulo: s.saldos ? 'Conferir os saldos' : nl && ni ? 'Conferir o que a IA leu' : nl ? 'Conferir lançamentos' : 'Conferir investimentos', corpo,
-    pe: `${s.email ? '<button class="btn" data-a="email-ignorar">Ignorar</button>' : '<button class="btn" data-a="ia-voltar">Voltar</button>'}<button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${rot}</button>` };
+    pe: `${s.email ? `<button class="btn" data-a="email-ignorar">${ic('x')}Ignorar</button>` : `<button class="btn" data-a="ia-voltar">${ic('back')}Voltar</button>`}<button class="btn pri" data-a="ia-salvar"${n ? '' : ' disabled'}>${ic('check')}${rot}</button>` };
 }
 // o lançamento fica pago ou pendente: Automática segue o que a IA viu (conta a pagar, a receber) e, sem isso, a data
 function iaPago(it, data) {
@@ -3423,17 +3431,17 @@ function revisaoCaixa() {
   const conta = uma != null ? contaDe(uma) : null, desp = s.itens.filter(i => i.tipo === 'despesa');
   const todasCartao = desp.length && desp.every(iaNoCartao), nenhumaCartao = desp.every(i => !iaNoCartao(i));
   return `<div class="campo"><div class="lbl">Lançar todos em</div><div class="chips" style="margin:0">
-      <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">Sem conta</button>
+      <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">${ic('x', 'ic-s')}Sem conta</button>
       ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}
       <button class="chip add" data-a="iac-banco-novo">${ic('plus', 'ic-s')}${esc(s.bancoNovo || 'Banco')}</button></div>
       ${s.bancoNovo ? `<div class="ajuda">${esc(s.bancoNovo)} não está nos seus bancos.</div>` : ''}
-      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">${semCartao(conta)}</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
+      ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">${ic('wallet', 'ic-s')}${semCartao(conta)}</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
     <div class="campo"><div class="lbl">Situação</div><div class="seg mini" style="margin:0">
-      <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">Automática</button>
-      <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">Tudo pago</button>
-      <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">Tudo pendente</button></div>
+      <button class="${s.situacao === 'auto' ? 'on' : ''}" data-a="iac-sit" data-v="auto">${ic('auto')}Automática</button>
+      <button class="${s.situacao === 'pago' ? 'on' : ''}" data-a="iac-sit" data-v="pago">${ic('check')}Tudo pago</button>
+      <button class="${s.situacao === 'apagar' ? 'on' : ''}" data-a="iac-sit" data-v="apagar">${ic('clock')}Tudo pendente</button></div>
       ${s.situacao === 'auto' ? `<div class="ajuda">Contas a pagar e a receber ficam pendentes; o resto, pela data.</div>` : ''}</div>
-    ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div><b>Lançar as próximas parcelas</b><span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
+    ${temParc ? `<div class="linha-sw" style="margin-bottom:16px"><div>${tituloLinha('card', 'Lançar as próximas parcelas')}<span>Aparecem nas faturas dos próximos meses.</span></div><button class="sw${s.futuras ? ' on' : ''}" data-a="iac-futuras" aria-label="Lançar parcelas futuras"></button></div>` : ''}
     ${(() => {
     // os pagamentos da própria fatura (Pagamento online, pagamento recebido...) ficam no fim, desmarcados: não são recebimento
     const linha = (it, k) => {
@@ -3454,7 +3462,7 @@ function revisaoCaixa() {
     // e os pagamentos da fatura, que a pessoa marca um por um se quiser
     const princ = s.itens.filter(i => !i.desconsiderado), marcaveis = princ.filter(i => !i.dup);
     const todos = princ.length > 1 ? `<div class="btns-2 ia-todos"><button class="btn out" data-a="ia-todos" data-v="1"${marcaveis.every(i => i.marcado) ? ' disabled' : ''}>${ic('check', 'ic-s')}Marcar todos</button>
-      <button class="btn out" data-a="ia-todos" data-v=""${s.itens.some(i => i.marcado) ? '' : ' disabled'}>Desmarcar todos</button></div>` : '';
+      <button class="btn out" data-a="ia-todos" data-v=""${s.itens.some(i => i.marcado) ? '' : ' disabled'}>${ic('x', 'ic-s')}Desmarcar todos</button></div>` : '';
     return `${todos}<div class="ia-itens">${ks.filter(k => !s.itens[k].desconsiderado).map(k => linha(s.itens[k], k)).join('')}</div>`
       + recolhido('ia-fora', 'Pagamentos desconsiderados', fora.length, `<div class="ajuda" style="margin:0 0 8px">O pagamento da fatura não é recebimento. Marque se quiser lançar.</div>
         <div class="ia-itens">${fora.map(k => linha(s.itens[k], k)).join('')}</div>`);
@@ -3553,7 +3561,7 @@ function revisaoInvest() {
           <select class="ia-cat" data-iav="existente" data-i="${k}" aria-label="Investimento">${opcoesInvSaldo(it.existente)}</select>
           ${linha ? `<span class="ia-atualiza">${linha}</span>` : `<span class="ia-atualiza novo">Novo investimento${donoNovo(it) ? ` de ${esc(donoNovo(it))}` : ''}${s.saldos || s.soInvest ? `, com ${brl(it.valor)}` : ''}</span>`}
           ${it.confianca === 'baixa' ? '<span><em>Confira os números</em></span>' : ''}
-          <button class="link" data-a="iai-revisar" data-i="${k}">Revisar antes</button></div></div>`;
+          <button class="link" data-a="iai-revisar" data-i="${k}">${ic('edit', 'ic-s')}Revisar antes</button></div></div>`;
     }).join('')}</div>`;
 }
 const donoIA = it => IAS.pessoa && IAS.pessoa !== 'meu' ? IAS.pessoa : IAS.pessoa === 'meu' ? '' : it.dono || '';
@@ -3597,10 +3605,10 @@ function revisarItemHTML() {
       <div class="campos-2"><div class="campo"><label for="iae-tipo">Tipo</label><select id="iae-tipo" class="inp" data-iae="tipo">${TIPOS.map(t => `<option value="${t.id}"${t.id === r.tipo ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
         <div class="campo"><label for="iae-idx">Rendimento</label><select id="iae-idx" class="inp" data-iae="indexador">${IDX.filter(x => !x.oculto || x.id === r.indexador).map(x => `<option value="${x.id}"${x.id === r.indexador ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div></div>
       ${ix.taxa ? `<div class="campo"><label for="iae-taxa">Taxa (${esc(ix.suf)})</label><input id="iae-taxa" class="inp" data-iae="taxa" inputmode="decimal" value="${r.taxa || r.taxa === 0 ? String(r.taxa).replace('.', ',') : ''}" placeholder="${ix.ph}"></div>` : ''}
-      <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">No vencimento</button></div></div>
+      <div class="campo"><div class="lbl">Liquidez</div><div class="seg mini" style="margin:0"><button class="${r.liquidez === 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="diaria">${ic('calendar-days')}Diária</button><button class="${r.liquidez !== 'diaria' ? 'on' : ''}" data-a="iae-liq" data-v="vencimento">${ic('calendar')}No vencimento</button></div></div>
       ${campoData('iae-venc', 'Vencimento <span class="opc">(opcional)</span>', r.vencimento || '', 'data-iae="vencimento"', { opcional: true })}`;
   return { titulo: ex ? `Revisar ${esc(ex.nome)}` : 'Revisar investimento novo', corpo,
-    pe: `<button class="btn" data-a="iae-voltar">Voltar</button><button class="btn pri" data-a="iae-ok">Pronto</button>` };
+    pe: `<button class="btn" data-a="iae-voltar">${ic('back')}Voltar</button><button class="btn pri" data-a="iae-ok">${ic('check')}Pronto</button>` };
 }
 document.addEventListener('paste', ev => {
   if (!iaOn()) return;
@@ -3724,7 +3732,7 @@ function linhaDicaAssinatura(x) {
       <div class="dica-v">${x.estimado ? '<i>cerca de</i>' : ''}${brl(realDe(x).real, 0)}<small>por ano</small></div></div>
     <div class="dica-calc">${ic('wallet', 'ic-s')}<span>Desconto de ${brl(realDe(x).desconto, 0)} menos ${brl(realDe(x).rende, 0)} que o dinheiro das mensalidades renderia ${esc(realDe(x).rs.onde)}, já com IR.</span></div>
     <div class="dica-fonte">${ic('check', 'ic-s')}<span>Preço conferido em <a href="${esc(x.fonte)}" target="_blank" rel="noopener">${esc(x.dominio)}</a>${quando ? ' em ' + quando : ''}${x.origem === 'fixo' ? '' : ' · cobrança das suas faturas'}</span></div>
-    <div class="dica-acoes"><button class="btn peq pri" data-a="dica-anual" data-v="${esc(x.id)}">Mudar para anual</button><button class="btn peq" data-a="dica-fora" data-v="${esc(x.id)}">Agora não</button></div>
+    <div class="dica-acoes"><button class="btn peq pri" data-a="dica-anual" data-v="${esc(x.id)}">${ic('calendar', 'ic-s')}Mudar para anual</button><button class="btn peq" data-a="dica-fora" data-v="${esc(x.id)}">${ic('x', 'ic-s')}Agora não</button></div>
   </div>`;
 }
 
@@ -3737,7 +3745,7 @@ function linhaDicaCategoria(c) {
         <span>Em ${MESES_LONGOS[+c.ym.slice(5) - 1]} foram ${brl(c.v, 0)}, ${brl(c.dif, 0)} a mais que a média de ${per}.</span></div>
       <div class="dica-v alerta">+${brl(c.dif, 0)}<small>no mês</small></div></div>
     <div class="dica-fonte">${ic('fluxo', 'ic-s')}<span>Pelos seus lançamentos</span></div>
-    <div class="dica-acoes"><button class="btn peq out" data-a="dica-cat" data-v="${esc(c.ym)}">Ver categorias</button><button class="btn peq" data-a="dica-fora" data-v="${esc(c.id)}">Agora não</button></div>
+    <div class="dica-acoes"><button class="btn peq out" data-a="dica-cat" data-v="${esc(c.ym)}">${ic('list-checks', 'ic-s')}Ver categorias</button><button class="btn peq" data-a="dica-fora" data-v="${esc(c.id)}">${ic('x', 'ic-s')}Agora não</button></div>
   </div>`;
 }
 
@@ -3753,7 +3761,7 @@ function cardDicas() {
   const total = subs.reduce((s, x) => s + realDe(x).real, 0);
   return `<div class="card dicas"><div class="rot">${rotIc('percent', 'bom')}<span class="rot-t">Dicas de economia</span>${total ? `<b>${subs.length > 1 ? 'até ' : ''}${brl(total, 0)} por ano</b>` : ''}</div>
     ${subs.slice(0, 3).map(linhaDicaAssinatura).join('')}${cat ? linhaDicaCategoria(cat) : ''}
-    ${subs.length > 3 ? `<button class="link" data-a="tab" data-v="mais" data-ancora="dicas">Ver as ${subs.length} dicas</button>` : ''}</div>`;
+    ${subs.length > 3 ? `<button class="link" data-a="tab" data-v="mais" data-ancora="dicas">${ic('chev', 'ic-s')}Ver as ${subs.length} dicas</button>` : ''}</div>`;
 }
 
 function cardDicasMais() {
@@ -3783,7 +3791,7 @@ function cardDicasMais() {
   // quando o app procurou assinaturas e conferiu os preços pela última vez (sozinho, uma vez por dia, ou no Conferir agora)
   if (st) h += `<p class="dica-quando">${ic('clock', 'ic ic-s')}<span>${st.conferindo ? 'Conferindo agora…' : st.atualizado ? `Última verificação: ${quandoLongo(st.atualizado)}.` : 'Ainda não verificado. Toque em Conferir agora.'}</span></p>`;
   h += `<div class="dica-btns"><button class="btn out" data-a="dicas-conferir"${st && st.conferindo ? ' disabled' : ''}>${ic('refresh')}${st && st.conferindo ? 'Conferindo…' : 'Conferir agora'}</button>
-    ${fora ? `<button class="btn" data-a="dicas-voltar">Mostrar dispensadas (${fora})</button>` : ''}</div>`;
+    ${fora ? `<button class="btn" data-a="dicas-voltar">${ic('eye')}Mostrar dispensadas (${fora})</button>` : ''}</div>`;
   if (st && st.dolar && st.dolar.valor) h += `<p class="nota" style="margin:12px 0 0">Planos em dólar: dólar do Banco Central (${brl(st.dolar.valor)} em ${esc(st.dolar.data || '')}) mais IOF e câmbio do cartão.</p>`;
   return h + `</section>`;
 }
@@ -3823,7 +3831,7 @@ function montarDicaAnual() {
       <div class="ajuda">${x.estimado ? `Estimado no câmbio de hoje: ${fmtPreco(x.anual, x.moeda)}.` : `Preço da página oficial.`}</div>${DA.erro ? `<div class="msg-erro">${DA.erro}</div>` : ''}</div>
     ${campoData('da-data', 'Primeira cobrança anual', DA.data, 'data-da="data"', { ajuda: `Todo ano em ${mes}${x.cartao ? ', na fatura do cartão' : ''}.` })}
     <div class="eco-linha" id="da-eco">${ecoDA()}</div>`;
-  return { titulo: `${esc(x.nome)} no plano anual`, corpo, pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="da-ok">Mudar para anual</button>` };
+  return { titulo: `${esc(x.nome)} no plano anual`, corpo, pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="da-ok">${ic('calendar')}Mudar para anual</button>` };
 }
 function confirmarDicaAnual() {
   const { x } = DA;
@@ -4061,9 +4069,9 @@ function cardIA() {
     : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
   return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
-    <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
+    <div class="campo"><label class="lbl" for="ia-ent">${ic('ia', 'ic-s')}IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
       <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
-    ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
+    ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">${ic('mic', 'ic-s')}Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
       <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
     <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p></section>`;
@@ -4152,16 +4160,16 @@ function cardEmail() {
   else h += `<div class="status${C.every(c => c.ok) && E.conectada ? '' : ' manual'}">${C.map(c => esc(c.nome) + (c.ok ? '' : ' (com erro no Home Assistant)')).join(' · ')}${E.conectada ? '' : ' · conectando…'}</div>`
     + procurarEmail(E);
   const de = a.email_de || [];
-  h += `<div class="campo email-campo"><label for="email-de">De quem</label>
+  h += `<div class="campo email-campo"><label for="email-de">${ic('mail', 'ic-s')}De quem</label>
     ${de.length ? `<div class="chips email-de">${de.map(r => `<button class="chip on" data-a="email-de-rm" data-v="${esc(r)}" aria-label="Tirar ${esc(r)}">${esc(r)}${ic('x', 'ic-s')}</button>`).join('')}</div>` : ''}
-    <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">Adicionar</button></div>
+    <div class="email-add"><input id="email-de" class="inp" placeholder="Ex.: bancoazul.com.br" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done"><button class="btn out" data-a="email-de-add">${ic('plus')}Adicionar</button></div>
     <div class="ajuda">${de.length ? 'Só os e-mails desses remetentes.' : 'Sem nenhum, os e-mails com PDF e “fatura”, “boleto”, “recibo” ou “assinatura” no assunto.'}</div></div>`;
   // as regras: os fixos à vista; Nunca considerar e os e-mails ignorados ficam no fim, recolhidos
   const R = a.email_remetentes || [], regra = r => `<div class="email-l"><span><b>${esc(r.de)}</b>
       <small>${r.acao === 'nunca' ? 'Nunca considerar' : 'Fixo: ' + esc((S.d.recorrencias.find(x => x.id === r.fixo) || {}).descricao || 'que saiu')}</small></span>
       <button class="icbtn" data-a="email-regra-rm" data-v="${esc(r.de)}" aria-label="Tirar a regra de ${esc(r.de)}">${ic('trash', 'ic-s')}</button></div>`;
   const fixas = R.filter(r => r.acao === 'fixo'), nunca = R.filter(r => r.acao === 'nunca');
-  if (fixas.length) h += `<div class="campo email-regras"><div class="lbl">Remetentes</div>${fixas.map(regra).join('')}</div>`;
+  if (fixas.length) h += `<div class="campo email-regras"><div class="lbl">${ic('users', 'ic-s')}Remetentes</div>${fixas.map(regra).join('')}</div>`;
   const todos = ((E && E.itens) || []).filter(doEmail), L = todos.filter(x => x.estado !== 'ignorado').slice(0, 5), ign = todos.filter(x => x.estado === 'ignorado').slice(0, 10);
   if (L.length) h += `<h3 class="ia-sec">Recebidos</h3><div class="emails">${L.map(linhaEmail).join('')}</div>`;
   h += recolhido('email-ignorados', 'Ignorados', ign.length, `<div class="emails">${ign.map(linhaEmail).join('')}</div>`)
@@ -4185,7 +4193,7 @@ function linhaEmail(it) {
   const ler = ['fora', 'erro', 'ignorado'].includes(it.estado);
   const dt = pData(String(it.data || it.recebido_em || '').slice(0, 10)), rg = regraEmail(it.endereco), fx = rg && rg.acao === 'fixo' && S.d.recorrencias.find(r => r.id === rg.fixo);
   return `<div class="email-l"><span><b>${esc(it.de || it.endereco)}</b><small>${esc(it.assunto || it.arquivo)}${dt ? ' · ' + fDataC(dt) : ''}</small>${fx ? `<small class="email-fixo">${ic('repeat', 'ic-s')}${esc(fx.descricao)}</small>` : ''}</span>
-    ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}
+    ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">${ic('ia', 'ic-s')}Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}
     <button class="icbtn" data-a="email-menu" data-v="${esc(it.id)}" aria-label="Mais de ${esc(it.endereco || it.de || 'este e-mail')}">${ic('dots')}</button></div>`;
 }
 // Recebidos › ⋯ (1.68.0): um menu com Abrir o PDF (o arquivo do e-mail, baixado e aberto pelo celular) e E-mails deste
@@ -4224,10 +4232,10 @@ function montarRemetente() {
   return {
     titulo: 'E-mails deste remetente',
     corpo: `<div class="campo"><div class="lbl">Vale para</div><div class="chips" style="margin:0">
-        <button class="chip${f.de === f.end ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.end)}">${quebraEnd(f.end)}</button>
-        ${f.dom ? `<button class="chip${f.de === f.dom ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.dom)}">Todo o ${quebraEnd(f.dom)}</button>` : ''}</div></div>
+        <button class="chip${f.de === f.end ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.end)}">${ic('mail', 'ic-s')}${quebraEnd(f.end)}</button>
+        ${f.dom ? `<button class="chip${f.de === f.dom ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.dom)}">${ic('layers', 'ic-s')}Todo o ${quebraEnd(f.dom)}</button>` : ''}</div></div>
       <div class="campo"><div class="seg" style="margin:0" role="radiogroup">
-        ${[['', 'Normal'], ['fixo', 'É um fixo'], ['nunca', 'Nunca']].map(([v, t]) => `<button class="${f.acao === v ? 'on' : ''}" data-a="frem-acao" data-v="${v}" role="radio" aria-checked="${f.acao === v}">${t}</button>`).join('')}</div>
+        ${[['', 'Normal'], ['fixo', 'É um fixo'], ['nunca', 'Nunca']].map(([v, t]) => `<button class="${f.acao === v ? 'on' : ''}" data-a="frem-acao" data-v="${v}" role="radio" aria-checked="${f.acao === v}">${ic({ '': 'check', fixo: 'repeat', nunca: 'x' }[v], 'ic-s')}${t}</button>`).join('')}</div>
         <div class="ajuda">${txt}</div></div>
       ${f.acao === 'fixo' ? `<div class="campo"><label for="frem-fixo">Fixo</label><select id="frem-fixo" class="inp" data-frem="fixo">
           <option value=""${f.fixo ? '' : ' selected'}>Escolha o fixo</option>${fixos.map(r => `<option value="${esc(r.id)}"${r.id === f.fixo ? ' selected' : ''}>${esc(r.descricao)}${+r.valor ? ' · ' + brl(+r.valor) : ''}</option>`).join('')}
@@ -4235,7 +4243,7 @@ function montarRemetente() {
         ${f.fixo === 'novo' ? `<div class="campo frem-novo"><label for="frem-nome">Nome do fixo</label><input id="frem-nome" class="inp" data-frem="novoNome" value="${esc(f.novoNome)}" autocomplete="off" maxlength="60">
           <div class="ajuda">Todo dia ${f.dia}, em Assinaturas. O valor vem da leitura do e-mail.</div></div>` : ''}` : ''}
       ${f.erro ? `<div class="msg-erro">${esc(f.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="frem-salvar">Salvar</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="frem-salvar">${ic('check')}Salvar</button>`,
   };
 }
 function salvarRemetente() {
@@ -4339,7 +4347,7 @@ function abrirSenhaNova() {
     corpo: `<div class="campo"><label for="sn-nome">Nome</label><input id="sn-nome" class="inp" data-fs="nome" value="${esc(FS.nome)}" placeholder="Ex.: CPF da Ana" autocomplete="off"></div>
       <div class="campo"><label for="sn-senha">Senha</label><input id="sn-senha" class="inp${FS.erro ? ' erro' : ''}" data-fs="senha" value="${esc(FS.senha)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ex.: os 5 primeiros dígitos do CPF"></div>
       ${FS.erro ? `<div class="msg-erro">${esc(FS.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="senha-salvar">Salvar</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="senha-salvar">${ic('check')}Salvar</button>`,
   }), () => { FS = null; });
   setTimeout(() => { const i = $('#sn-nome'); if (i) i.focus(); }, 60);
 }
@@ -4361,13 +4369,13 @@ function abasConta(c, i) {
   const aba = c._aba || 'conta';
   const tem = { conta: false, cartoes: !!c.cartao, global: !!(c.debito_global || c.credito_global) };
   return `<div class="seg mini bc-abas" role="tablist" aria-label="Conta de ${esc(c.pessoa || 'quem')}">${[['conta', 'Conta'], ['cartoes', 'Cartões'], ['global', 'Global']].map(([v, t]) =>
-    `<button type="button" role="tab" class="${aba === v ? 'on' : ''}" aria-selected="${aba === v}" data-a="bc-aba" data-i="${i}" data-v="${v}">${t}${tem[v] ? '<i class="bc-ponto" aria-hidden="true"></i>' : ''}</button>`).join('')}</div>`;
+    `<button type="button" role="tab" class="${aba === v ? 'on' : ''}" aria-selected="${aba === v}" data-a="bc-aba" data-i="${i}" data-v="${v}">${ic({ conta: 'bank', cartoes: 'card', global: 'plane' }[v], 'ic-s')}${t}${tem[v] ? '<i class="bc-ponto" aria-hidden="true"></i>' : ''}</button>`).join('')}</div>`;
 }
 function campoGlobal(c, i, k, rotulo) {
   const on = !!c[k];
-  return `<div class="linha-sw"><div><b>${rotulo}</b></div><button class="sw${on ? ' on' : ''}" data-a="bc-global" data-k="${k}" data-i="${i}" aria-label="${rotulo.replace('?', '')}"></button></div>
+  return `<div class="linha-sw"><div>${tituloLinha('plane', rotulo)}</div><button class="sw${on ? ' on' : ''}" data-a="bc-global" data-k="${k}" data-i="${i}" aria-label="${rotulo.replace('?', '')}"></button></div>
     ${on ? `<div class="lbl bc-moeda-l">Moeda</div><div class="seg mini bc-moeda" role="radiogroup" aria-label="Moeda do ${k === 'debito_global' ? 'débito' : 'crédito'} global">${MOEDAS_GLOBAL.map(([v, t]) =>
-      `<button type="button" class="${c[k] === v ? 'on' : ''}" role="radio" aria-checked="${c[k] === v}" data-a="bc-moeda" data-k="${k}" data-i="${i}" data-v="${v}">${t}</button>`).join('')}</div>` : ''}`;
+      `<button type="button" class="${c[k] === v ? 'on' : ''}" role="radio" aria-checked="${c[k] === v}" data-a="bc-moeda" data-k="${k}" data-i="${i}" data-v="${v}">${ic('wallet', 'ic-s')}${t}</button>`).join('')}</div>` : ''}`;
 }
 const semCartao = k => (k && k.debito === false ? 'Pix' : 'Débito ou Pix');
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
@@ -4429,10 +4437,10 @@ const NIVEIS_SUG = ['Black', 'Platinum', 'Gold', 'Infinite', 'Signature', 'Ultra
 /* Inativos no fim, recolhidos (padrão de todos os apps da família): o que está inativo, encerrado ou ignorado de
    propósito fica numa seção no fim, fechada, com o nome e a contagem; abre num toque (a escolha vale até sair do app) */
 const ABERTOS = new Set();
-function recolhido(id, titulo, n, corpo) {
+function recolhido(id, titulo, n, corpo, icone = 'archive') {
   if (!n) return '';
-  const on = ABERTOS.has(id);
-  return `<div class="recolhido${on ? ' on' : ''}" data-rec="${id}"><button type="button" class="recolhido-t" data-a="recolher" data-v="${id}" aria-expanded="${on}">${ic('chev', 'ic-s')}${esc(titulo)} (${n})</button>
+  const on = ABERTOS.has(id);  // 1.71.0: a seta e o ícone antes do nome, como as outras linhas
+  return `<div class="recolhido${on ? ' on' : ''}" data-rec="${id}"><button type="button" class="recolhido-t" data-a="recolher" data-v="${id}" aria-expanded="${on}">${ic('chev', 'ic-s')}${ic(icone, 'ic-s')}${esc(titulo)} (${n})</button>
     ${on ? `<div class="recolhido-c">${corpo}</div>` : ''}</div>`;
 }
 /* Sugestões no visual do app, no lugar da lista do celular (<datalist>, que no Android abre fora do padrão): o campo com
@@ -4508,21 +4516,21 @@ function abrirBanco(id, nome, sobre) {
               <div><div class="lbl">Pede investido</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="meta_valor" data-i="${i}" value="${typeof c.meta_valor === 'number' ? NF0.format(c.meta_valor) : esc(c.meta_valor || '')}" placeholder="0"></div></div></div>
             <p class="ajuda nivel-meta" data-meta="${i}">${textoMeta(c, FB.id)}</p>
             ${botaoBenConta(c)}` : ''}
-            ${c._aba === 'cartoes' ? `<div class="linha-sw"><div><b>Tem cartão de débito?</b></div><button class="sw${c.debito !== false ? ' on' : ''}" data-a="bc-debito" data-i="${i}" aria-label="Tem cartão de débito"></button></div>
-            <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
+            ${c._aba === 'cartoes' ? `<div class="linha-sw"><div>${tituloLinha('card', 'Tem cartão de débito?')}</div><button class="sw${c.debito !== false ? ' on' : ''}" data-a="bc-debito" data-i="${i}" aria-label="Tem cartão de débito"></button></div>
+            <div class="linha-sw"><div>${tituloLinha('card', 'Tem cartão de crédito?')}</div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>
               <div><div class="lbl">Vence dia</div><div class="pref"><input inputmode="numeric" data-fbc="vencimento" data-i="${i}" value="${c.vencimento || ''}" placeholder="10"></div></div></div>
             <div class="duo nivel-l"><div><div class="lbl">Cartão</div>${campoNivel(c, i, 'cartao_nivel', 'Nível do cartão')}</div>
               <div><div class="lbl">Limite</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="limite" data-i="${i}" value="${typeof c.limite === 'number' ? NF0.format(c.limite) : esc(c.limite || '')}" placeholder="0" aria-label="Limite do cartão"></div></div></div>
             <p class="ajuda limite-disp" data-lim="${i}">${textoLimite(c)}</p>
-            <div class="linha-sw"><div><b>Tem cartão adicional?</b></div><button class="sw${(c.adicionais || []).length ? ' on' : ''}" data-a="bc-adic" data-i="${i}" aria-label="Tem cartão adicional"></button></div>
+            <div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${(c.adicionais || []).length ? ' on' : ''}" data-a="bc-adic" data-i="${i}" aria-label="Tem cartão adicional"></button></div>
             ${(c.adicionais || []).map((a, j) => `<div class="duo nivel-l adic"><div><div class="lbl">Para quem</div><input class="inp" data-fba="pessoa" data-i="${i}" data-j="${j}" value="${esc(a.pessoa || '')}" placeholder="Nome, ex.: Beto" data-sug="dl-pessoas" autocomplete="off" aria-label="Para quem é o adicional"></div>
               <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="0" aria-label="Limite do adicional"></div>
                 <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>`).join('')}
             ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}` : ''}
             ${c._aba === 'global' ? `${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
             ${campoGlobal(c, i, 'credito_global', 'Tem cartão de crédito global?')}
-            ${c.credito_global ? `<div class="linha-sw"><div><b>Tem cartão adicional?</b></div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}` : ''}
+            ${c.credito_global ? `<div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}` : ''}
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
@@ -4533,7 +4541,7 @@ function abrirBanco(id, nome, sobre) {
             placeholder="${paginaPronta(FB.nome) ? 'Automática: ' + esc(dominioUrl(paginaPronta(FB.nome))) : 'https://…'}">
           ${FB.erroOf ? `<div class="msg-erro">${FB.erroOf}</div>` : '<p class="ajuda">As taxas desta página entram nas Oportunidades.</p>'}</div>` : ''}
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'investimento usa', 'investimentos usam')} este banco.</p>` : ''}`,
-      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="b-salvar">Salvar</button>`,
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="b-salvar">${ic('check')}Salvar</button>`,
     };
   }, null, sobre);
 }
@@ -4632,7 +4640,11 @@ const maisCab = (icone, titulo, aside = '') => `<div class="mais-head"><span cla
 const maisLead = t => `<p class="painel-lead">${t}</p>`;
 const chave = (k, on, rotulo, acao = 'ajuste') => `<button class="sw${on ? ' on' : ''}" data-a="${acao}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(rotulo)}"></button>`;
 const DESLIGADAS_PADRAO = new Set(['dicas_aviso', 'email', 'email_aviso', 'correria', 'op_aviso']);
-const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div><b>${titulo}</b><span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
+// 1.71.0 (padrão da família): toda linha com título tem um ícone pequeno antes dele
+const ICONE_LINHA = { 'ias-guardar': 'lock', ia: 'ia', email: 'mail', op_aviso: 'send', sensores: 'chart-column', cor_dia: 'calendar', dicas: 'percent',
+  prever_dia: 'fluxo', corrigir: 'refresh', dicas_auto: 'clock', dicas_aviso: 'send', email_aviso: 'send', bens: 'sofa', correria: 'zap', integracao: 'calendar-days' };
+const tituloLinha = (icone, titulo) => `<b>${ic(icone, 'ic-s')}${titulo}</b>`;
+const linhaChave = (k, on, titulo, texto, acao) => `<div class="linha-sw"><div>${tituloLinha(ICONE_LINHA[k] || 'toggle-right', titulo)}<span>${texto}</span></div>${chave(k, on, titulo, acao)}</div>`;
 const TAG_SW = 'M8 0h20a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8L0 13V7z', FURO_SW = 'M9.7 10a2.7 2.7 0 1 0-5.4 0a2.7 2.7 0 1 0 5.4 0z';
 // a etiqueta marcada: a da cor que vale agora (com a Cor do dia, a do dia)
 function corAppAtual() {
@@ -4730,7 +4742,7 @@ function maisSobre() {
 function maisBancos() {
   const d = S.d;
   // a tela já se chama Bancos: o quadro vai sem título, como as telas de uma coisa só do InventarIA
-  let h = `<section class="card" id="bancos">${maisLead('Quem tem conta em cada banco e os cartões, com fechamento e vencimento.')}`;
+  let h = `<section class="card" id="bancos">${maisCab('bank', 'Bancos')}${maisLead('Quem tem conta em cada banco e os cartões, com fechamento e vencimento.')}`;
   for (const b of d.bancos) {
     const l = d.investimentos.filter(i => i.banco === b.id);
     const v = l.reduce((s, i) => s + valorHoje(i), 0);
@@ -4739,7 +4751,7 @@ function maisBancos() {
   }
   h += `<button class="btn out larga" data-a="banco" style="margin-top:14px">${ic('plus')}Cadastrar banco</button>`;
   const sug = BANCOS_COMUNS.filter(n => !d.bancos.some(b => (b.nome || '').toLowerCase() === n.toLowerCase())).slice(0, 10);
-  if (sug.length) h += `<div class="ctrl"><div class="lbl">Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`;
+  if (sug.length) h += `<div class="ctrl"><div class="lbl">${ic('bank', 'ic-s')}Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">${ic('plus', 'ic-s')}${esc(n)}</button>`).join('')}</div></div>`;
   return h + `</section>`;
 }
 
@@ -4777,7 +4789,7 @@ function cardPerdaBens() {
     + (bensOn() ? (S.bens.categorias.find(c => c.id === k)?.hoje || 0) : 0);
   const cats = [...usadas].sort((a, b) => valor(b) - valor(a));
   // cada categoria perde ou valoriza (um imóvel, por exemplo) uma % por ano; gravado com sinal: negativa é valorizar
-  const dir = (k, v, t) => { const on = v < 0 ? t < 0 : t >= 0; return `<button type="button" class="${on ? 'on' : ''}" data-a="bens-dir" data-k="${esc(k)}" data-v="${v}" aria-pressed="${on}">${v < 0 ? 'Valoriza' : 'Perde'}</button>`; };
+  const dir = (k, v, t) => { const on = v < 0 ? t < 0 : t >= 0; return `<button type="button" class="${on ? 'on' : ''}" data-a="bens-dir" data-k="${esc(k)}" data-v="${v}" aria-pressed="${on}">${ic(v < 0 ? 'trend' : 'minus', 'ic-s')}${v < 0 ? 'Valoriza' : 'Perde'}</button>`; };
   return `<section class="card" id="perda-bens">${maisCab('sofa', 'Valor dos bens por ano')}
     ${maisLead('Quanto cada categoria perde ou valoriza por ano.')}
     <div class="bens-taxas">${cats.map(k => { const t = taxaBem(k), n = esc(nomeCatBem(k)); return `<div class="bens-tx"><span>${n}<small>${brl(valor(k), 0)}</small></span>
@@ -4916,7 +4928,7 @@ function cardOportunidades() {
     escondidas += lista.length - mostrar.length;
     h += `<div class="op-grupo" data-grupo="${g}"><div class="op-grupo-cab"><b>${nome}</b>${inputAlvo(g)}</div>${mostrar.map(linhaOport).join('')}</div>`;
   }
-  if (escondidas || OP_TODAS) h += `<button class="link op-todas" data-a="op-todas">${OP_TODAS ? 'Ver menos' : `Ver mais ${escondidas}`}</button>`;
+  if (escondidas || OP_TODAS) h += `<button class="link op-todas" data-a="op-todas">${ic('chev', 'ic-s')}${OP_TODAS ? 'Ver menos' : `Ver mais ${escondidas}`}</button>`;
   const T = (O && O.tesouro) || {}, quando = T.em ? new Date(T.em) : null;
   const st = !O ? 'Buscando as taxas do Tesouro Direto…' : T.erro ? `${T.erro}${T.dia ? ` Taxas de ${fData(pData(T.dia))}.` : ''}`
     : O.conferindo && !quando ? 'Buscando as taxas do Tesouro Direto…' : !quando ? 'Ainda sem as taxas do Tesouro Direto.'
@@ -4946,14 +4958,14 @@ function opcoesOport() {
     // o horário numa caixa de seleção do app (de meia em meia hora), sem o AM/PM do relógio do celular
     const hora = a.op_hora || '10:00', horas = Array.from({ length: 48 }, (_, k) => `${String(k >> 1).padStart(2, '0')}:${k % 2 ? '30' : '00'}`);
     if (!horas.includes(hora)) horas.push(hora), horas.sort();
-    h += `<div class="op-hora-l campo"><div><label for="op-hora">Horário</label><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
-      <div><label for="op-dias">A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div></div>${quem}
+    h += subOpcoes(`<div class="op-hora-l campo"><div><label for="op-hora">${ic('clock', 'ic-s')}Horário</label><select id="op-hora" class="inp" data-op-hora>${horas.map(x => `<option value="${x}"${x === hora ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
+      <div><label for="op-dias">${ic('repeat', 'ic-s')}A cada</label><span class="pref mini larga op-dias"><input id="op-dias" data-op-dias inputmode="numeric" value="${a.op_dias || 1}" aria-label="Avisar a cada quantos dias"><span>${(a.op_dias || 1) > 1 ? 'dias' : 'dia'}</span></span></div></div>${quem}
       <button class="btn out op-testar" data-a="op-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>
-      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus${iaOn() ? ', e as assinaturas em promoção' : ''}. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">Alvos em Mais › Invest</button></p>`;
+      <p class="nota">O que chegou ao alvo ou, sem alvo, rende mais que os seus${iaOn() ? ', e as assinaturas em promoção' : ''}. <button class="link" data-a="tab" data-v="mais" data-ancora="oportunidades">${ic('target', 'ic-s')}Alvos em Mais › Invest</button></p>`);
   }
   return h + '</section>';
 }
-const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div><b>Atualizar sozinho</b><span>Busca no Banco Central a cada 12 horas.</span></div>
+const linhaChaveIdx = I => `<div class="linha-sw" style="margin-bottom:12px"><div>${tituloLinha('refresh', 'Atualizar sozinho')}<span>Busca no Banco Central a cada 12 horas.</span></div>
   <button class="sw${I.auto ? ' on' : ''}" data-a="indices-auto" role="switch" aria-checked="${!!I.auto}" aria-label="Atualizar sozinho"></button></div>`;
 
 /* --------- Benefícios: o que você ganha por pagar um plano (um fixo) ou ter uma conta ou um cartão (Mais › Bancos):
@@ -5080,7 +5092,7 @@ function linhaBeneficio(b) {
   return `<div class="ben-row${c.vencido ? ' vencido' : ''}"><button class="ben-t" data-a="ben-editar" data-id="${esc(b.id)}"><b>${esc(b.nome)}</b><span>${esc(sub)}</span>
       ${conta ? `<span class="ben-barra" aria-hidden="true"><i style="width:${pct.toFixed(1)}%"></i></span>` : ''}</button>
     ${conta ? `<div class="ben-v"><b>${c.restante > 0 ? 'restam ' + esc(qtdBen(b, c.restante)) : 'acabou'}</b><small>de ${esc(qtdBen(b, +b.total || 0))}</small></div>
-      <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${c.restante > 0 && !c.vencido ? '' : ' disabled'}>${b.tipo === 'saldo' ? 'Usei' : 'Usei 1'}</button>` : ''}</div>`;
+      <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${c.restante > 0 && !c.vencido ? '' : ' disabled'}>${ic('check', 'ic-s')}${b.tipo === 'saldo' ? 'Usei' : 'Usei 1'}</button>` : ''}</div>`;
 }
 // uma linha de Milhas: o programa e a pessoa, o nível, o que vence e quantas trocas já dão; o saldo e o Resgatei
 function linhaMilhas(b) {
@@ -5089,7 +5101,7 @@ function linhaMilhas(b) {
     m.da.length ? (m.da.length === 1 ? 'dá para 1 troca' : `dá para ${m.da.length} trocas`) : ''].filter(Boolean).join(' · ');
   return `<div class="ben-row mil-row"><button class="ben-t" data-a="ben-editar" data-id="${esc(b.id)}"><b>${esc(nomeMilhas(b))}</b><span>${esc(sub || 'Milhas')}</span></button>
     <div class="ben-v"><b>${esc(NF0.format(m.saldo))}</b><small>milhas</small></div>
-    <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${m.saldo > 0 ? '' : ' disabled'}>Resgatei</button></div>`;
+    <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${m.saldo > 0 ? '' : ' disabled'}>${ic('check', 'ic-s')}Resgatei</button></div>`;
 }
 function maisBeneficios() {
   // os vencidos e os de um fixo que acabou ou de uma conta que saiu: no fim, recolhidos (as milhas ficam sempre em cima)
@@ -5184,9 +5196,9 @@ function blocoPromos() {
   const ap = (P.aparelhos || []).length ? ` Nos seus aparelhos: ${juntarE(P.aparelhos)}.` : '';
   let h = `<div class="ben-grupo promo-grupo"><div class="ben-grupo-cab">${ic('percent', 'ic-s')}<b>Assinaturas em promoção</b></div>
     ${lista.length ? lista.map(linhaPromo).join('') : `<p class="vazio promo-vazio">${P.conferindo && !quando ? 'Conferindo as páginas oficiais…' : 'Nenhuma agora.'}</p>`}
-    <p class="dica-quando promo-st">${ic(P.conferindo ? 'refresh' : 'clock', 'ic ic-s')}<span>${esc(st + ap)} ${P.conferindo ? '' : '<button class="link-in" data-a="promo-conferir">Conferir agora</button>'}</span></p>`;
-  h += recolhido('promo-sem', 'Sem como conferir', sem.length, sem.map(x => `<p class="promo-sem-l"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nome)}</a> <small>${esc(ST_PROMO[x.status] || '')}</small></p>`).join(''));
-  h += recolhido('promo-fora', 'Fora dos seus aparelhos', (P.fora || []).length, `<p class="nota">${esc(juntarE(P.fora || []))}</p>`);
+    <p class="dica-quando promo-st">${ic(P.conferindo ? 'refresh' : 'clock', 'ic ic-s')}<span>${esc(st + ap)} ${P.conferindo ? '' : `<button class="link-in" data-a="promo-conferir">${ic('refresh', 'ic-s')}Conferir agora</button>`}</span></p>`;
+  h += recolhido('promo-sem', 'Sem como conferir', sem.length, sem.map(x => `<p class="promo-sem-l"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nome)}</a> <small>${esc(ST_PROMO[x.status] || '')}</small></p>`).join(''), 'alert');
+  h += recolhido('promo-fora', 'Fora dos seus aparelhos', (P.fora || []).length, `<p class="nota">${esc(juntarE(P.fora || []))}</p>`, 'smartphone');
   return h + '</div>';
 }
 function promosDemo() {
@@ -5228,7 +5240,7 @@ function abrirMeta(id) {
   FMETA.erro = '';
   abrirFolha(() => {
     const f = FMETA, so = f.tipo === 'plano' ? (v => v.startsWith('fixo:')) : f.tipo === 'gasto' ? (v => v.startsWith('conta:') && !!(contaDe(v.slice(6)) || {}).cartao) : (v => v.startsWith('conta:'));
-    const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fmeta-seg" data-k="${k}" data-v="${v}">${t}</button>`).join('')}</div>`;
+    const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fmeta-seg" data-k="${k}" data-v="${v}">${ic(SEG_IC[v] || 'chev', 'ic-s')}${t}</button>`).join('')}</div>`;
     const rot = { investido: 'Pede investido', gasto: 'Gasto no cartão', plano: 'Preço do plano' }[f.tipo];
     return {
       titulo: f.id ? 'Editar oportunidade' : 'Nova oportunidade',
@@ -5242,7 +5254,7 @@ function abrirMeta(id) {
           <div class="pref${f.erro === 'valor' ? ' erro' : ''}"><span>R$</span><input id="fmeta-valor" inputmode="decimal" data-fmeta="valor" value="${esc(typeof f.valor === 'number' ? NF2.format(f.valor).replace(/,00$/, '') : String(f.valor ?? ''))}" placeholder="${f.tipo === 'investido' ? '50.000' : f.tipo === 'gasto' ? '3.000' : '120'}"></div>
           ${f.tipo === 'investido' ? '<div></div>' : seg('periodo', [['mes', 'Por mês'], ['ano', 'Por ano']])}</div>
           <div class="ajuda" id="fmeta-st" aria-live="polite">${esc(textoProgMeta(f))}</div></div>`,
-      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fmeta-salvar">Salvar</button>`,
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fmeta-salvar">${ic('check')}Salvar</button>`,
     };
   });
 }
@@ -5295,7 +5307,7 @@ function origensBeneficio(atual) {
 function chipsOrigem(atual, acao, so = null) {
   return `<div class="chips origem-ch" role="radiogroup" style="margin:0">${origensBeneficio(atual).filter(([v]) => !so || (v && v === atual) || so(v)).map(([v, t]) => {
     const k = v.startsWith('conta:') ? contas().find(x => x.id === v.slice(6)) : null, cor = k ? corOk(k.cor) || '#B8B0B0' : '';
-    return `<button type="button" class="chip${v === (atual || '') ? ' on' : ''}" role="radio" aria-checked="${v === (atual || '')}" data-a="${acao}" data-v="${esc(v)}"${cor ? ` style="--c:${cor}"` : ''}>${cor ? '<span class="bol"></span>' : ''}${esc(t)}</button>`;
+    return `<button type="button" class="chip${v === (atual || '') ? ' on' : ''}" role="radio" aria-checked="${v === (atual || '')}" data-a="${acao}" data-v="${esc(v)}"${cor ? ` style="--c:${cor}"` : ''}>${cor ? '<span class="bol"></span>' : ic(v ? 'repeat' : 'x', 'ic-s')}${esc(t)}</button>`;
   }).join('')}</div>`;
 }
 // o formulário: nome, de onde vem, tipo, quanto, renova, desde, vale até e os usos do período
@@ -5316,7 +5328,7 @@ function corpoMilhas(f, seg) {
   const resg = (f.usos || []).filter(u => { const d = pData(u.data), de = pData(f.saldo_em); return d && (!de || d >= de); });
   const lista = (rot, itens) => itens.length ? `<div class="campo"><div class="lbl">${rot}</div><ul class="mil-lista">${itens.join('')}</ul></div>` : '';
   return `${iaOn() ? `<button type="button" class="btn out larga mil-ler" data-a="fmil-ler">${ic('ia', 'ic-s')}Ler com IA</button>` : ''}
-    <div class="campo"><label for="fben-nome">Programa</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Nome do programa" data-sug="dl-mil" autocomplete="off">
+    <div class="campo"><label for="fben-nome">Programa</label><textarea id="fben-nome" rows="1" class="inp grow${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" placeholder="Nome do programa" data-sug="dl-mil" autocomplete="off">${esc(f.nome)}</textarea>
       <datalist id="dl-mil">${SUG_MILHAS.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
     <div class="campo"><label for="fben-pessoa">De quem</label><input id="fben-pessoa" class="inp" data-fben="pessoa" value="${esc(f.pessoa || '')}" placeholder="Ex.: Ana" data-sug="dl-mil-p" autocomplete="off">
       <datalist id="dl-mil-p">${pessoasContas().map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
@@ -5346,19 +5358,19 @@ function abrirBeneficio(id) {
   FBEN.erro = '';
   abrirFolha(() => {
     const f = FBEN, conta = f.tipo !== 'vantagem', c = f.id && !ehMilhas(f) ? cicloBeneficio(f) : null;
-    const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fben-seg" data-k="${k}" data-v="${v}">${t}</button>`).join('')}</div>`;
+    const seg = (k, opts) => `<div class="seg mini" role="radiogroup">${opts.map(([v, t]) => `<button type="button" class="${f[k] === v ? 'on' : ''}" role="radio" aria-checked="${f[k] === v}" data-a="fben-seg" data-k="${k}" data-v="${v}">${ic(SEG_IC[v] || 'chev', 'ic-s')}${t}</button>`).join('')}</div>`;
     const tipos = seg('tipo', [['contagem', 'Quantidade'], ['saldo', 'Saldo'], ['vantagem', 'Vantagem'], ['milhas', 'Milhas']]);
     if (ehMilhas(f)) {
       return { titulo: f.id ? 'Editar milhas' : 'Novas milhas',
         cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
         corpo: `${f.id ? '' : `<div class="campo"><div class="lbl">Tipo</div>${tipos}</div>`}${corpoMilhas(f, seg)}`,
-        pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-salvar">Salvar</button>` };
+        pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-salvar">${ic('check')}Salvar</button>` };
     }
     const usos = (f.usos || []).filter(u => { const d = pData(u.data); return c && d && d >= pData(c.inicio) && (!c.fim || d < pData(c.fim)); });
     return {
       titulo: f.id ? 'Editar benefício' : 'Novo benefício',
       cab: f.id ? `<button class="icbtn" data-a="fben-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
-      corpo: `<div class="campo"><label for="fben-nome">Nome</label><input id="fben-nome" class="inp${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" value="${esc(f.nome)}" placeholder="Ex.: Sala VIP" data-sug="dl-ben" autocomplete="off">
+      corpo: `<div class="campo"><label for="fben-nome">Nome</label><textarea id="fben-nome" rows="1" class="inp grow${f.erro === 'nome' ? ' erro' : ''}" data-fben="nome" placeholder="Ex.: Sala VIP" data-sug="dl-ben" autocomplete="off">${esc(f.nome)}</textarea>
           <datalist id="dl-ben">${SUG_BEN.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
         <div class="campo"><div class="lbl" id="fben-origem-l">De onde vem</div>${chipsOrigem(f.origem, 'fben-origem')}</div>
         <div class="campo"><div class="lbl">Tipo</div>${tipos}</div>
@@ -5370,7 +5382,7 @@ function abrirBeneficio(id) {
         ${campoData('fben-validade', 'Vale até <span class="opc">(opcional)</span>', f.validade || '', 'data-fben="validade"', { opcional: true })}
         <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-obs" class="inp grow" rows="1" data-fben="obs" placeholder="Ex.: com 1 acompanhante" autocomplete="off">${esc(f.obs || '')}</textarea></div>
         ${f.id && conta ? `<div class="campo"><div class="lbl">Usos deste período · ${esc(qtdBen(f, c.usado))} de ${esc(qtdBen(f, +f.total || 0))}</div>${usos.length ? usos.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(qtdBen(f, +u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este uso">${ic('x', 'ic-s')}</button></div>`).join('') : '<p class="nota" style="margin:0">Nenhum uso ainda.</p>'}</div>` : ''}`,
-      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-salvar">Salvar</button>`,
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-salvar">${ic('check')}Salvar</button>`,
     };
   });
 }
@@ -5413,7 +5425,7 @@ function usarBeneficio(id) {
     FBEN = { usar: id, valor: '' };
     abrirFolha(() => ({ titulo: `Quantas milhas resgatou de ${esc(nomeMilhas(b))}?`, corpo: `<div class="campo"><label for="fben-usou">Milhas</label><div class="pref"><input id="fben-usou" inputmode="numeric" data-fben="valor" value="${esc(FBEN.valor)}" placeholder="0"><span>milhas</span></div>
       <div class="ajuda">Tem ${esc(NF0.format(milhasDe(b).saldo))}.</div></div>`,
-      pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-usou">Descontar</button>` }));
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-usou">${ic('minus')}Descontar</button>` }));
     setTimeout(() => { const i = $('#fben-usou'); if (i) i.focus(); }, 60);
     FBEN.lancar = lancar;
     return;
@@ -5422,7 +5434,7 @@ function usarBeneficio(id) {
   FBEN = { usar: id, valor: '' };
   abrirFolha(() => ({ titulo: `Quanto usou de ${esc(b.nome)}?`, corpo: `<div class="campo"><label for="fben-usou">Valor</label><div class="pref"><span>${MOEDA_BEN[b.moeda] || 'R$'}</span><input id="fben-usou" inputmode="decimal" data-fben="valor" value="${esc(FBEN.valor)}" placeholder="0"></div>
       <div class="ajuda">Restam ${esc(qtdBen(b, cicloBeneficio(b).restante))}.</div></div>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="fben-usou">Descontar</button>` }));
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-usou">${ic('minus')}Descontar</button>` }));
   setTimeout(() => { const i = $('#fben-usou'); if (i) i.focus(); }, 60);
   FBEN.lancar = lancar;
 }
@@ -5460,7 +5472,7 @@ function montarLerBeneficios() {
       corpo: `<p class="da-intro" style="margin:0 0 8px">${de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
         ${s.itens.length ? `<div class="bler-lista">${s.itens.map((x, k) => item('bler-marca', k, x, x.nome, subBen(x))).join('')}</div>` : ''}
         ${s.metas.length ? `${s.itens.length ? '<div class="lbl bler-sec">Oportunidades</div>' : ''}<div class="bler-lista">${s.metas.map((x, k) => item('bler-meta', k, x, x.ganha, subMetaLida(x))).join('')}</div>` : ''}`,
-      pe: `<button class="btn" data-a="bler-voltar">Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>Cadastrar${n ? ' ' + n : ''}</button>`,
+      pe: `<button class="btn" data-a="bler-voltar">${ic('back')}Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>${ic('check')}Cadastrar${n ? ' ' + n : ''}</button>`,
     };
   }
   const aviso = S.ia && S.ia.pronta === false ? `<div class="aviso-fixo alerta">${ic('alert', 'ic-s')}<span>${esc(S.ia.motivo || 'A IA não está pronta.')} Veja em Mais › Configurações › Integrações.</span></div>` : '';
@@ -5472,7 +5484,7 @@ function montarLerBeneficios() {
       <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
         <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="${mil ? 'Ex.: https://… (a página do programa: níveis, como trocar)' : 'Ex.: https://… (a página dos benefícios do cartão ou do plano)'}">${esc(s.texto)}</textarea></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
 async function blerPegarArquivo(file) {
@@ -5713,7 +5725,7 @@ function cardUsoIA() {
       <div class="uso-dias" aria-hidden="true">${u.days.map(x => `<span>${x.day === hojeK ? 'hoje' : diaSem(x.day)}</span>`).join('')}</div>
       <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
-      <details class="uso-ult"><summary>${ic('chev', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
+      <details class="uso-ult"><summary>${ic('chev', 'ic-s')}${ic('clock', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
       <p class="nota">Tokens estimados pelo texto. Custo e limites exatos ficam no painel do provedor.</p>`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
@@ -5823,10 +5835,10 @@ function opcoesDicas() {
   let h = `<section class="card" id="op-dicas">${maisCab('percent', 'Dicas de economia')}
     ${linhaChave('dicas_auto', auto, 'Conferir sozinho', auto ? 'Ligado: uma assinatura nova é conferida logo.' : 'Desligado: só no Conferir agora.')}`;
   // de quanto em quanto tempo, como as escolhas do ResolvIA (a assinatura nova é conferida logo)
-  if (auto) h += `<div class="seg mini op-freq" role="radiogroup" aria-label="De quanto em quanto tempo">${Object.entries(DICAS_FREQ).map(([k, [n]]) =>
-    `<button class="${k === freq ? 'on' : ''}" role="radio" aria-checked="${k === freq}" data-a="dicas-freq" data-v="${k}">${n}</button>`).join('')}</div>`;
+  if (auto) h += subOpcoes(`<div class="seg mini op-freq" role="radiogroup" aria-label="De quanto em quanto tempo">${Object.entries(DICAS_FREQ).map(([k, [n]]) =>
+    `<button class="${k === freq ? 'on' : ''}" role="radio" aria-checked="${k === freq}" data-a="dicas-freq" data-v="${k}">${ic('calendar', 'ic-s')}${n}</button>`).join('')}</div>`);
   h += linhaChave('dicas_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando aparece uma dica nova.' : 'Desligado.');
-  if (aviso) h += quemRecebe();
+  if (aviso) h += subOpcoes(quemRecebe());
   return h + '</section>';
 }
 // Faturas por e-mail: o aviso no celular quando uma fatura fica pronta para conferir (como o das dicas)
@@ -5835,8 +5847,10 @@ function opcoesEmail() {
   const aviso = S.d.ajustes.email_aviso === true;
   return `<section class="card" id="op-email">${maisCab('mail', 'Faturas por e-mail')}
     ${linhaChave('email_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando uma fatura do e-mail fica pronta para conferir.' : 'Desligado.')}
-    ${aviso ? quemRecebe('email_para', true, 'email') : ''}</section>`;
+    ${aviso ? subOpcoes(quemRecebe('email_para', true, 'email')) : ''}</section>`;
 }
+// 1.71.0 (padrão da família): o que só vale com a chave de cima ligada fica num quadro recuado, logo abaixo dela
+const subOpcoes = corpo => `<div class="sub-op"><div class="sub-box">${corpo}</div></div>`;
 const DICAS_FREQ = { semana: ['Toda semana'], quinzena: ['A cada 15 dias'], mes: ['Todo mês'] };
 function quemRecebe(chave = 'dicas_para', testar = true, tipo = '') {
   const P = S.avisoPessoas;
@@ -5844,7 +5858,7 @@ function quemRecebe(chave = 'dicas_para', testar = true, tipo = '') {
   const para = new Set(S.d.ajustes[chave] || []);
   const eu = P && P.pessoas ? P.pessoas.find(p => p.eu) : null;
   const porque = !P || !P.pessoas ? (P && P.erro) || '' : !eu ? 'Você não é uma pessoa da casa no Home Assistant.' : !eu.celular ? 'Sem celular ligado a você no Home Assistant.' : '';
-  let h = `<div class="campo"><label>Quem recebe</label>`;
+  let h = `<div class="campo"><label>${ic('users', 'ic-s')}Quem recebe</label>`;
   if (P === undefined) h += `<p class="nota">Procurando as pessoas da casa…</p>`;
   else if (!P || !P.pessoas) h += `<p class="nota">${esc((P && P.erro) || 'Não consegui ver as pessoas da casa.')}</p>`;
   else if (!P.pessoas.length) h += `<p class="nota">Nenhuma pessoa da casa no Home Assistant.</p>`;
@@ -5914,13 +5928,30 @@ function abrirFolha(montar, aoFechar, sobre) {
   requestAnimationFrame(() => { $('.veu', root).classList.add('on'); $('.folha', root).classList.add('on'); });
   marcarHist(FOLHA.h);
 }
+// 1.71.0 (padrão da família): o título de toda janela com o ícone, como as seções. A janela pode dizer o seu (icone);
+// senão, vem das palavras do título (a primeira regra que bate)
+const ICONE_FOLHA = [[/^Apagar/, 'trash'], [/^Restaurar|^Versões/, 'archive-restore'], [/^Importar/, 'upload'], [/Falar/, 'mic'],
+  [/^Conversar/, 'chat'], [/^Colar/, 'clipboard-paste'], [/^Escolher fotos|^Imagem/, 'image'], [/IA|^Lendo/, 'ia'],
+  [/^Confirmar/, 'check'], [/fatura|^Pagar/, 'card'], [/saldo/i, 'wallet'], [/categoria/, 'blocks'], [/banco/i, 'bank'],
+  [/oportunidade/i, 'target'], [/milhas/i, 'plane'], [/benefício/i, 'gift'], [/^Aplicar/, 'plus'], [/^Transferir/, 'swap'],
+  [/^Horizonte/, 'trend'], [/^Período/, 'calendar'], [/^Adicionar/, 'plus'], [/^Revisar|^Conferir/, 'list-checks'],
+  [/remetente|E-mail|@/, 'mail'], [/fix[oa]/, 'repeat'], [/senha/i, 'lock'], [/^Bens/, 'sofa'], [/investimento|Aporte|aporte/, 'trend'],
+  [/recebimento|Recebimento/, 'plus'], [/despesa|Despesa|parcela/, 'minus'], [/plano anual/, 'percent']];
+// e a janela de uma caixa de seleção (selectsheet.js), com o ícone do que se escolhe (sem um, o do título da caixa)
+const ICONE_CAIXA = { 'lf-vinc': 'receipt', categoria: 'blocks', contasel: 'bank', existente: 'trend', 'iae-tipo': 'layers', 'iae-idx': 'percent',
+  'frem-fixo': 'repeat', 'op-hora': 'clock', nivel: 'gift', cartao_nivel: 'card' };
+if (window.__selectSheet) window.__selectSheet.icon = sel => {
+  const k = ICONE_CAIXA[sel.id] || ICONE_CAIXA[sel.dataset.iai] || ICONE_CAIXA[sel.dataset.iav] || ICONE_CAIXA[sel.dataset.fbcs];
+  return k ? ic(k) : null;
+};
+const iconeFolha = t => (ICONE_FOLHA.find(([re]) => re.test(String(t || '').replace(/<[^>]*>/g, ''))) || [0, 'edit'])[1];
 function pintarFolha(scrollPara) {
   if (!FOLHA) return;
   const el = $('#folhas .folha');
   const corpoAnt = $('.folha-corpo', el);
   const scroll = typeof scrollPara === 'number' ? scrollPara : corpoAnt ? corpoAnt.scrollTop : 0;
   const f = FOLHA.montar();
-  el.innerHTML = `<div class="folha-cab"><h2>${f.titulo}</h2>${f.cab || ''}<button class="icbtn" data-a="fechar" aria-label="Fechar">${ic('x')}</button></div>
+  el.innerHTML = `<div class="folha-cab"><h2><span class="folha-ic" aria-hidden="true">${ic(f.icone || iconeFolha(f.titulo))}</span><span class="folha-tt">${f.titulo}</span></h2>${f.cab || ''}<button class="icbtn" data-a="fechar" aria-label="Fechar">${ic('x')}</button></div>
     <div class="folha-corpo">${f.corpo}</div>${f.pe ? `<div class="folha-pe">${f.pe}</div>` : ''}`;
   $('.folha-corpo', el).scrollTop = scroll;
   if (f.depois) f.depois(el);
@@ -5975,7 +6006,7 @@ function confirmar({ titulo, texto, botao, perigo, acao }) {
   abrirFolha(() => ({
     titulo,
     corpo: `<p style="margin:0;font-size:17px;color:var(--text-2)">${texto}</p>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn ${perigo ? 'perigo' : 'pri'}" data-a="confirmar">${botao}</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn ${perigo ? 'perigo' : 'pri'}" data-a="confirmar">${ic(perigo ? 'trash' : 'check')}${botao}</button>`,
   }), null, !!FOLHA);
   FOLHA.confirmar = acao;
 }
@@ -6025,13 +6056,13 @@ function montarAplicar() {
   if (!inv) return { titulo: 'Aplicar', corpo: '' };
   const pend = inv.titular === 'terceiros' ? [] : aportesPendentes();
   const atual = valorHoje(inv);
-  const chip = (v, txt) => `<button class="chip${a.destino === v ? ' on' : ''}" data-a="ap-destino" data-v="${esc(v)}">${txt}</button>`;
+  const chip = (v, txt) => `<button class="chip${a.destino === v ? ' on' : ''}" data-a="ap-destino" data-v="${esc(v)}">${ic(v === 'novo' ? 'plus' : 'wallet', 'ic-s')}${txt}</button>`;
   const pl = pend.find(l => l.id === a.destino);
   return {
     titulo: `Aplicar em ${esc(inv.nome)}`,
     // às vezes só se sabe o total novo (o app do banco mostra o saldo): o aporte é a diferença para o valor de hoje
-    corpo: `<div class="seg ap-modo" style="margin-bottom:14px"><button class="${a.modo !== 'total' ? 'on' : ''}" data-a="ap-modo" data-v="aplicou">Quanto apliquei</button>
-        <button class="${a.modo === 'total' ? 'on' : ''}" data-a="ap-modo" data-v="total">Quanto tem agora</button></div>
+    corpo: `<div class="seg ap-modo" style="margin-bottom:14px"><button class="${a.modo !== 'total' ? 'on' : ''}" data-a="ap-modo" data-v="aplicou">${ic('wallet')}Quanto apliquei</button>
+        <button class="${a.modo === 'total' ? 'on' : ''}" data-a="ap-modo" data-v="total">${ic('chart')}Quanto tem agora</button></div>
       <div class="campo"><label for="ap-v">${a.modo === 'total' ? 'Quanto tem agora, no total' : 'Quanto você aplicou'}</label><div class="pref grande${a.erro ? ' erro' : ''}"><span>R$</span><input id="ap-v" data-ap="${a.modo === 'total' ? 'total' : 'valor'}" inputmode="numeric" value="${a.modo === 'total' ? (a.total ? NF2.format(a.total) : '') : (a.valor ? NF2.format(a.valor) : '')}" placeholder="0,00"></div>
         ${a.erro ? `<div class="msg-erro">${esc(a.erro)}</div>` : ''}
         <div class="ajuda" id="ap-ajuda">${aplicarAjuda(atual)}</div></div>
@@ -6041,7 +6072,7 @@ function montarAplicar() {
         ${chip('novo', pend.length ? 'Lançar à parte' : 'Lançar como aporte')}${chip('nenhum', 'Não lançar')}</div>
         ${pl ? `<div class="ajuda">Sai de ${esc(nomeConta(contaDe(pl.conta)) || 'sem conta')}.</div>` : inv.titular === 'terceiros' && a.destino === 'nenhum' ? '<div class="ajuda">Dinheiro de terceiros não mexe no caixa.</div>' : ''}
         ${a.destino === 'novo' ? `<div class="chips" style="margin:10px 0 0">${contas().map(k => `<button class="chip${a.conta === k.id ? ' on' : ''}" data-a="ap-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>` : ''}</div>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="ap-ok">Aplicar${a.valor ? ' ' + brl(a.valor, 0) : ''}</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="ap-ok">${ic('check')}Aplicar${a.valor ? ' ' + brl(a.valor, 0) : ''}</button>`,
   };
 }
 const l2mes = l => `de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]}`;
@@ -6123,7 +6154,7 @@ function montarTransferir() {
     titulo: `Transferir de ${esc(de.nome)}`,
     corpo: `<div class="campo"><label for="tr-v">Quanto</label><div class="pref grande${t.erro === 'valor' ? ' erro' : ''}"><span>R$</span><input id="tr-v" data-tr="valor" inputmode="numeric" value="${t.valor ? NF2.format(t.valor) : ''}" placeholder="0,00"></div>
         ${t.erro === 'valor' ? `<div class="msg-erro">${t.valor > atual ? `Passa do valor de hoje (${brl(atual)}).` : 'Coloque o valor.'}</div>` : ''}
-        <div class="chips c3" style="margin:10px 0 0"><button class="chip${tudo ? ' on' : ''}" data-a="tr-tudo">Tudo (${brl(atual, 0)})</button></div>
+        <div class="chips c3" style="margin:10px 0 0"><button class="chip${tudo ? ' on' : ''}" data-a="tr-tudo">${ic('layers', 'ic-s')}Tudo (${brl(atual, 0)})</button></div>
         <div class="ajuda" id="tr-ajuda">${transferirAjuda()}</div></div>
       <div class="campo"><div class="lbl">Para qual investimento</div>
         <div class="chips tr-para${t.erro === 'para' ? ' erro' : ''}" style="margin:0">${outros.map(i => { const b = bancoDe(i.banco);
@@ -6131,11 +6162,11 @@ function montarTransferir() {
         ${t.erro === 'para' ? '<div class="msg-erro">Escolha para onde vai o dinheiro.</div>' : ''}
         ${para && (para.titular === 'terceiros') !== (de.titular === 'terceiros') ? `<div class="ajuda">${de.titular === 'terceiros' ? 'Sai de um dinheiro de terceiros e entra num seu.' : 'Sai de um dinheiro seu e entra num de terceiros.'} </div>` : ''}</div>
       ${tudo ? `<div class="campo"><div class="lbl">${esc(de.nome)} fica zerado</div><div class="chips c2" style="margin:0">
-        <button class="chip${!t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="">Manter na carteira</button>
-        <button class="chip${t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="1">Tirar da carteira</button></div>
+        <button class="chip${!t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="">${ic('wallet', 'ic-s')}Manter na carteira</button>
+        <button class="chip${t.apagar ? ' on' : ''}" data-a="tr-apagar" data-v="1">${ic('archive', 'ic-s')}Tirar da carteira</button></div>
         ${t.apagar ? '<div class="ajuda">Uma cópia fica em Mais › Configurações › Dados › Versões anteriores.</div>' : ''}</div>` : ''}
       <p class="nota" style="margin:4px 0 0">Não mexe no caixa.</p>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="tr-ok">Transferir${t.valor ? ' ' + brl(t.valor, 0) : ''}</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="tr-ok">${ic('swap')}Transferir${t.valor ? ' ' + brl(t.valor, 0) : ''}</button>`,
   };
 }
 function confirmarTransferir() {
@@ -6165,13 +6196,13 @@ function camposBens(f) {
     return `<div class="campo"><div class="lbl">Valor por categoria</div><div class="bens-partes">${catsBens().map(([k, n]) =>
       `<label class="bens-tx"><span>${esc(n)}<small>${rotPerda(taxaBem(k))}</small></span><span class="pref mini larga"><span>R$</span><input data-fparte="${k}" inputmode="numeric" value="${f.partes && f.partes[k] ? NF2.format(f.partes[k]) : ''}" placeholder="0,00" aria-label="Valor em ${esc(n)}"></span></label>`).join('')}</div>
       <div class="ajuda" id="partes-soma">Total: <b>${brl(soma)}</b>. As taxas ficam em Mais › Invest.</div>
-      <button type="button" class="link" data-a="f-dividir" data-v="">Usar uma categoria só</button></div>`;
+      <button type="button" class="link" data-a="f-dividir" data-v="">${ic('layers', 'ic-s')}Usar uma categoria só</button></div>`;
   }
   const cs = catsBens(), extra = f.categoria_bem && !cs.some(c => c[0] === f.categoria_bem) ? [[f.categoria_bem, nomeCatBem(f.categoria_bem)]] : [];
   return `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${[...cs, ...extra].map(([k, n]) =>
-      `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${n}</button>`).join('')}</div>
+      `<button class="chip${(f.categoria_bem || 'outros') === k ? ' on' : ''}" data-a="f-set" data-k="categoria_bem" data-v="${k}">${ic('sofa', 'ic-s')}${n}</button>`).join('')}</div>
       <div class="ajuda">${rotPerda(taxaBem(f.categoria_bem || 'outros'))}. As taxas ficam em Mais › Invest.</div>
-      <button type="button" class="link" data-a="f-dividir" data-v="1">Separar o valor por categoria</button></div>`;
+      <button type="button" class="link" data-a="f-dividir" data-v="1">${ic('layers', 'ic-s')}Separar o valor por categoria</button></div>`;
 }
 
 function montarFormInv() {
@@ -6191,12 +6222,12 @@ function montarFormInv() {
       <button class="${f.titular === 'terceiros' ? 'on terc' : ''}" data-a="f-set" data-k="titular" data-v="terceiros">${ic('users', 'ic-s')}De terceiros</button></div>`;
   if (f.titular === 'terceiros') {
     c += `<input class="inp${err('terceiro')}" data-f="terceiro" value="${esc(f.terceiro)}" placeholder="De quem? Ex.: Mãe, Pedro, condomínio" autocomplete="off">${msg('terceiro')}`;
-    if (ps.length) c += `<div class="chips" style="margin:10px 0 0">${ps.map(p => `<button class="chip${f.terceiro === p ? ' on' : ''}" data-a="f-set" data-k="terceiro" data-v="${esc(p)}">${esc(p)}</button>`).join('')}</div>`;
+    if (ps.length) c += `<div class="chips" style="margin:10px 0 0">${ps.map(p => `<button class="chip${f.terceiro === p ? ' on' : ''}" data-a="f-set" data-k="terceiro" data-v="${esc(p)}">${ic('user', 'ic-s')}${esc(p)}</button>`).join('')}</div>`;
   }
   // dinheiro em espécie e bens: sem banco, sem rendimento, sem vencimento (bens perdem a taxa da categoria)
   const especie = f.tipo === 'dinheiro' || f.tipo === 'bens', oculto = especie ? ' hidden' : '';
   c += `</div>
-    <div class="campo"><label for="f-nome">Nome</label><input id="f-nome" class="inp" data-f="nome" value="${esc(f.nome)}" placeholder="${f.tipo === 'bens' ? 'Ex.: Carro da mãe' : especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off"></div>
+    <div class="campo"><label for="f-nome">Nome</label><textarea id="f-nome" rows="1" class="inp grow" data-f="nome" placeholder="${f.tipo === 'bens' ? 'Ex.: Carro da mãe' : especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off">${esc(f.nome)}</textarea></div>
     <div class="campo"${oculto}><div class="lbl">Banco</div><div class="chips" style="margin:0">
       ${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null; return opcoesBanco(bancos).map(o => `<button class="chip${f.banco === o.banco && (!o.conta || o.conta === atual) ? ' on' : ''}" data-a="f-banco" data-v="${o.banco}" data-conta="${o.conta}" style="--c:${corOk(o.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(o.nome)}</button>`).join(''); })()}
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
@@ -6205,31 +6236,31 @@ function montarFormInv() {
       <input class="inp${err('nb')}" data-f="nb-nome" value="${esc(f.novoBanco.nome)}" placeholder="Nome do banco ou corretora" data-sug="dl-bancos" autocomplete="off">${msg('nb')}
       <datalist id="dl-bancos">${BANCOS_COMUNS.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${f.novoBanco.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="f-nbcor" data-v="${cr}" aria-label="Cor ${cr}"></button>`).join('')}</div>
-      <button class="btn out" data-a="f-nbok">Usar este banco</button></div>`;
+      <button class="btn out" data-a="f-nbok">${ic('check')}Usar este banco</button></div>`;
   }
   c += `</div>
     <div class="campo"><div class="lbl">Tipo</div><div class="chips" style="margin:0">${TIPOS.map(t =>
-      `<button class="chip${f.tipo === t.id ? ' on' : ''}" data-a="f-tipo" data-v="${t.id}">${t.nome}</button>`).join('')}</div></div>
+      `<button class="chip${f.tipo === t.id ? ' on' : ''}" data-a="f-tipo" data-v="${t.id}">${ic(TIPO_IC[t.id] || 'wallet', 'ic-s')}${t.nome}</button>`).join('')}</div></div>
     <div class="campo" style="margin-bottom:6px"><label for="f-valor">Valor atual</label>
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"${f.tipo === 'bens' && f.dividir ? ' readonly aria-readonly="true" title="A soma das categorias"' : ''}></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:16px"></div>
     ${campoData('f-data', 'Valor em', f.data_valor, 'data-f="data_valor"', { tipo: 'passado', max: iso(hoje()) })}
     ${f.tipo === 'bens' ? camposBens(f) : ''}
     <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
-      `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${x.nome}</button>`).join('')}</div>
+      `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${ic('percent', 'ic-s')}${x.nome}</button>`).join('')}</div>
       ${ix.taxa ? `<div class="pref${err('taxa')}">${ix.pre ? `<span>${ix.pre}</span>` : ''}<input data-f="taxa" inputmode="decimal" value="${f.taxa === '' || f.taxa == null ? '' : String(f.taxa).replace('.', ',')}" placeholder="${ix.ph}"><span>${ix.suf}</span></div>` : ''}
       ${msg('taxa')}<div class="ajuda" id="aj-taxa"></div></div>
     <div class="campo"${oculto}><div class="lbl">Liquidez</div><div class="seg" style="margin:0">
-      <button class="${f.liquidez === 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="diaria">Diária</button>
-      <button class="${f.liquidez !== 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="vencimento">No vencimento</button></div></div>
+      <button class="${f.liquidez === 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="diaria">${ic('calendar-days')}Diária</button>
+      <button class="${f.liquidez !== 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="vencimento">${ic('calendar')}No vencimento</button></div></div>
     ${oculto ? '' : campoData('f-venc', 'Vencimento <span class="opc">(opcional)</span>', f.vencimento || '', 'data-f="vencimento"', { opcional: true })}
     ${fotosFormHTML()}
     <div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="f-obs">${ic('chev', 'ic-s')}Observação</button>
       ${f.obsAberta ? `<textarea class="inp" data-f="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar sobre este investimento">${esc(f.obs)}</textarea>` : ''}</div>`;
   const cab = f.id ? `<button class="icbtn" data-a="f-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   const pe = f.id
-    ? `<button class="btn" data-a="f-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="f-salvar">Salvar</button>`
-    : `<button class="btn" data-a="f-salvar" data-mais="1">Salvar e adicionar outro</button><button class="btn pri" data-a="f-salvar">Salvar</button>`;
+    ? `<button class="btn" data-a="f-duplicar">${ic('copy', 'ic-s')}Duplicar</button><button class="btn pri" data-a="f-salvar">${ic('check')}Salvar</button>`
+    : `<button class="btn" data-a="f-salvar" data-mais="1">${ic('plus')}Salvar e adicionar outro</button><button class="btn pri" data-a="f-salvar">${ic('check')}Salvar</button>`;
   return { titulo, corpo: c, pe, cab, depois: ajudasForm };
 }
 
@@ -6258,7 +6289,7 @@ function ajudasForm() {
     const o = F.original;
     if (o && corrige(F) && S.d.ajustes.corrigir !== false && F.data_valor && F.data_valor < iso(hoje())) {
       const est = valorHoje({ valor: F.valor, data_valor: F.data_valor, indexador: F.indexador, taxa: F.taxa });
-      if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">Usar este valor</button>`;
+      if (est - F.valor >= 0.01) t = `Hoje: ≈ <b>${brl(est)}</b>, corrigido desde ${fData(pData(F.data_valor))}. <button class="link" data-a="f-usar-est">${ic('check', 'ic-s')}Usar este valor</button>`;
     } else if (F.tipo === 'bens' && F.dividir) t = 'A soma das categorias abaixo.';
     // com Corrigir valores pelo rendimento desligado, o valor de hoje não muda sozinho
     else if (!o && F.tipo === 'bens') t = S.d.ajustes.corrigir !== false ? 'O valor de hoje; a taxa da categoria conta daqui para a frente.' : 'O valor de hoje.';
@@ -6316,7 +6347,7 @@ function abrirIndice(k) {
     titulo: n,
     corpo: `<div class="campo"><label for="i-v">Valor</label><div class="pref"><input id="i-v" inputmode="decimal" value="${String(S.d.indices[k]).replace('.', ',')}"><span>${suf}</span></div>
       <div class="ajuda" style="color:var(--muted);font-size:14.5px;margin-top:8px">Mudar à mão desliga a atualização pelo Banco Central.</div></div>`,
-    pe: `<button class="btn" data-a="fechar">Cancelar</button><button class="btn pri" data-a="i-salvar" data-v="${k}">Salvar</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="i-salvar" data-v="${k}">${ic('check')}Salvar</button>`,
   }));
 }
 
@@ -6332,7 +6363,7 @@ function abrirVersoes() {
           const motivo = { 'antes-de-importar': 'antes de importar', 'antes-de-restaurar': 'antes de restaurar' }[v.motivo] || 'automática';
           return `<div class="versao-row"><div><b>${q ? fData(q) + ' às ' + q.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : esc(v.nome)}</b>
             <span>${plural(v.investimentos, 'investimento', 'investimentos')} · ${brl(v.total, 0)} · ${motivo}</span></div>
-            <button class="btn peq" data-a="restaurar" data-v="${esc(v.nome)}">Restaurar</button></div>`;
+            <button class="btn peq" data-a="restaurar" data-v="${esc(v.nome)}">${ic('archive-restore', 'ic-s')}Restaurar</button></div>`;
         }).join(''),
   }));
   api.versoes().then(l => { lista = l; pintarFolha(); }).catch(e => { erro = e.message; pintarFolha(); });
@@ -7274,7 +7305,7 @@ function montarBens() {
       <h3 class="ia-sec">Por categoria</h3>${b.categorias.map(c => linha(c.nome, `${plural(c.n, 'item', 'itens')} · ${c.taxa > 0 ? `−${pct(c.taxa)}% ao ano` : c.taxa < 0 ? `+${pct(-c.taxa)}% ao ano` : 'mantém o valor'}`, c.hoje)).join('')}
       <h3 class="ia-sec">Por cômodo</h3>${b.comodos.map(c => linha(c.nome, plural(c.n, 'item', 'itens'), c.hoje)).join('')}
       <p class="nota">Pelo valor de cada item no InventarIA, com o que a categoria perde ou valoriza por ano desde a data desse valor. As taxas ficam em Mais › Invest.</p>`,
-    pe: `<button class="btn" data-a="fechar">Fechar</button><button class="btn pri" data-a="bens-atualizar">${ic('refresh', 'ic-s')}Atualizar</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Fechar</button><button class="btn pri" data-a="bens-atualizar">${ic('refresh', 'ic-s')}Atualizar</button>`,
   };
 }
 // prévia: bens inventados (nenhum dado real)
@@ -7353,7 +7384,7 @@ async function iniciar() {
     S.atalho = st.atalho || null;
     S.d = normalizar(st);
   } catch (e) {
-    $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;
+    $('#app').innerHTML = `<div class="vazio">Não consegui abrir os dados.<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">${ic('refresh')}Tentar de novo</button></div>`;
     return;
   }
   if (S.ui.tab === 'graficos') { S.ui.tab = 'investimentos'; S.ui.invModo = 'evolucao'; }

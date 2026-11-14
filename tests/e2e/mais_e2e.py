@@ -11,7 +11,7 @@ def st(): return json.loads(urllib.request.urlopen(B+'api/state').read())
 def get(p): return json.loads(urllib.request.urlopen(B+p).read())
 LINHAS = ['Bancos', 'Caixa', 'Invest', 'Benefícios', 'Relatório de patrimônio', 'Configurações', 'Sobre']
 TELAS = {  # tela: (título, as seções)
-    'bancos': ('Bancos', []),
+    'bancos': ('Bancos', ['Bancos']),  # 1.71: o cartão com o cabeçalho
     'caixa': ('Caixa', ['Fixos', 'Categorias', 'Dicas de economia']),
     'invest': ('Invest', ['Índices de mercado', 'Oportunidades']),
     'beneficios': ('Benefícios', ['Benefícios', 'Oportunidades']),  # 1.54: as oportunidades embaixo; 1.70: os benefícios com o cabeçalho
