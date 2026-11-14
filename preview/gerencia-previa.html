@@ -277,7 +277,7 @@ svg { display: block; }
 .chips.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .chips.c5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .campos-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.chips:not(.rola) > .chip { justify-content: center; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 12px; text-align: center; white-space: normal; line-height: 1.2; }
+.chips:not(.rola) > .chip { justify-content: center; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 12px; text-align: center; white-space: normal; line-height: 1.2; overflow-wrap: anywhere; }
 .chips.c3 > .chip, .chips.c4 > .chip, .chips.c5 > .chip { padding-left: 6px; padding-right: 6px; }
 .chip .bol { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .chip.add { border-style: dashed; color: var(--accent-text); }
@@ -655,6 +655,12 @@ details summary { list-style-position: inside; }
 .btns-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .btns-2 .btn { min-height: 44px; padding: 8px 10px; border-radius: 12px; font-size: 14px; }
 .ia-todos { margin-bottom: 12px; }
+.email-menu { display: grid; gap: 10px; }
+.email-menu-ass { margin: 0 0 14px; }
+/* Editar banco: as abas de cada pessoa (Conta, Cartões, Global); o ponto diz que tem algo ligado na aba */
+.bc-abas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 12px 0 6px; }
+.bc-abas button { position: relative; }
+.bc-ponto { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
 .seg.mini button { padding: 9px 10px; font-size: 14px; }
 .aviso-fixo { display: flex; gap: 10px; align-items: flex-start; background: var(--card-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 14px; color: var(--text-2); }
 .aviso-fixo svg { flex: none; margin-top: 1px; color: var(--accent-text); }
@@ -1950,7 +1956,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.67.0';
+const VERSAO = '1.68.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2498,7 +2504,7 @@ const apiServidor = {
   senhas: () => fetch('api/senhas', { cache: 'no-store' }).then(jsonOk),
   senhaNova: (nome, senha) => fetch('api/senhas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, senha }) }).then(jsonOk),
   senhaApagar: id => fetch('api/senhas/apagar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
-  avisoTestar: () => fetch('api/avisos/testar', { method: 'POST' }).then(jsonOk),
+  avisoTestar: (tipo = '') => fetch('api/avisos/testar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tipo ? { tipo } : {}) }).then(jsonOk),
   emails: forcar => fetch('api/emails' + (forcar ? '?forcar=1' : ''), { cache: 'no-store' }).then(jsonOk),
   emailPdf: id => fetch('api/emails/pdf?id=' + encodeURIComponent(id), { cache: 'no-store' }).then(jsonOk),
   emailAcao: (acao, id) => fetch('api/emails/' + acao, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(jsonOk),
@@ -5993,7 +5999,7 @@ function cardIA() {
   // o microfone só aparece com a IA pronta (vozPronta): com ela fora do ar, não diz que está pronto
   const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
     : v.pronta && s && s.pronta === false ? ['manual', 'Falar: só com a IA pronta.']
-    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}; quem entende e separa os lançamentos é a IA usada pelo app. O microfone fica no alto de cada tela.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
+    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
   return cab + `<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
@@ -6121,7 +6127,19 @@ function linhaEmail(it) {
   const dt = pData(String(it.data || it.recebido_em || '').slice(0, 10)), rg = regraEmail(it.endereco), fx = rg && rg.acao === 'fixo' && S.d.recorrencias.find(r => r.id === rg.fixo);
   return `<div class="email-l"><span><b>${esc(it.de || it.endereco)}</b><small>${esc(it.assunto || it.arquivo)}${dt ? ' · ' + fDataC(dt) : ''}</small>${fx ? `<small class="email-fixo">${ic('repeat', 'ic-s')}${esc(fx.descricao)}</small>` : ''}</span>
     ${ler ? `<button class="btn out peq" data-a="email-ler" data-v="${esc(it.id)}">Ler</button>` : `<em class="email-st st-${it.estado}">${EMAIL_ST[it.estado]}</em>`}
-    ${it.endereco ? `<button class="icbtn" data-a="email-remetente" data-v="${esc(it.id)}" aria-label="E-mails de ${esc(it.endereco)}">${ic('dots')}</button>` : ''}</div>`;
+    <button class="icbtn" data-a="email-menu" data-v="${esc(it.id)}" aria-label="Mais de ${esc(it.endereco || it.de || 'este e-mail')}">${ic('dots')}</button></div>`;
+}
+// Recebidos › ⋯ (1.68.0): um menu com Abrir o PDF (o arquivo do e-mail, baixado e aberto pelo celular) e E-mails deste
+// remetente (as regras), que abre por cima e volta para o menu no Voltar
+function abrirMenuEmail(id) {
+  const it = ((S.emails && S.emails.itens) || []).find(x => x.id === id);
+  if (!it) return;
+  abrirFolha(() => ({
+    titulo: esc(it.de || it.endereco || 'E-mail'),
+    corpo: `${it.assunto ? `<p class="nota email-menu-ass">${esc(it.assunto)}</p>` : ''}<div class="email-menu">
+      <a class="btn larga" href="api/emails/arquivo?id=${encodeURIComponent(it.id)}" download="${esc(it.arquivo || 'fatura.pdf')}" target="_blank" rel="noopener">${ic('file', 'ic-s')}Abrir o PDF</a>
+      ${it.endereco ? `<button class="btn larga" data-a="email-remetente" data-v="${esc(it.id)}">${ic('mail', 'ic-s')}E-mails deste remetente</button>` : ''}</div>`,
+  }));
 }
 /* As regras por remetente (Recebidos › ⋯): Sempre é um fixo (lido todo mês; o valor vai para o fixo do mês, que pode
    ser criado ali) ou Nunca considerar (nem entra). Iguais ao emails.regra do servidor: a mais precisa vale. */
@@ -6139,7 +6157,7 @@ function abrirRemetente(id) {
   const nome = it.de && it.de !== end ? it.de : (dom.split('.')[0] || end).replace(/^./, c => c.toUpperCase());
   FREM = { id, end, dom, estado: it.estado, de: rg ? rg.de : end, acao: rg ? rg.acao : '', fixo: (rg && rg.fixo) || '', novoNome: nome.slice(0, 60), novoValor: '', erro: '',
     dia: +(pData(String(it.data || it.recebido_em || '').slice(0, 10)) || hoje()).getDate(), ym: ymDe(String(it.data || it.recebido_em || '')) || ymHoje() };
-  abrirFolha(montarRemetente, () => { FREM = null; });
+  abrirFolha(montarRemetente, () => { FREM = null; }, !!FOLHA); // do menu do ⋯: por cima dele
 }
 function montarRemetente() {
   const f = FREM, fixos = fixosAtivos().filter(r => r.tipo !== 'receita');
@@ -6147,8 +6165,8 @@ function montarRemetente() {
   return {
     titulo: 'E-mails deste remetente',
     corpo: `<div class="campo"><div class="lbl">Vale para</div><div class="chips" style="margin:0">
-        <button class="chip${f.de === f.end ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.end)}">${esc(f.end)}</button>
-        ${f.dom ? `<button class="chip${f.de === f.dom ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.dom)}">Todo o ${esc(f.dom)}</button>` : ''}</div></div>
+        <button class="chip${f.de === f.end ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.end)}">${quebraEnd(f.end)}</button>
+        ${f.dom ? `<button class="chip${f.de === f.dom ? ' on' : ''}" data-a="frem-de" data-v="${esc(f.dom)}">Todo o ${quebraEnd(f.dom)}</button>` : ''}</div></div>
       <div class="campo"><div class="seg" style="margin:0" role="radiogroup">
         ${[['', 'Normal'], ['fixo', 'É um fixo'], ['nunca', 'Nunca']].map(([v, t]) => `<button class="${f.acao === v ? 'on' : ''}" data-a="frem-acao" data-v="${v}" role="radio" aria-checked="${f.acao === v}">${t}</button>`).join('')}</div>
         <div class="ajuda">${txt}</div></div>
@@ -6277,6 +6295,15 @@ function salvarSenhaNova() {
 // 1.62.0: os cartões globais de cada conta (débito e crédito, cada um na sua moeda; o de crédito com ou sem adicional)
 const MOEDAS_GLOBAL = [['USD', 'Dólar'], ['EUR', 'Euro'], ['GBP', 'Libra']];
 const nomeMoedaGlobal = m => ((MOEDAS_GLOBAL.find(([v]) => v === m) || [])[1] || m || '').toLowerCase();
+// Editar banco (1.68.0): o que cada pessoa tem no banco, em abas: Conta (o nível, o próximo nível e os benefícios),
+// Cartões (débito, crédito e adicionais) e Global (débito e crédito global); a aba fica até fechar a janela. Um ponto na
+// aba diz que tem algo ligado lá (o crédito ou um global), para não ficar escondido.
+function abasConta(c, i) {
+  const aba = c._aba || 'conta';
+  const tem = { conta: false, cartoes: !!c.cartao, global: !!(c.debito_global || c.credito_global) };
+  return `<div class="seg mini bc-abas" role="tablist" aria-label="Conta de ${esc(c.pessoa || 'quem')}">${[['conta', 'Conta'], ['cartoes', 'Cartões'], ['global', 'Global']].map(([v, t]) =>
+    `<button type="button" role="tab" class="${aba === v ? 'on' : ''}" aria-selected="${aba === v}" data-a="bc-aba" data-i="${i}" data-v="${v}">${t}${tem[v] ? '<i class="bc-ponto" aria-hidden="true"></i>' : ''}</button>`).join('')}</div>`;
+}
 function campoGlobal(c, i, k, rotulo) {
   const on = !!c[k];
   return `<div class="linha-sw"><div><b>${rotulo}</b></div><button class="sw${on ? ' on' : ''}" data-a="bc-global" data-k="${k}" data-i="${i}" aria-label="${rotulo.replace('?', '')}"></button></div>
@@ -6393,6 +6420,8 @@ function campoNivel(c, i, k, rotulo) {
     ${ops.map(n => `<option value="${esc(n)}"${n === v ? ' selected' : ''}>${esc(n)}</option>`).join('')}<option value="__outro">Outro…</option></select>`;
 }
 
+// um endereço de e-mail (ou um domínio) longo quebra a linha depois do @ e dos pontos, sem sair do botão
+const quebraEnd = t => esc(t).replace(/([@.])/g, '$1<wbr>');
 let FB = null;
 // sobre: aberto por cima de outra janela (o + Banco do Conferir lançamentos), volta para ela ao salvar ou cancelar
 function abrirBanco(id, nome, sobre) {
@@ -6414,11 +6443,13 @@ function abrirBanco(id, nome, sobre) {
           ${FB.contas.map((c, i) => `<div class="conta-ed">
             <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" data-sug="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
               ${FB.contas.length > 1 ? `<button class="icbtn" data-a="bc-rm" data-i="${i}" aria-label="Tirar esta pessoa">${ic('trash', 'ic-s')}</button>` : ''}</div>
-            <div class="duo nivel-l"><div><div class="lbl">Nível da conta</div>${campoNivel(c, i, 'nivel', 'Nível da conta')}</div><div></div></div>
+            ${abasConta(c, i)}
+            ${(c._aba || 'conta') === 'conta' ? `<div class="duo nivel-l"><div><div class="lbl">Nível da conta</div>${campoNivel(c, i, 'nivel', 'Nível da conta')}</div><div></div></div>
             <div class="duo nivel-l"><div><div class="lbl">Próximo nível</div>${campoNivel(c, i, 'meta_nivel', 'Próximo nível')}</div>
               <div><div class="lbl">Pede investido</div><div class="pref"><span>R$</span><input inputmode="decimal" data-fbc="meta_valor" data-i="${i}" value="${typeof c.meta_valor === 'number' ? NF0.format(c.meta_valor) : esc(c.meta_valor || '')}" placeholder="0"></div></div></div>
             <p class="ajuda nivel-meta" data-meta="${i}">${textoMeta(c, FB.id)}</p>
-            <div class="linha-sw"><div><b>Tem cartão de débito?</b></div><button class="sw${c.debito !== false ? ' on' : ''}" data-a="bc-debito" data-i="${i}" aria-label="Tem cartão de débito"></button></div>
+            ${botaoBenConta(c)}` : ''}
+            ${c._aba === 'cartoes' ? `<div class="linha-sw"><div><b>Tem cartão de débito?</b></div><button class="sw${c.debito !== false ? ' on' : ''}" data-a="bc-debito" data-i="${i}" aria-label="Tem cartão de débito"></button></div>
             <div class="linha-sw"><div><b>Tem cartão de crédito?</b></div><button class="sw${c.cartao ? ' on' : ''}" data-a="bc-cartao" data-i="${i}" aria-label="Tem cartão de crédito"></button></div>
             ${c.cartao ? `<div class="duo" style="margin-top:10px"><div><div class="lbl">Fecha dia</div><div class="pref"><input inputmode="numeric" data-fbc="fechamento" data-i="${i}" value="${c.fechamento || ''}" placeholder="3"></div></div>
               <div><div class="lbl">Vence dia</div><div class="pref"><input inputmode="numeric" data-fbc="vencimento" data-i="${i}" value="${c.vencimento || ''}" placeholder="10"></div></div></div>
@@ -6429,11 +6460,10 @@ function abrirBanco(id, nome, sobre) {
             ${(c.adicionais || []).map((a, j) => `<div class="duo nivel-l adic"><div><div class="lbl">Para quem</div><input class="inp" data-fba="pessoa" data-i="${i}" data-j="${j}" value="${esc(a.pessoa || '')}" placeholder="Nome, ex.: Beto" data-sug="dl-pessoas" autocomplete="off" aria-label="Para quem é o adicional"></div>
               <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="0" aria-label="Limite do adicional"></div>
                 <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>`).join('')}
-            ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}
-            ${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
+            ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}` : ''}
+            ${c._aba === 'global' ? `${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
             ${campoGlobal(c, i, 'credito_global', 'Tem cartão de crédito global?')}
-            ${c.credito_global ? `<div class="linha-sw"><div><b>Tem cartão adicional?</b></div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}
-            ${botaoBenConta(c)}
+            ${c.credito_global ? `<div class="linha-sw"><div><b>Tem cartão adicional?</b></div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}` : ''}
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
@@ -7742,10 +7772,10 @@ function opcoesEmail() {
   const aviso = S.d.ajustes.email_aviso === true;
   return `<section class="card" id="op-email">${maisCab('mail', 'Faturas por e-mail')}
     ${linhaChave('email_aviso', aviso, 'Avisar no celular', aviso ? 'Ligado: quando uma fatura do e-mail fica pronta para conferir.' : 'Desligado.')}
-    ${aviso ? quemRecebe('email_para', false) : ''}</section>`;
+    ${aviso ? quemRecebe('email_para', true, 'email') : ''}</section>`;
 }
 const DICAS_FREQ = { semana: ['Toda semana'], quinzena: ['A cada 15 dias'], mes: ['Todo mês'] };
-function quemRecebe(chave = 'dicas_para', testar = true) {
+function quemRecebe(chave = 'dicas_para', testar = true, tipo = '') {
   const P = S.avisoPessoas;
   if (P === undefined) carregarPessoasAviso();
   const para = new Set(S.d.ajustes[chave] || []);
@@ -7761,7 +7791,7 @@ function quemRecebe(chave = 'dicas_para', testar = true) {
     if (sem.length) h += `<p class="nota">Sem celular para ${esc(juntarE(sem))}: ligue o celular à pessoa no Home Assistant.</p>`;
     else if (!para.size) h += `<p class="nota">Escolha quem recebe.</p>`;
   }
-  return h + '</div>' + (testar ? `<button class="btn out op-testar" data-a="aviso-testar"${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>` : '');
+  return h + '</div>' + (testar ? `<button class="btn out op-testar" data-a="aviso-testar"${tipo ? ` data-v="${tipo}"` : ''}${eu && eu.celular ? '' : ' disabled'}${porque ? ` title="${esc(porque)}"` : ''}>${ic('send')}Testar no meu celular</button>` : '');
 }
 function carregarPessoasAviso() {
   if (S.avisoPedido) return S.avisoPedido;
@@ -8491,12 +8521,13 @@ document.addEventListener('click', ev => {
     case 'email-de-add': emailDeAdicionar(); break;
     case 'email-de-rm': persistir(d => { d.ajustes.email_de = (d.ajustes.email_de || []).filter(x => x !== v); }); break;
     case 'email-remetente': abrirRemetente(v); break;
+    case 'email-menu': abrirMenuEmail(v); break;
     case 'recolher': if (ABERTOS.has(v)) ABERTOS.delete(v); else ABERTOS.add(v); if (el.closest('#folhas')) pintarFolha(); else render(); break;
     case 'email-regra-rm': persistir(d => { d.ajustes.email_remetentes = (d.ajustes.email_remetentes || []).filter(r => r.de !== v); }, 'Regra tirada').then(ok => { if (ok) carregarEmails(true); }); break;
     case 'frem-de': if (FREM) { FREM.de = v; pintarFolha(); } break;
     case 'frem-acao': if (FREM) { FREM.acao = v; FREM.erro = ''; pintarFolha(); } break;
     case 'frem-salvar': if (FREM) salvarRemetente(); break;
-    case 'aviso-testar': el.disabled = true; api.avisoTestar().then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
+    case 'aviso-testar': el.disabled = true; api.avisoTestar(v).then(() => toast('Aviso enviado para o seu celular.'), e => toast(e.message)).finally(() => { el.disabled = false; }); break;
     case 'da-ok': confirmarDicaAnual(); break;
     case 'categoria': abrirCategoria(id); break;
     case 'categoria-nova': abrirCategoria(null, v); break;
@@ -8600,7 +8631,7 @@ document.addEventListener('click', ev => {
     case 'iac-cartao': IAS.cartao = !!v; for (const it of IAS.itens) it.noCartao = it.tipo === 'despesa' && !!v && !!contaDe(it.conta)?.cartao; pintarFolha(); break;
     case 'iac-banco-novo': // compras no cartão: o banco novo já vem com cartão
       abrirBanco(null, IAS.bancoNovo || '', true);
-      if (IAS.cartaoMaioria && FB) { FB.contas[0].cartao = true; pintarFolha(); }
+      if (IAS.cartaoMaioria && FB) { FB.contas[0].cartao = true; FB.contas[0]._aba = 'cartoes'; pintarFolha(); } // abre nos Cartões: falta o dia que fecha e vence
       break;
     case 'iac-sit': IAS.situacao = v; pintarFolha(); break;
     case 'iac-futuras': IAS.futuras = !IAS.futuras; pintarFolha(); break;
@@ -8759,6 +8790,7 @@ document.addEventListener('click', ev => {
     // banco
     case 'b-cor': FB.cor = v; pintarFolha(); break;
     case 'b-salvar': salvarBanco(); break;
+    case 'bc-aba': if (FB && FB.contas[+el.dataset.i]) { FB.contas[+el.dataset.i]._aba = v; pintarFolha(); } break;
     case 'ben-novo': abrirBeneficio(null); break;
     case 'ben-editar': abrirBeneficio(id); break;
     case 'ben-usar': usarBeneficio(id); break;

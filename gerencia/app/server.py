@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.67.0"
+VERSAO = "1.68.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2448,8 +2448,9 @@ def pessoas_aviso(user_id=None):
             for p in AVISOS.pessoas(forcar=True)]
 
 
-def testar_aviso(user_id):
-    """Testar: o aviso agora, nos celulares de quem está usando o app (as dicas de agora ou um exemplo)."""
+def testar_aviso(user_id, tipo="dicas"):
+    """Testar: o aviso agora, nos celulares de quem está usando o app (as dicas de agora ou um exemplo). tipo "email"
+    (1.68.0): o das faturas do e-mail, com a última fatura para conferir ou um exemplo."""
     if not TOKEN:
         raise ValueError("Fora do Home Assistant não dá para avisar no celular.")
     eu = next((p for p in AVISOS.pessoas(forcar=True) if user_id and p["user_id"] == user_id), None)
@@ -2457,6 +2458,13 @@ def testar_aviso(user_id):
         raise ValueError("Você não é uma pessoa da casa no Home Assistant.")
     if not eu["celulares"]:
         raise ValueError("Sem celular ligado a você no Home Assistant.")
+    if tipo == "email":
+        it = next((x for x in reversed(emails_ler()["itens"]) if x.get("estado") == "conferir"), None)
+        texto = (avisos.texto_faturas([{"de": emails.nome_remetente(it.get("de")), "resumo": _resumo_fatura(it)}]) if it else
+                 {"title": "📧 Fatura do e-mail para conferir", "message": "Nenhuma fatura para conferir agora. Quando chegar, o aviso vem assim."})
+        if not AVISOS.enviar(eu["celulares"], texto, "gerencia-email-teste", grupo="gerencia-email", canal="Faturas do e-mail"):
+            raise ValueError("O Home Assistant não entregou o aviso.")
+        return {"enviados": len(eu["celulares"])}
     d = ler()
     dicas = dicas_que_valem(d)
     texto = avisos.texto_dicas(dicas) if dicas else {"title": "💡 Dicas de economia", "message": "Nenhuma dica agora. Quando aparecer, o aviso vem assim."}
@@ -3337,6 +3345,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, emails_estado(forcar=bool(q.get("forcar"))))
             if p == "/api/emails/pdf":
                 return self.enviar(200, email_pdf_b64((q.get("id") or [""])[0]))
+            if p == "/api/emails/arquivo":  # Recebidos › ⋯ › Abrir o PDF (1.68.0): o arquivo do e-mail, para baixar e abrir
+                return self.baixar(*email_pdf_arquivo((q.get("id") or [""])[0]))
             if p == "/api/avisos/pessoas":
                 try:
                     return self.enviar(200, {"pessoas": pessoas_aviso(self.headers.get("X-Remote-User-Id"))})
@@ -3431,7 +3441,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/senhas/apagar":
                 return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
-                return self.enviar(200, testar_aviso(self.headers.get("X-Remote-User-Id")))
+                tipo = "email" if self.corpo_json().get("tipo") == "email" else "dicas"
+                return self.enviar(200, testar_aviso(self.headers.get("X-Remote-User-Id"), tipo))
             if p == "/api/oportunidades/conferir":
                 forcar = self.corpo_json().get("forcar") is not False
                 iniciar_oport(forcar=forcar, manual=True)
@@ -3943,6 +3954,16 @@ def reler_emails_com_senha():
         except (OSError, pdfsenha.SenhaErrada, pdfsenha.PdfInvalido):
             continue
         email_ler_depois(it["id"])
+
+
+def email_pdf_arquivo(eid):
+    """O PDF de um e-mail recebido, como arquivo: (bytes, tipo, nome). O nome é o do anexo, só com letras, números e - _ ."""
+    if not RE_EMAIL_ID.match(str(eid or "")) or not os.path.isfile(_email_pdf(eid)):
+        raise ValueError("O PDF desse e-mail não está mais aqui.")
+    it = next((x for x in emails_ler()["itens"] if x["id"] == eid), {})
+    nome = re.sub(r"[^\w.-]+", "-", str(it.get("arquivo") or "fatura.pdf"), flags=re.ASCII).strip("-.") or "fatura"
+    with open(_email_pdf(eid), "rb") as f:
+        return f.read(), "application/pdf", nome if nome.lower().endswith(".pdf") else nome + ".pdf"
 
 
 def email_pdf_b64(eid):

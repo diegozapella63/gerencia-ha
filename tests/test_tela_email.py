@@ -321,9 +321,38 @@ class TestRemetente(TelaEmail):
         self.js("T.carregarEmails()")
         self.esperar()
 
+    def remetente(self, eid=None):
+        """Recebidos › ⋯ › E-mails deste remetente (1.68.0: o ⋯ abre um menu, com Abrir o PDF)."""
+        self.clicar('#email [data-a="email-menu"]' + (f'[data-v="{eid}"]' if eid else ''))
+        self.clicar('#folhas [data-a="email-remetente"]')
+
+    def test_menu_do_email_abre_o_pdf_e_o_remetente(self):
+        self.abrir_rem([email(1, "conferir"), email(2, "fora", "Loja Lua", "Seu boleto", endereco="")])
+        self.clicar('#email [data-a="email-menu"][data-v="e00000000001"]')
+        self.assertEqual(self.folha(), "Banco Azul")
+        self.assertEqual(self.texto("#folhas .email-menu-ass"), "Fatura 1")
+        self.assertEqual(self.textos("#folhas .email-menu .btn"), ["Abrir o PDF", "E-mails deste remetente"])
+        a = self.pg.locator("#folhas .email-menu a")
+        self.assertEqual((a.get_attribute("href"), a.get_attribute("download")), ("api/emails/arquivo?id=e00000000001", "fatura-1.pdf"))
+        self.clicar('#folhas [data-a="email-remetente"]')
+        self.assertEqual(self.folha(), "E-mails deste remetente", "abre por cima do menu")
+        self.voltar()
+        self.assertEqual(self.folha(), "Banco Azul", "o Voltar volta para o menu")
+        self.voltar()
+        self.clicar('#email [data-a="email-menu"][data-v="e00000000002"]')
+        self.assertEqual(self.textos("#folhas .email-menu .btn"), ["Abrir o PDF"], "sem o endereço, só o PDF")
+
+    def test_endereco_longo_nao_sai_do_botao(self):
+        longo = email(3, "conferir", "Sistema Imobiliario Exemplo", endereco="sistemaimobiliarioexemplo@sistemaimobiliarioexemplo.com.br")
+        self.abrir_rem([longo])
+        self.remetente("e00000000003")
+        fora = self.js("[...document.querySelectorAll('#folhas .chips .chip')].filter(c => c.scrollWidth > c.clientWidth + 1).length")
+        self.assertEqual(fora, 0, "o endereço quebra a linha dentro do botão")
+        self.assertEqual(self.textos("#folhas .chips .chip"), ["sistemaimobiliarioexemplo@sistemaimobiliarioexemplo.com.br", "Todo o sistemaimobiliarioexemplo.com.br"])
+
     def test_nunca_considerar(self):
         self.abrir_rem([email(1, "conferir"), email(2, "fora", "Loja Lua", "Seu boleto")])
-        self.clicar('#email [data-a="email-remetente"][data-v="e00000000002"]')
+        self.remetente("e00000000002")
         self.assertEqual(self.folha(), "E-mails deste remetente")
         self.assertEqual(self.textos("#folhas .chips .chip"), ["fatura@lojalua.com.br", "Todo o lojalua.com.br"])
         self.assertEqual(self.textos("#folhas .seg button"), ["Normal", "É um fixo", "Nunca"])
@@ -348,7 +377,7 @@ class TestRemetente(TelaEmail):
     def test_sempre_um_fixo_novo_le_e_lanca_no_fixo(self):
         res = {"lancamentos": [lanc("Nuvem assinatura", 32.5, "c-outros-gastos", "2026-11-03")], "investimentos": []}
         self.abrir_rem([email(1, "fora", "Nuvem", "Subscription receipt")])
-        self.clicar('#email [data-a="email-remetente"]')
+        self.remetente()
         self.clicar('#folhas [data-a="frem-acao"][data-v="fixo"]')
         self.clicar('#folhas [data-a="frem-salvar"]')
         self.assertEqual(self.texto("#folhas .msg-erro"), "Escolha o fixo.")
@@ -390,9 +419,10 @@ class TestRemetente(TelaEmail):
         self.js("T.carregarEmails()")
         self.esperar()
         self.assertEqual(self.textos("#email .email-regras small"), ["Fixo: Nuvem Sol"])
-        self.clicar('#email [data-a="email-remetente"]')
+        self.remetente()
         self.assertEqual(self.js("[T.FREM.de, T.FREM.acao, T.FREM.fixo]"), ["nuvem.com.br", "fixo", "r-nuvem"], "abre com a regra que vale")
         self.voltar()
+        self.voltar()  # o menu do ⋯
         self.ir("inicio")
         self.clicar('[data-a="email-abrir"]')
         self.assertEqual(self.texto("#folhas .ia-fixo"), "Fixo Nuvem Sol · nov/26")
@@ -505,7 +535,7 @@ class TestAvisoNoCelular(TelaEmail):
         self.esperar()
         self.assertEqual(self.dados()["ajustes"]["email_para"], ["person.ana"], "começa com quem está usando o app")
         self.assertEqual(self.dados()["ajustes"].get("dicas_para") or [], [], "as dicas ficam como estavam")
-        self.assertEqual(self.conta("#op-email .op-testar"), 0, "o Testar fica só nas dicas")
+        self.assertEqual(self.conta('#op-email .op-testar[data-v="email"]'), 1, "1.68.0: com o Testar no meu celular, o das faturas")
         self.clicar('#op-email [data-a="aviso-pessoa"][data-v="person.beto"]')
         self.assertEqual(self.dados()["ajustes"]["email_para"], ["person.ana", "person.beto"])
         self.assertIn("Sem celular para Beto", self.texto("#op-email"))

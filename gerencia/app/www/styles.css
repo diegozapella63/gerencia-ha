@@ -271,7 +271,7 @@ svg { display: block; }
 .chips.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .chips.c5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .campos-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.chips:not(.rola) > .chip { justify-content: center; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 12px; text-align: center; white-space: normal; line-height: 1.2; }
+.chips:not(.rola) > .chip { justify-content: center; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 12px; text-align: center; white-space: normal; line-height: 1.2; overflow-wrap: anywhere; }
 .chips.c3 > .chip, .chips.c4 > .chip, .chips.c5 > .chip { padding-left: 6px; padding-right: 6px; }
 .chip .bol { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .chip.add { border-style: dashed; color: var(--accent-text); }
@@ -649,6 +649,12 @@ details summary { list-style-position: inside; }
 .btns-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .btns-2 .btn { min-height: 44px; padding: 8px 10px; border-radius: 12px; font-size: 14px; }
 .ia-todos { margin-bottom: 12px; }
+.email-menu { display: grid; gap: 10px; }
+.email-menu-ass { margin: 0 0 14px; }
+/* Editar banco: as abas de cada pessoa (Conta, Cartões, Global); o ponto diz que tem algo ligado na aba */
+.bc-abas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 12px 0 6px; }
+.bc-abas button { position: relative; }
+.bc-ponto { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
 .seg.mini button { padding: 9px 10px; font-size: 14px; }
 .aviso-fixo { display: flex; gap: 10px; align-items: flex-start; background: var(--card-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 14px; color: var(--text-2); }
 .aviso-fixo svg { flex: none; margin-top: 1px; color: var(--accent-text); }

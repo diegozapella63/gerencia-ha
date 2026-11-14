@@ -366,6 +366,18 @@ class TestQuemRecebeETestar(unittest.TestCase):
             S.testar_aviso("u-ana")
         self.assertIn("Spotify", self.enviados[-1][1]["message"], "com as dicas de agora")
 
+    def test_testar_o_aviso_das_faturas(self):
+        with mock.patch.object(S, "emails_ler", return_value={"itens": [], "vistos": []}):
+            self.assertEqual(S.testar_aviso("u-ana", "email"), {"enviados": 2})
+        env = self.enviados[0][1]
+        self.assertEqual((env["data"]["tag"], env["data"]["group"]), ("gerencia-email-teste", "gerencia-email"), "no grupo das faturas do e-mail")
+        self.assertIn("Nenhuma fatura para conferir agora", env["message"])
+        fat = {"id": "e1", "estado": "conferir", "de": "Banco Azul <fatura@bancoazul.exemplo>",
+               "resultado": {"lancamentos": [{"tipo": "despesa", "valor": 45.5, "descricao": "Feira"}], "investimentos": []}}
+        with mock.patch.object(S, "emails_ler", return_value={"itens": [fat], "vistos": []}):
+            S.testar_aviso("u-ana", "email")
+        self.assertIn("1 lançamento", self.enviados[-1][1]["message"], "com a última fatura para conferir")
+
     def test_testar_sem_ser_pessoa_ou_sem_celular(self):
         with self.assertRaisesRegex(ValueError, "não é uma pessoa da casa"):
             S.testar_aviso("u-outro")

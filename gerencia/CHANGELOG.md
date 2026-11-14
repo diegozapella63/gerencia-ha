@@ -1,5 +1,13 @@
 # Mudanças
 
+## 1.68.0
+
+- **Editar banco em abas**: cada pessoa tem **Conta** (nível, próximo nível e benefícios), **Cartões** (débito, crédito, limite e adicionais) e **Global** (débito e crédito global). Um ponto na aba mostra que tem algo ligado lá.
+- **Recebidos › ⋯**: abre um menu com **Abrir o PDF** (baixa e abre o arquivo do e-mail) e **E-mails deste remetente**.
+- **Faturas por e-mail › Avisar no celular** ganha o **Testar no meu celular**, como os outros avisos.
+- Em **E-mails deste remetente**, um endereço longo quebra a linha dentro do botão, sem sair dele.
+- **Falar**: o texto do pronto ficou curto ("Falar: pronto. A voz vira texto com …").
+
 ## 1.67.0
 
 - **Conferir lançamentos**: **Marcar todos** e **Desmarcar todos**, lado a lado antes da lista, para não precisar tocar em cada linha quando a fatura tem muitas. Marcar todos deixa de fora os que parecem já lançados e os pagamentos da fatura (dá para marcar um por um).

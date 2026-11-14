@@ -427,8 +427,7 @@ class TestTelaComServidor(TelaServidor):
         self.assertEqual(self.esperar_aviso("IA"), "IA pronta")
         st = [_limpo(t) for t in self.textos("#ia .status")]
         self.assertEqual(st[0], "Pronta. Usando a IA padrão do Home Assistant.")
-        self.assertEqual(st[1], "Falar: pronto. A voz vira texto com “Fala da Casa”; quem entende e separa os lançamentos é a IA usada pelo app. "
-                                "O microfone fica no alto de cada tela.")
+        self.assertEqual(st[1], "Falar: pronto. A voz vira texto com “Fala da Casa”.", "1.68.0: sem explicar o que a tela já mostra")
         self.assertEqual(self.js("[...document.querySelectorAll('#ia-ent option')].map(o => o.textContent)"), ["Padrão do Home Assistant", "IA da Casa"])
 
     def test_mais_pede_a_situacao_da_ia_uma_vez_so(self):

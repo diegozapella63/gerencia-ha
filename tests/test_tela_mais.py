@@ -303,12 +303,39 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.linha(".banco-row", "Banco Azul"), "B Banco Azul Ana (cartão) · Beto (cartão) · 1 investimento · R$ 10.000")
         self.assertEqual(self.linha(".banco-row", "Banco Verde"), "B Banco Verde Ana · 2 investimentos · R$ 6.500")
 
+    def aba(self, v, i=0):
+        """Editar banco (1.68.0): as abas de cada pessoa (Conta, Cartões, Global)."""
+        self.clicar(f'.folha [data-a="bc-aba"][data-i="{i}"][data-v="{v}"]')
+
+    def test_1_68_abas_conta_cartoes_global(self):
+        self.abrir_bancos(base(bancos=BANCOS, investimentos=INVS))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.assertEqual(self.textos('.folha .conta-ed >> nth=0 >> .bc-abas button'), ["Conta", "Cartões", "Global"])
+        self.assertEqual(self.textos('.folha .conta-ed >> nth=0 >> .bc-abas button.on'), ["Conta"], "abre na Conta")
+        conteudo = lambda: self.js("""[...document.querySelectorAll('.folha .conta-ed')[0].querySelectorAll('[data-fbcs], [data-a^="bc-"]:not([data-a="bc-aba"]):not([data-a="bc-rm"]), [data-a="ben-identificar"]')]
+            .map(e => e.dataset.fbcs || e.dataset.a + (e.dataset.k ? ':' + e.dataset.k : ''))""")  # noqa: E731
+        self.assertEqual(conteudo(), ["nivel", "meta_nivel", "ben-identificar"], "Conta: o nível, o próximo nível e os benefícios")
+        self.aba("cartoes")
+        self.assertEqual(conteudo(), ["bc-debito", "bc-cartao", "cartao_nivel", "bc-adic"], "Cartões: débito, crédito (com o nível e o limite) e o adicional")
+        self.aba("global")
+        self.assertEqual(conteudo(), ["bc-global:debito_global", "bc-global:credito_global"], "Global: débito e crédito global")
+        self.assertEqual(self.textos('.folha .conta-ed >> nth=1 >> .bc-abas button.on'), ["Conta"], "cada pessoa com a sua aba")
+        self.assertEqual(self.conta('.folha .conta-ed >> nth=0 >> .bc-abas .bc-ponto'), 1, "o ponto na aba Cartões: tem cartão de crédito")
+        self.clicar('.folha [data-a="bc-global"][data-k="debito_global"][data-i="0"]')
+        self.assertEqual(self.conta('.folha .conta-ed >> nth=0 >> .bc-abas .bc-ponto'), 2, "e na Global, com um global ligado")
+        larg = self.js("[...document.querySelectorAll('.folha .conta-ed')[0].querySelectorAll('.bc-abas button')].map(b => Math.round(b.getBoundingClientRect().width))")
+        self.assertEqual(len(set(larg)), 1, f"as abas do mesmo tamanho ({larg})")
+        self.clicar('[data-a="b-salvar"]')
+        self.assertNotIn("_aba", self.banco("b-azul")["contas"][0], "a aba não é gravada")
+        self.assertEqual(self.banco("b-azul")["contas"][0]["debito_global"], "USD")
+
     def test_cadastrar_banco_com_pessoa_e_cartao(self):
         self.abrir_bancos()
         self.clicar('.btn[data-a="banco"]')
         self.assertEqual(self.folha(), "Novo banco")
         self.preencher("#b-nome", "Banco Roxo")
         self.assertEqual(self.pg.input_value('[data-fbc="pessoa"]'), "Ana", "começa com quem está usando o app")
+        self.aba("cartoes")
         self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
         self.preencher('[data-fbc="fechamento"]', "3")
         self.preencher('[data-fbc="vencimento"]', "10")
@@ -324,6 +351,7 @@ class TestMaisBancos(TelaMais):
         self.abrir_bancos()
         self.clicar('.btn[data-a="banco"]')
         self.preencher("#b-nome", "Banco Roxo")
+        self.aba("cartoes")
         deb = '.folha [data-a="bc-debito"][data-i="0"]'
         self.assertIn("on", self.pg.get_attribute(deb, "class"), "de começo, com cartão de débito")
         self.assertEqual(self.js("[...document.querySelectorAll('.folha .conta-ed .linha-sw b')].map(b => b.textContent)")[:2],
@@ -339,6 +367,7 @@ class TestMaisBancos(TelaMais):
         self.assertNotIn("debito", azul["contas"][0], "as de antes continuam com débito, sem nada gravado")
         # ligado de novo, volta a não gravar nada
         self.clicar(f'.banco-row[data-id="{roxo["id"]}"]')
+        self.aba("cartoes")
         self.clicar(deb)
         self.clicar('[data-a="b-salvar"]')
         self.assertNotIn("debito", next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0])
@@ -349,7 +378,8 @@ class TestMaisBancos(TelaMais):
         self.clicar('.btn[data-a="banco"]')
         self.preencher("#b-nome", "Banco Roxo")
         rotulos = lambda: self.js("[...document.querySelectorAll('.folha .conta-ed .linha-sw b')].map(b => b.textContent)")  # noqa: E731
-        self.assertEqual(rotulos(), ["Tem cartão de débito?", "Tem cartão de crédito?", "Tem cartão de débito global?", "Tem cartão de crédito global?"])
+        self.aba("global")
+        self.assertEqual(rotulos(), ["Tem cartão de débito global?", "Tem cartão de crédito global?"], "na aba Global")
         self.assertEqual(self.conta(".folha .bc-moeda"), 0, "desligados: sem moeda")
         self.clicar('.folha [data-a="bc-global"][data-k="debito_global"]')
         self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
@@ -365,6 +395,7 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar, crédito global em euro com adicional)")
         # desligar o crédito global tira a moeda e o adicional
         self.clicar(f'.banco-row[data-id="{next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["id"]}"]')
+        self.aba("global")
         self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
         self.clicar('[data-a="b-salvar"]')
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
@@ -376,11 +407,15 @@ class TestMaisBancos(TelaMais):
         self.clicar('.banco-row[data-id="b-azul"]')
         self.assertEqual(self.texto('.folha .nivel-meta[data-meta="0"]'), "Você tem R$ 10.000 investidos aqui.")
         # (era um campo de texto com a lista do celular, fora do visual do app; agora é a caixa de seleção do app)
+        self.aba("cartoes")
         self.assertEqual(self.js("document.querySelector('[data-fbcs=\"cartao_nivel\"][data-i=\"0\"]').tagName"), "SELECT")
+        self.aba("conta")
         self.assertEqual(self.conta(".folha datalist#dl-niveis"), 0)
         self.assertEqual(self.js("[...document.querySelector('[data-fbcs=\"nivel\"][data-i=\"0\"]').options].map(o => o.textContent)")[:3], ["Nenhum", "Black", "Platinum"])
         self.pg.select_option('[data-fbcs="nivel"][data-i="0"]', "One")
+        self.aba("cartoes")
         self.pg.select_option('[data-fbcs="cartao_nivel"][data-i="0"]', "Gold")
+        self.aba("conta")
         # Outro…: vira texto para escrever um nível fora da lista
         self.pg.select_option('[data-fbcs="meta_nivel"][data-i="0"]', "__outro")
         self.pg.wait_for_function("() => document.activeElement && document.activeElement.dataset.fbc === 'meta_nivel'")
@@ -410,8 +445,9 @@ class TestMaisBancos(TelaMais):
         self.clicar('.banco-row[data-id="b-azul"]')
         ordem = self.js("""(() => { const card = document.querySelector('.folha .conta-ed');
             const pos = el => [...card.querySelectorAll('*')].indexOf(el);
-            return [pos(card.querySelector('[data-fbcs="nivel"]')), pos(card.querySelector('[data-fbcs="meta_nivel"]')), pos(card.querySelector('[data-fbc="meta_valor"]')), pos(card.querySelector('[data-a="bc-cartao"]'))]; })()""")
-        self.assertEqual(ordem, sorted(ordem), "nível, próximo nível, pede investido e só então o cartão")
+            return [pos(card.querySelector('[data-fbcs="nivel"]')), pos(card.querySelector('[data-fbcs="meta_nivel"]')), pos(card.querySelector('[data-fbc="meta_valor"]'))]; })()""")
+        self.assertEqual(ordem, sorted(ordem), "nível, próximo nível e pede investido (o cartão, na aba Cartões)")
+        self.aba("cartoes")
         self.preencher('[data-fbc="limite"][data-i="0"]', "5.000")
         self.assertEqual(self.texto('.folha .limite-disp[data-lim="0"]'), "Usado R$ 1.000; disponível R$ 4.000.", "as compras não pagas menos o estorno")
         self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
@@ -426,6 +462,7 @@ class TestMaisBancos(TelaMais):
         self.assertIn("Ana (cartão, adicional Beto e Carla)", self.linha(".banco-row", "Banco Azul"))
         # sem cartão, o limite e os adicionais não ficam
         self.clicar('.banco-row[data-id="b-azul"]')
+        self.aba("cartoes")
         self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
         self.assertEqual(self.conta('.folha [data-fbc="limite"][data-i="0"], .folha [data-a="bc-adic"][data-i="0"]'), 0)
         self.clicar('[data-a="b-salvar"]')
@@ -436,6 +473,7 @@ class TestMaisBancos(TelaMais):
     def test_adicional_desligado_tira_os_adicionais(self):
         self.abrir_bancos(base(bancos=BANCOS))
         self.clicar('.banco-row[data-id="b-azul"]')
+        self.aba("cartoes")
         self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
         self.preencher('[data-fba="pessoa"][data-i="0"][data-j="0"]', "Beto")
         self.clicar('.folha [data-a="bc-adic-rm"][data-i="0"][data-j="0"]')
@@ -495,6 +533,7 @@ class TestMaisBancos(TelaMais):
     def test_dia_do_cartao_so_aceita_numeros_e_fica_dentro_do_mes(self):
         self.abrir_bancos()
         self.clicar('[data-a="banco"][data-id="b-verde"]')
+        self.aba("cartoes")
         self.clicar('.folha [data-a="bc-cartao"][data-i="0"]')
         self.digitar('[data-fbc="fechamento"]', "4x5")
         self.assertEqual(self.pg.input_value('[data-fbc="fechamento"]'), "45", "letras não entram")
@@ -1333,6 +1372,20 @@ class TestOpcoesDicas(TelaMais):
         self.pg.wait_for_selector('#op-dicas [data-a="aviso-testar"]:not([disabled])')
         self.clicar('#op-dicas [data-a="aviso-testar"]')
         self.assertEqual(self.esperar_aviso("Aviso"), "Aviso enviado para o seu celular.")
+
+    def test_testar_o_aviso_das_faturas(self):
+        # 1.68.0: o Avisar no celular das Faturas por e-mail também tem o Testar no meu celular
+        self.trocar_api("avisoTestar", "async (tipo) => { window._tipo = tipo; return { enviados: 1 }; }")
+        self.trocar_api("avisoPessoas", f"async () => ({json.dumps({'pessoas': self.PESSOAS})})")
+        self.js("(T.S.avisoPessoas = undefined, T.S.avisoPedido = null, true)")
+        self.abrir(base(bancos=BANCOS, ajustes={"email": True, "email_aviso": True, "email_para": ["person.ana"]}))
+        self.ir_mais("config", "opcoes")
+        b = '#op-email [data-a="aviso-testar"]'
+        self.pg.wait_for_selector(f'{b}:not([disabled])')
+        self.assertEqual(self.texto(b), "Testar no meu celular")
+        self.clicar(b)
+        self.assertEqual(self.esperar_aviso("Aviso"), "Aviso enviado para o seu celular.")
+        self.assertEqual(self.js("window._tipo"), "email", "o aviso das faturas, não o das dicas")
 
     def test_testar_com_erro_do_servidor(self):
         self.abrir_opcoes({"dicas_aviso": True, "dicas_para": ["person.ana"]})
