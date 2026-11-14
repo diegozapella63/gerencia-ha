@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.71.1
+
+- **Exportar** (Configurações › Dados): cada arquivo com o seu ícone e sem as linhas entre eles, como as outras opções.
+- **Uso da IA**: as chamadas do CorrerIA aparecem como **Conversa no CorrerIA** (antes, "WhatsApp (CorrerIA)", mesmo sem o WhatsApp configurado).
+
 ## 1.71.0
 
 - **Ícones em tudo**, como nos outros apps: cada seção tem o cabeçalho com ícone (agora também Bancos), cada linha de opção tem um ícone antes do título (Usar IA, Cor do dia, Horário, Quem recebe…), os recolhidos e as Últimas chamadas também, e todo botão com texto tem ícone (Cancelar, Salvar, Voltar, as escolhas como Todo mês, Tudo, Entradas…). Os destaques do Agora também ganharam o ícone.

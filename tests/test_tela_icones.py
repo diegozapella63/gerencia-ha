@@ -24,7 +24,7 @@ CONFERE = """() => {
     if (vis(b) && b.querySelector('svg') && b.textContent.trim() && getComputedStyle(b).overflowX !== 'auto' && b.scrollWidth > b.clientWidth + 1)
       ruins.push('texto cortado: ' + b.textContent.trim().replace(/\\s+/g, ' ').slice(0, 40));
   }
-  for (const b of document.querySelectorAll('#app .card .linha-sw > div > b, #app .card .campo > label, #app .card .campo > .lbl')) {
+  for (const b of document.querySelectorAll('#app .card .linha-sw > div > b, #app .card .campo > label, #app .card .campo > .lbl, #app .card .opts > li > .ot > b')) {
     if (vis(b) && !b.querySelector('svg')) ruins.push('linha sem ícone: ' + b.textContent.trim().slice(0, 40));
   }
   for (const c of document.querySelectorAll('#app .mais-painel > section.card, #app .mais-painel > .card')) {
@@ -35,6 +35,9 @@ CONFERE = """() => {
   if (vis(tt) && !tt.querySelector('.mais-ic svg')) ruins.push('tela sem ícone no título: ' + tt.textContent.trim());
   const fh = document.querySelector('#folhas .folha-cab h2');
   if (vis(fh) && !fh.querySelector('.folha-ic svg')) ruins.push('janela sem ícone no título: ' + fh.textContent.trim());
+  for (const l of document.querySelectorAll('#app .card .opts, #app .card .opts > li')) {
+    if (vis(l) && (parseFloat(getComputedStyle(l).borderTopWidth) > 0 || parseFloat(getComputedStyle(l).borderBottomWidth) > 0)) { ruins.push('linha na lista de opções: ' + l.textContent.trim().slice(0, 30)); break; }
+  }
   for (const l of document.querySelectorAll('#app .card .linha-sw')) {
     if (vis(l) && parseFloat(getComputedStyle(l).borderTopWidth) > 0) { ruins.push('linha entre as opções: ' + l.textContent.trim().slice(0, 30)); break; }
   }

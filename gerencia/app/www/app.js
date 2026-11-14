@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.71.0';
+const VERSAO = '1.71.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5679,7 +5679,7 @@ function maisIntegracoes() {
 }
 
 /* --------- Uso da IA (igual ao do InventarIA): hoje, 7 dias e o mês, gráfico por dia e as últimas chamadas */
-const USO_TIPO = { beneficios: 'Ler benefícios', milhas: 'Ler milhas', ofertas: 'Ler ofertas de investimento', promocoes: 'Promoções de assinaturas', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'WhatsApp (CorrerIA)' };
+const USO_TIPO = { beneficios: 'Ler benefícios', milhas: 'Ler milhas', ofertas: 'Ler ofertas de investimento', promocoes: 'Promoções de assinaturas', caixa: 'Ler lançamentos', invest: 'Ler investimentos', holerite: 'Ler recibo de pagamento', precos: 'Conferir preço de assinatura', fala: 'Falar', ler: 'Ler com IA', saldos: 'Atualizar saldos', chat: 'Conversa', whatsapp: 'Conversa no CorrerIA' };
 const USO_RES = { ok: '', cota: 'cota excedida', erro: 'erro' };
 const DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const milTokens = n => { n = +n || 0; return n >= 1e6 ? `${(n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi` : n >= 1000 ? `${Math.round(n / 1000)} mil` : String(Math.round(n)); };
@@ -5736,7 +5736,7 @@ function cardUsoIA() {
 /* --------- Dados */
 function maisDados() {
   // Exportar como no InventarIA, no ResolvIA e no CronologIA: uma linha por arquivo, o que ele tem e o botão
-  const exp = (fmt, titulo, texto, rotulo) => `<li><div class="ot"><b>${titulo}</b><span>${texto}</span></div>${DEMO
+  const exp = (fmt, icone, titulo, texto, rotulo) => `<li><div class="ot">${tituloLinha(icone, titulo)}<span>${texto}</span></div>${DEMO
     ? `<button class="btn peq" data-a="demo-arq">${ic('download', 'ic-s')}${rotulo}</button>`
     : `<a class="btn peq" href="api/export/${fmt}" download>${ic('download', 'ic-s')}${rotulo}</a>`}</li>`;
   const bks = S.backups;
@@ -5748,10 +5748,10 @@ function maisDados() {
     }).join('')}</div>` : `<p class="nota" style="margin:12px 0 0">Nenhum backup na pasta ainda.</p>`;
   return `<section class="card" id="exportar">${maisCab('download', 'Exportar')}
             <ul class="opts">
-        ${exp('lancamentos', 'Lançamentos (CSV)', 'Um lançamento por linha, para Excel ou Google Planilhas.', 'Baixar CSV')}
-        ${exp('csv', 'Investimentos (CSV)', 'Um investimento por linha.', 'Baixar CSV')}
-        ${exp('json', 'Dados completos (JSON)', 'Todos os campos.', 'Baixar JSON')}
-        ${exp('zip', 'Tudo (ZIP)', 'Dados, planilhas e imagens. É o que o Importar traz de volta.', 'Baixar ZIP')}
+        ${exp('lancamentos', 'receipt', 'Lançamentos (CSV)', 'Um lançamento por linha, para Excel ou Google Planilhas.', 'Baixar CSV')}
+        ${exp('csv', 'trend', 'Investimentos (CSV)', 'Um investimento por linha.', 'Baixar CSV')}
+        ${exp('json', 'braces', 'Dados completos (JSON)', 'Todos os campos.', 'Baixar JSON')}
+        ${exp('zip', 'archive', 'Tudo (ZIP)', 'Dados, planilhas e imagens. É o que o Importar traz de volta.', 'Baixar ZIP')}
       </ul></section>
     <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
       ${maisLead('Cópia completa em <code>share/gerencia</code>. O backup do Home Assistant também inclui o app.')}

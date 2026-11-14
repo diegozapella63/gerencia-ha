@@ -936,8 +936,12 @@ details summary { list-style-position: inside; }
 
 /* backups na pasta share */
 /* Exportar (como no InventarIA, no ResolvIA e no CronologIA): uma linha por arquivo, com borda entre elas */
-.opts { list-style: none; margin: 0 0 4px; padding: 0; border-top: 1px solid var(--line); }
-.opts > li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 14px 2px; border-bottom: 1px solid var(--line); }
+/* 1.71.1: sem as linhas (o cartão já agrupa e o ícone de cada linha marca onde ela começa) */
+.opts { list-style: none; margin: 0 0 4px; padding: 0; }
+.opts > li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 10px 0; }
+.opts .ot b:has(> .ic-s) { display: flex; align-items: center; gap: 8px; }
+.opts .ot b > .ic-s { flex: none; color: var(--accent-text); }
+.opts .ot b:has(> .ic-s) + span { padding-left: 26px; }
 .opts .ot { flex: 1; min-width: 220px; }
 .opts .ot b { display: block; font-weight: 600; font-size: 15.5px; }
 .opts .ot span { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
