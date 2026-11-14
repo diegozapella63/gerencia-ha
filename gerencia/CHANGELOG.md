@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.66.1
+
+- **Vencimentos › Por mês**: só os meses que têm vencimento, com o valor em cima de cada um. O **Imediato** também aparece, antes dos meses do primeiro ano.
+- A seta do ano fica apagada quando não há ano antes ou depois.
+
 ## 1.66.0
 
 - **Vencimentos** (Invest › Divisão › Liquidez) agora mostra tudo: a primeira coluna, **Imediato**, junta o que já está livre (liquidez diária, sem vencimento e o que já venceu). Depois vêm os anos com vencimento. Os bens ficam de fora.

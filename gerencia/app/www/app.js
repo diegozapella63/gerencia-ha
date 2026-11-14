@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.66.0';
+const VERSAO = '1.66.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1434,7 +1434,7 @@ function grafComposicao(lista) {
 }
 
 // Divisão › Liquidez: quando o dinheiro libera. Por ano, a coluna Imediato (liquidez diária, sem vencimento ou já vencido) e
-// cada ano com vencimento; por mês, os 12 meses de um ano. O valor é o de hoje; embaixo, os investimentos (os imediatos e depois
+// cada ano com vencimento; por mês, os meses com vencimento de um ano (e o Imediato antes, no primeiro ano). O valor é o de hoje; embaixo, os investimentos (os imediatos e depois
 // em ordem de data). Tocar numa coluna mostra o valor dela e só os investimentos dela; tocar de novo desmarca. Bens ficam de fora.
 function grafVencimentos(lista) {
   const u = S.ui, esteAno = String(hoje().getFullYear()), h = iso(hoje());
@@ -1447,27 +1447,30 @@ function grafVencimentos(lista) {
   if (!itens.length) return '';
   const anos = [...new Set(itens.map(x => x.ano))], proximo = anos[0];
   const ano = u.gVenc ? (anos.includes(u.gVenc) ? u.gVenc : proximo) : '';
-  const denso = anos.length + (imed.length ? 1 : 0) > 8; // por ano, com muitas colunas: o ano com dois números (’27) e sem o valor em cima
-  const cols = (ano ? MESES.map((m, k) => { const ym = `${ano}-${String(k + 1).padStart(2, '0')}`; return { k: ym, rot: m, nome: maiuscula(nomeMes(ym)), l: itens.filter(x => x.ym === ym) }; })
-    : (imed.length ? [{ k: 'imediato', rot: 'Imediato', nome: 'Imediato', l: imed }] : []).concat(anos.map(a => ({ k: a, rot: denso ? '’' + a.slice(2) : a, nome: a, l: itens.filter(x => x.ano === a) }))))
+  // por mês, só os meses com vencimento; o Imediato vem antes do primeiro ano (por ano e no Por mês dele), porque é agora
+  const comImed = imed.length > 0 && (!ano || ano === proximo);
+  const cols = (comImed ? [{ k: 'imediato', rot: 'Imediato', nome: 'Imediato', l: imed }] : [])
+    .concat(ano ? [...new Set(itens.filter(x => x.ano === ano).map(x => x.ym))].map(ym => ({ k: ym, rot: MESES[+ym.slice(5) - 1], nome: maiuscula(nomeMes(ym)), l: itens.filter(x => x.ym === ym) }))
+      : anos.map(a => ({ k: a, rot: a, nome: a, l: itens.filter(x => x.ano === a) })))
     .map(c => Object.assign(c, { v: c.l.reduce((s, x) => s + x.v, 0) }));
+  const denso = cols.length > 8; // muitas colunas: sem o valor em cima, colunas mais juntas e, por ano, o ano com dois números (’27)
+  if (denso && !ano) cols.forEach(c => { if (c.k !== 'imediato') c.rot = '’' + c.k.slice(2); });
   const sel = cols.find(c => c.k === u.gVencSel && c.l.length);
   const max = Math.max(1, ...cols.map(c => c.v));
   const mostra = sel ? sel.l : ano ? itens.filter(x => x.ano === ano) : imed.concat(itens);
   const k = anos.indexOf(ano), antes = anos[k - 1], depois = k >= 0 ? anos[k + 1] : undefined;
-  const rotulos = !ano && !denso; // por ano, o valor em cima de cada coluna
   const passo = (v, txt, n) => `<button class="icbtn" data-a="g-venc" data-k="ano" data-v="${v || ''}" aria-label="${txt}"${v ? '' : ' disabled'}>${ic(n < 0 ? 'chevL' : 'chev')}</button>`;
   // a coluna Imediato com espaço para o nome; as outras dividem o resto (o gráfico e o eixo com as mesmas colunas)
-  const tpl = !ano && imed.length ? ` style="grid-template-columns:minmax(56px,1fr) repeat(${cols.length - 1},minmax(0,1fr))"` : '';
+  const tpl = comImed && cols.length > 1 ? ` style="grid-template-columns:minmax(56px,1fr) repeat(${cols.length - 1},minmax(0,1fr))"` : '';
   const quando = x => x.passou ? `venceu ${fData(x.d)}` : x.venceHoje ? 'vence hoje' : !x.imed ? `vence ${fData(x.d)}` : x.i.liquidez === 'diaria' ? 'liquidez diária' : 'sem vencimento';
   return `<div class="graf-card venc-card"><h3 class="g-tit">${rotIc('calendar')}<span>Vencimentos</span></h3>
     <div class="chips c2"><button class="chip${ano ? '' : ' on'}" data-a="g-venc" data-k="ano" data-v="">Por ano</button>
       <button class="chip${ano ? ' on' : ''}" data-a="g-venc" data-k="ano" data-v="${ano || (sel && sel.k !== 'imediato' ? sel.k : proximo)}">Por mês</button></div>
     ${ano ? `<div class="mes-nav venc-nav">${passo(antes, 'Ano anterior com vencimento', -1)}<div class="mes-nome">${ano}</div>${passo(depois, 'Próximo ano com vencimento', 1)}</div>` : ''}
     <div class="venc-cap" aria-live="polite"><b>${esc(sel ? sel.nome : ano || 'Todos')}</b> · ${brl(mostra.reduce((s, x) => s + x.v, 0), 0)} · ${plural(mostra.length, 'investimento', 'investimentos')}</div>
-    <div class="venc-chart${ano ? ' meses' : ''}${sel ? ' sel' : ''}" role="group" aria-label="Vencimentos por ${ano ? 'mês de ' + ano : 'ano'}"${tpl}>${cols.map(c =>
-      `<button class="venc-bar" data-a="g-venc" data-k="sel" data-v="${c.k}" aria-pressed="${c === sel}" aria-label="${esc(c.nome)}: ${c.l.length ? `${brl(c.v, 0)}, ${plural(c.l.length, 'investimento', 'investimentos')}` : 'nada vence'}"${c.l.length ? '' : ' disabled'}>${rotulos ? `<small>${compacto(c.v)}</small>` : ''}<i style="height:${c.l.length ? Math.max(3, Math.round(c.v / max * (rotulos ? 80 : 96))) : 0}%"></i></button>`).join('')}</div>
-    <div class="venc-eixo${ano ? ' meses' : ''}" aria-hidden="true"${tpl}>${cols.map(c => `<span${c.k === (ano ? h.slice(0, 7) : esteAno) ? ' class="hoje"' : ''}>${c.rot}</span>`).join('')}</div>
+    <div class="venc-chart${denso ? ' denso' : ''}${sel ? ' sel' : ''}" role="group" aria-label="Vencimentos por ${ano ? 'mês de ' + ano : 'ano'}"${tpl}>${cols.map(c =>
+      `<button class="venc-bar" data-a="g-venc" data-k="sel" data-v="${c.k}" aria-pressed="${c === sel}" aria-label="${esc(c.nome)}: ${brl(c.v, 0)}, ${plural(c.l.length, 'investimento', 'investimentos')}">${denso ? '' : `<small>${compacto(c.v)}</small>`}<i style="height:${Math.max(3, Math.round(c.v / max * (denso ? 96 : 80)))}%"></i></button>`).join('')}</div>
+    <div class="venc-eixo${denso ? ' denso' : ''}" aria-hidden="true"${tpl}>${cols.map(c => `<span${c.k === (ano ? h.slice(0, 7) : esteAno) ? ' class="hoje"' : ''}>${c.rot}</span>`).join('')}</div>
     <div class="venc-lista">${mostra.map(x => { const b = bancoDe(x.i.banco); return `<button class="venc-it" data-a="inv" data-id="${esc(x.i.id)}" style="--c:${corOk(b?.cor) || 'var(--c0)'}">
       <span class="sq"></span><span class="nm"><b>${esc(x.i.nome)}</b><span class="sub">${esc(bancoDoInvest(x.i) || 'Sem banco')} · ${esc(tipoDe(x.i.tipo).nome)}</span></span>
       <span class="vl">${brl(x.v, 0)}<small${x.passou ? ' class="alerta"' : ''}>${quando(x)}</small></span></button>`; }).join('')}</div>

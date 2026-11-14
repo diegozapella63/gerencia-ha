@@ -591,14 +591,10 @@ class TestVencimentos(_TelaInvest):
         self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por mês")')
         self.assertEqual(self.texto(self.CARD + ' [data-k="ano"].on'), "Por mês")
         self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2027", "abre o ano marcado")
-        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"])
-        self.assertCabem(self.CARD + " .venc-eixo span")
-        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), [], "nov/26 não está em 2027")
-        b = self.barras()
-        self.assertEqual([x for x in b if not x[3]], [("2027-06", "Junho de 2027: R$ 5.000, 1 investimento", "false", False),
-                                                      ("2027-09", "Setembro de 2027: R$ 7.000, 1 investimento", "false", False)])
-        self.assertEqual(b[0], ("2027-01", "Janeiro de 2027: nada vence", "false", True), "mês sem nada: sem coluna e sem toque")
-        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), [], "por mês, sem o valor em cima (não cabe)")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["jun", "set"], "só os meses com vencimento; o Imediato fica no primeiro ano")
+        self.assertEqual(self.barras(), [("2027-06", "Junho de 2027: R$ 5.000, 1 investimento", "false", False),
+                                         ("2027-09", "Setembro de 2027: R$ 7.000, 1 investimento", "false", False)])
+        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), ["5\xa0mil", "7\xa0mil"], "com poucas colunas, o valor em cima")
         self.assertEqual(self.cap(), "2027 · R$ 12.000 · 2 investimentos")
         self.clicar(self.CARD + ' .venc-bar[data-v="2027-09"]')
         self.assertEqual(self.cap(), "Setembro de 2027 · R$ 7.000 · 1 investimento")
@@ -606,6 +602,7 @@ class TestVencimentos(_TelaInvest):
         # ‹ › passam pelos anos com vencimento (2028 e depois 2035, sem os do meio)
         self.clicar(self.CARD + ' [aria-label="Próximo ano com vencimento"]')
         self.assertEqual((self.texto(self.CARD + " .mes-nome"), self.cap()), ("2028", "2028 · R$ 10.000 · 1 investimento"), "trocar de ano desmarca o mês")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["mar"])
         self.clicar(self.CARD + ' [aria-label="Próximo ano com vencimento"]')
         self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2035")
         self.assertTrue(self.pg.locator(self.CARD + ' [aria-label="Próximo ano com vencimento"]').is_disabled(), "o último")
@@ -613,10 +610,33 @@ class TestVencimentos(_TelaInvest):
             self.clicar(self.CARD + ' [aria-label="Ano anterior com vencimento"]')
         self.assertEqual(self.texto(self.CARD + " .mes-nome"), "2026")
         self.assertTrue(self.pg.locator(self.CARD + ' [aria-label="Ano anterior com vencimento"]').is_disabled(), "o primeiro")
-        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), ["nov"], "este mês em destaque")
+        self.assertEqual(self.js("getComputedStyle(document.querySelector('#app [aria-label=\"Ano anterior com vencimento\"]')).opacity"), "0.3", "e apagada")
+        self.assertEqual(self.barras(), [("imediato", "Imediato: R$ 13.600, 6 investimentos", "false", False),
+                                         ("2026-12", "Dezembro de 2026: R$ 4.000, 1 investimento", "false", False)], "no primeiro ano, o Imediato antes")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["Imediato", "dez"])
         self.assertEqual(self.cap(), "2026 · R$ 4.000 · 1 investimento", "o que já venceu em outubro está no Imediato, não no mês")
+        self.clicar(self.CARD + ' .venc-bar[data-v="imediato"]')
+        self.assertEqual((self.cap(), len(self.lista())), ("Imediato · R$ 13.600 · 6 investimentos", 6))
+        self.assertCabem(self.CARD + " .venc-eixo span")
+        self.assertCabem(self.CARD + " .venc-bar small")
         self.clicar(self.CARD + ' [data-k="ano"]:text-is("Por ano")')
         self.assertEqual((self.conta(self.CARD + " .mes-nome"), self.cap()), (0, "Todos · R$ 48.600 · 11 investimentos"))
+
+    def test_por_mes_este_mes_em_destaque(self):
+        nov = inv("nov", "CDB de novembro", 2000, "cdi_pct", 100, banco="b-verde", vencimento="2026-11-20")
+        self.liq([TES, nov, DEZ, LCA], gVenc="2026")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["Imediato", "nov", "dez"])
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo .hoje"), ["nov"])
+        self.liq([TES, LCA], gVenc="2027")
+        self.assertEqual(self.textos(self.CARD + " .venc-eixo span"), ["Imediato", "set"], "nada vence neste ano: o Imediato vai para o primeiro ano com vencimento")
+
+    def test_por_mes_com_muitos_meses(self):
+        meses = [inv(f"m{m}", f"CDB mês {m}", 1000 * m, "cdi_pct", 100, vencimento=f"2027-{m:02d}-10") for m in range(1, 13)]
+        self.liq(meses + [TES], gVenc="2027")
+        self.assertEqual(len(self.barras()), 13, "o Imediato e os 12 meses")
+        self.assertEqual(self.textos(self.CARD + " .venc-bar small"), [], "muitas colunas: o valor fica no toque")
+        self.assertEqual(self.conta(self.CARD + " .venc-eixo.denso"), 1)
+        self.assertCabem(self.CARD + " .venc-eixo span")
 
     def test_o_que_ja_venceu_fica_no_imediato(self):
         antigo = inv("antigo", "CDB de 2025", 2000, "cdi_pct", 100, banco="b-azul", vencimento="2025-04-10")

@@ -474,19 +474,19 @@ details summary { cursor: pointer; font-weight: 600; }
 .comp.on { background: var(--card-2); border-radius: 10px; }
 /* Divisão › Liquidez: Vencimentos (colunas por ano ou pelos meses de um ano, e os investimentos em ordem de data) */
 .venc-nav { margin: 0 -6px 4px; }
+.venc-nav .icbtn:disabled { opacity: .3; cursor: default; }
 .venc-cap { min-height: 22px; margin: 0 2px 6px; color: var(--text-2); font-size: 14px; }
 .venc-chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; align-items: end; height: 150px; border-bottom: 1px solid var(--line); }
 .venc-bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; min-width: 0; -webkit-tap-highlight-color: transparent; }
-.venc-bar:disabled { cursor: default; }
 .venc-bar i { display: block; width: 100%; max-width: 44px; border-radius: 5px 5px 0 0; background: var(--accent); transition: background .15s; }
 .venc-bar small { font: 600 12px/1 var(--font); color: var(--text-2); white-space: nowrap; }
 .venc-chart.sel .venc-bar[aria-pressed="false"] i { background: color-mix(in srgb, var(--muted) 45%, transparent); }
 .venc-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .venc-eixo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding-top: 6px; font-size: 12.5px; color: var(--muted); text-align: center; white-space: nowrap; }
 .venc-eixo .hoje { color: var(--text); font-weight: 700; }
-/* os 12 meses: colunas mais juntas e nomes menores (o ajustarTextos diminui mais, se não couber) */
-.venc-chart.meses, .venc-eixo.meses { gap: 2px; }
-.venc-eixo.meses { font-size: 11.5px; }
+/* muitas colunas: mais juntas e nomes menores (o ajustarTextos diminui mais, se não couber) */
+.venc-chart.denso, .venc-eixo.denso { gap: 2px; }
+.venc-eixo.denso { font-size: 11.5px; }
 .venc-lista { margin-top: 10px; }
 .venc-it { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; width: 100%; padding: 11px 2px; border-bottom: 1px solid var(--line); text-align: left; }
 .venc-it:last-child { border-bottom: 0; }
