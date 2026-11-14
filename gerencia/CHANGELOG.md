@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.67.0
+
+- **Conferir lançamentos**: **Marcar todos** e **Desmarcar todos**, lado a lado antes da lista, para não precisar tocar em cada linha quando a fatura tem muitas. Marcar todos deixa de fora os que parecem já lançados e os pagamentos da fatura (dá para marcar um por um).
+
 ## 1.66.1
 
 - **Vencimentos › Por mês**: só os meses que têm vencimento, com o valor em cima de cada um. O **Imediato** também aparece, antes dos meses do primeiro ano.

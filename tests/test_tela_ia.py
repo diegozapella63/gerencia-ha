@@ -757,6 +757,30 @@ class TestConferirLancamentos(TelaIA):
         self.assertEqual(self.detalhes()[0], "01/11 · parece já lançado")
         self.assertEqual(self.botao_salvar(), "Lançar 1 · R$ 150")
 
+    def test_marcar_todos_e_desmarcar_todos(self):
+        self.abrir(base(bancos=BANCOS, lancamentos=[{"id": "ja", "tipo": "despesa", "descricao": "FEIRA DO BAIRRO LTDA", "valor": 45,
+                                                       "data": "2026-11-02", "categoria": "c-mercado", "pago": True}]))
+        mercado = dict(FEIRA, descricao="Mercado da esquina", valor=80)
+        self.ler([FEIRA, PIX, mercado])
+        self.assertEqual(self.textos('#folhas [data-a="ia-todos"]'), ["Marcar todos", "Desmarcar todos"], "lado a lado, antes da lista")
+        marcar, desmarcar = '#folhas [data-a="ia-todos"][data-v="1"]', '#folhas [data-a="ia-todos"][data-v=""]'
+        self.assertTrue(self.pg.locator(marcar).is_disabled(), "tudo o que dá para marcar já está marcado (a Feira parece já lançada)")
+        self.clicar(desmarcar)
+        self.assertEqual(self.botao_salvar(), "Lançar 0 · R$ 0")
+        self.assertEqual(self.conta("#folhas .ia-item.off"), 3)
+        self.assertTrue(self.pg.locator(desmarcar).is_disabled(), "nada marcado: Desmarcar todos fica inativo")
+        self.clicar(marcar)
+        self.assertEqual(self.botao_salvar(), "Lançar 2 · R$ 70", "marca todos, menos o que parece já lançado")
+        self.assertIn("off", self.pg.get_attribute("#folhas .ia-item >> nth=0", "class"))
+        self.clicar('#folhas [data-a="ia-marca"]', 0)  # a pessoa marca o parecido na mão: Marcar todos não desmarca
+        self.assertTrue(self.pg.locator(marcar).is_disabled())
+        self.assertEqual(self.botao_salvar(), "Lançar 3 · R$ 25")
+
+    def test_uma_linha_sem_marcar_todos(self):
+        self.abrir(base(bancos=BANCOS))
+        self.ler([FEIRA])
+        self.assertEqual(self.conta('#folhas [data-a="ia-todos"]'), 0)
+
     def test_trocar_a_categoria_vale_no_lancamento(self):
         self.abrir(base(bancos=BANCOS))
         self.ler([FEIRA])

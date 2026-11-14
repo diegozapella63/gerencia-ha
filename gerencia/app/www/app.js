@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.66.1';
+const VERSAO = '1.67.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3445,7 +3445,12 @@ function revisaoCaixa() {
           <select class="ia-cat" data-iai="contasel" data-i="${k}" aria-label="Conta">${opcoesContaIA(it)}</select></div></div>`;
     };
     const ks = s.itens.map((it, k) => k), fora = ks.filter(k => s.itens[k].desconsiderado);
-    return `<div class="ia-itens">${ks.filter(k => !s.itens[k].desconsiderado).map(k => linha(s.itens[k], k)).join('')}</div>`
+    // Marcar todos e Desmarcar todos (com muitas linhas, uma por uma não dá): marcar deixa de fora os que parecem já lançados
+    // e os pagamentos da fatura, que a pessoa marca um por um se quiser
+    const princ = s.itens.filter(i => !i.desconsiderado), marcaveis = princ.filter(i => !i.dup);
+    const todos = princ.length > 1 ? `<div class="btns-2 ia-todos"><button class="btn out" data-a="ia-todos" data-v="1"${marcaveis.every(i => i.marcado) ? ' disabled' : ''}>${ic('check', 'ic-s')}Marcar todos</button>
+      <button class="btn out" data-a="ia-todos" data-v=""${s.itens.some(i => i.marcado) ? '' : ' disabled'}>Desmarcar todos</button></div>` : '';
+    return `${todos}<div class="ia-itens">${ks.filter(k => !s.itens[k].desconsiderado).map(k => linha(s.itens[k], k)).join('')}</div>`
       + recolhido('ia-fora', 'Pagamentos desconsiderados', fora.length, `<div class="ajuda" style="margin:0 0 8px">O pagamento da fatura não é recebimento. Marque se quiser lançar.</div>
         <div class="ia-itens">${fora.map(k => linha(s.itens[k], k)).join('')}</div>`);
     })()}`;
@@ -6637,6 +6642,7 @@ document.addEventListener('click', ev => {
     case 'ia-ler': iaLer(); break;
     case 'ia-voltar': IAS.etapa = 'entrada'; pintarFolha(); break;
     case 'ia-marca': { const it = IAS.itens[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
+    case 'ia-todos': for (const it of IAS.itens) it.marcado = v ? it.marcado || (!it.desconsiderado && !it.dup) : false; pintarFolha(); break;
     case 'ia-marca-inv': { const it = IAS.invs[+el.dataset.i]; it.marcado = !it.marcado; pintarFolha(); break; }
     case 'ia-salvar': salvarIA(); break;
     case 'ia-fixo': abrirFixoIA(+el.dataset.i); break;
