@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.66.0
+
+- **Vencimentos** (Invest › Divisão › Liquidez) agora mostra tudo: a primeira coluna, **Imediato**, junta o que já está livre (liquidez diária, sem vencimento e o que já venceu). Depois vêm os anos com vencimento. Os bens ficam de fora.
+
 ## 1.65.0
 
 - **Vencimentos** em Invest › Divisão › Liquidez: quando o dinheiro de **Só no vencimento** libera, num gráfico por ano e, em **Por mês**, pelos meses de cada ano (‹ › passa pelos anos com vencimento). Os de liquidez diária ficam de fora, mesmo com data: o dinheiro deles já está livre. Embaixo, os investimentos em ordem de data, com o que já venceu em vermelho. Tocar numa coluna mostra o valor e só os investimentos dela; tocar num investimento abre ele.
