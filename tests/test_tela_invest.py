@@ -1085,6 +1085,30 @@ class TestEditar(_TelaInvest):
         self.editar("cdb")
         self.assertEqual(self.textos(".folha .inv-acoes .btn"), ["Aplicar mais"], "Transferir só com outro investimento")
 
+    def test_1_74_campos_que_fecham(self):
+        """1.74.1: Banco, Tipo, Rendimento, Vencimento e Imagens guardadas fecham num toque no título; fechados, o escolhido
+        ao lado (o aparelho lembra). A Observação tem o ícone e a seta no fim, como eles."""
+        self.addCleanup(lambda: self.js("(localStorage.removeItem('gerencia.campos'), T.CAMPOS_F = null, true)"))
+        self.invest()
+        self.editar("cdb")
+        chaves = ["inv-banco", "inv-tipo", "inv-rend", "inv-venc", "inv-fotos"]
+        for k in chaves:
+            self.clicar(f'.folha .dobra-c[data-dobra="{k}"] > .lbl')
+        vals = self.js("[...document.querySelectorAll('.folha .dobra-c.shut > .lbl .fl-val')].map(e => e.textContent)")
+        self.assertEqual(vals, ["· Banco Azul · Ana", "· CDB", "· 110% do CDI", "· 15 mar 2028"], "sem imagens, nada ao lado")
+        self.assertEqual(self.conta('.folha [data-a="f-banco"]:visible') + self.conta('.folha [data-a="f-tipo"]:visible') + self.conta('.folha [data-a="f-idx"]:visible'), 0)
+        self.assertEqual(self.conta('.folha [data-f="taxa"]:visible') + self.conta('.folha [data-dc="f-venc"] .dc-ch:visible') + self.conta('.folha [data-a="f-foto-add"]:visible'), 0)
+        self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.campos'))")), sorted(chaves), "o aparelho lembra")
+        obs = '.folha [data-a="f-obs"]'
+        self.assertEqual(self.conta(obs + ' svg.campo-ic'), 1, "a Observação com o ícone")
+        self.assertEqual(self.js(f"getComputedStyle(document.querySelector('{obs}'), '::after').width"), "20px", "e a seta no fim")
+        self.clicar('[data-a="f-salvar"]')
+        self.assertEqual(self.salvo("CDB Azul 2028")["taxa"], 110, "fechados, os dados continuam")
+        self.editar("cdb")
+        self.assertEqual(self.conta('.folha .dobra-c.shut'), 5, "abre como ficou")
+        self.clicar('.folha .dobra-c[data-dobra="inv-rend"] > .lbl')
+        self.assertEqual(self.pg.input_value('.folha [data-f="taxa"]'), "110")
+
     def test_editar_salva_no_mesmo_investimento(self):
         self.invest(base(bancos=BANCOS, investimentos=[dict(CDB, criado_em="2026-01-10T12:00:00.000Z"), LCI]))
         self.editar("cdb")

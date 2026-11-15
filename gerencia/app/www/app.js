@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.74.0';
+const VERSAO = '1.74.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -235,7 +235,9 @@ const mesDe = s => (/^\d{4}-\d{2}/.test(s || '') ? s.slice(0, 7) : iso(hoje()).s
 function mudaMes(ym, n) { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + n, 1); return iso(d).slice(0, 7); }
 function campoData(id, rotulo, valor, liga, op = {}) {
   const o = DC[id] = Object.assign(DC[id] && DC[id].liga === liga ? { mes: DC[id].mes, meses: DC[id].meses } : {}, { rotulo, liga, tipo: op.tipo || 'futuro', min: op.min || '', max: op.max || '', opcional: !!op.opcional, ajuda: op.ajuda || '' });
-  return `<div class="campo dc" data-dc="${id}"><div class="lbl" id="${id}-l">${rotulo}</div>${dcCorpo(id, valor)}</div>`;
+  // op.dobra (1.74.1): fecha pelo título, como os outros campos; fechado, a data (ou Sem data) ao lado
+  const dobra = op.dobra ? ` dobra-c" data-dobra="${op.dobra}` : '', val = op.dobra ? `<span class="fl-val">· ${/^\d{4}-\d{2}-\d{2}$/.test(valor || '') ? dataCurta(valor) : 'Sem data'}</span>` : '';
+  return `<div class="campo dc${dobra}" data-dc="${id}"><div class="lbl" id="${id}-l">${rotulo}${val}</div>${dcCorpo(id, valor)}</div>`;
 }
 function dcCorpo(id, valor) {
   const o = DC[id], v = /^\d{4}-\d{2}-\d{2}$/.test(valor || '') ? valor : '';
@@ -2367,7 +2369,7 @@ function montarFormLanc() {
     }
     c += `</div>`;
   }
-  c += `<div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="lf-obs">${ic('chev', 'ic-s')}Observação</button>
+  c += `<div class="campo">${botaoObs(f, 'lf-obs')}
     ${f.obsAberta ? `<textarea class="inp" data-lf="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar">${esc(f.obs)}</textarea>` : ''}</div>`;
   // um gasto fixo, como uma assinatura, também dá benefícios
   if (r && !rec && !r.aporte && iaOn()) c += `<div class="campo">${botaoBen('fixo:' + r.id)}</div>`;
@@ -2663,11 +2665,24 @@ async function enviarFoto(file) {
   return r.arquivo;
 }
 
+// o rendimento em palavras, ao lado do título fechado: 110% do CDI, CDI + 1,5% a.a., Prefixado 13,5% a.a., Poupança
+function rendTexto(ix, taxa) {
+  if (!ix.taxa || taxa === '' || taxa == null || isNaN(taxa)) return ix.nome;
+  const t = String(taxa).replace('.', ',');
+  return ix.pre ? `${ix.pre} ${t}${ix.suf}` : ix.id === 'cdi_pct' ? `${t}${ix.suf}` : `${ix.nome} ${t}${ix.suf}`;
+}
+// Observação do lançamento e do investimento (1.74.1): o título com o ícone e a seta no fim, como os campos que fecham;
+// fechada, a primeira linha ao lado
+function botaoObs(f, acao) {
+  const t = String(f.obs || '').trim().split('\n')[0];
+  return `<button class="abre ttl${f.obsAberta ? ' on' : ''}" data-a="${acao}" aria-expanded="${!!f.obsAberta}">${ic(iconeCampo('Observação'), 'ic-s campo-ic')}<span>Observação</span>${!f.obsAberta && t ? `<span class="fl-val">· ${esc(t)}</span>` : ''}</button>`;
+}
+
 /* --------- imagens no formulário de investimento */
 // Imagens guardadas com o investimento: só guardar, sem IA (como combinado). Quem lê com IA é o Ler com IA do Adicionar.
 function fotosFormHTML() {
   const fotos = F.fotos || [];
-  return `<div class="campo"><div class="lbl">Imagens guardadas</div><div class="fotos">
+  return `<div class="campo dobra-c" data-dobra="inv-fotos"><div class="lbl">Imagens guardadas${fotos.length ? `<span class="fl-val">· ${plural(fotos.length, 'imagem', 'imagens')}</span>` : ''}</div><div class="fotos">
     ${fotos.map(n => `<div class="foto"><img src="${fotoSrc(n)}" alt="Imagem do investimento" data-a="foto-ver" data-v="${esc(n)}">
       <button class="foto-x" data-a="f-foto-rm" data-v="${esc(n)}" aria-label="Remover imagem">${ic('x', 'ic-s')}</button></div>`).join('')}
     <button class="foto add" data-a="f-foto-add">${ic('camera')}<span>Guardar</span></button></div>
@@ -6341,7 +6356,7 @@ function montarFormInv() {
   const especie = f.tipo === 'dinheiro' || f.tipo === 'bens', oculto = especie ? ' hidden' : '';
   c += `</div>
     <div class="campo"><label for="f-nome">Nome</label><textarea id="f-nome" rows="1" class="inp grow" data-f="nome" placeholder="${f.tipo === 'bens' ? 'Ex.: Carro da mãe' : especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off">${esc(f.nome)}</textarea></div>
-    <div class="campo"${oculto}><div class="lbl">Banco</div><div class="chips" style="margin:0">
+    <div class="campo dobra-c" data-dobra="inv-banco"${oculto}><div class="lbl">Banco${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null, o = opcoesBanco(bancos).find(o => f.banco === o.banco && (!o.conta || o.conta === atual)); return o ? `<span class="fl-val">· ${esc(o.nome)}</span>` : ''; })()}</div><div class="chips" style="margin:0">
       ${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null; return opcoesBanco(bancos).map(o => `<button class="chip${f.banco === o.banco && (!o.conta || o.conta === atual) ? ' on' : ''}" data-a="f-banco" data-v="${o.banco}" data-conta="${o.conta}" style="--c:${corOk(o.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(o.nome)}</button>`).join(''); })()}
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
   if (f.novoBanco) {
@@ -6352,23 +6367,23 @@ function montarFormInv() {
       <button class="btn out" data-a="f-nbok">${ic('check')}Usar este banco</button></div>`;
   }
   c += `</div>
-    <div class="campo"><div class="lbl">Tipo</div><div class="chips" style="margin:0">${TIPOS.map(t =>
+    <div class="campo dobra-c" data-dobra="inv-tipo"><div class="lbl">Tipo${(TIPOS.find(t => t.id === f.tipo) || {}).nome ? `<span class="fl-val">· ${esc(TIPOS.find(t => t.id === f.tipo).nome)}</span>` : ''}</div><div class="chips" style="margin:0">${TIPOS.map(t =>
       `<button class="chip${f.tipo === t.id ? ' on' : ''}" data-a="f-tipo" data-v="${t.id}">${ic(TIPO_IC[t.id] || 'wallet', 'ic-s')}${t.nome}</button>`).join('')}</div></div>
     <div class="campo" style="margin-bottom:6px"><label for="f-valor">Valor atual</label>
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"${f.tipo === 'bens' && f.dividir ? ' readonly aria-readonly="true" title="A soma das categorias"' : ''}></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:16px"></div>
     ${campoData('f-data', 'Valor em', f.data_valor, 'data-f="data_valor"', { tipo: 'passado', max: iso(hoje()) })}
     ${f.tipo === 'bens' ? camposBens(f) : ''}
-    <div class="campo"${oculto}><div class="lbl">Rendimento</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
+    <div class="campo dobra-c" data-dobra="inv-rend"${oculto}><div class="lbl">Rendimento${ix.nome ? `<span class="fl-val">· ${esc(rendTexto(ix, f.taxa))}</span>` : ''}</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${ic('percent', 'ic-s')}${x.nome}</button>`).join('')}</div>
       ${ix.taxa ? `<div class="pref${err('taxa')}">${ix.pre ? `<span>${ix.pre}</span>` : ''}<input data-f="taxa" inputmode="decimal" value="${f.taxa === '' || f.taxa == null ? '' : String(f.taxa).replace('.', ',')}" placeholder="${ix.ph}"><span>${ix.suf}</span></div>` : ''}
       ${msg('taxa')}<div class="ajuda" id="aj-taxa"></div></div>
     <div class="campo"${oculto}><div class="lbl">Liquidez</div><div class="seg" style="margin:0">
       <button class="${f.liquidez === 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="diaria">${ic('calendar-days')}Diária</button>
       <button class="${f.liquidez !== 'diaria' ? 'on' : ''}" data-a="f-set" data-k="liquidez" data-v="vencimento">${ic('calendar')}No vencimento</button></div></div>
-    ${oculto ? '' : campoData('f-venc', 'Vencimento <span class="opc">(opcional)</span>', f.vencimento || '', 'data-f="vencimento"', { opcional: true })}
+    ${oculto ? '' : campoData('f-venc', 'Vencimento <span class="opc">(opcional)</span>', f.vencimento || '', 'data-f="vencimento"', { opcional: true, dobra: 'inv-venc' })}
     ${fotosFormHTML()}
-    <div class="campo"><button class="abre${f.obsAberta ? ' on' : ''}" data-a="f-obs">${ic('chev', 'ic-s')}Observação</button>
+    <div class="campo">${botaoObs(f, 'f-obs')}
       ${f.obsAberta ? `<textarea class="inp" data-f="obs" rows="3" style="margin-top:10px;resize:vertical" placeholder="Algo para lembrar sobre este investimento">${esc(f.obs)}</textarea>` : ''}</div>`;
   const cab = f.id ? `<button class="icbtn" data-a="f-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '';
   const pe = f.id

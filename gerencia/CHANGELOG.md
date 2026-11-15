@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.74.1
+
+- **Editar investimento**: **Banco**, **Tipo**, **Rendimento**, **Vencimento** e **Imagens guardadas** fecham num toque no título. Fechados, o escolhido aparece ao lado, por exemplo "Rendimento · 110% do CDI". O aparelho lembra.
+- **Observação** (no investimento e no lançamento) ganhou o ícone, como os outros títulos, e a seta foi para o fim da linha. Fechada, mostra a primeira linha do que está escrito.
+- Os títulos fechados ficam numa linha só, com a seta no fim.
+
 ## 1.74.0
 
 - **Identificar benefícios**: a conta já diz o banco e o nível, então o **Ler com IA** funciona sem print, texto ou página. A IA traz o que sabe daquele banco, nível e cartão, e a conferência avisa para olhar no app ou no site antes de cadastrar. Um print, um texto ou a página continuam valendo, como antes.
