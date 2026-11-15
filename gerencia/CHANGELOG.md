@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.73.0
+
+- **Conversar com a IA › Clipe**: manda junto uma foto ou um PDF: **Tirar foto**, **Escolher fotos** (a galeria) ou **Escolher arquivo**. A IA lê o arquivo para responder e, se for o caso, propõe lançar ou pagar.
+- **Conversar com a IA › Perguntas prontas**: as sugestões viram suas. **Editar perguntas** tira (✕) e acrescenta as que você quiser; **Padrão** volta às de cada tela. Ficam guardadas no aparelho.
+- **Conversar com a IA**: o botão ✨ ao lado da caixa abre as perguntas prontas a qualquer momento, não só na conversa vazia.
+- **Conversar com a IA**: o microfone e o Enviar dividem o mesmo botão, como no WhatsApp: com a caixa vazia, o microfone; escrevendo, o Enviar.
+
 ## 1.72.0
 
 - **Contrair e expandir**: todo cartão com cabeçalho (no Agora, no Caixa, no Invest e em Mais) fecha e abre num toque no cabeçalho, com a seta no canto. O aparelho lembra os que ficaram fechados.

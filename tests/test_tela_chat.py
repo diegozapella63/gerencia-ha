@@ -5,6 +5,7 @@ import unittest
 
 from tests.tela_base import Tela, base, BANCOS
 
+JPG = bytes.fromhex("ffd8ffe000104a46494600010100000100010000ffdb004300080606070605080707070909080a0c140d0c0b0b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c1c2837292c30313434341f27393d38323c2e333432ffc0000b080001000101011100ffc4001f0000010501010101010100000000000000000102030405060708090a0bffc400b5100002010303020403050504040000017d01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9faffda0008010100003f00fbd3ffd9")
 LUZ = {"id": "l-luz", "tipo": "despesa", "descricao": "Luz", "valor": 180, "data": "2026-11-20", "categoria": "c-contas"}
 CDB = {"id": "i1", "nome": "CDB Azul", "banco": "b-azul", "valor": 1000, "indexador": "parado", "taxa": 0, "tipo": "cdb", "data_valor": "2026-11-02"}
 
@@ -107,13 +108,95 @@ class TestConversar(TelaChat):
         self.assertEqual(self.pg.input_value("#ch-txt"), "", "o campo limpa")
 
     def test_botao_enviar_so_com_texto(self):
+        """O botão redondo da direita: com a caixa vazia, o microfone; com texto, o Enviar (como no WhatsApp)."""
         self.abrir()
         self.abrir_chat()
-        self.assertTrue(self.pg.locator('[data-a="ch-enviar"]').is_disabled())
+        self.assertEqual(self.pg.get_attribute(".ch-pri", "data-a"), "ch-mic")
         self.preencher("#ch-txt", "  ")
+        self.assertEqual(self.pg.get_attribute(".ch-pri", "data-a"), "ch-mic", "só espaços: ainda o microfone")
+        self.preencher("#ch-txt", "oi")
+        self.assertEqual(self.pg.get_attribute(".ch-pri", "data-a"), "ch-enviar")
+        self.assertFalse(self.pg.locator('[data-a="ch-enviar"]').is_disabled())
+        self.preencher("#ch-txt", "")
+        self.assertEqual(self.pg.get_attribute(".ch-pri", "data-a"), "ch-mic", "apagou: o microfone de novo")
+        # sem a fala para texto, o Enviar fica, inativo até ter texto
+        self.js("(T.S.voz = { pronta: false }, T.pintarFolha(), true)")
         self.assertTrue(self.pg.locator('[data-a="ch-enviar"]').is_disabled())
         self.preencher("#ch-txt", "oi")
         self.assertFalse(self.pg.locator('[data-a="ch-enviar"]').is_disabled())
+
+    def test_perguntas_prontas(self):
+        """As perguntas da conversa vazia viram da pessoa (Editar perguntas, no aparelho) e o ✨ abre a qualquer momento."""
+        self.abrir()
+        self.abrir_chat()
+        self.clicar('[data-a="ch-ed-abrir"]')
+        self.assertEqual(self.textos(".ch-ed-lin span"), ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Gastei 45 no mercado"])
+        self.clicar('[data-a="ch-ed-tirar"] >> nth=0')
+        self.preencher("#ch-ed-txt", "Quanto sobrou no mês?")
+        self.clicar('[data-a="ch-ed-add"]')
+        self.assertEqual(self.pg.input_value("#ch-ed-txt"), "", "Adicionar limpa a caixa")
+        self.preencher("#ch-ed-txt", "Qual a maior despesa?")
+        self.pg.press("#ch-ed-txt", "Enter")
+        self.esperar()
+        larg = self.js("[...document.querySelectorAll('.ch-ed-bts .btn')].map(b => Math.round(b.getBoundingClientRect().width))")
+        self.assertEqual(len(set(larg)), 1, f"Padrão e Pronto do mesmo tamanho ({larg})")
+        self.clicar('[data-a="ch-ed-pronto"]')
+        esperado = ["Quais contas vencem esta semana?", "Gastei 45 no mercado", "Quanto sobrou no mês?", "Qual a maior despesa?"]
+        self.assertEqual(self.textos(".ch-sug .chip"), esperado)
+        self.assertEqual(self.js("JSON.parse(localStorage.getItem('gerencia.perguntas'))"), esperado, "guardadas no aparelho")
+        self.assertEqual(self.conta('[data-a="ch-rapidas"]'), 0, "vazia: as perguntas já estão à vista")
+        self.clicar('.ch-sug .chip:has-text("Quais contas vencem esta semana?")')
+        self.pg.wait_for_function("!window.GERENCIA_TESTE.CH.enviando")
+        self.esperar()
+        self.clicar('[data-a="ch-rapidas"]')
+        self.assertEqual(self.textos(".ch-rapidas .chip"), esperado, "o ✨ abre as mesmas")
+        self.assertEqual(self.pg.get_attribute('[data-a="ch-rapidas"]', "aria-expanded"), "true")
+        self.clicar('.ch-rapidas .chip:has-text("Gastei 45 no mercado")')
+        self.pg.wait_for_function("!window.GERENCIA_TESTE.CH.enviando")
+        self.esperar()
+        self.assertEqual(self.conta(".ch-rapidas"), 0, "perguntar fecha as perguntas")
+        self.assertEqual(self.bolhas()[2], "Gastei 45 no mercado")
+        # Padrão: as da aba de novo, nada guardado
+        self.clicar('[data-a="ch-rapidas"]')
+        self.clicar('.ch-rapidas [data-a="ch-ed-abrir"]')
+        self.clicar('[data-a="ch-ed-padrao"]')
+        self.clicar('[data-a="ch-ed-pronto"]')
+        self.assertEqual(self.textos(".ch-rapidas .chip"), ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Gastei 45 no mercado"])
+        self.assertIsNone(self.js("localStorage.getItem('gerencia.perguntas')"))
+
+    def test_anexar_foto_e_arquivo(self):
+        """O clipe: Tirar foto, Escolher fotos (a galeria, várias) e Escolher arquivo (foto ou PDF); vão junto com a mensagem."""
+        self.abrir()
+        self.abrir_chat()
+        self.clicar('[data-a="ch-menu"]')
+        self.assertEqual([t.strip() for t in self.textos(".ch-menu .ch-op")], ["Tirar foto", "Escolher fotos", "Escolher arquivo"])
+        self.assertEqual(self.conta(".ch-menu .ch-op svg"), 3, "cada opção com o seu ícone")
+        jpg = {"mimeType": "image/jpeg", "buffer": JPG}
+        with self.pg.expect_file_chooser() as fc:
+            self.clicar('[data-a="ch-galeria"]')
+        self.assertTrue(fc.value.is_multiple(), "a galeria deixa escolher várias")
+        self.assertEqual(self.conta(".ch-menu"), 0, "escolher fecha o menu")
+        fc.value.set_files(files=[dict(jpg, name="nota.jpg"), dict(jpg, name="nota2.jpg")])
+        self.pg.wait_for_function("document.querySelectorAll('.ch-prev').length === 2")
+        self.assertEqual(self.pg.get_attribute(".ch-pri", "data-a"), "ch-enviar", "com arquivo, o Enviar")
+        self.clicar('[data-a="ch-anexo-rm"] >> nth=1')
+        self.assertEqual(self.textos(".ch-prev > span:not(.ia-pdf)"), ["nota.jpg"])
+        self.assertFalse(self.js("document.documentElement.scrollWidth > innerWidth"))
+        self.clicar('[data-a="ch-enviar"]')
+        self.pg.wait_for_function("!window.GERENCIA_TESTE.CH.enviando")
+        self.esperar()
+        self.assertEqual(self.textos(".ch-msg.eu .ch-anexo"), ["nota.jpg"], "o nome do arquivo na bolha")
+        self.assertIn("Li o arquivo", self.bolhas()[1])
+        self.assertEqual(self.conta('.ch-acao [data-a="ch-ok"]'), 1, "e o lançamento para confirmar")
+        self.assertEqual(self.conta(".ch-prev"), 0, "o arquivo foi junto")
+        # Escolher arquivo: um PDF vai sozinho
+        self.clicar('[data-a="ch-menu"]')
+        with self.pg.expect_file_chooser() as fc:
+            self.clicar('[data-a="ch-arquivo"]')
+        self.assertFalse(fc.value.is_multiple())
+        fc.value.set_files(files=[{"name": "fatura.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4 x"}])
+        self.pg.wait_for_selector(".ch-prev .ia-pdf")
+        self.assertEqual(self.textos(".ch-prev > span:not(.ia-pdf)"), ["fatura.pdf"])
 
     def test_shift_enter_quebra_a_linha(self):
         self.abrir()

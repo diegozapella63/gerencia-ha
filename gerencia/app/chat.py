@@ -220,7 +220,7 @@ def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp"):
     return "\n\n".join(partes)
 
 
-def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None):
+def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0):
     """O pedido para a IA: quem ela é, a tela que a pessoa vê, os dados, as ações e a conversa (a última mensagem é a pergunta)."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
@@ -243,8 +243,13 @@ def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None):
             feitos = _resumo_acoes(m)
             conversa.append("IA: " + txt + (f" [{feitos}]" if feitos else ""))
         else:
-            conversa.append("Pessoa: " + txt)
+            arqs = [str(x) for x in (m.get("anexos") or []) if x]
+            conversa.append("Pessoa: " + (f"[mandou {', '.join(arqs)}] " if arqs else "") + txt)
     partes.append("A conversa (a última mensagem é a que você responde agora):\n" + "\n".join(conversa))
+    if anexos:
+        partes.append(f"Com a última mensagem, a pessoa mandou {'1 arquivo' if anexos == 1 else f'{anexos} arquivos'} (foto ou PDF), "
+                      "que vão junto: leia o que está neles (uma nota, um recibo, uma fatura, um extrato, um print) para responder "
+                      "e, se for o caso, propor as ações (lançar, pagar, investimentos), como nas regras acima.")
     partes.append('Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:\n'
                   '{"resposta":"","lancamentos":[],"pagar":[],"investimentos":[]}')
     return "\n\n".join(partes)
@@ -300,10 +305,15 @@ def _valor(t):
     return calc.num_br(m.group(1)) * (1000 if m.group(2) == "mil" else 1)
 
 
-def simulado(texto, d, hoje=None):
-    """Respostas previsíveis para testar o caminho todo sem IA: pagar uma conta da lista, aplicar, saldo e um gasto."""
+def simulado(texto, d, hoje=None, anexos=0):
+    """Respostas previsíveis para testar o caminho todo sem IA: pagar uma conta da lista, aplicar, saldo e um gasto;
+    com um arquivo e sem pedido conhecido, a nota de exemplo (R$ 45,00 no mercado)."""
     hoje = hoje or date.today()
     t = (texto or "").lower()
+    if anexos and not re.search(r"\b(paguei|apliquei|investi|guardei|gastei|comprei)\b|saldo d", t):
+        return {"resposta": "Li o arquivo: uma compra de **R$ 45,00** no mercado. Confira e confirme.",
+                "lancamentos": [{"tipo": "despesa", "descricao": "Mercado", "valor": 45.0, "data": hoje.isoformat(), "categoria": "c-mercado",
+                                 "cartao": False, "situacao": "feito"}]}
     ap = [c for c in contas_a_pagar(d, hoje) if not c["pago"]]
     if re.search(r"\bpaguei\b", t):
         for c in ap:

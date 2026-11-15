@@ -200,14 +200,16 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 
 O balão ao lado do microfone abre uma conversa com a IA, a qualquer momento e em qualquer tela. Ela vê os seus dados (caixa, contas a pagar, fixos, lançamentos recentes, investimentos e patrimônio) e o que está na tela aberta, então dá para perguntar "quanto gastei com mercado este mês?", "o que vence esta semana?" ou "quanto rende a minha carteira?". Também conversa sobre outros assuntos.
 
-Com a conversa vazia, aparecem sugestões para a tela aberta: é só tocar.
+Com a conversa vazia, aparecem as **perguntas prontas** da tela aberta: é só tocar. Depois, o botão ✨ ao lado da caixa abre as mesmas a qualquer momento. Em **Editar perguntas**, o ✕ tira uma pergunta e **Adicionar** põe outra (aí valem para todas as telas); **Padrão** volta às de cada tela. Ficam guardadas no aparelho.
+
+O **clipe**, à esquerda da caixa, manda junto uma foto ou um PDF: **Tirar foto** (a câmera do Digitalizar com IA, até 4 páginas), **Escolher fotos** (a galeria, até 4) ou **Escolher arquivo** (uma foto ou um PDF; o PDF com senha abre com as senhas cadastradas). A IA lê o arquivo para responder ("quanto deu essa nota?") e, se for o caso, propõe lançar ou pagar, com o mesmo cartão para confirmar. Na conversa fica só o nome do arquivo.
 
 E ela faz, sempre pedindo confirmação: peça para **lançar** um gasto ou recebimento ("gastei 45 no mercado no cartão"), **pagar** uma conta que já está no app ("paguei a luz, 190 reais"; vale também para o fixo do mês e a fatura do cartão) ou **atualizar um saldo** e **aplicar** num investimento ("apliquei 500 na reserva"). A resposta traz um cartão com o que vai ser feito:
 
 - **Confirmar** faz na hora, com as mesmas regras da leitura por IA (conta, categoria, cartão e fatura, parcelas). Se parecer repetido, abre a conferência antes.
 - **Editar** abre a janela de sempre (a conferência da leitura por IA ou o Confirmar pagamento) por cima da conversa; salvar ou o Voltar do celular voltam para ela.
 
-O microfone dentro da conversa dita a pergunta (precisa de uma fala para texto no Home Assistant, como no Falar). A conversa fica guardada no app (as últimas 60 mensagens): fechou, abre de onde parou; **Nova conversa**, no alto, recomeça do zero. O Voltar do celular fecha a conversa. Usa a mesma IA de Ler com IA e respeita a chave **Usar IA**: desligada, o balão some.
+O microfone dentro da conversa (o botão redondo da direita, com a caixa vazia; escrevendo, ele vira o Enviar) dita a pergunta (precisa de uma fala para texto no Home Assistant, como no Falar). A conversa fica guardada no app (as últimas 60 mensagens): fechou, abre de onde parou; **Nova conversa**, no alto, recomeça do zero. O Voltar do celular fecha a conversa. Usa a mesma IA de Ler com IA e respeita a chave **Usar IA**: desligada, o balão some.
 
 ## Imagens
 

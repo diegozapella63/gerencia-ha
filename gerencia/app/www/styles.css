@@ -1312,10 +1312,35 @@ input[readonly] { opacity: .8; }
   background: var(--card-2); color: var(--text); font: 16px/1.35 var(--font); }
 .ch-campo textarea:focus { outline: none; border-color: var(--accent); }
 .ch-campo textarea:disabled { opacity: .7; }
+.ch-campo textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }  /* numa linha só, no celular estreito */
 .ch-campo .icbtn { flex: none; }
 .ch-env { background: var(--accent); color: var(--on-accent); }
 .ch-env:disabled { background: var(--card-2); color: var(--muted); }
 .ch-mic.on { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+/* o clipe (Tirar foto, Escolher fotos, Escolher arquivo), os arquivos escolhidos e as perguntas prontas, acima da caixa */
+.ch-clip.on, .ch-qbt.on { background: var(--accent-soft, color-mix(in srgb, var(--accent) 16%, transparent)); color: var(--accent-text); }
+.ch-qbt .ic { color: var(--accent-text); }
+.ch-menu { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.ch-op { display: flex; align-items: center; gap: 12px; min-height: var(--altura, 50px); padding: 0 12px; border-radius: 12px; font-size: 16px; font-weight: 500; color: var(--text); text-align: left; }
+.ch-op:active { background: var(--card-2); }
+.ch-op .ic { color: var(--accent-text); }
+.ch-prevs { display: flex; flex-direction: column; gap: 6px; }
+.ch-prev { display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 6px; border-radius: 12px; background: var(--card-2); font-size: 14px; }
+.ch-prev img, .ch-prev .ia-pdf { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; }
+.ch-prev > span:not(.ia-pdf) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-prev .icbtn { width: 36px; height: 36px; color: var(--muted); }
+.ch-anexo { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
+.ch-anexo + .ch-anexo { margin-top: 2px; }
+.ch-rapidas { max-height: 42vh; overflow-y: auto; padding: 10px 6px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); text-align: center; }
+.ch-ed-abrir { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 10px; color: var(--accent-text); font-weight: 600; font-size: 14px; }
+.ch-ed { text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.ch-ed-h { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: var(--text); }
+.ch-ed-h .ic-s { color: var(--accent-text); }
+.ch-ed-lin { display: flex; align-items: center; gap: 8px; padding: 2px 2px 2px 12px; border-radius: 12px; background: var(--card-2); color: var(--text); }
+.ch-ed-lin span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ch-ed-lin .icbtn { width: 40px; height: 40px; color: var(--muted); flex: none; }
+.ch-ed-nova { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.ch-ed-bts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cab-topo .mic-top + .mic-top { margin-left: 4px; }
 /* a conversa fica com altura fixa (não pula a cada mensagem); a lista ocupa o meio e o campo fica embaixo */
 .folha:has(.ch-pe) { height: 88vh; height: 88dvh; }

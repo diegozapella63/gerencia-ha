@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.72.0"
+VERSAO = "1.73.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2102,16 +2102,29 @@ def chat_enviar(corpo, usuario=None):
     if not ia_ligada(d):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
     texto = str(corpo.get("texto") or "").strip()[:chat.MAX_TEXTO]
-    if not texto:
+    # 1.73.0: fotos e PDF junto (Tirar foto, Escolher fotos, Escolher arquivo), como no Ler com IA (o PDF com senha abre
+    # com as cadastradas); só o nome fica na conversa
+    arquivos = _anexos(corpo)
+    if not texto and not arquivos:
         raise ValueError("Escreva uma mensagem.")
     eu = {"id": chat.uid(), "papel": "eu", "texto": texto, "em": chat.agora()}
     if corpo.get("fala"):
         eu["fala"] = True
+    if arquivos:
+        crus = corpo.get("anexos") if isinstance(corpo.get("anexos"), list) else [corpo.get("anexo") or {}]
+        nomes = [str(a.get("nome") or "").strip()[:80] for a in crus if isinstance(a, dict) and a.get("b64")]
+        eu["anexos"] = [n or ("arquivo.pdf" if m == "application/pdf" else "foto.jpg") for n, (_, m) in zip(nomes + [""] * len(arquivos), arquivos)]
     historico = CHAT.ler() + [eu]
     if IA_MOCK:
         time.sleep(0.6)
-        registrar_uso("chat", "ai_task.simulada", 2000, 300, 0, 0.6, "ok")
-        bruto = chat.simulado(texto, d)
+        registrar_uso("chat", "ai_task.simulada", 2000, 300, len(arquivos), 0.6, "ok")
+        bruto = chat.simulado(texto, d, anexos=len(arquivos))
+    elif arquivos:
+        instr = chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, anexos=len(arquivos))
+        try:
+            bruto = ia_tarefa(d, "chat", "GerencIA: conversa", instr, arquivos, timeout=180)
+        except ErroHA as e:
+            raise ValueError(str(e))
     else:
         payload = {"task_name": "GerencIA: conversa",
                    "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario)}

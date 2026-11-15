@@ -1,6 +1,7 @@
 """Conversar com a IA (chat.py e as rotas no server.py): a conversa guardada, o que a IA recebe (dados, tela e
 histórico), as ações que ela propõe (limpas antes de chegar na tela), a IA simulada e a IA de verdade contra um
 Home Assistant de mentira. Dados inventados (Ana, Banco Azul)."""
+import base64
 import json
 import os
 import unittest
@@ -263,6 +264,18 @@ class TestEnviarSimulado(unittest.TestCase):
         r = S.chat_enviar({"texto": "a" * 5000})
         self.assertEqual(len(r["mensagens"][0]["texto"]), C.MAX_TEXTO)
 
+    def test_foto_junto(self):
+        """Tirar foto, Escolher fotos ou Escolher arquivo: o arquivo vai para a IA e só o nome fica na conversa."""
+        jpg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff\xe0" + b"\1" * 50 + b"\xff\xd9").decode()
+        r = S.chat_enviar({"texto": "", "anexos": [{"nome": "nota.jpg", "b64": jpg}, {"b64": jpg}]})
+        eu, ia = r["mensagens"]
+        self.assertEqual((eu["texto"], eu["anexos"]), ("", ["nota.jpg", "foto.jpg"]), "sem texto vale, com o nome de cada arquivo")
+        self.assertNotIn("b64", json.dumps(eu))
+        self.assertEqual(ia["acoes"]["lancamentos"][0]["valor"], 45, "a IA simulada lê a nota de exemplo")
+        self.assertEqual(S.resumo_uso()["recent"][0]["images"], 2, "o uso conta as imagens")
+        with self.assertRaisesRegex(ValueError, "imagem .* ou um PDF"):
+            S.chat_enviar({"texto": "oi", "anexos": [{"nome": "x.txt", "b64": base64.b64encode(b"texto").decode()}]})
+
 
 class TestEnviarIAReal(unittest.TestCase):
     """O pedido ai_task.generate_data de verdade, num Home Assistant de mentira."""
@@ -308,6 +321,17 @@ class TestEnviarIAReal(unittest.TestCase):
     def test_nada_que_preste(self):
         self.resp = (200, {"service_response": {"data": {"outra": 1}}})
         self.assertEqual(S.chat_enviar({"texto": "?"})["mensagens"][-1]["texto"], "Não entendi. Pode dizer de outro jeito?")
+
+    def test_arquivo_vai_junto_para_a_ia(self):
+        jpg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff\xe0" + b"\1" * 50 + b"\xff\xd9").decode()
+        S.chat_enviar({"texto": "o que é isto?", "anexos": [{"nome": "recibo.jpg", "b64": jpg}]})
+        S.chat_enviar({"texto": "e agora?"})
+        p = json.loads([x for x in self.ha.pedidos if x[1].startswith("/services/ai_task/generate_data")][-2][3])
+        self.assertEqual((p["task_name"], len(p["attachments"]), p["attachments"][0]["media_content_type"]), ("GerencIA: conversa", 1, "image/jpeg"))
+        self.assertIn("a pessoa mandou 1 arquivo (foto ou PDF)", p["instructions"])
+        self.assertIn("Pessoa: [mandou recibo.jpg] o que é isto?", self.pedido()["instructions"], "o nome fica na conversa")
+        self.assertNotIn("attachments", self.pedido(), "a próxima vai sem o arquivo")
+        self.assertEqual(os.listdir(os.path.join(S.MEDIA_ROOT, S.IA_TMP_REL)), [], "o arquivo some depois")
 
     def test_erros_do_home_assistant(self):
         for resp, msg in (((500, {"message": "Cota excedida"}), "Cota excedida"), ((200, {"service_response": {}}), "não devolveu")):
