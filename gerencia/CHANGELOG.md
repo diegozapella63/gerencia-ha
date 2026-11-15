@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.72.0
+
+- **Contrair e expandir**: todo cartão com cabeçalho (no Agora, no Caixa, no Invest e em Mais) fecha e abre num toque no cabeçalho, com a seta no canto. O aparelho lembra os que ficaram fechados.
+- **Sensores no Home Assistant** como no ResolvIA: a chave **Criar sensores** e, num quadro embaixo dela, cada sensor numa linha com o que mostra (a fatura de cada cartão com o nome dele).
+- **Ícones nos campos**: o título de cada campo das janelas e de Mais ganhou o ícone que faltava.
+- **Relatório de patrimônio**: cada seção com o seu ícone, e **Voltar** e **Baixar PDF** com os deles.
+
 ## 1.71.3
 
 - **IA do Home Assistant** (Configurações › Integrações): o estado da IA e do Falar, a IA usada pelo app, a fala para texto e o Verificar de novo ficam num quadro embaixo de **Usar IA**, porque dependem dela.

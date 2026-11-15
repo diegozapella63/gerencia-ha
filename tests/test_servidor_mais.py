@@ -609,7 +609,7 @@ class TestRelatorioFiltro(unittest.TestCase):
         h = S.gerar_relatorio(carteira(), None, "terceiros").decode()
         self.assertIn('href="relatorio?quem=todos" ', h)
         self.assertIn("class=on aria-current=page>De terceiros</a>", h)
-        self.assertIn("<h2><span>De Mãe</span><b>R$ 2.000,00</b></h2>", h)
+        self.assertIn(f"<h2><span><span class=hic>{S.svg_rel('user')}</span>De Mãe</span><b>R$ 2.000,00</b></h2>", h)
         self.assertNotIn("CDB Azul", h)
 
     def test_cabecalho_como_o_dos_outros_apps(self):
@@ -626,12 +626,14 @@ class TestRelatorioFiltro(unittest.TestCase):
 
     def test_voltar_volta_ao_app(self):
         h = S.gerar_relatorio(carteira()).decode()
-        self.assertIn('<a href="./" onclick="if(history.length>1){history.back();return false}">Voltar</a>', h)
+        self.assertIn(f'<a href="./" onclick="if(history.length>1){{history.back();return false}}">{S.svg_rel("back")}<span>Voltar</span></a>', h)
 
     def test_baixar_pdf_em_vez_de_imprimir(self):
         """O app do Home Assistant no Android não imprime a página: o botão baixa o PDF feito pelo servidor."""
         h = S.gerar_relatorio(carteira(), "claro", "terceiros").decode()
-        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf" onclick="{S.BAIXAR}">Baixar PDF</a></div>', h)
+        self.assertIn(f'<a class="pri" href="relatorio.pdf?quem=terceiros" download="patrimonio-{date.today().isoformat()}-terceiros.pdf" onclick="{S.BAIXAR}">{S.svg_rel("download")}<span>Baixar PDF</span></a></div>', h)
+        # 1.72.0: Baixando… no lugar das palavras, o ícone fica
+        self.assertIn("this.querySelector('span')||this", S.BAIXAR)
         # 1.33.1: no app do Home Assistant no Android, o download vai pela página de cima (o do quadro não acontece)
         self.assertTrue(S.BAIXAR.startswith("try{var d=window.top.document") and '"' not in S.BAIXAR)
         self.assertNotIn("print()", h)
@@ -764,7 +766,7 @@ class TestRelatorioBens(unittest.TestCase):
 
     def test_pagina_com_as_colunas_dos_bens(self):
         h = S.gerar_relatorio(com_bens(carteira()), inventario=CASA, detalhar=True).decode()
-        self.assertIn("<h2><span>Bens e imóveis</span><b>R$ 147.700,00</b></h2><table class=inv><thead><tr><th>Bem</th><th>Cômodo</th>"
+        self.assertIn(f"<h2><span><span class=hic>{S.svg_rel('sofa')}</span>Bens e imóveis</span><b>R$ 147.700,00</b></h2><table class=inv><thead><tr><th>Bem</th><th>Cômodo</th>"
                       "<th>Por ano</th><th>Informado em</th><th class=n>Valor hoje</th>", h)
         self.assertIn("<td>TV da sala<small>Eletrônicos<span class=bm> · Sala</span></small></td><td>Sala</td><td>perde 20% a.a.</td>", h)
         self.assertIn("Bens: perdem ou ganham por ano a taxa da categoria", h)

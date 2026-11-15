@@ -312,7 +312,7 @@ Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 
 
 ## Sensores
 
-Com **Sensores no Home Assistant** ligado (em Mais › Configurações › Integrações; vem desligado), o app cria:
+Com **Criar sensores** ligado (em Mais › Configurações › Integrações › Sensores no Home Assistant; vem desligado), o app cria os sensores abaixo; a lista deles aparece num quadro embaixo da chave:
 
 - `sensor.gerencia_patrimonio`: o seu patrimônio, sem o dinheiro de terceiros (atributos `seu`, `de_terceiros`, `com_terceiros`, `investimentos` e, com o InventarIA, `com_bens`)
 - `sensor.gerencia_meu`

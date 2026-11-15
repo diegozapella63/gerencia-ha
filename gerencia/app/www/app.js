@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.71.3';
+const VERSAO = '1.72.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5660,23 +5660,34 @@ function sensoresFatura() {
     const base = semAcento(nomeConta(c)).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'cartao';
     const s = usados.has(base) ? `${base}_${String(c.id).toLowerCase().replace(/[^a-z0-9]/g, '').slice(-4)}` : base;
     usados.add(s);
-    return '_fatura_' + s;
+    return ['sensor.gerencia_fatura_' + s, `a fatura do ${nomeConta(c)}: quando fecha e vence e o limite usado`];
   });
 }
 /* --------- Integrações: outros apps, IA, uso da IA e sensores */
 function maisIntegracoes() {
   const a = S.d.ajustes, sens = a.sensores === true;
-  // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo
-  const lista = ['_meu', '_terceiros', '_rendimento_mensal', '_saldo_caixa', '_entradas_mes', '_saidas_mes', '_proxima_conta',
-    ...sensoresFatura(), ...(iaOn() ? ['_ia_hoje'] : []), ...(a.bens !== false && S.bens && S.bens.ok ? ['_bens'] : [])].map(s => `<code>${s}</code>`);
+  // só os sensores que o servidor cria: o da IA com Usar IA ligado; o dos bens com o InventarIA respondendo. Como no
+  // ResolvIA (1.72.0): a chave Criar sensores e, num quadro embaixo dela, cada sensor numa linha com o que mostra
+  const lista = [
+    ['sensor.gerencia_patrimonio', 'o patrimônio (com os bens nos atributos)'],
+    ['sensor.gerencia_meu', 'o seu dinheiro'],
+    ['sensor.gerencia_terceiros', 'o dinheiro de terceiros'],
+    ['sensor.gerencia_rendimento_mensal', 'quanto rende por mês'],
+    ['sensor.gerencia_saldo_caixa', 'o saldo em caixa'],
+    ['sensor.gerencia_entradas_mes', 'o que entrou no mês'],
+    ['sensor.gerencia_saidas_mes', 'o que saiu no mês'],
+    ['sensor.gerencia_proxima_conta', 'a próxima conta a pagar, com as dos 30 dias'],
+    ['binary_sensor.gerencia_conta_vencida', 'ligado com uma conta vencida'],
+    ...sensoresFatura(),
+    ...(a.bens !== false && S.bens && S.bens.ok ? [['sensor.gerencia_bens', 'os bens da casa, com o valor de hoje']] : []),
+    ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
+  ];
   // a ordem da família: os outros apps › CorrerIA › IA do Home Assistant (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
   return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
-      ${maisLead('Para painéis e automações.')}
-      ${linhaChave('sensores', sens, 'Criar os sensores', sens
-        ? `Ligado: <code>sensor.gerencia_patrimonio</code>, ${lista.join(', ')} e <code>binary_sensor.gerencia_conta_vencida</code>. Atualizam a cada mudança e a cada 15 minutos.`
-        : 'Desligado: nenhum sensor no Home Assistant.')}
-      ${sens && iaOn() ? `<p class="nota" style="margin:12px 0 0"><code>sensor.gerencia_ia_hoje</code>: chamadas de IA de hoje, com erros, cota e tokens.</p>` : ''}
+      ${maisLead('Para usar em painéis e automações do Home Assistant. Atualizam a cada mudança e a cada 15 minutos.')}
+      ${linhaChave('sensores', sens, 'Criar sensores', sens ? 'Ligado.' : 'Desligado: nenhum sensor no Home Assistant.')}
+      ${sens ? `<div class="sub-op"><div class="sub-box sensor-list">${lista.map(([e, o]) => `<div class="sensor-row"><code>${e}</code><span>${esc(o)}</span></div>`).join('')}</div></div>` : ''}
     </section>`;
 }
 
@@ -5948,6 +5959,20 @@ if (window.__selectSheet) window.__selectSheet.icon = sel => {
   const k = ICONE_CAIXA[sel.id] || ICONE_CAIXA[sel.dataset.iai] || ICONE_CAIXA[sel.dataset.iav] || ICONE_CAIXA[sel.dataset.fbcs];
   return k ? ic(k) : null;
 };
+// 1.72.0: o título de cada campo de uma janela (e de Mais) com o ícone pequeno antes, pelas palavras dele, quando o
+// campo ainda não traz o seu (o padrão da família: todo título de linha com ícone)
+const ICONE_CAMPO = [[/senha/i, 'lock'], [/milhas/i, 'plane'], [/taxa|%|índice/i, 'percent'], [/página|endereço|link/i, 'external-link'],
+  [/cole|mensagem/i, 'clipboard-paste'], [/valor|quanto|r\$|rendimento|cobrança|saldo|limite|preço/i, 'wallet'],
+  [/meses|anos|data|vence|venc|fecha|dia\b|quando|período/i, 'calendar'], [/hora/i, 'clock'], [/banco|conta\b/i, 'bank'],
+  [/cartão|como é pago|fatura/i, 'card'], [/fixo|repet|parcela/i, 'repeat'], [/de quem|pessoa|titular|quem/i, 'user'],
+  [/tipo|categoria|grupo/i, 'blocks'], [/caminho/i, 'smartphone'], [/e-mail|remetente/i, 'mail'], [/nível/i, 'gift']];
+const iconeCampo = t => (ICONE_CAMPO.find(([re]) => re.test(String(t || ''))) || [0, 'edit'])[1];
+function iconesCampos(raiz) {
+  for (const l of raiz.querySelectorAll('.campo > label, .campo > .lbl, label.lbl')) {
+    if (l.querySelector('svg') || !l.textContent.trim() || l.closest('.linha-sw, .opts, .seg')) continue;
+    l.insertAdjacentHTML('afterbegin', ic(iconeCampo(l.textContent), 'ic-s campo-ic'));
+  }
+}
 const iconeFolha = t => (ICONE_FOLHA.find(([re]) => re.test(String(t || '').replace(/<[^>]*>/g, ''))) || [0, 'edit'])[1];
 function pintarFolha(scrollPara) {
   if (!FOLHA) return;
@@ -5958,6 +5983,7 @@ function pintarFolha(scrollPara) {
   el.innerHTML = `<div class="folha-cab"><h2><span class="folha-ic" aria-hidden="true">${ic(f.icone || iconeFolha(f.titulo))}</span><span class="folha-tt">${f.titulo}</span></h2>${f.cab || ''}<button class="icbtn" data-a="fechar" aria-label="Fechar">${ic('x')}</button></div>
     <div class="folha-corpo">${f.corpo}</div>${f.pe ? `<div class="folha-pe">${f.pe}</div>` : ''}`;
   $('.folha-corpo', el).scrollTop = scroll;
+  iconesCampos(el);
   if (f.depois) f.depois(el);
 }
 // umNivel: o X, o Cancelar, o fundo escuro e o Voltar fecham só a folha de cima; o resto (salvou, trocou de tela) fecha todas
@@ -6478,6 +6504,51 @@ function marcarAbas() {
   }
 }
 document.addEventListener('scroll', ev => { if (ev.target.classList && ev.target.classList.contains('mais-abas')) marcarAbas(); }, true);
+/* 1.72.0 (padrão da família): toda seção (cartão com cabeçalho) fecha e abre num toque no cabeçalho, com a seta no
+   canto; o aparelho lembra as fechadas (a chave é o id do cartão, o data-card ou o título) */
+const DOBRA_KEY = 'gerencia.fechadas';
+let FECHADAS = null;
+function fechadas() {
+  if (!FECHADAS) { try { FECHADAS = new Set(JSON.parse(localStorage.getItem(DOBRA_KEY) || '[]')); } catch (e) { FECHADAS = new Set(); } }
+  return FECHADAS;
+}
+const chaveDobra = card => {
+  const t = card && card.querySelector(':scope > .mais-head h2, :scope > .rot .rot-t');
+  return card ? card.id || (card.dataset && card.dataset.card) || (t ? t.textContent.trim() : '') : '';
+};
+function aplicarDobras(raiz = document) {
+  const f = fechadas();
+  for (const cab of raiz.querySelectorAll('.card > .mais-head, .card > .rot')) {
+    const card = cab.parentElement, k = chaveDobra(card);
+    if (!k) continue;
+    const off = f.has(k);
+    card.classList.add('dobra');
+    card.classList.toggle('fechada', off);
+    cab.setAttribute('role', 'button');
+    cab.tabIndex = 0;
+    cab.setAttribute('aria-expanded', off ? 'false' : 'true');
+  }
+}
+function alternarDobra(cab) {
+  const k = chaveDobra(cab.parentElement);
+  if (!k) return;
+  const f = fechadas();
+  if (f.has(k)) f.delete(k); else f.add(k);
+  try { localStorage.setItem(DOBRA_KEY, JSON.stringify([...f])); } catch (e) { /* janela anônima: só por agora */ }
+  aplicarDobras();
+  ajustarTextos();
+}
+const cabDobra = ev => {
+  const cab = ev.target.closest && ev.target.closest('.card.dobra > .mais-head, .card.dobra > .rot');
+  return cab && !ev.target.closest('button, a, input, select, textarea, label, summary, [data-a]') ? cab : null;
+};
+document.addEventListener('click', ev => { const cab = cabDobra(ev); if (cab) alternarDobra(cab); });
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const cab = cabDobra(ev);
+  if (cab) { ev.preventDefault(); alternarDobra(cab); }
+});
+
 function render() {
   if (!S.d) return;
   aplicarTema();
@@ -6485,6 +6556,8 @@ function render() {
   const foco = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.ui;
   const pos = foco ? document.activeElement.selectionStart : null;
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
+  aplicarDobras();
+  iconesCampos($('#app'));
   pintarNav();
   pintarLado();
   marcarTela();

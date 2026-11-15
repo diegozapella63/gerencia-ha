@@ -1573,5 +1573,30 @@ input[readonly] { opacity: .8; }
 /* num celular bem estreito (320 px), os dois botões do pé da janela (Salvar e lançar outro, Salvar) sem o ícone, para o texto caber */
 @media (max-width: 360px) { .folha-pe .btn > .ic { display: none; } }
 /* os títulos das linhas com campo (IA usada pelo app, Horário, Quem recebe…) com o ícone antes */
-.campo label:has(> .ic-s), .campo .lbl:has(> .ic-s), .ctrl > .lbl:has(> .ic-s) { display: flex; align-items: center; gap: 8px; }
-.campo label > .ic-s, .campo .lbl > .ic-s, .ctrl > .lbl > .ic-s { color: var(--accent-text); }
+.campo label:has(> .ic-s), .campo .lbl:has(> .ic-s), .ctrl > .lbl:has(> .ic-s), label.lbl:has(> .ic-s) { display: flex; align-items: center; gap: 8px; }
+.campo label > .ic-s, .campo .lbl > .ic-s, .ctrl > .lbl > .ic-s, label.lbl > .ic-s { color: var(--accent-text); flex: none; }
+
+/* Sensores no Home Assistant (1.72.0, como no ResolvIA): Criar sensores e, num quadro embaixo, cada sensor numa linha */
+.sub-box.sensor-list { padding: 4px 14px; display: grid; }
+.sensor-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+.sensor-row:first-child { border-top: 0; }
+.sensor-row code { font-size: 13px; padding: 1px 6px; border-radius: 6px; background: var(--bg); color: var(--text); overflow-wrap: anywhere; }
+
+/* 1.72.0 (padrão da família): toda seção fecha e abre num toque no cabeçalho, a seta no canto (o aparelho lembra) */
+.card.dobra > .mais-head, .card.dobra > .rot { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.card.dobra > .mais-head::after, .card.dobra > .rot::after {
+  content: ""; flex: none; width: 20px; height: 20px; margin-left: auto; align-self: center; background: var(--muted); transition: transform .2s;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 20px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 20px no-repeat;
+}
+.card.dobra > .mais-head:has(.mais-aside)::after, .card.dobra > .rot:has(> .rot-t + *)::after { margin-left: 0; }
+.card.dobra.fechada > .mais-head::after, .card.dobra.fechada > .rot::after { transform: rotate(-90deg); }
+.card.dobra.fechada > :not(.mais-head):not(.rot) { display: none !important; }
+.card.dobra.fechada > .mais-head, .card.dobra.fechada > .rot { margin-bottom: 0; }
+.card.flush.dobra.fechada { padding-bottom: 18px; }
+.card.dobra > .mais-head:focus-visible, .card.dobra > .rot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+
+/* 1.72.0: o ícone posto pelas palavras do título do campo fica na linha do texto (o título pode ter partes, como
+   "Vencimento (opcional)", que não podem virar linhas separadas) */
+.campo label:has(> .campo-ic), .campo .lbl:has(> .campo-ic), label.lbl:has(> .campo-ic) { display: block; }
+.campo-ic { display: inline-block; vertical-align: -3px; margin-right: 8px; color: var(--accent-text); }

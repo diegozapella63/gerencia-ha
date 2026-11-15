@@ -831,30 +831,39 @@ class TestIntegracoes(TelaMais):
         self.assertEqual(self.js("[...document.querySelectorAll('#uso-ia .uso-ult li')].map(li => (li.querySelector('.uso-motivo') || {}).textContent || '')"),
                          ["", "", "", "", "O Home Assistant recusou o pedido: 429 Too Many Requests: limite de uso atingido"])
 
+    SENSORES = "[...document.querySelectorAll('#sensores > .sub-op > .sub-box.sensor-list .sensor-row code')].map(c => c.textContent)"
+
     def test_ligar_os_sensores(self):
         self.abrir_int()
         self.assertIn("Desligado: nenhum sensor no Home Assistant.", self.texto("#sensores"))
+        self.assertEqual(self.js(self.SENSORES), [], "desligados: sem a lista")
         self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
         self.assertTrue(self.dados()["ajustes"]["sensores"])
-        self.assertIn("Ligado: sensor.gerencia_patrimonio", self.texto("#sensores"))
+        # 1.72.0: como no ResolvIA, Criar sensores e, num quadro embaixo da chave, cada sensor numa linha com o que mostra
+        self.assertIn("Criar sensores", self.texto("#sensores"))
+        lista = self.js(self.SENSORES)
+        self.assertEqual(lista[:3], ["sensor.gerencia_patrimonio", "sensor.gerencia_meu", "sensor.gerencia_terceiros"])
+        self.assertIn("binary_sensor.gerencia_conta_vencida", lista)
+        linhas = self.js("[...document.querySelectorAll('#sensores .sensor-row')].map(r => [r.querySelector('span').textContent, parseFloat(getComputedStyle(r).borderTopWidth)])")
+        self.assertTrue(all(t for t, _ in linhas) and linhas[0][1] == 0 and all(b > 0 for _, b in linhas[1:]), linhas)
 
     # (era bug até a 1.28.0: desligados, a nota do sensor de IA aparecia; ligados, listavam _ia_hoje e _bens mesmo sem a IA e sem o InventarIA)
     def test_sensores_so_falam_dos_que_o_app_cria(self):
         sens = {"corrigir": True, "sensores": True}
         self.abrir_int()
-        self.assertEqual(self.conta("#sensores .nota"), 0, "desligados: sem a nota do sensor de IA")
         self.clicar('#sensores [data-a="ajuste"][data-k="sensores"]')
-        t = self.texto("#sensores")
-        self.assertIn("_fatura_banco_azul_beto, _ia_hoje e binary_sensor.gerencia_conta_vencida. Atualizam", t, "sem o InventarIA, sem o sensor dos bens")
-        self.assertNotIn("_bens", t)
-        self.assertEqual(self.texto("#sensores .nota"), "sensor.gerencia_ia_hoje: chamadas de IA de hoje, com erros, cota e tokens.")
+        lista = self.js(self.SENSORES)
+        self.assertIn("sensor.gerencia_fatura_banco_azul_beto", lista)
+        self.assertIn("sensor.gerencia_ia_hoje", lista)
+        self.assertNotIn("sensor.gerencia_bens", lista, "sem o InventarIA, sem o sensor dos bens")
         self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=sens), bens=BENS)
-        self.assertIn("_ia_hoje, _bens e binary_sensor.gerencia_conta_vencida. Atualizam", self.texto("#sensores"), "com o InventarIA, o dos bens")
+        lista = self.js(self.SENSORES)
+        self.assertTrue({"sensor.gerencia_ia_hoje", "sensor.gerencia_bens"} <= set(lista), "com o InventarIA, o dos bens")
         self.abrir_int(base(bancos=BANCOS, investimentos=[INV_CDB], ajustes=dict(sens, ia=False)), bens=BENS)
-        t = self.texto("#sensores")
-        self.assertIn("_proxima_conta, _fatura_banco_azul_ana, _fatura_banco_azul_beto, _bens e binary_sensor.gerencia_conta_vencida. Atualizam", t, "com a IA desligada, sem o sensor da IA; a fatura de cada cartão")
-        self.assertNotIn("_ia_hoje", t)
-        self.assertEqual(self.conta("#sensores .nota"), 0)
+        lista = self.js(self.SENSORES)
+        self.assertTrue({"sensor.gerencia_fatura_banco_azul_ana", "sensor.gerencia_fatura_banco_azul_beto", "sensor.gerencia_bens"} <= set(lista), "a fatura de cada cartão")
+        self.assertNotIn("sensor.gerencia_ia_hoje", lista, "com a IA desligada, sem o sensor da IA")
+        self.assertIn("a fatura do Banco Azul", self.texto("#sensores"))
 
     # 1.60.0: o nome do sensor da fatura na tela é o mesmo que o servidor cria (acentos, sem pessoa, nome repetido)
     def test_sensor_da_fatura_igual_ao_do_servidor(self):
@@ -863,9 +872,9 @@ class TestIntegracoes(TelaMais):
                                                                  {"id": "k-3", "pessoa": "Ana", "cartao": False}]},
                   {"id": "b2", "nome": "Banco Ômega", "contas": [{"id": "conta-B7", "pessoa": "Zé", "cartao": True}]}]
         self.abrir_int(base(bancos=bancos, ajustes={"corrigir": True, "sensores": True}))
-        esperado = [e.replace("sensor.gerencia", "") for e in I.sensores_contas({"bancos": bancos, "lancamentos": [], "recorrencias": []}) if "_fatura_" in e]
-        self.assertEqual(esperado, ["_fatura_banco_omega_ze", "_fatura_banco_omega", "_fatura_banco_omega_ze_tab7"])
-        self.assertIn(", ".join(esperado), self.texto("#sensores"))
+        esperado = [e for e in I.sensores_contas({"bancos": bancos, "lancamentos": [], "recorrencias": []}) if "_fatura_" in e]
+        self.assertEqual(esperado, ["sensor.gerencia_fatura_banco_omega_ze", "sensor.gerencia_fatura_banco_omega", "sensor.gerencia_fatura_banco_omega_ze_tab7"])
+        self.assertEqual([e for e in self.js(self.SENSORES) if "_fatura_" in e], esperado)
 
     # (era bug até a 1.28.0: o quadro mandava para Mais › Invest, que não tinha as categorias do InventarIA)
     def test_bens_sem_item_com_valor_nao_manda_para_mais_invest(self):
@@ -1281,6 +1290,7 @@ class TestRelatorioNoTema(TelaMais):
             caixas = pg.evaluate("[...document.querySelectorAll('.barra a')].map(a => { const r = a.getBoundingClientRect(); return [a.textContent, Math.round(r.width), Math.round(r.top), Math.round(r.height)] })")
             self.assertEqual([c[0] for c in caixas], ["Voltar", "Baixar PDF"])
             self.assertEqual(caixas[0][1:], caixas[1][1:], "mesmo tamanho e alinhados")
+            self.assertEqual(pg.evaluate("[...document.querySelectorAll('.barra a > svg.i, section > h2 .hic > svg.i')].length"), 2 + pg.evaluate("document.querySelectorAll('section > h2').length"), "1.72.0: Voltar, Baixar PDF e cada seção com o ícone")
             filtro = pg.evaluate("[...document.querySelectorAll('.filtro a')].map(a => [a.textContent, Math.round(a.getBoundingClientRect().width), a.className])")
             self.assertEqual([f[0] for f in filtro], ["Todos", "Meus", "De terceiros"])
             self.assertEqual(len({f[1] for f in filtro}), 1, f"os três do mesmo tamanho: {filtro}")

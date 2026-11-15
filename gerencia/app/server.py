@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.71.3"
+VERSAO = "1.72.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -691,8 +691,29 @@ MARCA = ('<footer class="marca"><span class="raio" aria-hidden="true"><svg viewB
 # com os backups (mesma origem, pelo ingress); sem isso (outra origem, sem quadro), o link baixa como sempre. O mesmo
 # do ResolvIA (lib/report.js) e do InventarIA.
 BAIXAR = ("try{var d=window.top.document,a=d.createElement('a');a.href=this.href;a.download=this.getAttribute('download')||'';a.target='_blank';"
-          "a.style.display='none';d.body.appendChild(a);a.dispatchEvent(new MouseEvent('click'));d.body.removeChild(a);var b=this;"
+          "a.style.display='none';d.body.appendChild(a);a.dispatchEvent(new MouseEvent('click'));d.body.removeChild(a);var b=this.querySelector('span')||this;"
           "b.textContent='Baixando…';setTimeout(function(){b.textContent='Baixar PDF'},4000);return false}catch(e){return true}")
+# 1.72.0: os ícones da página (os mesmos da tela): cada seção, o Voltar e o Baixar PDF
+ICONES_REL = {
+    "trend": '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    "bank": '<path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
+    "sofa": '<path d="M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 18v-6a2 2 0 0 1 4 0v2h10v-2a2 2 0 0 1 4 0v6z"/><path d="M5 18v2M19 18v2"/>',
+    "user": '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    "back": '<path d="m15 6-6 6 6 6"/>',
+    "download": '<path d="M12 4v11m-5-5 5 5 5-5"/><path d="M5 20h14"/>',
+}
+
+
+def svg_rel(nome):
+    return (f'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" '
+            f'stroke-linejoin="round" aria-hidden="true">{ICONES_REL.get(nome, ICONES_REL["trend"])}</svg>')
+
+
+def icone_secao(titulo):
+    """O ícone de uma seção do relatório: o dinheiro, os bens, de uma pessoa (de terceiros) e Por banco."""
+    return "bank" if titulo == "Por banco" else "sofa" if titulo.startswith("Bens") else "user" if titulo.startswith("De ") else "trend"
+
+
 RODAPE = "CorrerIA Code · desenvolvimento de softwares"  # quem faz o app (o mesmo do Mais › Sobre)
 
 
@@ -731,12 +752,12 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False,
                 e(l["banco"]), f"<small>{e(l['pessoa'])}</small>" if l.get("pessoa") else "", e(l["rendimento"]), e(l["vencimento"]), calc.fmt_brl(l["valor"]))
             for l in s["linhas"])
         cab = "".join(f"<th>{e(c)}</th>" for c in s["colunas"])
-        partes.append(f"<section><h2><span>{e(s['titulo'])}</span><b>{calc.fmt_brl(s['total'])}</b></h2>"
+        partes.append(f"<section><h2><span><span class=hic>{svg_rel(icone_secao(s['titulo']))}</span>{e(s['titulo'])}</span><b>{calc.fmt_brl(s['total'])}</b></h2>"
                       f"<table class=inv><thead><tr>{cab}<th class=n>Valor hoje</th></tr></thead><tbody>" + linhas + "</tbody></table></section>")
     if r["bancos"]:
         bancos_html = "".join(f"<tr><td>{e(n)}</td><td class=n>{calc.fmt_brl(v)}</td><td class=n>{calc.fmt_pct(p)}%</td></tr>"
                               for n, v, p in r["bancos"])
-        partes.append(f"""<section><h2><span>Por banco</span><b>{calc.fmt_brl(r['total'])}</b></h2>
+        partes.append(f"""<section><h2><span><span class=hic>{svg_rel("bank")}</span>Por banco</span><b>{calc.fmt_brl(r['total'])}</b></h2>
 <table><thead><tr><th>Banco</th><th class=n>Valor</th><th class=n>Parte</th></tr></thead><tbody>{bancos_html}</tbody></table></section>""")
     if not r["secoes"]:
         partes.append(f'<p class="vazio">{e(r["vazio"])}</p>')
@@ -776,7 +797,7 @@ main{{max-width:860px;margin:0 auto}}
 .filtro a{{flex:1;text-align:center;padding:8px 6px;border-radius:9px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}}
 .filtro a.on{{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}}
 .barra{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}}
-.barra a{{display:flex;align-items:center;justify-content:center;min-height:44px;font:inherit;font-size:14px;font-weight:600;padding:8px 10px;border-radius:12px;border:1px solid var(--borda);background:var(--card);color:var(--fg);text-decoration:none}}
+.barra a{{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font:inherit;font-size:14px;font-weight:600;padding:8px 10px;border-radius:12px;border:1px solid var(--borda);background:var(--card);color:var(--fg);text-decoration:none}}
 .barra a.pri{{background:var(--a);border-color:transparent;color:#0b0f14}}
 .det{{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-8px 0 18px;padding:10px 14px;border-radius:12px;border:1px solid var(--linha);background:var(--card);color:var(--fg);text-decoration:none;font-weight:600;font-size:14px}}
 .det .sw{{flex:none;width:44px;height:26px;border-radius:13px;background:var(--borda);position:relative}}
@@ -800,6 +821,10 @@ main{{max-width:860px;margin:0 auto}}
 section{{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:6px 16px 10px;margin-top:14px}}
 h2{{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;border-bottom:2px solid var(--a);padding:8px 0 6px;margin:0 0 4px}}
 h2 span,h2 b{{font:700 20px/1.2 "Barlow Condensed",Barlow,sans-serif}}
+h2 > span:first-child{{display:inline-flex;align-items:center;gap:10px}}
+.hic{{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border-radius:9px;background:color-mix(in srgb,var(--a) 22%,transparent);color:var(--fg)}}
+.hic .i{{width:17px;height:17px}}
+.barra .i{{width:18px;height:18px;flex:none}}
 table{{width:100%;border-collapse:collapse;font-size:14px}}
 th{{text-align:left;color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--linha)}}
 td{{padding:9px 6px;border-bottom:1px solid var(--linha2);vertical-align:top}}
@@ -819,7 +844,7 @@ td small{{display:block;color:var(--mut);font-size:12.5px}}
 @media print{{:root,:root[data-theme],:root:not([data-theme="light"]){{{claro};--bg:#fff;color-scheme:light}} .barra,.filtro,.det{{display:none}} body{{padding:0}} section,.marca{{break-inside:avoid-page}} .cab,section,.resumo div{{border-color:#d6dbe2}} .raio{{box-shadow:none}}}}
 </style></head><body><main>
 <nav class="filtro" aria-label="De quem">{filtro}</nav>
-<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">Voltar</a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}" onclick="{BAIXAR}">Baixar PDF</a></div>
+<div class="barra"><a href="./" onclick="if(history.length>1){{history.back();return false}}">{svg_rel("back")}<span>Voltar</span></a><a class="pri" href="relatorio.pdf?quem={r['quem']}{q_det}" download="{nome_relatorio(r['quem'])}" onclick="{BAIXAR}">{svg_rel("download")}<span>Baixar PDF</span></a></div>
 {detalhe}
 {cabecalho}
 <div class="resumo">{resumo}</div>{f'<p class="aviso">{e(r["aviso"])}</p>' if r["aviso"] else ""}
