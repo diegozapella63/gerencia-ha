@@ -56,7 +56,7 @@ with sync_playwright() as p:
     igual(len({c[1] for c in fl}), 1, 'os três do mesmo tamanho')
     igual(pg.inner_text('.filtro a.on'), 'Todos', 'começa em Todos')
     igual(pg.locator('.resumo span').all_inner_texts(), ['Patrimônio', 'Investido', 'Bens', 'De terceiros'], 'o resumo, como no Início')
-    titulos = [h.split('\n')[0] for h in pg.locator('h2 span').all_inner_texts()]
+    titulos = [h.split('\n')[0].strip() for h in pg.locator('h2 > span').all_inner_texts()]
     sim(titulos[0] == 'Seu dinheiro' and titulos[1] in ('Bens', 'Bens e imóveis'), 'o seu dinheiro e os bens primeiro', titulos)
     secao = lambda: pg.locator('section', has=pg.locator('h2 span', has_text='Bens')).inner_text()
     n_bens = 2 + len(bens_aqui)
