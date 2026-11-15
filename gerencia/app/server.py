@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.73.0"
+VERSAO = "1.74.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1970,8 +1970,9 @@ def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240):
     return dados
 
 
-def _fonte_ia(corpo, rotulo):
-    """O que a pessoa mandou para a IA ler: (dados, texto, anexos, endereço). O endereço da página vira o texto dela."""
+def _fonte_ia(corpo, rotulo, vazio=False):
+    """O que a pessoa mandou para a IA ler: (dados, texto, anexos, endereço). O endereço da página vira o texto dela.
+    vazio: pode não vir nada (a IA usa o que sabe, como os benefícios só com o banco e o nível)."""
     d = ler()
     if not ia_ligada(d):
         raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
@@ -1994,7 +1995,7 @@ def _fonte_ia(corpo, rotulo):
             raise ValueError("Não deu para abrir a página. Tente um print dela.") from None
         if len(re.findall(r"[A-Za-zÀ-ÿ]", texto)) < 40:
             raise ValueError("A página não mostrou o texto para o app (pode depender do navegador). Tente um print dela.")
-    if not arquivos and not texto:
+    if not arquivos and not texto and not vazio:
         raise ValueError("Envie um print, uma foto ou um PDF, ou cole o texto ou o endereço da página.")
     if not ia_disponivel(d):
         raise ValueError("Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).")
@@ -2004,19 +2005,23 @@ def _fonte_ia(corpo, rotulo):
 def beneficios_ler(corpo):
     """Um print, uma foto, um PDF, um texto ou o endereço da página oficial: a IA lista os benefícios para a tela conferir.
     Da página e do texto, só fica o que está escrito lá (beneficios.limpar)."""
-    d, texto, arquivos, url = _fonte_ia(corpo, "Benefícios")
     origem = str(corpo.get("origem") or "")[:60]
+    d, texto, arquivos, url = _fonte_ia(corpo, "Benefícios", vazio=bool(origem))
     de = beneficios.nome_origem(d, origem)
+    # 1.74.0: sem print, texto nem página, só a conta (o banco e o nível) ou o fixo: o que a IA sabe dele, para conferir
+    memoria = not texto and not arquivos
+    if memoria and not de:
+        raise ValueError("Envie um print, uma foto ou um PDF, ou cole o texto ou o endereço da página.")
     fixo = next((r for r in d.get("recorrencias") or [] if origem.startswith("fixo:") and r.get("id") == origem[5:]), None)
     preco = calc.mensal_recorrencia(fixo) if fixo else 0  # o plano de agora: a IA só traz os mais caros
     conferir = texto if not arquivos else ""  # do print e da foto não há texto para conferir
     if IA_MOCK:
         time.sleep(0.3)
         registrar_uso("beneficios", "ai_task.simulada", 1500, 400, len(arquivos), 0.3, "ok")
-        dados = beneficios.simulados(texto if not arquivos else beneficios.EXEMPLO_ANEXO)
+        dados = beneficios.simulados(beneficios.EXEMPLO_MEMORIA if memoria else texto if not arquivos else beneficios.EXEMPLO_ANEXO)
     else:
         mandar = beneficios.trechos(texto) if url else texto[:14000]
-        instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco)
+        instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco, memoria=memoria)
         try:
             dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos)
         except ErroHA as e:
@@ -2033,9 +2038,14 @@ def beneficios_ler(corpo):
     itens, recusados = beneficios.limpar(parsed, conferir or None)
     metas, recusadas = beneficios.limpar_metas(parsed, conferir or None)
     if not itens and not metas:
+        if memoria:
+            raise ValueError(f"A IA não sabe os benefícios de {de}. Mande um print ou a página deles.")
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
                          if recusados or recusadas else "A IA não achou benefícios nem oportunidades aqui.")
-    return {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
+    r = {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
+    if memoria:
+        r["memoria"] = True  # do que a IA sabe, sem fonte: a tela pede para conferir
+    return r
 
 
 def milhas_ler(corpo):

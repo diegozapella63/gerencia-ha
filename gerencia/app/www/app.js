@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.73.0';
+const VERSAO = '1.74.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -644,9 +644,10 @@ function apiDemo() {
     async beneficiosLer(c) {
       await espera(600);
       const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
-      const fonte = c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
+      const memoria = !t && !c.anexo && !c.anexos;  // só o banco e o nível: o que a IA "sabe" (um exemplo inventado)
+      const fonte = memoria ? BEN_MEMORIA : c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
       if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
-      return { beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' };
+      return Object.assign({ beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' }, memoria ? { memoria: true } : {});
     },
     // milhas lidas pela IA na prévia: a IA simulada (igual à do servidor, milhas.simulados); a imagem vira um exemplo inventado
     async milhasLer(c) {
@@ -2621,7 +2622,7 @@ function abrirCategoria(id, tipo) {
       cab: FC.id ? `<button class="icbtn" data-a="cat-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `${FC.id ? '' : `<div class="seg"><button class="${FC.tipo === 'despesa' ? 'on' : ''}" data-a="cat-tipo" data-v="despesa">${ic('minus')}Gasto</button><button class="${FC.tipo === 'receita' ? 'on' : ''}" data-a="cat-tipo" data-v="receita">${ic('plus')}Recebimento</button></div>`}
         <div class="campo"><label for="cat-nome">Nome</label><textarea id="cat-nome" rows="1" class="inp grow${FC.erro ? ' erro' : ''}" data-fc="nome" placeholder="${FC.tipo === 'despesa' ? 'Ex.: Farmácia, Viagens' : 'Ex.: Aluguel recebido'}" autocomplete="off">${esc(FC.nome)}</textarea>${FC.erro ? `<div class="msg-erro">${FC.erro}</div>` : ''}</div>
-        <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(cr => `<button class="cor${FC.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${cr}">${FC.cor === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
+        <div class="campo dobra-c" data-dobra="cat-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FC.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(cr => `<button class="cor${FC.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${cr}">${FC.cor === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'lançamento usa', 'lançamentos usam')} esta categoria.</p>` : ''}`,
       pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="cat-salvar">${ic('check')}Salvar</button>`,
     };
@@ -4582,7 +4583,7 @@ function abrirBanco(id, nome, sobre) {
       cab: FB.id ? `<button class="icbtn" data-a="b-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `<div class="campo"><label for="b-nome">Nome</label><input id="b-nome" class="inp${FB.erro ? ' erro' : ''}" data-fb="nome" value="${esc(FB.nome)}" placeholder="Ex.: Nubank, XP, Sicredi" data-sug="dl-b" autocomplete="off">
           <datalist id="dl-b">${BANCOS_COMUNS.map(x => `<option value="${esc(x)}">`).join('')}</datalist>${FB.erro ? `<div class="msg-erro">${FB.erro}</div>` : ''}</div>
-        <div class="campo"><div class="lbl">Cor</div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
+        <div class="campo dobra-c" data-dobra="banco-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FB.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         <div class="campo"><div class="lbl">Quem tem conta neste banco</div>
           ${FB.contas.map((c, i) => `<div class="conta-ed">
             <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" data-sug="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
@@ -4611,10 +4612,10 @@ function abrirBanco(id, nome, sobre) {
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
-        <div class="campo"><label for="b-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-          <textarea id="b-obs" class="inp grow" rows="1" data-fb="obs" placeholder="Agência, conta, gerente…" autocomplete="off">${esc(FB.obs || '')}</textarea></div>
-        ${iaOn() ? `<div class="campo"><label for="b-ofertas">Página de ofertas <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-          <input id="b-ofertas" class="inp${FB.erroOf ? ' erro' : ''}" data-fb="ofertas" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(FB.ofertas || '')}"
+        <div class="campo dobra-c" data-dobra="banco-obs"><div class="lbl">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span>${(FB.obs || '').trim() ? `<span class="fl-val">· ${esc(FB.obs.trim().split('\n')[0])}</span>` : ''}</div>
+          <textarea id="b-obs" class="inp grow" rows="1" data-fb="obs" placeholder="Agência, conta, gerente…" autocomplete="off" aria-label="Observação">${esc(FB.obs || '')}</textarea></div>
+        ${iaOn() ? `<div class="campo dobra-c" data-dobra="banco-ofertas"><div class="lbl">Página de ofertas <span style="color:var(--muted);font-weight:400">(opcional)</span>${(FB.ofertas || '').trim() ? `<span class="fl-val">· ${esc(dominioUrl(FB.ofertas.trim()))}</span>` : ''}</div>
+          <input id="b-ofertas" class="inp${FB.erroOf ? ' erro' : ''}" data-fb="ofertas" aria-label="Página de ofertas" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(FB.ofertas || '')}"
             placeholder="${paginaPronta(FB.nome) ? 'Automática: ' + esc(dominioUrl(paginaPronta(FB.nome))) : 'https://…'}">
           ${FB.erroOf ? `<div class="msg-erro">${FB.erroOf}</div>` : '<p class="ajuda">As taxas desta página entram nas Oportunidades.</p>'}</div>` : ''}
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'investimento usa', 'investimentos usam')} este banco.</p>` : ''}`,
@@ -4829,7 +4830,7 @@ function maisBancos() {
   }
   h += `<button class="btn out larga" data-a="banco" style="margin-top:14px">${ic('plus')}Cadastrar banco</button>`;
   const sug = BANCOS_COMUNS.filter(n => !d.bancos.some(b => (b.nome || '').toLowerCase() === n.toLowerCase())).slice(0, 10);
-  if (sug.length) h += `<div class="ctrl"><div class="lbl">${ic('bank', 'ic-s')}Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">${ic('plus', 'ic-s')}${esc(n)}</button>`).join('')}</div></div>`;
+  if (sug.length) h += `<div class="ctrl dobra-c" data-dobra="bancos-sug"><div class="lbl">${ic('bank', 'ic-s')}Toque para cadastrar</div><div class="chips">${sug.map(n => `<button class="chip" data-a="banco-sug" data-v="${esc(n)}">${ic('plus', 'ic-s')}${esc(n)}</button>`).join('')}</div></div>`;
   return h + `</section>`;
 }
 
@@ -5540,14 +5541,16 @@ const botaoBenConta = c => c.id && contas().some(k => k.id === c.id) ? botaoBen(
 const subBen = x => [x.tipo === 'vantagem' ? 'Vantagem' : `${qtdBen(x, +x.total || 0)} ${RENOVA_TXT[x.renova] || ''}`.trim(), x.obs || ''].filter(Boolean).join(' · ');
 function montarLerBeneficios() {
   const s = BLER, arq = s.arquivo;
-  if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>Lendo ${arq ? (arq.pdf ? 'o PDF' : 'a imagem') : /^\S+\.\S+$/.test(s.texto.trim()) ? 'a página' : 'o texto'} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
+  // 1.74.0: sem print, texto nem página, só a conta ou o fixo de De onde vêm: a IA usa o que sabe dele (o banco e o nível)
+  const soOrigem = !arq && !s.texto.trim() && !!s.origem && s.foco !== 'milhas';
+  if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>${soOrigem ? `Procurando os benefícios de ${esc(origemBeneficio({ origem: s.origem }).nome)}` : `Lendo ${arq ? (arq.pdf ? 'o PDF' : 'a imagem') : /^\S+\.\S+$/.test(s.texto.trim()) ? 'a página' : 'o texto'}`} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
   if (s.etapa === 'revisao') {
     const n = s.itens.filter(x => x.on).length + s.metas.filter(x => x.on).length, de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
     const item = (acao, k, x, nome, sub) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="${acao}" data-v="${k}">
           <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
     return {
       titulo: s.itens.length ? 'Benefícios encontrados' : 'Oportunidades encontradas',
-      corpo: `<p class="da-intro" style="margin:0 0 8px">${de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
+      corpo: `<p class="da-intro" style="margin:0 0 8px">${s.memoria ? `Do que a IA sabe${de ? ` de ${esc(de)}` : ''}: confira no app ou no site antes de cadastrar. ` : de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
         ${s.itens.length ? `<div class="bler-lista">${s.itens.map((x, k) => item('bler-marca', k, x, x.nome, subBen(x))).join('')}</div>` : ''}
         ${s.metas.length ? `${s.itens.length ? '<div class="lbl bler-sec">Oportunidades</div>' : ''}<div class="bler-lista">${s.metas.map((x, k) => item('bler-meta', k, x, x.ganha, subMetaLida(x))).join('')}</div>` : ''}`,
       pe: `<button class="btn" data-a="bler-voltar">${ic('back')}Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>${ic('check')}Cadastrar${n ? ' ' + n : ''}</button>`,
@@ -5562,7 +5565,7 @@ function montarLerBeneficios() {
       <div class="campo"><label for="bler-txt">Ou cole o texto ou o endereço da página</label>
         <textarea id="bler-txt" class="inp" data-bler="texto" rows="4" placeholder="${mil ? 'Ex.: https://… (a página do programa: níveis, como trocar)' : 'Ex.: https://… (a página dos benefícios do cartão ou do plano)'}">${esc(s.texto)}</textarea></div>
       ${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}`,
-    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
+    pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="bler-ler"${!arq && !s.texto.trim() && !soOrigem ? ' disabled' : ''}>${ic('ia', 'ic-s')}Ler com IA</button>`,
   };
 }
 async function blerPegarArquivo(file) {
@@ -5578,7 +5581,7 @@ function blerFotos(fotos) {
 }
 async function blerLer() {
   const s = BLER;
-  if (!s || (!s.arquivo && !s.texto.trim())) return;
+  if (!s || (!s.arquivo && !s.texto.trim() && !(s.origem && s.foco !== 'milhas'))) return;
   s.erro = ''; s.etapa = 'lendo'; pintarFolha();
   try {
     const corpo = { origem: s.origem, texto: s.texto.trim() };
@@ -5595,6 +5598,7 @@ async function blerLer() {
     }
     const r = await api.beneficiosLer(corpo);
     if (BLER !== s) return;
+    s.memoria = !!r.memoria;
     // o que já está cadastrado (mesmo nome, mesma origem) vem desmarcado
     s.itens = (r.beneficios || []).map(x => {
       const ja = S.d.beneficios.some(b => semAcento(b.nome) === semAcento(x.nome) && (b.origem || '') === (s.origem || ''));
@@ -5687,6 +5691,8 @@ function simMilhas(texto) {
   return out;
 }
 // a IA simulada da prévia: uma linha por benefício, como a do servidor (beneficios.simulados)
+// o que a IA simulada "sabe" de um banco (o mesmo exemplo inventado do servidor, beneficios.EXEMPLO_MEMORIA)
+const BEN_MEMORIA = 'Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nNível seguinte a partir de R$ 250 mil investidos';
 const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\nAnuidade grátis com R$ 50 mil investidos';
 // a linha que é uma condição para ganhar mais (investindo, gastando no cartão, um plano mais caro): oportunidade, não benefício
 const ehLinhaMeta = (ln, n) => /R\$\s?[\d.,]+/.test(ln) && /\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b/.test(n);
@@ -6060,6 +6066,7 @@ function pintarFolha(scrollPara) {
     <div class="folha-corpo">${f.corpo}</div>${f.pe ? `<div class="folha-pe">${f.pe}</div>` : ''}`;
   $('.folha-corpo', el).scrollTop = scroll;
   iconesCampos(el);
+  aplicarCampos(el);
   if (f.depois) f.depois(el);
 }
 // umNivel: o X, o Cancelar, o fundo escuro e o Voltar fecham só a folha de cima; o resto (salvou, trocou de tela) fecha todas
@@ -6625,6 +6632,40 @@ document.addEventListener('keydown', ev => {
   if (cab) { ev.preventDefault(); alternarDobra(cab); }
 });
 
+/* 1.74.0: um campo de uma janela ou de uma tela (Cor, Observação, Página de ofertas, Toque para cadastrar) também fecha
+   num toque no título (.dobra-c, o título é o primeiro .lbl); fechado, o escolhido ou o escrito ao lado (.fl-val) */
+const CAMPOS_KEY = 'gerencia.campos';
+let CAMPOS_F = null;
+function camposFechados() {
+  if (!CAMPOS_F) { try { CAMPOS_F = new Set(JSON.parse(localStorage.getItem(CAMPOS_KEY) || '[]')); } catch (e) { CAMPOS_F = new Set(); } }
+  return CAMPOS_F;
+}
+function aplicarCampos(raiz = document) {
+  const f = camposFechados();
+  for (const c of raiz.querySelectorAll('.dobra-c')) {
+    const t = c.querySelector(':scope > .lbl'), k = c.dataset.dobra;
+    if (!t || !k) continue;
+    const off = f.has(k);
+    c.classList.toggle('shut', off);
+    t.setAttribute('role', 'button');
+    t.tabIndex = 0;
+    t.setAttribute('aria-expanded', off ? 'false' : 'true');
+  }
+}
+function alternarCampo(t) {
+  const k = t.parentElement.dataset.dobra, f = camposFechados();
+  if (f.has(k)) f.delete(k); else f.add(k);
+  try { localStorage.setItem(CAMPOS_KEY, JSON.stringify([...f])); } catch (e) { /* janela anônima: só por agora */ }
+  aplicarCampos();
+}
+const tituloCampo = ev => ev.target.closest && !ev.target.closest('button, a, input, select, textarea, [data-a]') ? ev.target.closest('.dobra-c > .lbl') : null;
+document.addEventListener('click', ev => { const t = tituloCampo(ev); if (t) alternarCampo(t); });
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const t = tituloCampo(ev);
+  if (t) { ev.preventDefault(); alternarCampo(t); }
+});
+
 function render() {
   if (!S.d) return;
   aplicarTema();
@@ -6633,6 +6674,7 @@ function render() {
   const pos = foco ? document.activeElement.selectionStart : null;
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
   aplicarDobras();
+  aplicarCampos($('#app'));
   iconesCampos($('#app'));
   pintarNav();
   pintarLado();

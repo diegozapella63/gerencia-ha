@@ -214,6 +214,27 @@ class TestLerComIA(TelaBen):
         self.esperar()
         self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 0, "sem a IA, não aparece")
 
+    def test_so_o_banco_e_o_nivel(self):
+        """1.74.0: a conta já diz o banco e o nível: o Ler com IA vale sem print, texto nem página (a IA usa o que sabe deles,
+        e a tela pede para conferir); com Nenhum em De onde vêm, não."""
+        import beneficios as B
+        self.abrir_ben()
+        self.assertEqual(self.js("T.BEN_MEMORIA"), B.EXEMPLO_MEMORIA, "o mesmo exemplo inventado do servidor")
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO]), ui={"tab": "mais", "maisTela": "bancos"})
+        self.js("(T.abrirBanco('b-azul'), true)")
+        self.esperar()
+        self.clicar('.folha [data-a="ben-identificar"][data-v="conta:k-ana"]')
+        self.assertEqual(self.folha(), "Ler benefícios com IA")
+        self.assertFalse(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"), "só a conta já basta")
+        self.ler()
+        self.assertEqual(self.folha(), "Benefícios encontrados")
+        self.assertEqual(self.texto("#folhas .da-intro"), "Do que a IA sabe de Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser.")
+        self.assertEqual([x[1:3] for x in self.itens()], [["Cashback", "Vantagem"], ["Sala VIP", "2 por ano"], ["Seguro viagem", "Vantagem"],
+                                                         ["Nível seguinte", "Investindo R$ 250 mil"]])
+        self.clicar('#folhas [data-a="bler-voltar"]')
+        self.clicar('.folha [data-a="bler-origem"][data-v=""]')
+        self.assertTrue(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"), "com Nenhum, precisa de algo para ler")
+
     def test_identificar_beneficios_de_uma_assinatura(self):
         """1.53: um gasto fixo, como uma assinatura, também dá benefícios: no fixo, Identificar benefícios abre a leitura
         por IA já com ele em De onde vêm (a assinatura com o nome dela); cadastrar volta para o fixo."""

@@ -78,7 +78,19 @@ Responda somente com JSON válido, sem markdown e sem texto antes ou depois, nes
 {{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]}}{texto}"""
 
 
-def prompt(origem="", url="", texto="", anexo=False, preco=0):
+# 1.74.0: só com o banco e o nível (Identificar benefícios sem print, texto nem página): o que a IA sabe dele, para conferir
+ABRE = "Você lê {fonte}{de} e lista os benefícios que a pessoa ganha:"
+REGRA = "Use só o que estiver escrito{onde}. Não use o que você sabe de memória."
+PROMPT_MEMORIA = PROMPT.replace(ABRE, "Você conhece os bancos, os cartões e os planos do Brasil. Liste os benefícios que a pessoa ganha com {de}:").replace(
+    REGRA, "Use o que você sabe de {de} (o que o banco ou a empresa publica no site e no app), para o nível e o cartão dela."
+    " Sem certeza de um número, use \"vantagem\" com total 0; se não souber, devolva as listas vazias. Em \"trecho\", escreva \"\".")
+
+
+def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False):
+    if memoria:
+        qual = (" Os benefícios são só os do nível e do cartão dela; os de um nível acima entram em \"oportunidades\", com o valor que"
+                " ele pede.")
+        return PROMPT_MEMORIA.format(de=origem, qual=qual, texto="")
     if url:
         fonte, onde = f"a página {url}", " na página"
     elif anexo:
@@ -205,6 +217,9 @@ def limpar(parsed, texto=None):
 
 
 # ---------------------------------------------------------------- a IA simulada (testes e desenvolvimento)
+
+# o que a IA simulada "sabe" de um banco (só o nome e o nível, sem fonte): um exemplo inventado
+EXEMPLO_MEMORIA = "Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nNível seguinte a partir de R$ 250 mil investidos"
 
 EXEMPLO_ANEXO = ("6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\n"
                  "Anuidade grátis com R$ 50 mil investidos")

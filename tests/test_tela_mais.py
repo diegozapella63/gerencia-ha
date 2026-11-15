@@ -339,6 +339,38 @@ class TestMaisBancos(TelaMais):
         self.assertNotIn("_aba", self.banco("b-azul")["contas"][0], "a aba não é gravada")
         self.assertEqual(self.banco("b-azul")["contas"][0]["debito_global"], "USD")
 
+    def test_1_74_campos_que_fecham(self):
+        """1.74.0: em Editar banco, Cor, Observação e Página de ofertas fecham num toque no título (fechados, o escolhido ou o
+        escrito ao lado); em Mais › Bancos, o Toque para cadastrar também. O aparelho lembra."""
+        self.abrir_bancos()
+        # (o que fica fechado é do aparelho: não passa para os outros testes desta página)
+        self.addCleanup(lambda: self.js("(localStorage.removeItem('gerencia.campos'), T.CAMPOS_F = null, true)"))
+        sug = '#app .dobra-c[data-dobra="bancos-sug"]'
+        self.assertEqual(self.conta(sug + ' > .lbl[role="button"]'), 1)
+        self.clicar(sug + ' > .lbl')
+        self.assertTrue(self.js(f"document.querySelector('{sug}').classList.contains('shut')"))
+        self.assertEqual(self.conta('#app [data-a="banco-sug"]:visible'), 0, "os bancos sugeridos somem")
+        self.clicar('[data-a="banco"][data-id="b-verde"]')
+        for k in ("banco-cor", "banco-obs", "banco-ofertas"):
+            self.assertEqual(self.conta(f'.folha .dobra-c[data-dobra="{k}"] > .lbl[aria-expanded="true"]'), 1, k)
+        self.preencher('#b-obs', "Agência 1234\nGerente Carla")
+        self.clicar('.folha .dobra-c[data-dobra="banco-cor"] > .lbl')
+        self.clicar('.folha .dobra-c[data-dobra="banco-obs"] > .lbl')
+        self.assertEqual(self.conta('.folha [data-a="b-cor"]:visible'), 0, "a cor fechada")
+        self.assertEqual(self.conta('.folha .dobra-c[data-dobra="banco-cor"] .cor-val:visible'), 1, "com a cor escolhida ao lado do título")
+        self.assertEqual(self.conta('.folha #b-obs:visible'), 0)
+        self.js("(T.pintarFolha(), true)")
+        self.assertEqual(self.texto('.folha .dobra-c[data-dobra="banco-obs"] .fl-val'), "· Agência 1234", "a primeira linha da observação")
+        self.clicar('[data-a="b-salvar"]')
+        self.assertEqual(self.banco("b-verde")["obs"], "Agência 1234\nGerente Carla", "fechada, a observação continua")
+        self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.campos'))")), ["banco-cor", "banco-obs", "bancos-sug"], "o aparelho lembra")
+        self.js("(T.CAMPOS_F = null, T.render(), true)")
+        self.assertTrue(self.js(f"document.querySelector('{sug}').classList.contains('shut')"), "lido de novo do aparelho")
+        self.clicar('[data-a="banco"][data-id="b-verde"]')
+        self.assertTrue(self.js("document.querySelector('.folha .dobra-c[data-dobra=\"banco-obs\"]').classList.contains('shut')"))
+        self.clicar('.folha .dobra-c[data-dobra="banco-obs"] > .lbl')
+        self.assertEqual(self.conta('.folha #b-obs:visible'), 1, "abre de novo num toque")
+
     def test_cadastrar_banco_com_pessoa_e_cartao(self):
         self.abrir_bancos()
         self.clicar('.btn[data-a="banco"]')

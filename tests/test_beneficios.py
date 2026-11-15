@@ -87,6 +87,16 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertNotIn("só os de", a)
         self.assertTrue(a.endswith("]}"), "sem texto, o pedido acaba no formato")
 
+    def test_pedido_so_com_o_banco_e_o_nivel(self):
+        """1.74.0: sem print, texto nem página, o que a IA sabe do banco e do nível da pessoa (a tela pede para conferir)."""
+        p = B.prompt("Banco Azul, nível Prime, cartão Black", memoria=True)
+        self.assertTrue(p.startswith("Você conhece os bancos, os cartões e os planos do Brasil. Liste os benefícios que a pessoa ganha com Banco Azul, nível Prime, cartão Black:"))
+        self.assertIn("Use o que você sabe de Banco Azul, nível Prime, cartão Black", p)
+        self.assertIn("os de um nível acima entram em \"oportunidades\"", p)
+        self.assertNotIn("Não use o que você sabe de memória", p)
+        self.assertNotIn("Você lê", p)
+        self.assertTrue(p.endswith("]}"), "nada depois do formato")
+
     def test_trechos_da_pagina(self):
         texto = "Menu\n" + "Abra sua conta. " * 400 + "\n6 acessos à sala VIP por ano\n" + "Rodapé. " * 400
         t = B.trechos(texto)
@@ -198,6 +208,21 @@ class TestLerNoServidor(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "A IA está desligada"):
             S.beneficios_ler({"texto": "Frete grátis"})
 
+    def test_so_a_conta(self):
+        """1.74.0: só a conta (o banco e o nível), sem nada para ler: o que a IA sabe, marcado para conferir; o número fica."""
+        self.salvar()
+        r = S.beneficios_ler({"origem": "conta:k1"})
+        self.assertTrue(r["memoria"])
+        self.assertEqual([(b["nome"], b["tipo"], b.get("total"), b["renova"]) for b in r["beneficios"]],
+                         [("Cashback", "vantagem", None, "nunca"), ("Sala VIP", "contagem", 2, "ano"), ("Seguro viagem", "vantagem", None, "nunca")])
+        self.assertEqual([(m["tipo"], m["valor"], m["ganha"]) for m in r["oportunidades"]], [("investido", 250000, "Nível seguinte")])
+        self.assertNotIn("memoria", S.beneficios_ler({"origem": "conta:k1", "texto": "Frete grátis"}), "com texto, como antes")
+        with self.assertRaisesRegex(ValueError, "Envie um print"):
+            S.beneficios_ler({"origem": "conta:nao-existe"})
+        with mock.patch.object(B, "simulados", return_value={"beneficios": []}), \
+                self.assertRaisesRegex(ValueError, "A IA não sabe os benefícios de Banco Azul, nível Prime, cartão Black. Mande um print"):
+            S.beneficios_ler({"origem": "conta:k1"})
+
     def test_endereco_sem_https(self):
         self.salvar()
         abertos = []
@@ -282,6 +307,15 @@ class TestIaDeVerdade(unittest.TestCase):
         self.ia(S.ErroHA("Formato não aceito."))
         with mock.patch.object(S, "pdf_texto", return_value=""), self.assertRaisesRegex(ValueError, "Formato não aceito."):
             S.beneficios_ler({"anexo": {"b64": pdf}})
+
+    def test_so_a_conta_vai_pelo_que_a_ia_sabe(self):
+        self.ia({"beneficios": [{"nome": "Sala VIP", "tipo": "contagem", "total": 4, "renova": "ano", "trecho": ""}]})
+        r = S.beneficios_ler({"origem": "conta:k1"})
+        self.assertEqual([(b["nome"], b["total"]) for b in r["beneficios"]], [("Sala VIP", 4)], "sem trecho para conferir, o número fica")
+        tipo, payload, n, _ = self.pedidos[0]
+        self.assertIn("Use o que você sabe de Banco Azul, nível Prime, cartão Black", payload["instructions"])
+        self.assertEqual(n, 0)
+        self.assertNotIn("attachments", payload)
 
     def test_texto_vai_sem_anexo_e_sem_resposta_avisa(self):
         self.ia(None)

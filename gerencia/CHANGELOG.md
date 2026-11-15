@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.74.0
+
+- **Identificar benefícios**: a conta já diz o banco e o nível, então o **Ler com IA** funciona sem print, texto ou página. A IA traz o que sabe daquele banco, nível e cartão, e a conferência avisa para olhar no app ou no site antes de cadastrar. Um print, um texto ou a página continuam valendo, como antes.
+- **Editar banco**: **Cor**, **Observação** e **Página de ofertas** fecham num toque no título. Fechados, a cor escolhida ou o que foi escrito aparece ao lado. Na **Categoria**, a **Cor** também fecha.
+- **Mais › Bancos**: **Toque para cadastrar** (os bancos sugeridos) fecha num toque no título.
+- O aparelho lembra o que ficou fechado.
+
 ## 1.73.0
 
 - **Conversar com a IA › Clipe**: manda junto uma foto ou um PDF: **Tirar foto**, **Escolher fotos** (a galeria) ou **Escolher arquivo**. A IA lê o arquivo para responder e, se for o caso, propõe lançar ou pagar.
