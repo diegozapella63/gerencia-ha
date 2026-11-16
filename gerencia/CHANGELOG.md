@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.74.2
+
+- **Editar banco › Ver os N benefícios**: os benefícios da conta abrem ali mesmo, por cima. Dá para tocar em **Usei** e, tocando no benefício, editar e voltar para a lista.
+- **Identificar benefícios** (numa conta) também traz o **próximo nível** e quanto ele pede investido, para conferir junto com os benefícios. Ao cadastrar, ele vai para **Próximo nível** e **Pede investido** da conta. Se já estiver igual, vem desmarcado.
+- **Global › Tem cartão adicional?**: ligado, pergunta **Para quem**. A lista de Bancos e a IA passam a dizer para quem é o adicional.
+
 ## 1.74.1
 
 - **Editar investimento**: **Banco**, **Tipo**, **Rendimento**, **Vencimento** e **Imagens guardadas** fecham num toque no título. Fechados, o escolhido aparece ao lado, por exemplo "Rendimento · 110% do CDI". O aparelho lembra.

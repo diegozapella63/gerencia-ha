@@ -398,6 +398,8 @@ def _cadastros(d):
             it["cartao_de_debito_global"] = {"moeda": c["debito_global"]}
         if c.get("credito_global"):
             it["cartao_de_credito_global"] = {"moeda": c["credito_global"], "adicional": c.get("credito_global_adicional") is True}
+            if c.get("credito_global_adicional") is True and c.get("credito_global_para"):
+                it["cartao_de_credito_global"]["adicional_para"] = str(c["credito_global_para"])
         contas.append(it)
     fixos = []
     for r in d.get("recorrencias", []):

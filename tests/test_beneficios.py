@@ -87,6 +87,19 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertNotIn("só os de", a)
         self.assertTrue(a.endswith("]}"), "sem texto, o pedido acaba no formato")
 
+    def test_limpar_proximo(self):
+        lp = B.limpar_proximo
+        self.assertEqual(lp({"proximo_nivel": {"nivel": " Black ", "valor": "100.000", "trecho": ""}}), {"nivel": "Black", "valor": 100000, "trecho": ""})
+        self.assertIsNone(lp({"proximo_nivel": {"nivel": "Black", "valor": 0}}))
+        self.assertIsNone(lp({"proximo_nivel": {"nivel": "", "valor": 5}}))
+        self.assertIsNone(lp({"proximo_nivel": "Black"}))
+        self.assertIsNone(lp([]))
+        self.assertIsNone(lp({"proximo_nivel": {"nivel": "Black", "valor": 100000, "trecho": "Black com R$ 90 mil"}}), "o valor precisa estar no trecho")
+        self.assertIsNone(lp({"proximo_nivel": {"nivel": "Black", "valor": 100000, "trecho": "R$ 100 mil"}}, "outro texto"), "e o trecho no texto")
+        self.assertIsNotNone(lp({"proximo_nivel": {"nivel": "Black", "valor": 100000, "trecho": "R$ 100 mil"}}, "Black com R$ 100 mil investidos"))
+        self.assertIn("\"proximo_nivel\":{\"nivel\":\"\",\"valor\":0,\"trecho\":\"\"}", B.prompt("Banco Azul", "", "x", conta=True))
+        self.assertNotIn("proximo_nivel", B.prompt("Plano Sol", "", "x"))
+
     def test_pedido_so_com_o_banco_e_o_nivel(self):
         """1.74.0: sem print, texto nem página, o que a IA sabe do banco e do nível da pessoa (a tela pede para conferir)."""
         p = B.prompt("Banco Azul, nível Prime, cartão Black", memoria=True)
@@ -215,13 +228,34 @@ class TestLerNoServidor(unittest.TestCase):
         self.assertTrue(r["memoria"])
         self.assertEqual([(b["nome"], b["tipo"], b.get("total"), b["renova"]) for b in r["beneficios"]],
                          [("Cashback", "vantagem", None, "nunca"), ("Sala VIP", "contagem", 2, "ano"), ("Seguro viagem", "vantagem", None, "nunca")])
-        self.assertEqual([(m["tipo"], m["valor"], m["ganha"]) for m in r["oportunidades"]], [("investido", 250000, "Nível seguinte")])
+        self.assertEqual(r["oportunidades"], [])
+        self.assertEqual((r["proximo"]["nivel"], r["proximo"]["valor"]), ("Ouro", 250000), "1.74.2: o próximo nível da conta e quanto pede")
         self.assertNotIn("memoria", S.beneficios_ler({"origem": "conta:k1", "texto": "Frete grátis"}), "com texto, como antes")
         with self.assertRaisesRegex(ValueError, "Envie um print"):
             S.beneficios_ler({"origem": "conta:nao-existe"})
         with mock.patch.object(B, "simulados", return_value={"beneficios": []}), \
                 self.assertRaisesRegex(ValueError, "A IA não sabe os benefícios de Banco Azul, nível Prime, cartão Black. Mande um print"):
             S.beneficios_ler({"origem": "conta:k1"})
+
+    def test_proximo_nivel(self):
+        """1.74.2: numa conta, o nível logo acima e quanto pede investido; do texto, só se estiver escrito, com o valor no
+        trecho; a mesma condição não vem de novo como oportunidade; num fixo, não vem."""
+        self.salvar()
+        t = "Sala VIP liberada\nPróximo nível: Black, a partir de R$ 100 mil investidos"
+        r = S.beneficios_ler({"origem": "conta:k1", "texto": t})
+        self.assertEqual(r["proximo"], {"nivel": "Black", "valor": 100000, "trecho": "Próximo nível: Black, a partir de R$ 100 mil investidos"})
+        self.assertNotIn("proximo", S.beneficios_ler({"origem": "fixo:r-sol", "texto": t}))
+        r = S.beneficios_ler({"origem": "conta:k1", "texto": "Próximo nível: Black, a partir de R$ 100 mil investidos"})
+        self.assertEqual((r["beneficios"], r["oportunidades"], r["proximo"]["nivel"]), ([], [], "Black"), "só o próximo nível já basta")
+        falso = {"beneficios": [], "proximo_nivel": {"nivel": "Black", "valor": 100000, "trecho": "Black com R$ 90 mil"},
+                 "oportunidades": [{"tipo": "investido", "valor": 100000, "ganha": "Nível Black", "trecho": "a partir de R$ 100 mil investidos"}]}
+        with mock.patch.object(B, "simulados", return_value=falso):
+            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Black: a partir de R$ 100 mil investidos"})
+        self.assertNotIn("proximo", r, "o trecho não está no texto")
+        falso["proximo_nivel"]["trecho"] = "a partir de R$ 100 mil investidos"
+        with mock.patch.object(B, "simulados", return_value=falso):
+            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Black: a partir de R$ 100 mil investidos"})
+        self.assertEqual((r["proximo"]["nivel"], r["oportunidades"]), ("Black", []), "a mesma condição não vira oportunidade")
 
     def test_endereco_sem_https(self):
         self.salvar()

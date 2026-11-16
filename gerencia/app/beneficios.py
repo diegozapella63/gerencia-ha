@@ -73,9 +73,9 @@ Liste também, em "oportunidades", o que a pessoa ganha a mais cumprindo uma con
 - "ganha": o que a pessoa ganha, curto, até 40 caracteres (ex.: "Sem anuidade", "Sala VIP", "Nível Black", "2 TB e mais 4 pessoas").
 - "plano": o nome do plano mais caro, só no tipo "plano"; "" no resto.
 - "trecho": o pedaço do texto onde aparece a condição com o valor, copiado exatamente como está (até 100 caracteres).
-Use só o que estiver escrito{onde}. Não use o que você sabe de memória. Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios e 10 oportunidades.
+Use só o que estiver escrito{onde}. Não use o que você sabe de memória. Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios e 10 oportunidades.{prox}
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
-{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]}}{texto}"""
+{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]{prox_fmt}}}{texto}"""
 
 
 # 1.74.0: só com o banco e o nível (Identificar benefícios sem print, texto nem página): o que a IA sabe dele, para conferir
@@ -86,11 +86,20 @@ PROMPT_MEMORIA = PROMPT.replace(ABRE, "Você conhece os bancos, os cartões e os
     " Sem certeza de um número, use \"vantagem\" com total 0; se não souber, devolva as listas vazias. Em \"trecho\", escreva \"\".")
 
 
-def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False):
+# 1.74.2: numa conta de banco, o nível de conta logo acima do dela e quanto ele pede investido (vai para Próximo nível e
+# Pede investido, em Editar banco; não entra nas oportunidades, que já mostram o próximo nível da conta)
+PROX = ("\nEm \"proximo_nivel\", o nível de conta logo acima do da pessoa nesse banco: \"nivel\" (o nome, ex.: \"Black\"), \"valor\""
+        " (quanto ele pede investido, em reais, como número) e \"trecho\" (como acima); {{\"nivel\":\"\",\"valor\":0,\"trecho\":\"\"}} se não"
+        " houver. Esse nível não entra em \"oportunidades\".")
+PROX_FMT = ',"proximo_nivel":{{"nivel":"","valor":0,"trecho":""}}'
+
+
+def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False, conta=False):
+    prox = {"prox": PROX.replace("{{", "{").replace("}}", "}") if conta else "", "prox_fmt": PROX_FMT.replace("{{", "{").replace("}}", "}") if conta else ""}
     if memoria:
         qual = (" Os benefícios são só os do nível e do cartão dela; os de um nível acima entram em \"oportunidades\", com o valor que"
-                " ele pede.")
-        return PROMPT_MEMORIA.format(de=origem, qual=qual, texto="")
+                " ele pede" + (", menos o logo acima, que vai em \"proximo_nivel\"." if conta else "."))
+        return PROMPT_MEMORIA.format(de=origem, qual=qual, texto="", **prox)
     if url:
         fonte, onde = f"a página {url}", " na página"
     elif anexo:
@@ -103,7 +112,7 @@ def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False):
     if preco > 0:
         qual += f" A pessoa paga hoje {calc.fmt_brl(preco)} por mês: num \"plano\", só os que custam mais que isso."
     corpo = f"\n\n{'Trechos da página' if url else 'Texto'}:\n<<<\n{texto}\n>>>" if texto else ""
-    return PROMPT.format(fonte=fonte, de=f" (de: {origem})" if origem else "", onde=onde, qual=qual, texto=corpo)
+    return PROMPT.format(fonte=fonte, de=f" (de: {origem})" if origem else "", onde=onde, qual=qual, texto=corpo, **prox)
 
 
 def tem_numero(trecho, valor):
@@ -165,6 +174,26 @@ def limpar_metas(parsed, texto=None):
     return saida, recusadas
 
 
+def limpar_proximo(parsed, texto=None):
+    """O próximo nível da conta que a IA devolveu (1.74.2): {nivel, valor, trecho} ou None. Com texto, só se estiver escrito
+    lá, com o valor no trecho (como as oportunidades)."""
+    p = parsed.get("proximo_nivel") if isinstance(parsed, dict) else None
+    if not isinstance(p, dict):
+        return None
+    nivel = re.sub(r"\s+", " ", str(p.get("nivel") or "")).strip()[:30]
+    valor = round(calc.num_br(p.get("valor")), 2)
+    trecho = re.sub(r"\s+", " ", str(p.get("trecho") or "")).strip()[:160]
+    if not nivel or valor <= 0:
+        return None
+    if texto:
+        tc = assinaturas.para_comparar(trecho)
+        if len(tc) < 3 or tc not in assinaturas.para_comparar(texto) or not tem_valor(trecho, valor):
+            return None
+    elif trecho and not tem_valor(trecho, valor):
+        return None
+    return {"nivel": nivel, "valor": valor, "trecho": trecho}
+
+
 def _moeda(m, trecho):
     m = str(m or "").upper()
     if m in MOEDAS:
@@ -219,7 +248,7 @@ def limpar(parsed, texto=None):
 # ---------------------------------------------------------------- a IA simulada (testes e desenvolvimento)
 
 # o que a IA simulada "sabe" de um banco (só o nome e o nível, sem fonte): um exemplo inventado
-EXEMPLO_MEMORIA = "Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nNível seguinte a partir de R$ 250 mil investidos"
+EXEMPLO_MEMORIA = "Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nPróximo nível: Ouro, a partir de R$ 250 mil investidos"
 
 EXEMPLO_ANEXO = ("6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\n"
                  "Anuidade grátis com R$ 50 mil investidos")
@@ -227,11 +256,16 @@ EXEMPLO_ANEXO = ("6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em 
 
 def simulados(texto):
     """O que a IA simulada acha: uma linha por benefício (sala VIP, créditos em R$ ou US$, seguro, cashback, frete)."""
-    saida, metas = [], []
+    saida, metas, prox = [], [], None
     for ln in re.split(r"[\n;•]+", str(texto or "")):
         ln = ln.strip()
         n = assinaturas.normal(ln)
         din = re.search(r"R\$\s?([\d.,]+)(\s*mil\b)?", ln)
+        # o próximo nível da conta: "Próximo nível: Ouro, a partir de R$ 250 mil investidos"
+        pn = re.match(r"(?i)pr[oó]ximo n[ií]vel:\s*([^,]+)", ln)
+        if pn and din:
+            prox = {"nivel": pn.group(1).strip(), "valor": calc.num_br(din.group(1)) * (1000 if din.group(2) else 1), "trecho": ln[:100]}
+            continue
         # a condição para ganhar mais: investindo, gastando no cartão ou um plano mais caro ("Plano X por R$ 120 por mês")
         if din and re.search(r"\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b", n):
             v = calc.num_br(din.group(1)) * (1000 if din.group(2) else 1)
@@ -262,4 +296,7 @@ def simulados(texto):
         else:
             continue
         saida.append(b)
-    return {"beneficios": saida, "oportunidades": metas}
+    r = {"beneficios": saida, "oportunidades": metas}
+    if prox:
+        r["proximo_nivel"] = prox
+    return r

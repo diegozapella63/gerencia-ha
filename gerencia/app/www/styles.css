@@ -1558,7 +1558,7 @@ input[readonly] { opacity: .8; }
 .duo > .seg { margin-bottom: 0; }
 .pref.grande input { padding-top: 4px; padding-bottom: 4px; }
 .bc-ben { margin-top: 12px; }
-.ajuda.bc-ben-n { margin-top: 6px; }
+.btn.bc-ben-n { margin-top: 8px; }  /* 1.74.2: Ver os N benefícios, logo abaixo do Identificar */
 
 /* Milhas (1.63.0): no formulário, o Ler com IA no alto, os lotes que vencem e as listas lidas da página do programa
    (as vantagens do nível, a tabela de resgate com o que já dá, como trocar) */

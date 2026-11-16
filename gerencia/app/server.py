@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.74.1"
+VERSAO = "1.74.2"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2021,7 +2021,7 @@ def beneficios_ler(corpo):
         dados = beneficios.simulados(beneficios.EXEMPLO_MEMORIA if memoria else texto if not arquivos else beneficios.EXEMPLO_ANEXO)
     else:
         mandar = beneficios.trechos(texto) if url else texto[:14000]
-        instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco, memoria=memoria)
+        instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco, memoria=memoria, conta=origem.startswith("conta:"))
         try:
             dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos)
         except ErroHA as e:
@@ -2031,18 +2031,24 @@ def beneficios_ler(corpo):
                 raise ValueError(str(e)) from None
             conferir = (texto + "\n" + extra).strip()
             try:
-                dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", beneficios.prompt(de, "", conferir[:14000], preco=preco))
+                dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", beneficios.prompt(de, "", conferir[:14000], preco=preco, conta=origem.startswith("conta:")))
             except ErroHA as e2:
                 raise ValueError(str(e2)) from None
     parsed = extrair_json(dados)
     itens, recusados = beneficios.limpar(parsed, conferir or None)
     metas, recusadas = beneficios.limpar_metas(parsed, conferir or None)
-    if not itens and not metas:
+    # 1.74.2: numa conta, o próximo nível e quanto pede (a mesma condição não vem de novo como oportunidade)
+    prox = beneficios.limpar_proximo(parsed, conferir or None) if origem.startswith("conta:") else None
+    if prox:
+        metas = [m for m in metas if not (m["tipo"] == "investido" and abs(m["valor"] - prox["valor"]) < 0.01)]
+    if not itens and not metas and not prox:
         if memoria:
             raise ValueError(f"A IA não sabe os benefícios de {de}. Mande um print ou a página deles.")
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
                          if recusados or recusadas else "A IA não achou benefícios nem oportunidades aqui.")
     r = {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
+    if prox:
+        r["proximo"] = prox
     if memoria:
         r["memoria"] = True  # do que a IA sabe, sem fonte: a tela pede para conferir
     return r

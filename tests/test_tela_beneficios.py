@@ -196,7 +196,7 @@ class TestLerComIA(TelaBen):
         self.js("(T.abrirBanco('b-azul'), true)")
         self.esperar()
         self.assertEqual(self.textos('.folha [data-a="ben-identificar"]'), ["Identificar benefícios", "Identificar benefícios"], "uma para cada pessoa")
-        self.assertEqual(self.textos('.folha .bc-ben-n'), ["1 benefício cadastrado."], "a Ana já tem a Sala VIP")
+        self.assertEqual(self.textos('.folha .bc-ben-n'), ["Ver o benefício"], "a Ana já tem a Sala VIP")
         self.clicar('.folha [data-a="bc-add"]')
         self.assertEqual(self.conta('.folha [data-a="ben-identificar"]'), 2, "a conta nova (ainda não salva) não tem o botão")
         self.clicar('.folha [data-a="ben-identificar"][data-v="conta:k-beto"]')
@@ -207,7 +207,7 @@ class TestLerComIA(TelaBen):
         self.clicar('#folhas [data-a="bler-salvar"]')
         self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados")
         self.assertEqual(self.folha(), "Editar banco", "volta para o banco")
-        self.assertEqual(self.textos('.folha .bc-ben-n'), ["1 benefício cadastrado.", "3 benefícios cadastrados."])
+        self.assertEqual(self.textos('.folha .bc-ben-n'), ["Ver o benefício", "Ver os 3 benefícios"])
         self.assertEqual(self.conta('.folha .conta-ed'), 3, "a pessoa acrescentada continua lá")
         self.abrir(base(bancos=BANCOS, ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "bancos"})
         self.js("(T.abrirBanco('b-azul'), true)")
@@ -229,11 +229,43 @@ class TestLerComIA(TelaBen):
         self.ler()
         self.assertEqual(self.folha(), "Benefícios encontrados")
         self.assertEqual(self.texto("#folhas .da-intro"), "Do que a IA sabe de Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser.")
-        self.assertEqual([x[1:3] for x in self.itens()], [["Cashback", "Vantagem"], ["Sala VIP", "2 por ano"], ["Seguro viagem", "Vantagem"],
-                                                         ["Nível seguinte", "Investindo R$ 250 mil"]])
+        self.assertEqual([x[:3] for x in self.itens()], [[True, "Nível Ouro", "Pede R$ 250 mil investidos"], [True, "Cashback", "Vantagem"],
+                                                         [True, "Sala VIP", "2 por ano"], [True, "Seguro viagem", "Vantagem"]],
+                         "1.74.2: o próximo nível da conta primeiro")
+        self.assertEqual(self.textos("#folhas .bler-sec"), ["Próximo nível da conta", "Benefícios"])
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados; próximo nível: Ouro")
+        self.assertEqual(self.folha(), "Editar banco")
+        self.assertEqual(self.pg.input_value('.folha [data-fbcs="meta_nivel"][data-i="0"]'), "Ouro", "Próximo nível já em Editar banco")
+        self.assertEqual(self.pg.input_value('.folha [data-fbc="meta_valor"][data-i="0"]'), "250.000")
+        ana = next(c for c in self.dados()["bancos"][0]["contas"] if c["id"] == "k-ana")
+        self.assertEqual((ana["meta_nivel"], ana["meta_valor"]), ("Ouro", 250000), "e salvo")
+        self.clicar('.folha [data-a="ben-identificar"][data-v="conta:k-ana"]')
+        self.ler()
+        self.assertEqual(self.itens()[0][:2], [False, "Nível Ouro"], "já igual: desmarcado")
         self.clicar('#folhas [data-a="bler-voltar"]')
         self.clicar('.folha [data-a="bler-origem"][data-v=""]')
         self.assertTrue(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"), "com Nenhum, precisa de algo para ler")
+
+    def test_ver_os_beneficios_da_conta(self):
+        """1.74.2: em Editar banco, Ver os N benefícios abre a lista da conta por cima: o Usei vale ali, tocar abre para
+        editar e volta para a lista; o Voltar volta para o banco."""
+        self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[VIP, SEGURO, CREDITO]), ui={"tab": "mais", "maisTela": "bancos"})
+        self.js("(T.abrirBanco('b-azul'), true)")
+        self.esperar()
+        self.assertEqual(self.textos('.folha [data-a="ben-ver"]'), ["Ver os 2 benefícios"], "só a Ana tem")
+        self.clicar('.folha [data-a="ben-ver"]')
+        self.assertEqual(self.folha(), "Benefícios de Banco Azul · Ana")
+        self.assertEqual(self.textos('#folhas .ben-row .ben-t b'), ["Sala VIP", "Seguro viagem"])
+        self.clicar('#folhas [data-a="ben-usar"]')
+        self.assertEqual(self.esperar_aviso("Sala VIP"), "Sala VIP: restam 4")
+        self.assertEqual(self.texto('#folhas .ben-row .ben-v b'), "restam 4", "a lista se refaz")
+        self.clicar('#folhas [data-a="ben-editar"]')
+        self.assertEqual(self.folha(), "Editar benefício")
+        self.clicar('#folhas .folha-pe [data-a="fechar"]')
+        self.assertEqual(self.folha(), "Benefícios de Banco Azul · Ana", "volta para a lista")
+        self.clicar('#folhas .folha-pe [data-a="fechar"]')
+        self.assertEqual(self.folha(), "Editar banco", "e o Voltar, para o banco")
 
     def test_identificar_beneficios_de_uma_assinatura(self):
         """1.53: um gasto fixo, como uma assinatura, também dá benefícios: no fixo, Identificar benefícios abre a leitura
@@ -241,7 +273,7 @@ class TestLerComIA(TelaBen):
         self.abrir(base(bancos=BANCOS, recorrencias=[FIXO], beneficios=[CREDITO]), ui={"tab": "mais", "maisTela": "caixa"})
         self.clicar('#app [data-a="fixo"][data-id="r-sol"]')
         self.assertEqual(self.texto('.folha [data-a="ben-identificar"]'), "Identificar benefícios")
-        self.assertEqual(self.texto('.folha .bc-ben-n'), "1 benefício cadastrado.", "os Créditos de uso do Plano Sol")
+        self.assertEqual(self.texto('.folha .bc-ben-n'), "Ver o benefício", "os Créditos de uso do Plano Sol")
         self.clicar('.folha [data-a="ben-identificar"]')
         self.assertEqual(self.folha(), "Ler benefícios com IA")
         self.assertEqual(self.texto('.folha [data-a="bler-origem"].on'), "Plano Sol (assinatura)", "já com a assinatura")
@@ -251,7 +283,7 @@ class TestLerComIA(TelaBen):
         self.clicar('#folhas [data-a="bler-salvar"]')
         self.assertEqual(self.esperar_aviso("cadastrados"), "2 benefícios cadastrados")
         self.assertEqual(self.folha(), "Despesa", "volta para o fixo")
-        self.assertEqual(self.texto('.folha .bc-ben-n'), "3 benefícios cadastrados.")
+        self.assertEqual(self.texto('.folha .bc-ben-n'), "Ver os 3 benefícios")
         self.assertEqual({b["origem"] for b in self.dados()["beneficios"]}, {"fixo:r-sol"})
 
     def test_sem_identificar_num_recebimento_nem_num_lancamento_avulso(self):
@@ -295,6 +327,9 @@ class TestLerComIA(TelaBen):
         js = self.js("T.simBeneficios(" + __import__("json").dumps(texto) + ")")
         self.assertEqual(js, B.limpar(B.simulados(texto), texto)[0])
         self.assertEqual(self.js("T.simMetas(" + __import__("json").dumps(texto) + ")"), B.limpar_metas(B.simulados(texto), texto)[0])
+        t2 = texto + "\nPróximo nível: Black, a partir de R$ 100 mil investidos"
+        self.assertEqual(self.js("T.simBeneficios(" + __import__("json").dumps(t2) + ")"), B.limpar(B.simulados(t2), t2)[0])
+        self.assertEqual(self.js("T.simProximo(" + __import__("json").dumps(t2) + ")"), B.limpar_proximo(B.simulados(t2), t2), "1.74.2: o próximo nível")
 
     def test_oportunidades_na_mesma_leitura(self):
         """1.54: a leitura também acha o que a pessoa ganha a mais cumprindo uma condição; elas vêm embaixo, em

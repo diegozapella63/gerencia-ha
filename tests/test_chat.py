@@ -121,6 +121,8 @@ class TestOQueAIARecebe(unittest.TestCase):
         self.assertIn("k-beto | Banco Azul · Beto | sem cartão; sem cartão de débito (só Pix)", C.resumo(d, HOJE), "1.57.0")
         d["bancos"][0]["contas"][1].update(debito_global="USD", credito_global="GBP", credito_global_adicional=True)
         self.assertIn("sem cartão de débito (só Pix); cartão de débito global em USD; cartão de crédito global em GBP com adicional", C.resumo(d, HOJE), "1.62.0")
+        d["bancos"][0]["contas"][1]["credito_global_para"] = "Ana"
+        self.assertIn("cartão de crédito global em GBP com adicional para Ana", C.resumo(d, HOJE), "1.74.2")
         d["bancos"][0]["contas"][1]["credito_global_adicional"] = False
         self.assertIn("cartão de crédito global em GBP\n", C.resumo(d, HOJE) + "\n")
 

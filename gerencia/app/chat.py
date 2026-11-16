@@ -109,7 +109,8 @@ def resumo(d, hoje=None):
             if c.get("debito_global"):
                 cart += f"; cartão de débito global em {c['debito_global']}"
             if c.get("credito_global"):
-                cart += f"; cartão de crédito global em {c['credito_global']}" + (" com adicional" if c.get("credito_global_adicional") else "")
+                cart += f"; cartão de crédito global em {c['credito_global']}" + (
+                    (" com adicional" + (f" para {c['credito_global_para']}" if c.get("credito_global_para") else "")) if c.get("credito_global_adicional") else "")
             L.append(f"{cid} | {calc.nome_conta(c) or c.get('banco_nome', '')} | {cart}")
 
     cx = calc.caixa(d, hoje)

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.74.1';
+const VERSAO = '1.74.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -647,9 +647,11 @@ function apiDemo() {
       await espera(600);
       const t = String(c.texto || '').trim(), url = !c.anexo && !c.anexos && /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(t);
       const memoria = !t && !c.anexo && !c.anexos;  // só o banco e o nível: o que a IA "sabe" (um exemplo inventado)
-      const fonte = memoria ? BEN_MEMORIA : c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte), metas = simMetas(fonte);
-      if (!itens.length && !metas.length) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
-      return Object.assign({ beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' }, memoria ? { memoria: true } : {});
+      const fonte = memoria ? BEN_MEMORIA : c.anexo || c.anexos || url ? BEN_EXEMPLO : t, itens = simBeneficios(fonte);
+      const prox = String(c.origem || '').startsWith('conta:') ? simProximo(fonte) : null;
+      const metas = simMetas(fonte).filter(m => !(prox && m.tipo === 'investido' && m.valor === prox.valor));
+      if (!itens.length && !metas.length && !prox) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
+      return Object.assign({ beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' }, prox ? { proximo: prox } : {}, memoria ? { memoria: true } : {});
     },
     // milhas lidas pela IA na prévia: a IA simulada (igual à do servidor, milhas.simulados); a imagem vira um exemplo inventado
     async milhasLer(c) {
@@ -4477,7 +4479,7 @@ function resumoContas(b) {
     const adic = c.cartao ? (c.adicionais || []).map(a => a.pessoa).filter(Boolean) : [];
     const extra = [c.nivel, c.debito === false ? 'sem débito' : '', c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : '',
       c.debito_global ? 'débito global em ' + nomeMoedaGlobal(c.debito_global) : '',
-      c.credito_global ? 'crédito global em ' + nomeMoedaGlobal(c.credito_global) + (c.credito_global_adicional ? ' com adicional' : '') : ''].filter(Boolean).join(', ');
+      c.credito_global ? 'crédito global em ' + nomeMoedaGlobal(c.credito_global) + (c.credito_global_adicional ? ' com adicional' + (c.credito_global_para ? ' para ' + c.credito_global_para : '') : '') : ''].filter(Boolean).join(', ');
     const m = metaNivel(c, b.id);
     return (c.pessoa || 'Conta') + (extra ? ` (${extra})` : '') + (m && m.falta > 0 ? ` · faltam ${brlCurto(m.falta)} para ${m.nome}` : m ? ` · já dá para ${m.nome}` : '');
   }).join(' · ');
@@ -4623,7 +4625,8 @@ function abrirBanco(id, nome, sobre) {
             ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}` : ''}
             ${c._aba === 'global' ? `${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
             ${campoGlobal(c, i, 'credito_global', 'Tem cartão de crédito global?')}
-            ${c.credito_global ? `<div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>` : ''}` : ''}
+            ${c.credito_global ? `<div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${c.credito_global_adicional ? ' on' : ''}" data-a="bc-global-adic" data-i="${i}" aria-label="Tem cartão adicional do crédito global"></button></div>
+            ${c.credito_global_adicional ? subOpcoes(`<div class="campo" style="margin:0"><div class="lbl">Para quem</div><input class="inp" data-fbc="credito_global_para" data-i="${i}" value="${esc(c.credito_global_para || '')}" placeholder="Nome, ex.: Beto" data-sug="dl-pessoas" autocomplete="off" aria-label="Para quem é o adicional do crédito global"></div>`) : ''}` : ''}` : ''}
           </div>`).join('')}
           <button class="chip add" data-a="bc-add">${ic('plus', 'ic-s')}Outra pessoa</button>
           <datalist id="dl-pessoas">${pessoasContas().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
@@ -4689,6 +4692,8 @@ function salvarBanco() {
       if (c.debito === false) k.debito = false; // sem cartão de débito (de começo, tem: como antes da 1.57.0)
       for (const g of ['debito_global', 'credito_global']) if (MOEDAS_GLOBAL.some(([v]) => v === c[g])) k[g] = c[g];
       if (k.credito_global && c.credito_global_adicional) k.credito_global_adicional = true;
+      // 1.74.2: para quem é o adicional do crédito global
+      if (k.credito_global_adicional && String(c.credito_global_para || '').trim()) k.credito_global_para = String(c.credito_global_para).trim().slice(0, 30);
       const txt = x => String(x || '').trim().slice(0, 30);
       if (txt(c.nivel)) k.nivel = txt(c.nivel);
       if (k.cartao && txt(c.cartao_nivel)) k.cartao_nivel = txt(c.cartao_nivel);
@@ -5445,7 +5450,8 @@ function corpoMilhas(f, seg) {
     <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-obs" class="inp grow" rows="1" data-fben="obs" placeholder="Ex.: 2 pontos por dólar no cartão" autocomplete="off">${esc(f.obs || '')}</textarea></div>
     ${resg.length ? `<div class="campo"><div class="lbl">Resgates depois do saldo</div>${resg.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(NF0.format(+u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este resgate">${ic('x', 'ic-s')}</button></div>`).join('')}</div>` : ''}`;
 }
-function abrirBeneficio(id) {
+// sobre: aberto por cima de outra janela (a lista dos benefícios de uma conta, em Editar banco), volta para ela
+function abrirBeneficio(id, sobre = false) {
   const b = id && S.d.beneficios.find(x => x.id === id);
   FBEN = b ? clone(b) : { id: null, nome: '', origem: '', tipo: 'contagem', total: '', moeda: 'BRL', renova: 'ano', desde: iso(hoje()), validade: '', obs: '', usos: [] };
   if (ehMilhas(FBEN)) soltarMilhas(FBEN);
@@ -5478,7 +5484,18 @@ function abrirBeneficio(id) {
         ${f.id && conta ? `<div class="campo"><div class="lbl">Usos deste período · ${esc(qtdBen(f, c.usado))} de ${esc(qtdBen(f, +f.total || 0))}</div>${usos.length ? usos.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(qtdBen(f, +u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este uso">${ic('x', 'ic-s')}</button></div>`).join('') : '<p class="nota" style="margin:0">Nenhum uso ainda.</p>'}</div>` : ''}`,
       pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-salvar">${ic('check')}Salvar</button>`,
     };
-  });
+  }, null, sobre);
+}
+// 1.74.2: os benefícios de uma conta (ou de um fixo), por cima de Editar banco: tocar abre para editar; o Usei vale ali
+function abrirVerBeneficios(origem) {
+  abrirFolha(() => {
+    const l = S.d.beneficios.filter(b => b.origem === origem);
+    return {
+      titulo: `Benefícios de ${esc(origemBeneficio({ origem }).nome)}`, icone: 'gift', lista: true,
+      corpo: l.length ? `<div class="ben-lista ben-ver">${l.map(b => ehMilhas(b) ? linhaMilhas(b) : linhaBeneficio(b)).join('')}</div>` : '<p class="nota" style="margin:0">Nenhum benefício.</p>',
+      pe: `<button class="btn" data-a="fechar">${ic('back')}Voltar</button><button class="btn" data-a="ben-identificar" data-v="${esc(origem)}">${ic('ia', 'ic-s')}Identificar</button>`,
+    };
+  }, null, true);
 }
 // Milhas: o saldo mudou, a data dele vira hoje (os resgates de antes já estão no saldo novo)
 function salvarMilhas() {
@@ -5514,7 +5531,7 @@ function usarBeneficio(id) {
   if (!b) return;
   const mil = ehMilhas(b), resta = q => mil ? `${NF0.format(Math.max(0, milhasDe(b).saldo - q))} milhas` : qtdBen(b, Math.max(0, cicloBeneficio(b).restante - q));
   const lancar = qtd => persistir(d => { const x = d.beneficios.find(y => y.id === id); if (x) x.usos = (x.usos || []).concat([{ id: 'u-' + uid(), data: iso(hoje()), qtd }]).slice(-200); },
-    `${mil ? nomeMilhas(b) : b.nome}: ${mil ? 'ficam' : 'restam'} ${resta(qtd)}`);
+    `${mil ? nomeMilhas(b) : b.nome}: ${mil ? 'ficam' : 'restam'} ${resta(qtd)}`).then(ok => { if (ok && FOLHA) pintarFolha(); return ok; });  // a lista de uma conta, aberta
   if (mil) {  // Resgatei: quantas milhas
     FBEN = { usar: id, valor: '' };
     abrirFolha(() => ({ titulo: `Quantas milhas resgatou de ${esc(nomeMilhas(b))}?`, corpo: `<div class="campo"><label for="fben-usou">Milhas</label><div class="pref"><input id="fben-usou" inputmode="numeric" data-fben="valor" value="${esc(FBEN.valor)}" placeholder="0"><span>milhas</span></div>
@@ -5549,7 +5566,8 @@ function abrirLerBeneficios(origem = '', sobre = false, foco = '') {
 function botaoBen(origem) {
   if (!iaOn()) return '';
   const n = (S.d.beneficios || []).filter(b => b.origem === origem).length;
-  return `<button type="button" class="btn out larga bc-ben" data-a="ben-identificar" data-v="${esc(origem)}">${ic('ia', 'ic-s')}Identificar benefícios</button>${n ? `<p class="ajuda bc-ben-n">${plural(n, 'benefício cadastrado', 'benefícios cadastrados')}.</p>` : ''}`;
+  // 1.74.2: os cadastrados abrem ali mesmo, por cima (Ver os N benefícios)
+  return `<button type="button" class="btn out larga bc-ben" data-a="ben-identificar" data-v="${esc(origem)}">${ic('ia', 'ic-s')}Identificar benefícios</button>${n ? `<button type="button" class="btn out larga bc-ben-n" data-a="ben-ver" data-v="${esc(origem)}">${ic('gift', 'ic-s')}${n === 1 ? 'Ver o benefício' : `Ver os ${n} benefícios`}</button>` : ''}`;
 }
 // em Editar banco, só nas contas já salvas
 const botaoBenConta = c => c.id && contas().some(k => k.id === c.id) ? botaoBen('conta:' + c.id) : '';
@@ -5560,12 +5578,13 @@ function montarLerBeneficios() {
   const soOrigem = !arq && !s.texto.trim() && !!s.origem && s.foco !== 'milhas';
   if (s.etapa === 'lendo') return { titulo: 'Lendo com IA', corpo: `<div class="ia-lendo"><span class="giro"></span><p>${soOrigem ? `Procurando os benefícios de ${esc(origemBeneficio({ origem: s.origem }).nome)}` : `Lendo ${arq ? (arq.pdf ? 'o PDF' : 'a imagem') : /^\S+\.\S+$/.test(s.texto.trim()) ? 'a página' : 'o texto'}`} com a IA do Home Assistant…<br>Pode levar até um minuto.</p></div>` };
   if (s.etapa === 'revisao') {
-    const n = s.itens.filter(x => x.on).length + s.metas.filter(x => x.on).length, de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
+    const n = s.itens.filter(x => x.on).length + s.metas.filter(x => x.on).length + (s.proximo && s.proximo.on ? 1 : 0), de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
     const item = (acao, k, x, nome, sub) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="${acao}" data-v="${k}">
           <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
     return {
-      titulo: s.itens.length ? 'Benefícios encontrados' : 'Oportunidades encontradas',
+      titulo: s.itens.length ? 'Benefícios encontrados' : s.metas.length ? 'Oportunidades encontradas' : 'Próximo nível encontrado',
       corpo: `<p class="da-intro" style="margin:0 0 8px">${s.memoria ? `Do que a IA sabe${de ? ` de ${esc(de)}` : ''}: confira no app ou no site antes de cadastrar. ` : de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
+        ${s.proximo ? `${s.itens.length || s.metas.length ? '<div class="lbl bler-sec">Próximo nível da conta</div>' : ''}<div class="bler-lista">${item('bler-prox', 0, s.proximo, 'Nível ' + s.proximo.nivel, 'Pede ' + brlCurto(+s.proximo.valor || 0) + ' investidos')}</div>${s.itens.length ? '<div class="lbl bler-sec">Benefícios</div>' : ''}` : ''}
         ${s.itens.length ? `<div class="bler-lista">${s.itens.map((x, k) => item('bler-marca', k, x, x.nome, subBen(x))).join('')}</div>` : ''}
         ${s.metas.length ? `${s.itens.length ? '<div class="lbl bler-sec">Oportunidades</div>' : ''}<div class="bler-lista">${s.metas.map((x, k) => item('bler-meta', k, x, x.ganha, subMetaLida(x))).join('')}</div>` : ''}`,
       pe: `<button class="btn" data-a="bler-voltar">${ic('back')}Voltar</button><button class="btn pri" data-a="bler-salvar"${n ? '' : ' disabled'}>${ic('check')}Cadastrar${n ? ' ' + n : ''}</button>`,
@@ -5614,6 +5633,10 @@ async function blerLer() {
     const r = await api.beneficiosLer(corpo);
     if (BLER !== s) return;
     s.memoria = !!r.memoria;
+    // o próximo nível da conta e quanto pede (vai para Editar banco); já igual, vem desmarcado
+    const kc = String(s.origem).startsWith('conta:') && contas().find(k => k.id === String(s.origem).slice(6));
+    s.proximo = r.proximo && kc ? Object.assign({}, r.proximo, { on: !(kc.meta_nivel === r.proximo.nivel && +kc.meta_valor === +r.proximo.valor) }) : null;
+    if (s.proximo && !s.proximo.on) s.proximo.ja = true;
     // o que já está cadastrado (mesmo nome, mesma origem) vem desmarcado
     s.itens = (r.beneficios || []).map(x => {
       const ja = S.d.beneficios.some(b => semAcento(b.nome) === semAcento(x.nome) && (b.origem || '') === (s.origem || ''));
@@ -5674,11 +5697,21 @@ function salvarLerBeneficios() {
     if (x.trecho) m.trecho = String(x.trecho).slice(0, 160);
     return m;
   });
-  if (!novos.length && !metas.length) return;
+  const prox = s.proximo && s.proximo.on && String(s.origem).startsWith('conta:') ? { id: String(s.origem).slice(6), nivel: String(s.proximo.nivel).slice(0, 30), valor: +s.proximo.valor || 0 } : null;
+  if (!novos.length && !metas.length && !prox) return;
   const nb = novos.length, nm = metas.length;
-  const ok = !nm ? (nb === 1 ? 'Benefício cadastrado' : `${nb} benefícios cadastrados`) : !nb ? (nm === 1 ? 'Oportunidade cadastrada' : `${nm} oportunidades cadastradas`)
+  let ok = !nm ? (nb === 1 ? 'Benefício cadastrado' : `${nb} benefícios cadastrados`) : !nb ? (nm === 1 ? 'Oportunidade cadastrada' : `${nm} oportunidades cadastradas`)
     : `${plural(nb, 'benefício', 'benefícios')} e ${plural(nm, 'oportunidade', 'oportunidades')} cadastrados`;
-  persistir(d => { d.beneficios.push(...novos); d.metas.push(...metas); }, ok).then(r => { if (r) fecharFolha(false, true); });
+  if (prox) ok = nb || nm ? `${ok}; próximo nível: ${prox.nivel}` : `Próximo nível: ${prox.nivel}`;
+  const nivelNa = c => { if (c) { c.meta_nivel = prox.nivel; c.meta_valor = prox.valor; } };
+  persistir(d => {
+    d.beneficios.push(...novos); d.metas.push(...metas);
+    if (prox) for (const b of d.bancos) nivelNa((b.contas || []).find(c => c.id === prox.id));
+  }, ok).then(r => {
+    if (!r) return;
+    if (prox && FB && FB.contas) nivelNa(FB.contas.find(c => c.id === prox.id));  // Editar banco, aberto embaixo, já com ele
+    fecharFolha(false, true);
+  });
 }
 // as milhas na prévia: a IA simulada, como a do servidor (milhas.simulados); o print e a página são exemplos inventados
 const MILHAS_EXEMPLO = 'Programa Voa Mais\nSaldo: 12.300 milhas\nNível: Prata\nMilhas qualificáveis: 3.200\n2.000 milhas vencem em 30/06/2027';
@@ -5707,10 +5740,20 @@ function simMilhas(texto) {
 }
 // a IA simulada da prévia: uma linha por benefício, como a do servidor (beneficios.simulados)
 // o que a IA simulada "sabe" de um banco (o mesmo exemplo inventado do servidor, beneficios.EXEMPLO_MEMORIA)
-const BEN_MEMORIA = 'Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nNível seguinte a partir de R$ 250 mil investidos';
+const BEN_MEMORIA = 'Cashback de 1% nas compras no cartão\n2 acessos à sala VIP por ano\nSeguro viagem internacional\nPróximo nível: Ouro, a partir de R$ 250 mil investidos';
 const BEN_EXEMPLO = '6 acessos à sala VIP por ano, com 1 acompanhante\nUS$ 100 em créditos de uso por mês\nSeguro viagem internacional\nAnuidade grátis com R$ 50 mil investidos';
 // a linha que é uma condição para ganhar mais (investindo, gastando no cartão, um plano mais caro): oportunidade, não benefício
-const ehLinhaMeta = (ln, n) => /R\$\s?[\d.,]+/.test(ln) && /\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b/.test(n);
+// o próximo nível da conta (1.74.2): "Próximo nível: Ouro, a partir de R$ 250 mil investidos" (beneficios.simulados)
+const PROX_RE = /^pr[oó]ximo n[ií]vel:\s*([^,]+)/i;
+function simProximo(texto) {
+  for (let ln of String(texto || '').split(/[\n;•]+/)) {
+    ln = ln.trim();
+    const p = ln.match(PROX_RE), din = ln.match(/R\$\s?([\d.,]+)(\s*mil\b)?/);
+    if (p && din) return { nivel: p[1].trim(), valor: numDinheiro(din[1]) * (din[2] ? 1000 : 1), trecho: ln.slice(0, 100) };
+  }
+  return null;
+}
+const ehLinhaMeta = (ln, n) => !PROX_RE.test(ln) && /R\$\s?[\d.,]+/.test(ln) && /\binvestid|\baplicad|\bgastando\b|\bgastar\b|^plano\b/.test(n);
 function simMetas(texto) {
   const out = [];
   for (let ln of String(texto || '').split(/[\n;•]+/)) {
@@ -5732,7 +5775,7 @@ function simBeneficios(texto) {
   for (let ln of String(texto || '').split(/[\n;•]+/)) {
     ln = ln.trim();
     const n = semAcento(ln).replace(/[^a-z0-9]+/g, ' ').trim();
-    if (ehLinhaMeta(ln, n)) continue;  // a condição para ganhar mais é uma oportunidade (simMetas)
+    if (ehLinhaMeta(ln, n) || PROX_RE.test(ln)) continue;  // a condição para ganhar mais é uma oportunidade (simMetas); o próximo nível, simProximo
     if (!n || /\b(anuidade|tarifa|mensalidade|preco)\b/.test(n)) continue;  // preço não é benefício
     const renova = /\bpor ano\b|\bao ano\b|\banua/.test(n) ? 'ano' : /\bpor mes\b|\bao mes\b|\bmensa/.test(n) ? 'mes' : 'nunca';
     const cond = ln.match(/com \d+ acompanhantes?/), qtd = n.match(/\b(\d+)\s+(acessos?|entradas?|usos?|visitas?)\b/), din = ln.match(/(US\$|R\$)\s?([\d.,]+)/);
@@ -7129,11 +7172,12 @@ document.addEventListener('click', ev => {
     case 'b-salvar': salvarBanco(); break;
     case 'bc-aba': if (FB && FB.contas[+el.dataset.i]) { FB.contas[+el.dataset.i]._aba = v; pintarFolha(); } break;
     case 'ben-novo': abrirBeneficio(null); break;
-    case 'ben-editar': abrirBeneficio(id); break;
+    case 'ben-editar': abrirBeneficio(id, !!el.closest('#folhas')); break;
     case 'ben-usar': usarBeneficio(id); break;
     case 'ben-ler': abrirLerBeneficios(); break;
     case 'meta-ler': abrirLerBeneficios('', false, 'metas'); break;
     case 'ben-identificar': abrirLerBeneficios(v, true); break;
+    case 'ben-ver': abrirVerBeneficios(v); break;
     case 'meta-nova': abrirMeta(null); break;
     case 'meta-editar': abrirMeta(id); break;
     case 'fmeta-seg': if (FMETA) { FMETA[el.dataset.k] = v; FMETA.erro = ''; if (el.dataset.k === 'tipo') FMETA.origem = ''; pintarFolha(); } break;
@@ -7142,6 +7186,7 @@ document.addEventListener('click', ev => {
     case 'fmeta-excluir': { const f = FMETA; confirmar({ titulo: 'Apagar oportunidade?', texto: `${esc(f.ganha)} sai da lista.`, botao: 'Apagar', perigo: true,
       acao: () => persistir(d => { d.metas = d.metas.filter(x => x.id !== f.id); }, 'Oportunidade apagada', true) }); break; }
     case 'bler-meta': if (BLER && BLER.metas[+v]) { BLER.metas[+v].on = !BLER.metas[+v].on; pintarFolha(); } break;
+    case 'bler-prox': if (BLER && BLER.proximo) { BLER.proximo.on = !BLER.proximo.on; pintarFolha(); } break;
     case 'bler-arq': escolherArquivo('image/*,application/pdf').then(blerPegarArquivo); break;
     case 'bler-cam': abrirCamera(blerFotos); break;
     case 'bler-arq-rm': if (BLER) { BLER.arquivo = null; BLER.erro = ''; pintarFolha(); } break;
@@ -7265,7 +7310,7 @@ document.addEventListener('input', ev => {
   }
   if (el.dataset.fbc && FB) {
     const k = el.dataset.fbc, c = FB.contas[+el.dataset.i];
-    if (['pessoa', 'nivel', 'cartao_nivel', 'meta_nivel', 'meta_valor', 'limite'].includes(k)) c[k] = el.value;
+    if (['pessoa', 'nivel', 'cartao_nivel', 'meta_nivel', 'meta_valor', 'limite', 'credito_global_para'].includes(k)) c[k] = el.value;
     else { c[k] = el.value.replace(/\D/g, '').slice(0, 2); el.value = c[k]; }
     // a meta do nível muda enquanto digita (sem redesenhar a janela, para não perder o teclado)
     const m = document.querySelector(`.nivel-meta[data-meta="${el.dataset.i}"]`);

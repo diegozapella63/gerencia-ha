@@ -429,19 +429,23 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(rotulos()[-1], "Tem cartão adicional?", "o adicional do crédito global")
         self.clicar('.folha [data-a="bc-moeda"][data-k="credito_global"][data-v="EUR"]')
         self.clicar('.folha [data-a="bc-global-adic"]')
+        # 1.74.2: ligado, pede para quem é (no quadro das sub-opções)
+        self.assertEqual(self.conta('.folha .sub-box [data-fbc="credito_global_para"]'), 1, "Para quem, logo abaixo")
+        self.preencher('.folha [data-fbc="credito_global_para"]', "Beto")
         med = self.js("[...document.querySelectorAll('.folha .bc-moeda')[0].querySelectorAll('button')].map(b => [Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().top)])")
         self.assertTrue(len(med) == 3 and len({w for w, _ in med}) == 1 and len({t for _, t in med}) == 1, f"as moedas lado a lado, do mesmo tamanho ({med})")
         self.clicar('[data-a="b-salvar"]')
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
-        self.assertEqual({k: roxo.get(k) for k in ("debito_global", "credito_global", "credito_global_adicional")}, {"debito_global": "USD", "credito_global": "EUR", "credito_global_adicional": True})
-        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar, crédito global em euro com adicional)")
+        self.assertEqual({k: roxo.get(k) for k in ("debito_global", "credito_global", "credito_global_adicional", "credito_global_para")},
+                         {"debito_global": "USD", "credito_global": "EUR", "credito_global_adicional": True, "credito_global_para": "Beto"})
+        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar, crédito global em euro com adicional para Beto)")
         # desligar o crédito global tira a moeda e o adicional
         self.clicar(f'.banco-row[data-id="{next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["id"]}"]')
         self.aba("global")
         self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
         self.clicar('[data-a="b-salvar"]')
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
-        self.assertEqual(("credito_global" in roxo, "credito_global_adicional" in roxo, roxo["debito_global"]), (False, False, "USD"))
+        self.assertEqual(("credito_global" in roxo, "credito_global_adicional" in roxo, "credito_global_para" in roxo, roxo["debito_global"]), (False, False, False, "USD"))
 
     def test_nivel_da_conta_do_cartao_e_o_proximo(self):
         # Banco Azul: Ana tem 10.000 (CDB Azul, dela); o próximo nível pede 25.000

@@ -125,6 +125,9 @@ class TestLeitura(unittest.TestCase):
         d["bancos"][0]["contas"][0].update(debito_global="USD", credito_global="EUR", credito_global_adicional=True)
         g = json_de("cadastros", {}, d)["contas"][0]
         self.assertEqual((g["cartao_de_debito_global"], g["cartao_de_credito_global"]), ({"moeda": "USD"}, {"moeda": "EUR", "adicional": True}))
+        d["bancos"][0]["contas"][0]["credito_global_para"] = "Beto"
+        self.assertEqual(json_de("cadastros", {}, d)["contas"][0]["cartao_de_credito_global"], {"moeda": "EUR", "adicional": True, "adicional_para": "Beto"}, "1.74.2")
+        del d["bancos"][0]["contas"][0]["credito_global_para"]
         for k in ("debito_global", "credito_global", "credito_global_adicional"):
             del d["bancos"][0]["contas"][0][k]
         self.assertEqual(c["pessoas_terceiros"], ["Beto"])
