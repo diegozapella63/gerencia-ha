@@ -77,6 +77,8 @@ Em **Editar banco**, **Cor**, **Observação** e **Página de ofertas** fecham n
 
 **Tem cartão de débito?** vem ligado em cada conta. Numa conta sem cartão de débito (desligado), a despesa fora do cartão de crédito aparece como **Pix** em vez de **Débito ou Pix**, e a lista de Bancos mostra "sem débito".
 
+Cada adicional pode ter **Mesmo limite do principal**: ligado, ele divide o limite do cartão principal (o campo só mostra o do principal).
+
 **Tem cartão de débito global?** e **Tem cartão de crédito global?** (desligados de começo) dizem se a conta tem os cartões para gastar fora do país, cada um na sua **Moeda** (Dólar, Euro ou Libra; começa em Dólar). O de crédito global diz também se **tem cartão adicional** e, ligado, **para quem**. A lista de Bancos mostra, por exemplo, "débito global em dólar, crédito global em euro com adicional", e a IA (o Identificar benefícios, a Conversa e o CorrerIA) sabe disso.
 
 Em cada conta dá para dizer também o **Nível da conta** (ex.: One, Black) e o **Próximo nível**, com quanto ele pede investido. O app soma o que a pessoa tem investido naquele banco (os investimentos escolhidos nessa conta; os de antes, sem conta escolhida, vão para a conta de quem é dono) e mostra quanto falta ("Você tem R$ 60.000 aqui; o Black pede R$ 100.000. Faltam R$ 40.000."). Na lista de Bancos aparece "faltam R$ 40 mil para Black".

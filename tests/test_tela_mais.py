@@ -516,6 +516,32 @@ class TestMaisBancos(TelaMais):
         self.assertNotIn("limite", c)
         self.assertNotIn("adicionais", c)
 
+    def test_1_74_adicional_com_o_mesmo_limite(self):
+        """1.74.3: cada adicional pode ter o mesmo limite do principal: o campo só mostra o do principal, e o limite dele
+        não é gravado (fica mesmo_limite); a lista e a IA dizem."""
+        self.abrir_bancos(base(bancos=BANCOS))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.aba("cartoes")
+        self.preencher('[data-fbc="limite"][data-i="0"]', "8.000")
+        self.clicar('.folha [data-a="bc-adic"][data-i="0"]')
+        self.preencher('[data-fba="pessoa"][data-i="0"][data-j="0"]', "Beto")
+        self.preencher('[data-fba="limite"][data-i="0"][data-j="0"]', "1.500")
+        self.assertEqual(self.conta('.folha [data-a="bc-adic-mesmo"][data-j="0"]'), 1, "Mesmo limite do principal, em cada adicional")
+        self.clicar('.folha [data-a="bc-adic-mesmo"][data-i="0"][data-j="0"]')
+        lim = '.folha [data-fba="limite"][data-i="0"][data-j="0"]'
+        self.assertEqual((self.pg.input_value(lim), self.pg.get_attribute(lim, "readonly")), ("8.000", ""), "o do principal, só à mostra")
+        self.clicar('[data-a="b-salvar"]')
+        (a,) = self.banco("b-azul")["contas"][0]["adicionais"]
+        self.assertEqual((a["pessoa"], a.get("mesmo_limite"), "limite" in a), ("Beto", True, False))
+        self.assertIn("adicional Beto com o mesmo limite", self.linha(".banco-row", "Banco Azul"))
+        self.clicar('.banco-row[data-id="b-azul"]')
+        self.aba("cartoes")
+        self.clicar('.folha [data-a="bc-adic-mesmo"][data-i="0"][data-j="0"]')
+        self.preencher(lim, "2.000")
+        self.clicar('[data-a="b-salvar"]')
+        (a,) = self.banco("b-azul")["contas"][0]["adicionais"]
+        self.assertEqual((a.get("limite"), "mesmo_limite" in a), (2000, False), "desligado, o limite dele de novo")
+
     def test_adicional_desligado_tira_os_adicionais(self):
         self.abrir_bancos(base(bancos=BANCOS))
         self.clicar('.banco-row[data-id="b-azul"]')

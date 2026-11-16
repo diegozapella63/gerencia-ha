@@ -241,21 +241,40 @@ class TestLerNoServidor(unittest.TestCase):
         """1.74.2: numa conta, o nível logo acima e quanto pede investido; do texto, só se estiver escrito, com o valor no
         trecho; a mesma condição não vem de novo como oportunidade; num fixo, não vem."""
         self.salvar()
-        t = "Sala VIP liberada\nPróximo nível: Black, a partir de R$ 100 mil investidos"
+        t = "Sala VIP liberada\nPróximo nível: Ouro, a partir de R$ 100 mil investidos"
         r = S.beneficios_ler({"origem": "conta:k1", "texto": t})
-        self.assertEqual(r["proximo"], {"nivel": "Black", "valor": 100000, "trecho": "Próximo nível: Black, a partir de R$ 100 mil investidos"})
+        self.assertEqual(r["proximo"], {"nivel": "Ouro", "valor": 100000, "trecho": "Próximo nível: Ouro, a partir de R$ 100 mil investidos"})
         self.assertNotIn("proximo", S.beneficios_ler({"origem": "fixo:r-sol", "texto": t}))
-        r = S.beneficios_ler({"origem": "conta:k1", "texto": "Próximo nível: Black, a partir de R$ 100 mil investidos"})
-        self.assertEqual((r["beneficios"], r["oportunidades"], r["proximo"]["nivel"]), ([], [], "Black"), "só o próximo nível já basta")
-        falso = {"beneficios": [], "proximo_nivel": {"nivel": "Black", "valor": 100000, "trecho": "Black com R$ 90 mil"},
-                 "oportunidades": [{"tipo": "investido", "valor": 100000, "ganha": "Nível Black", "trecho": "a partir de R$ 100 mil investidos"}]}
+        r = S.beneficios_ler({"origem": "conta:k1", "texto": "Próximo nível: Ouro, a partir de R$ 100 mil investidos"})
+        self.assertEqual((r["beneficios"], r["oportunidades"], r["proximo"]["nivel"]), ([], [], "Ouro"), "só o próximo nível já basta")
+        falso = {"beneficios": [], "proximo_nivel": {"nivel": "Ouro", "valor": 100000, "trecho": "Ouro com R$ 90 mil"},
+                 "oportunidades": [{"tipo": "investido", "valor": 100000, "ganha": "Nível Ouro", "trecho": "a partir de R$ 100 mil investidos"}]}
         with mock.patch.object(B, "simulados", return_value=falso):
-            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Black: a partir de R$ 100 mil investidos"})
+            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Ouro: a partir de R$ 100 mil investidos"})
         self.assertNotIn("proximo", r, "o trecho não está no texto")
         falso["proximo_nivel"]["trecho"] = "a partir de R$ 100 mil investidos"
         with mock.patch.object(B, "simulados", return_value=falso):
-            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Black: a partir de R$ 100 mil investidos"})
-        self.assertEqual((r["proximo"]["nivel"], r["oportunidades"]), ("Black", []), "a mesma condição não vira oportunidade")
+            r = S.beneficios_ler({"origem": "conta:k1", "texto": "Ouro: a partir de R$ 100 mil investidos"})
+        self.assertEqual((r["proximo"]["nivel"], r["oportunidades"]), ("Ouro", []), "a mesma condição não vira oportunidade")
+
+    def test_o_nivel_que_ja_tem_nao_e_oportunidade(self):
+        """1.74.3: a conta já é Prime (cartão Black): "Inter Prime com R$ 150 mil investidos" é o que ela já tem, não
+        oportunidade; nem o próximo nível igual ao de agora. Outra condição continua."""
+        self.salvar()
+        falso = {"beneficios": [], "proximo_nivel": {"nivel": "Prime", "valor": 50000, "trecho": ""},
+                 "oportunidades": [{"tipo": "investido", "valor": 150000, "ganha": "Banco Azul Prime", "trecho": ""},
+                                   {"tipo": "gasto", "valor": 7000, "periodo": "mes", "ganha": "Prime", "trecho": ""},
+                                   {"tipo": "gasto", "valor": 9000, "periodo": "mes", "ganha": "Cartão Black", "trecho": ""},
+                                   {"tipo": "gasto", "valor": 15000, "periodo": "mes", "ganha": "Salas VIP", "trecho": ""},
+                                   {"tipo": "investido", "valor": 500000, "ganha": "Nível Primeira Classe", "trecho": ""}]}
+        with mock.patch.object(B, "simulados", return_value=falso):
+            r = S.beneficios_ler({"origem": "conta:k1"})
+        self.assertEqual([m["ganha"] for m in r["oportunidades"]], ["Salas VIP", "Nível Primeira Classe"])
+        self.assertNotIn("proximo", r)
+        self.assertEqual(B.niveis_da_conta(D, "conta:k1"), ["Prime", "Black"])
+        self.assertEqual(B.niveis_da_conta(D, "conta:k1", so_conta=True), ["Prime"], "o próximo nível compara só com o da conta")
+        self.assertEqual((B.niveis_da_conta(D, "conta:k2"), B.niveis_da_conta(D, "fixo:r-sol"), B.niveis_da_conta(D, "conta:x")), ([], [], []))
+        self.assertIn("nem o que vale para o nível que ela já tem", B.prompt("Banco Azul, nível Prime", conta=True, memoria=True))
 
     def test_endereco_sem_https(self):
         self.salvar()

@@ -41,6 +41,21 @@ class TestLista(TelaBen):
             ["Seguro viagem", "Vantagem", "", ""],
             ["Créditos de uso", "US$ 100 por mês · renova em 20/11/2026", "restam US$ 70", "de US$ 100"]])
 
+    def test_1_74_cada_grupo_fecha(self):
+        """1.74.3: cada grupo (a conta, o fixo) fecha num toque no cabeçalho; fechado, quantos ao lado; o aparelho lembra."""
+        self.addCleanup(lambda: self.js("(localStorage.removeItem('gerencia.campos'), T.CAMPOS_F = null, true)"))
+        self.abrir_ben([VIP, CREDITO, SEGURO])
+        g = '#beneficios .ben-grupo.dobra-c[data-dobra="ben-g:conta:k-ana"]'
+        self.assertEqual(self.conta(g + ' > .ben-grupo-cab[role="button"]'), 1)
+        self.clicar(g + ' > .ben-grupo-cab')
+        self.assertEqual(self.conta(g + ' .ben-row:visible'), 0, "as linhas somem")
+        self.assertEqual(self.texto(g + ' .fl-val'), "2", "quantos ao lado")
+        self.assertEqual(self.conta('#beneficios .ben-grupo[data-dobra="ben-g:fixo:r-sol"] .ben-row:visible'), 1, "os outros grupos ficam")
+        self.abrir_ben([VIP, CREDITO, SEGURO])
+        self.assertEqual(self.conta(g + '.shut'), 1, "o aparelho lembra")
+        self.clicar(g + ' > .ben-grupo-cab')
+        self.assertEqual(self.conta(g + ' .ben-row:visible'), 2)
+
     def test_usei_desconta_um(self):
         self.abrir_ben([VIP])
         self.clicar('[data-a="ben-usar"]')

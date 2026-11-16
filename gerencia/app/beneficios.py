@@ -90,7 +90,8 @@ PROMPT_MEMORIA = PROMPT.replace(ABRE, "Você conhece os bancos, os cartões e os
 # Pede investido, em Editar banco; não entra nas oportunidades, que já mostram o próximo nível da conta)
 PROX = ("\nEm \"proximo_nivel\", o nível de conta logo acima do da pessoa nesse banco: \"nivel\" (o nome, ex.: \"Black\"), \"valor\""
         " (quanto ele pede investido, em reais, como número) e \"trecho\" (como acima); {{\"nivel\":\"\",\"valor\":0,\"trecho\":\"\"}} se não"
-        " houver. Esse nível não entra em \"oportunidades\".")
+        " houver. Esse nível não entra em \"oportunidades\", nem o que vale para o nível que ela já tem (o que ele pede para"
+        " continuar nele não é oportunidade).")
 PROX_FMT = ',"proximo_nivel":{{"nivel":"","valor":0,"trecho":""}}'
 
 
@@ -172,6 +173,25 @@ def limpar_metas(parsed, texto=None):
         if len(saida) >= MAX_METAS:
             break
     return saida, recusadas
+
+
+def niveis_da_conta(d, origem, so_conta=False):
+    """Os níveis que a pessoa já tem na conta (o da conta e o do cartão; so_conta: só o da conta), para não virarem
+    oportunidade nem próximo nível (1.74.3)."""
+    o = str(origem or "")
+    if not o.startswith("conta:"):
+        return []
+    for bc in d.get("bancos") or []:
+        for c in (bc.get("contas") or []) if isinstance(bc, dict) else []:
+            if isinstance(c, dict) and c.get("id") == o[6:]:
+                return [str(c[k]).strip() for k in (("nivel",) if so_conta else ("nivel", "cartao_nivel")) if str(c.get(k) or "").strip()]
+    return []
+
+
+def do_nivel_atual(ganha, niveis):
+    """A oportunidade é só o nível que a pessoa já tem ("Inter Prime" sendo Prime)?"""
+    g = f" {assinaturas.normal(ganha)} "
+    return any(f" {assinaturas.normal(n)} " in g for n in niveis if assinaturas.normal(n))
 
 
 def limpar_proximo(parsed, texto=None):

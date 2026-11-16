@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.74.2';
+const VERSAO = '1.74.3';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4476,7 +4476,7 @@ const semCartao = k => (k && k.debito === false ? 'Pix' : 'Débito ou Pix');
 const pessoasContas = () => [...new Set(S.d.bancos.flatMap(b => (b.contas || []).map(c => c.pessoa)).filter(Boolean))];
 function resumoContas(b) {
   return (b.contas || []).map(c => {
-    const adic = c.cartao ? (c.adicionais || []).map(a => a.pessoa).filter(Boolean) : [];
+    const adic = c.cartao ? (c.adicionais || []).filter(a => a.pessoa).map(a => a.pessoa + (a.mesmo_limite ? ' com o mesmo limite' : '')) : [];
     const extra = [c.nivel, c.debito === false ? 'sem débito' : '', c.cartao ? (c.cartao_nivel ? 'cartão ' + c.cartao_nivel : 'cartão') : '', adic.length ? 'adicional ' + adic.join(' e ') : '',
       c.debito_global ? 'débito global em ' + nomeMoedaGlobal(c.debito_global) : '',
       c.credito_global ? 'crédito global em ' + nomeMoedaGlobal(c.credito_global) + (c.credito_global_adicional ? ' com adicional' + (c.credito_global_para ? ' para ' + c.credito_global_para : '') : '') : ''].filter(Boolean).join(', ');
@@ -4620,8 +4620,9 @@ function abrirBanco(id, nome, sobre) {
             <p class="ajuda limite-disp" data-lim="${i}">${textoLimite(c)}</p>
             <div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${(c.adicionais || []).length ? ' on' : ''}" data-a="bc-adic" data-i="${i}" aria-label="Tem cartão adicional"></button></div>
             ${(c.adicionais || []).map((a, j) => `<div class="duo nivel-l adic"><div><div class="lbl">Para quem</div><input class="inp" data-fba="pessoa" data-i="${i}" data-j="${j}" value="${esc(a.pessoa || '')}" placeholder="Nome, ex.: Beto" data-sug="dl-pessoas" autocomplete="off" aria-label="Para quem é o adicional"></div>
-              <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="0" aria-label="Limite do adicional"></div>
-                <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>`).join('')}
+              <div><div class="lbl">Limite</div><div class="adic-l"><div class="pref${a.mesmo_limite ? ' ro' : ''}"><span>R$</span><input inputmode="decimal" data-fba="limite" data-i="${i}" data-j="${j}" value="${a.mesmo_limite ? (numDinheiro(c.limite) > 0 ? NF0.format(numDinheiro(c.limite)) : '') : typeof a.limite === 'number' ? NF0.format(a.limite) : esc(a.limite || '')}" placeholder="${a.mesmo_limite ? 'o do principal' : '0'}"${a.mesmo_limite ? ' readonly aria-readonly="true"' : ''} aria-label="Limite do adicional"></div>
+                <button class="icbtn" data-a="bc-adic-rm" data-i="${i}" data-j="${j}" aria-label="Tirar este adicional">${ic('trash', 'ic-s')}</button></div></div></div>
+            <div class="linha-sw adic-mesmo"><div>${tituloLinha('card', 'Mesmo limite do principal')}</div><button class="sw${a.mesmo_limite ? ' on' : ''}" data-a="bc-adic-mesmo" data-i="${i}" data-j="${j}" aria-label="Mesmo limite do cartão principal"></button></div>`).join('')}
             ${(c.adicionais || []).length ? `<button class="chip add adic-add" data-a="bc-adic-add" data-i="${i}">${ic('plus', 'ic-s')}Outro adicional</button>` : ''}` : ''}` : ''}
             ${c._aba === 'global' ? `${campoGlobal(c, i, 'debito_global', 'Tem cartão de débito global?')}
             ${campoGlobal(c, i, 'credito_global', 'Tem cartão de crédito global?')}
@@ -4702,7 +4703,8 @@ function salvarBanco() {
       const adic = k.cartao ? (c.adicionais || []).map(a => {
         const x = { id: a.id || 'a-' + uid(), pessoa: String(a.pessoa || '').trim().slice(0, 40) };
         const la = Math.round((numDinheiro(a.limite) || 0) * 100) / 100;
-        if (la > 0) x.limite = la;
+        if (a.mesmo_limite) x.mesmo_limite = true;  // 1.74.3: divide o limite do cartão principal
+        else if (la > 0) x.limite = la;
         return x;
       }).filter(a => a.pessoa) : [];
       if (adic.length) k.adicionais = adic;
@@ -5208,15 +5210,16 @@ function maisBeneficios() {
   const M = S.d.beneficios.filter(ehMilhas), L = S.d.beneficios.filter(b => !ehMilhas(b) && !encerrado(b)), fora = S.d.beneficios.filter(encerrado);
   let h = `<section class="card" id="beneficios">${maisCab('gift', 'Benefícios')}${maisLead('O que você ganha por pagar um plano ou ter um cartão: salas VIP, créditos, vantagens e milhas. Toque em Usei para descontar.')}`;
   if (!L.length && !M.length) h += `<p class="vazio">${fora.length ? 'Nenhum benefício valendo.' : 'Nenhum benefício ainda.'}</p>`;
-  if (M.length) h += `<div class="ben-grupo"><div class="ben-grupo-cab">${ic('plane', 'ic-s')}<b>Milhas</b></div>${M.map(linhaMilhas).join('')}</div>`;
+  // 1.74.3: cada grupo (as milhas, cada conta ou fixo) fecha num toque no cabeçalho; fechado, quantos ao lado
+  if (M.length) h += `<div class="ben-grupo dobra-c" data-dobra="ben-g:milhas"><div class="ben-grupo-cab">${ic('plane', 'ic-s')}<b>Milhas</b><span class="fl-val">${M.length}</span></div>${M.map(linhaMilhas).join('')}</div>`;
   // por origem (o fixo, a conta), com o aviso quando o fixo acabou ou a conta saiu
   const porOrigem = lista => {
     const grupos = new Map();
     for (const b of lista) { const k = b.origem || ''; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(b); }
     return [...grupos.values()].map(g => {
       const o = origemBeneficio(g[0]);
-      return `<div class="ben-grupo"><div class="ben-grupo-cab">${ic(o.tipo === 'fixo' ? 'repeat' : o.tipo === 'conta' ? 'card' : 'gift', 'ic-s')}<b>${esc(o.nome || 'Sem origem')}</b>
-        ${!o.ativa ? `<em class="ben-acabou">${o.tipo === 'fixo' ? 'o fixo acabou' : 'a conta saiu'}</em>` : ''}</div>${g.map(linhaBeneficio).join('')}</div>`;
+      return `<div class="ben-grupo dobra-c" data-dobra="ben-g:${esc(g[0].origem || '')}"><div class="ben-grupo-cab">${ic(o.tipo === 'fixo' ? 'repeat' : o.tipo === 'conta' ? 'card' : 'gift', 'ic-s')}<b>${esc(o.nome || 'Sem origem')}</b>
+        ${!o.ativa ? `<em class="ben-acabou">${o.tipo === 'fixo' ? 'o fixo acabou' : 'a conta saiu'}</em>` : ''}<span class="fl-val">${g.length}</span></div>${g.map(linhaBeneficio).join('')}</div>`;
     }).join('');
   };
   h += porOrigem(L);
@@ -5293,7 +5296,7 @@ function blocoPromos() {
   const st = P.conferindo ? 'Conferindo as páginas oficiais…' : !quando ? 'Ainda não conferidas.'
     : `${plural(lidas, 'assinatura conferida', 'assinaturas conferidas')} ${iso(quando) === iso(hoje()) ? 'hoje, às ' + hora : 'em ' + fDataC(quando)}.`;
   const ap = (P.aparelhos || []).length ? ` Nos seus aparelhos: ${juntarE(P.aparelhos)}.` : '';
-  let h = `<div class="ben-grupo promo-grupo"><div class="ben-grupo-cab">${ic('percent', 'ic-s')}<b>Assinaturas em promoção</b></div>
+  let h = `<div class="ben-grupo promo-grupo dobra-c" data-dobra="ben-g:promo"><div class="ben-grupo-cab">${ic('percent', 'ic-s')}<b>Assinaturas em promoção</b>${lista.length ? `<span class="fl-val">${lista.length}</span>` : ''}</div>
     ${lista.length ? lista.map(linhaPromo).join('') : `<p class="vazio promo-vazio">${P.conferindo && !quando ? 'Conferindo as páginas oficiais…' : 'Nenhuma agora.'}</p>`}
     <p class="dica-quando promo-st">${ic(P.conferindo ? 'refresh' : 'clock', 'ic ic-s')}<span>${esc(st + ap)} ${P.conferindo ? '' : `<button class="link-in" data-a="promo-conferir">${ic('refresh', 'ic-s')}Conferir agora</button>`}</span></p>`;
   h += recolhido('promo-sem', 'Sem como conferir', sem.length, sem.map(x => `<p class="promo-sem-l"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nome)}</a> <small>${esc(ST_PROMO[x.status] || '')}</small></p>`).join(''), 'alert');
@@ -5318,7 +5321,7 @@ function cardMetas() {
   const promos = promosOn() ? blocoPromos() : '';
   const metas = L.length ? L.map(x => linhaMeta(x.m)).join('') : '<p class="vazio">Nenhuma oportunidade ainda.</p>';
   return `<section class="card" id="metas">${maisCab('trend', 'Oportunidades')}${maisLead(promos ? 'Assinaturas em promoção e o que falta para ganhar mais.' : 'O que falta para ganhar mais: investindo, gastando no cartão ou mudando de plano.')}
-    ${promos ? `${promos}<div class="ben-grupo"><div class="ben-grupo-cab">${ic('trend', 'ic-s')}<b>Para ganhar mais</b></div>${metas}</div>` : metas}
+    ${promos ? `${promos}<div class="ben-grupo dobra-c" data-dobra="ben-g:metas"><div class="ben-grupo-cab">${ic('trend', 'ic-s')}<b>Para ganhar mais</b>${L.length ? `<span class="fl-val">${L.length}</span>` : ''}</div>${metas}</div>` : metas}
     ${iaOn() ? `<div class="btns-2 ben-botoes"><button class="btn out" data-a="meta-nova">${ic('plus', 'ic-s')}Cadastrar</button><button class="btn out" data-a="meta-ler">${ic('ia', 'ic-s')}Ler com IA</button></div>`
     : `<button class="btn out larga" data-a="meta-nova">${ic('plus')}Cadastrar oportunidade</button>`}</section>`;
 }
@@ -6701,7 +6704,7 @@ function camposFechados() {
 function aplicarCampos(raiz = document) {
   const f = camposFechados();
   for (const c of raiz.querySelectorAll('.dobra-c')) {
-    const t = c.querySelector(':scope > .lbl'), k = c.dataset.dobra;
+    const t = c.querySelector(':scope > .lbl, :scope > .ben-grupo-cab'), k = c.dataset.dobra;
     if (!t || !k) continue;
     const off = f.has(k);
     c.classList.toggle('shut', off);
@@ -6716,7 +6719,7 @@ function alternarCampo(t) {
   try { localStorage.setItem(CAMPOS_KEY, JSON.stringify([...f])); } catch (e) { /* janela anônima: só por agora */ }
   aplicarCampos();
 }
-const tituloCampo = ev => ev.target.closest && !ev.target.closest('button, a, input, select, textarea, [data-a]') ? ev.target.closest('.dobra-c > .lbl') : null;
+const tituloCampo = ev => ev.target.closest && !ev.target.closest('button, a, input, select, textarea, [data-a]') ? ev.target.closest('.dobra-c > .lbl, .dobra-c > .ben-grupo-cab') : null;
 document.addEventListener('click', ev => { const t = tituloCampo(ev); if (t) alternarCampo(t); });
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -7214,6 +7217,7 @@ document.addEventListener('click', ev => {
     case 'bc-adic': { const c = FB.contas[+el.dataset.i]; c.adicionais = (c.adicionais || []).length ? [] : [{ id: 'a-' + uid(), pessoa: '', limite: '' }]; pintarFolha(); break; }
     case 'bc-adic-add': { const c = FB.contas[+el.dataset.i]; (c.adicionais = c.adicionais || []).push({ id: 'a-' + uid(), pessoa: '', limite: '' }); pintarFolha(); break; }
     case 'bc-adic-rm': { const c = FB.contas[+el.dataset.i]; c.adicionais.splice(+el.dataset.j, 1); pintarFolha(); break; }
+    case 'bc-adic-mesmo': { const a = FB.contas[+el.dataset.i].adicionais[+el.dataset.j]; a.mesmo_limite = !a.mesmo_limite; pintarFolha(); break; }
     case 'b-excluir': {
       const alvo = FB.id, n = S.d.investimentos.filter(i => i.banco === alvo).length;
       confirmar({ titulo: 'Apagar banco?', texto: n ? `${plural(n, 'investimento fica', 'investimentos ficam')} sem banco. Dá para escolher outro depois.` : 'O banco sai da lista.', botao: 'Apagar', perigo: true,
@@ -7319,7 +7323,7 @@ document.addEventListener('input', ev => {
     if (lm && k === 'limite') lm.innerHTML = textoLimite(c);
     return;
   }
-  if (el.dataset.fba && FB) { FB.contas[+el.dataset.i].adicionais[+el.dataset.j][el.dataset.fba] = el.value; return; }
+  if (el.dataset.fba && FB) { const a = FB.contas[+el.dataset.i].adicionais[+el.dataset.j]; if (!(el.dataset.fba === 'limite' && a.mesmo_limite)) a[el.dataset.fba] = el.value; return; }
   if (el.dataset.fc && FC) { FC[el.dataset.fc] = el.value; return; }
   if (el.dataset.fs && FS) {
     FS[el.dataset.fs] = el.value;

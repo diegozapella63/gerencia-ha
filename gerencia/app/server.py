@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.74.2"
+VERSAO = "1.74.3"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2041,6 +2041,11 @@ def beneficios_ler(corpo):
     prox = beneficios.limpar_proximo(parsed, conferir or None) if origem.startswith("conta:") else None
     if prox:
         metas = [m for m in metas if not (m["tipo"] == "investido" and abs(m["valor"] - prox["valor"]) < 0.01)]
+    # 1.74.3: o nível que a pessoa já tem (e o que ele pede para continuar nele) não é oportunidade, nem próximo nível
+    ja = beneficios.niveis_da_conta(d, origem)
+    metas = [m for m in metas if not beneficios.do_nivel_atual(m["ganha"], ja)]
+    if prox and beneficios.do_nivel_atual(prox["nivel"], beneficios.niveis_da_conta(d, origem, so_conta=True)):
+        prox = None
     if not itens and not metas and not prox:
         if memoria:
             raise ValueError(f"A IA não sabe os benefícios de {de}. Mande um print ou a página deles.")

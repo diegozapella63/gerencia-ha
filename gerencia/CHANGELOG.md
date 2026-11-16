@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.74.3
+
+- **Cartões › adicional**: em cada adicional, **Mesmo limite do principal**. Ligado, o limite dele só mostra o do cartão principal. A lista de Bancos e a IA dizem "com o mesmo limite".
+- **Benefícios**: cada grupo (Milhas, cada conta ou fixo, as assinaturas em promoção, Para ganhar mais) fecha num toque no cabeçalho. Fechado, mostra ao lado quantos tem. O aparelho lembra.
+- **Identificar benefícios** não sugere mais, como oportunidade, o nível que a conta já tem (por exemplo "Prime com R$ 150 mil investidos" para quem já é Prime). As que já foram cadastradas assim dá para apagar tocando nelas.
+
 ## 1.74.2
 
 - **Editar banco › Ver os N benefícios**: os benefícios da conta abrem ali mesmo, por cima. Dá para tocar em **Usei** e, tocando no benefício, editar e voltar para a lista.
