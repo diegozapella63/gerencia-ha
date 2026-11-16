@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.74.3"
+VERSAO = "1.75.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2051,11 +2051,60 @@ def beneficios_ler(corpo):
             raise ValueError(f"A IA não sabe os benefícios de {de}. Mande um print ou a página deles.")
         raise ValueError("A IA citou benefícios que não estão escritos " + ("na página" if url else "no texto") + ", então o app ignorou."
                          if recusados or recusadas else "A IA não achou benefícios nem oportunidades aqui.")
+    if not IA_MOCK:
+        _conferir_sites(itens)
     r = {"beneficios": itens, "oportunidades": metas, "recusados": recusados + recusadas, "origem": origem}
     if prox:
         r["proximo"] = prox
     if memoria:
         r["memoria"] = True  # do que a IA sabe, sem fonte: a tela pede para conferir
+    return r
+
+
+def _site_abre(url):
+    try:
+        with _abrir_url(url, timeout=6) as r:
+            return r.status < 400
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _conferir_sites(itens):
+    """O site que a IA disse para cada benefício só fica se abrir (a IA pode inventar um endereço); em paralelo."""
+    com = [x for x in itens if x.get("url")]
+    if not com:
+        return
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        for x, ok in zip(com, ex.map(lambda y: _site_abre(y["url"]), com)):
+            if not ok:
+                del x["url"]
+
+
+def beneficios_explicar(corpo):
+    """1.75.0: o que é um benefício já cadastrado e o site oficial dele (Explicar com IA, no formulário)."""
+    d = ler()
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada. Para usar, ligue em Mais › Configurações › Integrações.")
+    nome = str(corpo.get("nome") or "").strip()[:60]
+    if not nome:
+        raise ValueError("Dê um nome ao benefício.")
+    de = beneficios.nome_origem(d, str(corpo.get("origem") or "")[:60])
+    if IA_MOCK:
+        registrar_uso("beneficios", "ai_task.simulada", 300, 80, 0, 0.1, "ok")
+        dados = beneficios.explicado_simulado(nome)
+    else:
+        if not ia_disponivel(d):
+            raise ValueError("Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).")
+        try:
+            dados = ia_tarefa(d, "beneficios", "GerencIA: explicar benefício", beneficios.prompt_explicar(nome, de))
+        except ErroHA as e:
+            raise ValueError(str(e)) from None
+    r = beneficios.sobre(extrair_json(dados))
+    if not r.get("descricao"):
+        raise ValueError(f"A IA não sabe o que é {nome}.")
+    if r.get("url") and not IA_MOCK and not _site_abre(r["url"]):
+        del r["url"]
     return r
 
 
@@ -3511,6 +3560,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, ia_ler(self.corpo_json()))
             if p == "/api/beneficios/ler":
                 return self.enviar(200, beneficios_ler(self.corpo_json()))
+            if p == "/api/beneficios/explicar":
+                return self.enviar(200, beneficios_explicar(self.corpo_json()))
             if p == "/api/milhas/ler":
                 return self.enviar(200, milhas_ler(self.corpo_json()))
             if p == "/api/bens/atualizar":

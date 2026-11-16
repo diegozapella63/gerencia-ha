@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.75.0
+
+- **Benefícios › o que é cada um**: ao ler os benefícios, a IA também diz o que cada um é e para que serve (por exemplo, o que é um clube de restaurantes) e, quando conhece, o site oficial. O app só guarda o site se ele abrir. Na lista, a explicação aparece embaixo do nome. No formulário ficam **O que é** e **Site**, com **Abrir** o site.
+- **Explicar com IA**, no formulário do benefício, explica um benefício já cadastrado e traz o site.
+
 ## 1.74.3
 
 - **Cartões › adicional**: em cada adicional, **Mesmo limite do principal**. Ligado, o limite dele só mostra o do cartão principal. A lista de Bancos e a IA dizem "com o mesmo limite".

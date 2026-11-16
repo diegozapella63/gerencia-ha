@@ -1459,6 +1459,11 @@ input[readonly] { opacity: .8; }
 .ben-t { flex: 1; min-width: 0; text-align: left; }
 .ben-t b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ben-t > span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+/* 1.75.0: o que é o benefício, embaixo (até duas linhas na lista) */
+.ben-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-2); font-size: 13px; line-height: 1.35; margin-top: 3px; white-space: normal; }
+.bler-t .ben-desc { -webkit-line-clamp: 3; }
+.link.ben-site { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; }
+.btn.ben-explicar { margin-top: 4px; }
 .ben-barra { display: block; height: 5px; border-radius: 3px; background: var(--card-2); margin-top: 7px; overflow: hidden; }
 .ben-barra i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 .ben-v { flex: none; display: flex; flex-direction: column; align-items: flex-end; }

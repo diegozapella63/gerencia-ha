@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.74.3';
+const VERSAO = '1.75.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -540,6 +540,7 @@ const apiServidor = {
   foto: jpg => fetch('api/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jpg }) }).then(jsonOk),
   iaStatus: () => fetch('api/ia/status', { cache: 'no-store' }).then(jsonOk),
   iaLer: corpo => fetch('api/ia/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
+  beneficiosExplicar: corpo => fetch('api/beneficios/explicar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   beneficiosLer: corpo => fetch('api/beneficios/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   milhasLer: corpo => fetch('api/milhas/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).then(jsonOk).finally(() => { S.usoEm = 0; }),
   dicas: () => fetch('api/dicas', { cache: 'no-store' }).then(jsonOk),
@@ -653,6 +654,8 @@ function apiDemo() {
       if (!itens.length && !metas.length && !prox) throw new Error('A IA não achou benefícios nem oportunidades aqui.');
       return Object.assign({ beneficios: itens, oportunidades: metas, recusados: 0, origem: c.origem || '' }, prox ? { proximo: prox } : {}, memoria ? { memoria: true } : {});
     },
+    // o que é um benefício, na prévia: a IA simulada (beneficios.explicado_simulado), sem site
+    async beneficiosExplicar(c) { await espera(400); return { descricao: `${String(c.nome || '').trim()}: benefício de exemplo, explicado pela IA simulada.` }; },
     // milhas lidas pela IA na prévia: a IA simulada (igual à do servidor, milhas.simulados); a imagem vira um exemplo inventado
     async milhasLer(c) {
       await espera(600);
@@ -5190,7 +5193,7 @@ function linhaBeneficio(b) {
   const sub = [conta ? `${qtdBen(b, +b.total || 0)} ${RENOVA_TXT[b.renova] || ''}`.trim() : 'Vantagem',
     c.vencido ? `venceu em ${fData(pData(b.validade))}` : b.renova !== 'nunca' && c.fim ? `renova em ${fData(pData(c.fim))}` : c.ate ? `vale até ${fData(pData(c.ate))}` : '', b.obs || ''].filter(Boolean).join(' · ');
   const pct = conta && +b.total > 0 ? Math.min(100, (c.usado / +b.total) * 100) : 0;
-  return `<div class="ben-row${c.vencido ? ' vencido' : ''}"><button class="ben-t" data-a="ben-editar" data-id="${esc(b.id)}"><b>${esc(b.nome)}</b><span>${esc(sub)}</span>
+  return `<div class="ben-row${c.vencido ? ' vencido' : ''}"><button class="ben-t" data-a="ben-editar" data-id="${esc(b.id)}"><b>${esc(b.nome)}</b><span>${esc(sub)}</span>${b.descricao ? `<small class="ben-desc">${esc(b.descricao)}</small>` : ''}
       ${conta ? `<span class="ben-barra" aria-hidden="true"><i style="width:${pct.toFixed(1)}%"></i></span>` : ''}</button>
     ${conta ? `<div class="ben-v"><b>${c.restante > 0 ? 'restam ' + esc(qtdBen(b, c.restante)) : 'acabou'}</b><small>de ${esc(qtdBen(b, +b.total || 0))}</small></div>
       <button class="btn peq out ben-usar" data-a="ben-usar" data-id="${esc(b.id)}"${c.restante > 0 && !c.vencido ? '' : ' disabled'}>${ic('check', 'ic-s')}${b.tipo === 'saldo' ? 'Usei' : 'Usei 1'}</button>` : ''}</div>`;
@@ -5484,6 +5487,7 @@ function abrirBeneficio(id, sobre = false) {
         ${campoData('fben-desde', conta && f.renova !== 'nunca' ? 'Renova a partir de' : 'Desde', f.desde || '', 'data-fben="desde"', { tipo: 'livre' })}
         ${campoData('fben-validade', 'Vale até <span class="opc">(opcional)</span>', f.validade || '', 'data-fben="validade"', { opcional: true })}
         <div class="campo"><label for="fben-obs">Observação <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-obs" class="inp grow" rows="1" data-fben="obs" placeholder="Ex.: com 1 acompanhante" autocomplete="off">${esc(f.obs || '')}</textarea></div>
+        ${campoSobreBen(f)}
         ${f.id && conta ? `<div class="campo"><div class="lbl">Usos deste período · ${esc(qtdBen(f, c.usado))} de ${esc(qtdBen(f, +f.total || 0))}</div>${usos.length ? usos.map(u => `<div class="ben-uso"><span>${fData(pData(u.data))}</span><b>${esc(qtdBen(f, +u.qtd || 0))}</b><button class="icbtn" data-a="fben-uso-rm" data-v="${esc(u.id)}" aria-label="Tirar este uso">${ic('x', 'ic-s')}</button></div>`).join('') : '<p class="nota" style="margin:0">Nenhum uso ainda.</p>'}</div>` : ''}`,
       pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="fben-salvar">${ic('check')}Salvar</button>`,
     };
@@ -5499,6 +5503,30 @@ function abrirVerBeneficios(origem) {
       pe: `<button class="btn" data-a="fechar">${ic('back')}Voltar</button><button class="btn" data-a="ben-identificar" data-v="${esc(origem)}">${ic('ia', 'ic-s')}Identificar</button>`,
     };
   }, null, true);
+}
+// 1.75.0: o que é o benefício (para que serve) e o site oficial; Explicar com IA preenche os dois
+function campoSobreBen(f) {
+  const site = /^https:\/\/\S+$/.test(String(f.url || '').trim()) ? String(f.url).trim() : '';
+  return `<div class="campo"><label for="fben-desc">O que é <span style="color:var(--muted);font-weight:400">(opcional)</span></label><textarea id="fben-desc" class="inp grow" rows="2" data-fben="descricao" placeholder="Para que serve, como usar" autocomplete="off">${esc(f.descricao || '')}</textarea></div>
+    <div class="campo"><label for="fben-site">Site <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input id="fben-site" class="inp" data-fben="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(f.url || '')}" placeholder="https://…">
+      ${site ? `<a class="link ben-site" href="${esc(site)}" target="_blank" rel="noopener">${ic('external-link', 'ic-s')}Abrir ${esc(dominioUrl(site))}</a>` : ''}</div>
+    ${iaOn() ? `<button type="button" class="btn out larga ben-explicar" data-a="fben-explicar"${f.explicando ? ' disabled' : ''}>${ic('ia', 'ic-s')}${f.explicando ? 'Perguntando à IA…' : f.descricao ? 'Explicar de novo com IA' : 'Explicar com IA'}</button>` : ''}`;
+}
+async function explicarBeneficio() {
+  const f = FBEN, nome = String((f && f.nome) || '').trim();
+  if (!f || f.explicando) return;
+  if (!nome) { f.erro = 'nome'; pintarFolha(); toast('Dê um nome ao benefício.'); return; }
+  f.explicando = true; pintarFolha();
+  try {
+    const r = await api.beneficiosExplicar({ nome, origem: f.origem || '' });
+    if (FBEN !== f) return;
+    f.descricao = r.descricao || f.descricao;
+    if (r.url) f.url = r.url;
+    toast(r.url ? 'Explicado, com o site. Confira e salve.' : 'Explicado. Confira e salve.');
+  } catch (e) {
+    if (FBEN === f) toast(e.message);
+  }
+  if (FBEN === f) { f.explicando = false; pintarFolha(); }
 }
 // Milhas: o saldo mudou, a data dele vira hoje (os resgates de antes já estão no saldo novo)
 function salvarMilhas() {
@@ -5525,6 +5553,10 @@ function salvarBeneficio() {
   if (f.tipo === 'saldo') b.moeda = f.moeda === 'USD' ? 'USD' : 'BRL';
   if (f.validade) b.validade = f.validade;
   if (String(f.obs || '').trim()) b.obs = String(f.obs).trim().slice(0, 80);
+  if (String(f.descricao || '').trim()) b.descricao = String(f.descricao).trim().slice(0, 200);
+  const site = String(f.url || '').trim();
+  if (site && !/^https:\/\/\S+$/.test(site)) { f.erro = 'url'; pintarFolha(); toast('Use o endereço do site, começando com https://'); return; }
+  if (site) b.url = site.slice(0, 300);
   persistir(d => { const k = d.beneficios.findIndex(x => x.id === b.id); if (k >= 0) d.beneficios[k] = b; else d.beneficios.push(b); }, f.id ? 'Benefício salvo' : 'Benefício cadastrado')
     .then(ok => { if (ok) fecharFolha(false, true); });
 }
@@ -5583,7 +5615,7 @@ function montarLerBeneficios() {
   if (s.etapa === 'revisao') {
     const n = s.itens.filter(x => x.on).length + s.metas.filter(x => x.on).length + (s.proximo && s.proximo.on ? 1 : 0), de = s.origem ? origemBeneficio({ origem: s.origem }).nome : '';
     const item = (acao, k, x, nome, sub) => `<button type="button" class="bler-it${x.on ? ' on' : ''}" role="checkbox" aria-checked="${x.on}" data-a="${acao}" data-v="${k}">
-          <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
+          <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.descricao ? `<small class="ben-desc">${esc(x.descricao)}</small>` : ''}${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
     return {
       titulo: s.itens.length ? 'Benefícios encontrados' : s.metas.length ? 'Oportunidades encontradas' : 'Próximo nível encontrado',
       corpo: `<p class="da-intro" style="margin:0 0 8px">${s.memoria ? `Do que a IA sabe${de ? ` de ${esc(de)}` : ''}: confira no app ou no site antes de cadastrar. ` : de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
@@ -5691,6 +5723,8 @@ function salvarLerBeneficios() {
     if (x.tipo !== 'vantagem') b.total = +x.total || 0;
     if (x.tipo === 'saldo') b.moeda = x.moeda === 'USD' ? 'USD' : 'BRL';
     if (x.obs) b.obs = String(x.obs).slice(0, 80);
+    if (x.descricao) b.descricao = String(x.descricao).slice(0, 200);  // 1.75.0: o que é e o site
+    if (/^https:\/\/\S+$/.test(x.url || '')) b.url = String(x.url).slice(0, 300);
     return b;
   });
   const metas = s.metas.filter(x => x.on).map(x => {
@@ -6104,7 +6138,7 @@ if (window.__selectSheet) window.__selectSheet.icon = sel => {
 };
 // 1.72.0: o título de cada campo de uma janela (e de Mais) com o ícone pequeno antes, pelas palavras dele, quando o
 // campo ainda não traz o seu (o padrão da família: todo título de linha com ícone)
-const ICONE_CAMPO = [[/senha/i, 'lock'], [/milhas/i, 'plane'], [/taxa|%|índice/i, 'percent'], [/página|endereço|link/i, 'external-link'],
+const ICONE_CAMPO = [[/^o que é/i, 'info'], [/senha/i, 'lock'], [/milhas/i, 'plane'], [/taxa|%|índice/i, 'percent'], [/página|endereço|link|^site/i, 'external-link'],
   [/cole|mensagem/i, 'clipboard-paste'], [/valor|quanto|r\$|rendimento|cobrança|saldo|limite|preço/i, 'wallet'],
   [/meses|anos|data|vence|venc|fecha|dia\b|quando|período/i, 'calendar'], [/hora/i, 'clock'], [/banco|conta\b/i, 'bank'],
   [/cartão|como é pago|fatura/i, 'card'], [/fixo|repet|parcela/i, 'repeat'], [/de quem|pessoa|titular|quem/i, 'user'],
@@ -7203,6 +7237,7 @@ document.addEventListener('click', ev => {
     case 'fmil-ler': if (FBEN) abrirLerBeneficios('', true, 'milhas'); break;
     case 'fmil-lote-rm': if (FBEN) { FBEN.vencem_mais = (FBEN.vencem_mais || []).filter((_, k) => k !== +v); pintarFolha(); } break;
     case 'fben-salvar': salvarBeneficio(); break;
+    case 'fben-explicar': explicarBeneficio(); break;
     case 'fben-uso-rm': if (FBEN) { FBEN.usos = (FBEN.usos || []).filter(u => u.id !== v); pintarFolha(); } break;
     case 'fben-usou': if (FBEN && FBEN.lancar) { const q = Math.round((numDinheiro(FBEN.valor) || 0) * 100) / 100; if (!(q > 0)) { toast('Diga quanto usou.'); break; } const f = FBEN.lancar; fecharFolha(false, true); f(q); } break;
     case 'fben-excluir': { const f = FBEN, mil = ehMilhas(f); confirmar({ titulo: mil ? 'Apagar milhas?' : 'Apagar benefício?', texto: `${esc(mil ? nomeMilhas(f) : f.nome)} sai da lista, com os ${mil ? 'resgates' : 'usos'}.`, botao: 'Apagar', perigo: true,

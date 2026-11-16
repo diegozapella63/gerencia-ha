@@ -282,6 +282,38 @@ class TestLerComIA(TelaBen):
         self.clicar('#folhas .folha-pe [data-a="fechar"]')
         self.assertEqual(self.folha(), "Editar banco", "e o Voltar, para o banco")
 
+    def test_o_que_e_cada_um(self):
+        """1.75.0: a leitura diz o que é cada benefício e o site; vai para o cadastro, aparece na lista (embaixo do nome) e
+        no formulário, com Abrir o site; Explicar com IA preenche um já cadastrado."""
+        self.abrir_ben()
+        self.js("""(window.__benLer = T.api.beneficiosLer, T.api.beneficiosLer = async () => ({ beneficios: [{ nome: 'Clube Sabor', tipo: 'vantagem', renova: 'nunca',
+            descricao: 'Clube de restaurantes: dois pratos pelo preço de um', url: 'https://clube.exemplo.com' }], oportunidades: [] }), true)""")
+        self.addCleanup(lambda: self.js("(T.api.beneficiosLer = window.__benLer, true)"))
+        self.clicar('[data-a="ben-ler"]')
+        self.preencher("#bler-txt", "Clube Sabor")
+        self.ler()
+        self.assertEqual(self.texto('#folhas .bler-it .ben-desc'), "Clube de restaurantes: dois pratos pelo preço de um")
+        self.clicar('#folhas [data-a="bler-salvar"]')
+        b = self.dados()["beneficios"][0]
+        self.assertEqual((b["descricao"], b["url"]), ("Clube de restaurantes: dois pratos pelo preço de um", "https://clube.exemplo.com"))
+        self.assertEqual(self.texto('#beneficios .ben-row .ben-desc'), "Clube de restaurantes: dois pratos pelo preço de um", "na lista, embaixo")
+        self.clicar('#beneficios [data-a="ben-editar"]')
+        self.assertEqual(self.pg.input_value('#fben-desc'), "Clube de restaurantes: dois pratos pelo preço de um")
+        self.assertEqual(self.pg.get_attribute('.folha a.ben-site', "href"), "https://clube.exemplo.com")
+        self.assertEqual(self.texto('.folha a.ben-site'), "Abrir clube.exemplo.com")
+        self.preencher('#fben-site', "clube.exemplo.com")
+        self.clicar('[data-a="fben-salvar"]')
+        self.assertEqual(self.esperar_aviso("https"), "Use o endereço do site, começando com https://")
+        self.preencher('#fben-site', "")
+        self.preencher('#fben-desc', "")
+        self.clicar('[data-a="fben-explicar"]')
+        self.pg.wait_for_function("() => !window.GERENCIA_TESTE.FBEN.explicando")
+        self.esperar()
+        self.assertEqual(self.pg.input_value('#fben-desc'), "Clube Sabor: benefício de exemplo, explicado pela IA simulada.")
+        self.clicar('[data-a="fben-salvar"]')
+        b = self.dados()["beneficios"][0]
+        self.assertEqual((b["descricao"], "url" in b), ("Clube Sabor: benefício de exemplo, explicado pela IA simulada.", False))
+
     def test_identificar_beneficios_de_uma_assinatura(self):
         """1.53: um gasto fixo, como uma assinatura, também dá benefícios: no fixo, Identificar benefícios abre a leitura
         por IA já com ele em De onde vêm (a assinatura com o nome dela); cadastrar volta para o fixo."""

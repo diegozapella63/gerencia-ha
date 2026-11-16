@@ -87,6 +87,25 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertNotIn("só os de", a)
         self.assertTrue(a.endswith("]}"), "sem texto, o pedido acaba no formato")
 
+    def test_o_que_e_e_o_site(self):
+        """1.75.0: cada benefício diz o que é (a IA pode usar o que sabe) e o site oficial (só https)."""
+        self.assertEqual(B.sobre({"descricao": " Clube  de restaurantes ", "site": "https://clube.exemplo.com/x"}),
+                         {"descricao": "Clube de restaurantes", "url": "https://clube.exemplo.com/x"})
+        self.assertEqual((B.sobre({"site": "http://x.com"}), B.sobre({"site": "javascript:alert(1)"}), B.sobre(None), B.sobre({"url": "https://a.exemplo.com"})),
+                         ({}, {}, {}, {"url": "https://a.exemplo.com"}))
+        self.assertEqual(B.sobre({"descricao": "x" * 300})["descricao"], "x" * 200)
+        p = B.prompt("Banco Azul", "", "texto")
+        self.assertIn('"descricao": o que é e para que serve', p)
+        self.assertIn('Não use o que você sabe de memória (só na "descricao" e no "site")', p)
+        self.assertIn('"descricao":"","site":""', p)
+        self.assertIn('Use o que você sabe de Banco Azul', B.prompt("Banco Azul", memoria=True), "a regra continua trocada na memória")
+        e = B.prompt_explicar("Clube Sabor", "Banco Azul, nível Prime")
+        self.assertTrue(e.startswith('Explique, para quem nunca ouviu falar, o benefício "Clube Sabor" (de Banco Azul, nível Prime)'))
+        self.assertTrue(e.endswith('{"descricao":"","site":""}'))
+        self.assertEqual(B.explicado_simulado(" Clube Sabor ")["descricao"], "Clube Sabor: benefício de exemplo, explicado pela IA simulada.")
+        it, _ = B.limpar({"beneficios": [{"nome": "Clube Sabor", "tipo": "vantagem", "trecho": "", "descricao": "Dois pratos pelo preço de um", "site": "https://clube.exemplo.com"}]})
+        self.assertEqual((it[0]["descricao"], it[0]["url"]), ("Dois pratos pelo preço de um", "https://clube.exemplo.com"))
+
     def test_limpar_proximo(self):
         lp = B.limpar_proximo
         self.assertEqual(lp({"proximo_nivel": {"nivel": " Black ", "valor": "100.000", "trecho": ""}}), {"nivel": "Black", "valor": 100000, "trecho": ""})
@@ -276,6 +295,18 @@ class TestLerNoServidor(unittest.TestCase):
         self.assertEqual((B.niveis_da_conta(D, "conta:k2"), B.niveis_da_conta(D, "fixo:r-sol"), B.niveis_da_conta(D, "conta:x")), ([], [], []))
         self.assertIn("nem o que vale para o nível que ela já tem", B.prompt("Banco Azul, nível Prime", conta=True, memoria=True))
 
+    def test_explicar(self):
+        """1.75.0: Explicar com IA (no formulário): o que é um benefício já cadastrado."""
+        self.salvar()
+        self.assertEqual(S.beneficios_explicar({"nome": "Clube Sabor", "origem": "conta:k1"}), {"descricao": "Clube Sabor: benefício de exemplo, explicado pela IA simulada."})
+        with self.assertRaisesRegex(ValueError, "Dê um nome"):
+            S.beneficios_explicar({"nome": " "})
+        with mock.patch.object(B, "explicado_simulado", return_value={"descricao": ""}), self.assertRaisesRegex(ValueError, "A IA não sabe o que é Clube Sabor"):
+            S.beneficios_explicar({"nome": "Clube Sabor"})
+        self.salvar(ia=False)
+        with self.assertRaisesRegex(ValueError, "A IA está desligada"):
+            S.beneficios_explicar({"nome": "Clube Sabor"})
+
     def test_endereco_sem_https(self):
         self.salvar()
         abertos = []
@@ -370,6 +401,29 @@ class TestIaDeVerdade(unittest.TestCase):
         self.assertEqual(n, 0)
         self.assertNotIn("attachments", payload)
 
+    def test_site_so_fica_se_abrir(self):
+        """1.75.0: o site que a IA disse só fica se abrir (ela pode inventar o endereço)."""
+        abre = {"https://clube.exemplo.com": True, "https://inventado.exemplo.com": False}
+        self.ia({"beneficios": [{"nome": "Clube Sabor", "tipo": "vantagem", "trecho": "", "descricao": "Restaurantes", "site": "https://clube.exemplo.com"},
+                                {"nome": "Seguro", "tipo": "vantagem", "trecho": "", "descricao": "Viagem", "site": "https://inventado.exemplo.com"}]},
+                {"descricao": "Restaurantes", "site": "https://inventado.exemplo.com"}, {"descricao": "Restaurantes", "site": "https://clube.exemplo.com"},
+                S.ErroHA("A IA caiu."))
+        with mock.patch.object(S, "_site_abre", side_effect=lambda u: abre[u]):
+            r = S.beneficios_ler({"origem": "conta:k1"})
+            self.assertEqual([b.get("url") for b in r["beneficios"]], ["https://clube.exemplo.com", None])
+            self.assertEqual(S.beneficios_explicar({"nome": "Clube Sabor"}), {"descricao": "Restaurantes"})
+            self.assertEqual(S.beneficios_explicar({"nome": "Clube Sabor"}), {"descricao": "Restaurantes", "url": "https://clube.exemplo.com"})
+            with self.assertRaisesRegex(ValueError, "A IA caiu."):
+                S.beneficios_explicar({"nome": "Clube Sabor"})
+        self.assertIn('o benefício "Clube Sabor"', self.pedidos[1][1]["instructions"])
+        falso = ServidorFalso({"/ok": (200, "<html>ok</html>")})
+        self.addCleanup(falso.fechar)
+        self.assertEqual((S._site_abre(falso.url + "/ok"), S._site_abre(falso.url + "/nao")), (True, False))
+        S._conferir_sites([])
+        Trocar(self, ia_disponivel=lambda d: False)
+        with self.assertRaisesRegex(ValueError, "Nenhuma IA configurada"):
+            S.beneficios_explicar({"nome": "Clube Sabor"})
+
     def test_texto_vai_sem_anexo_e_sem_resposta_avisa(self):
         self.ia(None)
         with self.assertRaisesRegex(ValueError, "A IA não devolveu resposta"):
@@ -409,6 +463,8 @@ class TestRota(unittest.TestCase):
     def test_ler(self):
         st, _, r = self.srv.post("/api/beneficios/ler", {"texto": "6 acessos à sala VIP por ano"})
         self.assertEqual((st, [b["nome"] for b in r["beneficios"]]), (200, ["Sala VIP"]))
+        st, _, r = self.srv.post("/api/beneficios/explicar", {"nome": "Clube Sabor"})
+        self.assertEqual((st, r["descricao"]), (200, "Clube Sabor: benefício de exemplo, explicado pela IA simulada."), "1.75.0")
         st, _, r = self.srv.post("/api/beneficios/ler", {})
         self.assertEqual((st, r["erro"]), (400, "Envie um print, uma foto ou um PDF, ou cole o texto ou o endereço da página."))
         st, _, r = self.srv.get("/api/ia/uso")

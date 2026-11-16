@@ -66,6 +66,8 @@ Para cada benefício, devolva:
 - "renova": "mes" se renova todo mês, "ano" se renova todo ano, "nunca" se não renova ou não diz.
 - "condicao": a condição, curta (ex.: "com 1 acompanhante", "gastando R$ 5 mil por mês"); "" se não houver.
 - "trecho": o pedaço do texto onde aparece o benefício, copiado exatamente como está (até 100 caracteres).
+- "descricao": o que é e para que serve, para quem nunca ouviu falar, em uma ou duas frases curtas (até 160 caracteres; ex.: "Clube de restaurantes: dois pratos pelo preço de um nos parceiros"); aqui pode usar o que você sabe.
+- "site": o endereço oficial do benefício (https://…), se houver um conhecido; "" se não souber.
 Liste também, em "oportunidades", o que a pessoa ganha a mais cumprindo uma condição escrita ali, com o valor da condição:
 - "tipo": "investido" se for ter um valor investido ou aplicado (ex.: anuidade grátis com R$ 50 mil investidos; o nível Black a partir de R$ 100 mil); "gasto" se for gastar um valor no cartão (ex.: sala VIP gastando R$ 3 mil por mês); "plano" se for um plano mais caro, com o preço dele (ex.: o plano de 2 TB por R$ 34,99 por mês).
 - "valor": o valor da condição ou o preço do plano, em reais, como número (50000; 3000; 34.99).
@@ -73,14 +75,14 @@ Liste também, em "oportunidades", o que a pessoa ganha a mais cumprindo uma con
 - "ganha": o que a pessoa ganha, curto, até 40 caracteres (ex.: "Sem anuidade", "Sala VIP", "Nível Black", "2 TB e mais 4 pessoas").
 - "plano": o nome do plano mais caro, só no tipo "plano"; "" no resto.
 - "trecho": o pedaço do texto onde aparece a condição com o valor, copiado exatamente como está (até 100 caracteres).
-Use só o que estiver escrito{onde}. Não use o que você sabe de memória. Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios e 10 oportunidades.{prox}
+Use só o que estiver escrito{onde}. Não use o que você sabe de memória (só na "descricao" e no "site"). Ignore preços, tarifas, taxas de juros e propaganda sem benefício concreto.{qual} No máximo 20 benefícios e 10 oportunidades.{prox}
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
-{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]{prox_fmt}}}{texto}"""
+{{"beneficios":[{{"nome":"","tipo":"vantagem","total":0,"moeda":"","renova":"nunca","condicao":"","trecho":"","descricao":"","site":""}}],"oportunidades":[{{"tipo":"investido","valor":0,"periodo":"","ganha":"","plano":"","trecho":""}}]{prox_fmt}}}{texto}"""
 
 
 # 1.74.0: só com o banco e o nível (Identificar benefícios sem print, texto nem página): o que a IA sabe dele, para conferir
 ABRE = "Você lê {fonte}{de} e lista os benefícios que a pessoa ganha:"
-REGRA = "Use só o que estiver escrito{onde}. Não use o que você sabe de memória."
+REGRA = "Use só o que estiver escrito{onde}. Não use o que você sabe de memória (só na \"descricao\" e no \"site\")."
 PROMPT_MEMORIA = PROMPT.replace(ABRE, "Você conhece os bancos, os cartões e os planos do Brasil. Liste os benefícios que a pessoa ganha com {de}:").replace(
     REGRA, "Use o que você sabe de {de} (o que o banco ou a empresa publica no site e no app), para o nível e o cartão dela."
     " Sem certeza de um número, use \"vantagem\" com total 0; se não souber, devolva as listas vazias. Em \"trecho\", escreva \"\".")
@@ -194,6 +196,36 @@ def do_nivel_atual(ganha, niveis):
     return any(f" {assinaturas.normal(n)} " in g for n in niveis if assinaturas.normal(n))
 
 
+SITE_RE = re.compile(r"https://[A-Za-z0-9.-]+\.[A-Za-z]{2,}(/\S*)?")
+
+
+def sobre(b):
+    """O que é o benefício e o site oficial (1.75.0), limpos: {descricao?, url?}."""
+    out = {}
+    d = re.sub(r"\s+", " ", str((b or {}).get("descricao") or "")).strip()[:200] if isinstance(b, dict) else ""
+    if d:
+        out["descricao"] = d
+    u = str((b or {}).get("site") or (b or {}).get("url") or "").strip() if isinstance(b, dict) else ""
+    if SITE_RE.fullmatch(u) and len(u) <= 300:
+        out["url"] = u
+    return out
+
+
+PROMPT_EXPLICAR = """Explique, para quem nunca ouviu falar, o benefício "{nome}"{de}: o que é e para que serve, em uma ou duas frases curtas (até 200 caracteres), e o endereço oficial dele (https://…), se houver um conhecido.
+Não invente: sem saber o que é, devolva "descricao" vazia; sem saber o site, "site" vazio.
+Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
+{{"descricao":"","site":""}}"""
+
+
+def prompt_explicar(nome, origem=""):
+    return PROMPT_EXPLICAR.format(nome=str(nome or "").strip()[:60], de=f" (de {origem})" if origem else "")
+
+
+def explicado_simulado(nome):
+    """A IA simulada (testes e prévia): um texto inventado, sem site."""
+    return {"descricao": f"{str(nome).strip()}: benefício de exemplo, explicado pela IA simulada.", "site": ""}
+
+
 def limpar_proximo(parsed, texto=None):
     """O próximo nível da conta que a IA devolveu (1.74.2): {nivel, valor, trecho} ou None. Com texto, só se estiver escrito
     lá, com o valor no trecho (como as oportunidades)."""
@@ -253,6 +285,7 @@ def limpar(parsed, texto=None):
             continue
         vistos.add(chave)
         item = {"nome": nome, "tipo": tipo, "renova": renova, "trecho": trecho}
+        item.update(sobre(b))
         if tipo != "vantagem":
             item["total"] = total
         if tipo == "saldo":
