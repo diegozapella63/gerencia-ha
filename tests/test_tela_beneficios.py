@@ -243,13 +243,17 @@ class TestLerComIA(TelaBen):
         self.assertFalse(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"), "só a conta já basta")
         self.ler()
         self.assertEqual(self.folha(), "Benefícios encontrados")
-        self.assertEqual(self.texto("#folhas .da-intro"), "Do que a IA achou na internet sobre Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser.")
+        velhos = self.js("T.S.d.beneficios.filter(b => b.origem === 'conta:k-ana' && b.tipo !== 'milhas').length + T.S.d.metas.filter(m => m.origem === 'conta:k-ana').length")
+        intro = "Do que a IA achou na internet sobre Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser."
+        self.assertEqual(self.texto("#folhas .da-intro"), intro + (f" Ficam no lugar dos {velhos} de agora." if velhos > 1 else " Ficam no lugar do de agora." if velhos else ""),
+                         "1.77.0: o Identificar benefícios troca os de antes pelos de agora")
         self.assertEqual([x[:3] for x in self.itens()], [[True, "Nível Ouro", "Pede R$ 250 mil investidos"], [True, "Cashback", "Vantagem"],
                                                          [True, "Sala VIP", "2 por ano"], [True, "Seguro viagem", "Vantagem"]],
                          "1.74.2: o próximo nível da conta primeiro")
         self.assertEqual(self.textos("#folhas .bler-sec"), ["Próximo nível da conta", "Benefícios"])
         self.clicar('#folhas [data-a="bler-salvar"]')
-        self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados; próximo nível: Ouro")
+        self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados" + (f", no lugar dos {velhos} de antes" if velhos > 1 else ", no lugar do de antes" if velhos else "") + "; próximo nível: Ouro")
+        self.assertEqual(sorted(b["nome"] for b in self.dados()["beneficios"] if b["origem"] == "conta:k-ana"), ["Cashback", "Sala VIP", "Seguro viagem"], "só os de agora")
         self.assertEqual(self.folha(), "Editar banco")
         self.assertEqual(self.pg.input_value('.folha [data-fbcs="meta_nivel"][data-i="0"]'), "Ouro", "Próximo nível já em Editar banco")
         self.assertEqual(self.pg.input_value('.folha [data-fbc="meta_valor"][data-i="0"]'), "250.000")
@@ -326,11 +330,16 @@ class TestLerComIA(TelaBen):
         self.assertEqual(self.texto('.folha [data-a="bler-origem"].on'), "Plano Sol (assinatura)", "já com a assinatura")
         self.preencher("#bler-txt", self.TEXTO)
         self.ler()
-        self.assertEqual(self.itens()[1][0], False, "os Créditos de uso já estão cadastrados")
+        # 1.77.0: o Identificar benefícios troca os de antes pelos de agora: vem tudo marcado, e o de mesmo nome continua
+        # com os usos de antes
+        self.assertEqual(self.itens()[1][:2], [True, "Créditos de uso"], "o já cadastrado também vem marcado (fica no lugar do de antes)")
+        self.assertIn("Ficam no lugar do de agora.", self.texto("#folhas .da-intro"))
         self.clicar('#folhas [data-a="bler-salvar"]')
-        self.assertEqual(self.esperar_aviso("cadastrados"), "2 benefícios cadastrados")
+        self.assertEqual(self.esperar_aviso("cadastrados"), "3 benefícios cadastrados, no lugar do de antes")
         self.assertEqual(self.folha(), "Despesa", "volta para o fixo")
-        self.assertEqual(self.texto('.folha .bc-ben-n'), "Ver os 3 benefícios")
+        self.assertEqual(self.texto('.folha .bc-ben-n'), "Ver os 3 benefícios", "os de agora, sem repetir")
+        cred = [b for b in self.dados()["beneficios"] if b["nome"] == "Créditos de uso"]
+        self.assertEqual((len(cred), cred[0]["id"], cred[0]["usos"]), (1, CREDITO["id"], CREDITO.get("usos", [])), "um só, com o id e os usos de antes")
         self.assertEqual({b["origem"] for b in self.dados()["beneficios"]}, {"fixo:r-sol"})
 
     def test_sem_identificar_num_recebimento_nem_num_lancamento_avulso(self):

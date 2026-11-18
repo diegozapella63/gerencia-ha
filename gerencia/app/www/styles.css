@@ -688,6 +688,17 @@ details summary { list-style-position: inside; }
 .conta-ed .seg.bc-moeda { margin: 6px 0 4px; }
 .conta-ed .seg.bc-moeda button { flex: 1 1 0; min-width: 0; }
 .conta-ed .linha-sw + .linha-sw { margin-top: 10px; } /* Tem cartão de débito? e Tem cartão de crédito? */
+/* 1.77.0: cada cartão (débito, crédito, débito global, crédito global) num grupo com o fundo, a chave no alto e o que é
+   só dele embaixo, depois de uma linha fina: para não misturar o que é do débito com o que é do crédito */
+.bc-grupo { margin-top: 10px; padding: 2px 12px 12px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--card-2) 55%, var(--card)); }
+.bc-grupo > .linha-sw { padding: 8px 0 0; }
+.bc-op { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.bc-op > :first-child { margin-top: 0; }
+.bc-op > .linha-sw { margin-top: 10px; }
+.bc-op .bc-moeda-l { margin-top: 0; }
+.bc-op .bc-moeda-c { margin: 0; }
+.bc-op .bc-para { margin: 8px 0 0; }
+@media (max-width: 360px) { .bc-grupo { padding: 2px 10px 10px; } }
 
 /* ---------- imagens */
 .fotos { display: flex; flex-wrap: wrap; gap: 10px; }

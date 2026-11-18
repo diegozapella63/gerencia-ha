@@ -107,7 +107,8 @@ def resumo(d, hoje=None):
             if c.get("debito") is False:
                 cart += "; sem cartão de débito (só Pix)"
             if c.get("debito_global"):
-                cart += f"; cartão de débito global em {c['debito_global']}"
+                cart += f"; cartão de débito global em {c['debito_global']}" + (  # 1.77.0: com o adicional
+                    (" com adicional" + (f" para {c['debito_global_para']}" if c.get("debito_global_para") else "")) if c.get("debito_global_adicional") else "")
             if c.get("credito_global"):
                 cart += f"; cartão de crédito global em {c['credito_global']}" + (
                     (" com adicional" + (f" para {c['credito_global_para']}" if c.get("credito_global_para") else "")) if c.get("credito_global_adicional") else "")

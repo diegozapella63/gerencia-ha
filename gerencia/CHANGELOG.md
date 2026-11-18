@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.77.0
+
+- **Editar banco › Global**: o débito global e o crédito global ficam cada um no seu grupo. Ligado, cada um mostra embaixo só o que é dele: a moeda e o cartão adicional.
+- O **débito global** agora também tem **Tem cartão adicional?** e **Para quem**, como o crédito global.
+- **Editar banco › Cartões**: o débito e o crédito também ficam cada um no seu grupo, com o que é do crédito (fecha, vence, nível, limite e adicionais) dentro do dele.
+- **Identificar benefícios** agora troca os benefícios e as oportunidades da conta (ou do fixo) pelos que achou, em vez de juntar com os de antes: nada mais repetido. Vem tudo marcado, a conferência diz quantos saem, e um benefício com o mesmo nome continua com os usos de antes. As milhas ficam. O **Ler com IA** da tela Benefícios continua só acrescentando.
+
 ## 1.76.1
 
 - **Identificar benefícios** sem print, texto nem página agora pesquisa no site oficial de hoje, pela IA **Para pesquisar na internet**. Antes a IA respondia de memória e podia trazer um nível que o banco já trocou, como o Black do Inter, que virou Prime e pede R$ 150 mil (o de cima agora é o Win). Use uma IA com a busca na web ligada. Na conferência, o aviso agora diz "Do que a IA achou na internet".

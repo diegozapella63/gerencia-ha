@@ -327,6 +327,12 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(conteudo(), ["nivel", "meta_nivel", "ben-identificar"], "Conta: o nível, o próximo nível e os benefícios")
         self.aba("cartoes")
         self.assertEqual(conteudo(), ["bc-debito", "bc-cartao", "cartao_nivel", "bc-adic"], "Cartões: débito, crédito (com o nível e o limite) e o adicional")
+        # 1.77.0: o débito e o crédito cada um no seu grupo; o que é do crédito (fecha, vence, nível, limite, adicional) dentro do dele
+        grupos = """[...document.querySelectorAll('.folha .conta-ed')[0].querySelectorAll('.bc-grupo')].map(g => [g.dataset.grupo,
+            [...g.querySelectorAll('.bc-op [data-fbc], .bc-op [data-fbcs], .bc-op [data-a^="bc-"]')].map(e => e.dataset.fbc || e.dataset.fbcs || e.dataset.a)])"""
+        self.assertEqual(self.js(grupos), [["debito", []], ["credito", ["fechamento", "vencimento", "cartao_nivel", "limite", "bc-adic"]]])
+        bx = self.js("[...document.querySelectorAll('.folha .conta-ed')[0].querySelectorAll('.bc-grupo')].map(g => { const r = g.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.top), Math.round(r.bottom)]; })")
+        self.assertTrue(bx[0][:2] == bx[1][:2] and bx[1][2] > bx[0][3], f"os dois grupos da mesma largura, um embaixo do outro ({bx})")
         self.aba("global")
         self.assertEqual(conteudo(), ["bc-global:debito_global", "bc-global:credito_global"], "Global: débito e crédito global")
         self.assertEqual(self.textos('.folha .conta-ed >> nth=1 >> .bc-abas button.on'), ["Conta"], "cada pessoa com a sua aba")
@@ -426,19 +432,26 @@ class TestMaisBancos(TelaMais):
         self.clicar('.folha [data-a="bc-global"][data-k="debito_global"]')
         self.clicar('.folha [data-a="bc-global"][data-k="credito_global"]')
         self.assertEqual(self.textos('.folha .bc-moeda button.on'), ["Dólar", "Dólar"], "de começo, em dólar")
-        self.assertEqual(rotulos()[-1], "Tem cartão adicional?", "o adicional do crédito global")
+        # 1.77.0: cada um no seu grupo, com a moeda e o adicional dele (o do débito também)
+        self.assertEqual(rotulos(), ["Tem cartão de débito global?", "Tem cartão adicional?", "Tem cartão de crédito global?", "Tem cartão adicional?"])
+        self.assertEqual(self.js("[...document.querySelectorAll('.folha .bc-grupo')].map(g => [g.dataset.grupo, g.querySelectorAll('.bc-op .bc-moeda').length, g.querySelectorAll('.bc-op [data-a=\"bc-global-adic\"]').length])"),
+                         [["debito_global", 1, 1], ["credito_global", 1, 1]], "a moeda e o adicional dentro do grupo de cada cartão")
         self.clicar('.folha [data-a="bc-moeda"][data-k="credito_global"][data-v="EUR"]')
-        self.clicar('.folha [data-a="bc-global-adic"]')
-        # 1.74.2: ligado, pede para quem é (no quadro das sub-opções)
-        self.assertEqual(self.conta('.folha .sub-box [data-fbc="credito_global_para"]'), 1, "Para quem, logo abaixo")
+        self.clicar('.folha [data-a="bc-global-adic"][data-k="credito_global_adicional"]')
+        # 1.74.2: ligado, pede para quem é (logo abaixo, no grupo do crédito global)
+        self.assertEqual(self.conta('.folha [data-grupo="credito_global"] .bc-op [data-fbc="credito_global_para"]'), 1, "Para quem, logo abaixo")
         self.preencher('.folha [data-fbc="credito_global_para"]', "Beto")
+        self.clicar('.folha [data-a="bc-global-adic"][data-k="debito_global_adicional"]')
+        self.assertEqual(self.conta('.folha [data-grupo="debito_global"] .bc-op [data-fbc="debito_global_para"]'), 1, "o débito global também")
+        self.preencher('.folha [data-fbc="debito_global_para"]', "Ana")
         med = self.js("[...document.querySelectorAll('.folha .bc-moeda')[0].querySelectorAll('button')].map(b => [Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().top)])")
         self.assertTrue(len(med) == 3 and len({w for w, _ in med}) == 1 and len({t for _, t in med}) == 1, f"as moedas lado a lado, do mesmo tamanho ({med})")
         self.clicar('[data-a="b-salvar"]')
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
-        self.assertEqual({k: roxo.get(k) for k in ("debito_global", "credito_global", "credito_global_adicional", "credito_global_para")},
-                         {"debito_global": "USD", "credito_global": "EUR", "credito_global_adicional": True, "credito_global_para": "Beto"})
-        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar, crédito global em euro com adicional para Beto)")
+        self.assertEqual({k: roxo.get(k) for k in ("debito_global", "credito_global", "credito_global_adicional", "credito_global_para", "debito_global_adicional", "debito_global_para")},
+                         {"debito_global": "USD", "credito_global": "EUR", "credito_global_adicional": True, "credito_global_para": "Beto",
+                          "debito_global_adicional": True, "debito_global_para": "Ana"})
+        self.assertEqual(self.linha(".banco-row", "Banco Roxo"), "B Banco Roxo Ana (débito global em dólar com adicional para Ana, crédito global em euro com adicional para Beto)")
         # desligar o crédito global tira a moeda e o adicional
         self.clicar(f'.banco-row[data-id="{next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["id"]}"]')
         self.aba("global")
@@ -446,6 +459,7 @@ class TestMaisBancos(TelaMais):
         self.clicar('[data-a="b-salvar"]')
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")["contas"][0]
         self.assertEqual(("credito_global" in roxo, "credito_global_adicional" in roxo, "credito_global_para" in roxo, roxo["debito_global"]), (False, False, False, "USD"))
+        self.assertEqual((roxo.get("debito_global_adicional"), roxo.get("debito_global_para")), (True, "Ana"), "o do débito fica")
 
     def test_nivel_da_conta_do_cartao_e_o_proximo(self):
         # Banco Azul: Ana tem 10.000 (CDB Azul, dela); o próximo nível pede 25.000

@@ -124,7 +124,11 @@ class TestLeitura(unittest.TestCase):
         # 1.62.0: os cartões globais, cada um com a moeda; o de crédito diz se tem adicional
         d["bancos"][0]["contas"][0].update(debito_global="USD", credito_global="EUR", credito_global_adicional=True)
         g = json_de("cadastros", {}, d)["contas"][0]
-        self.assertEqual((g["cartao_de_debito_global"], g["cartao_de_credito_global"]), ({"moeda": "USD"}, {"moeda": "EUR", "adicional": True}))
+        self.assertEqual((g["cartao_de_debito_global"], g["cartao_de_credito_global"]), ({"moeda": "USD", "adicional": False}, {"moeda": "EUR", "adicional": True}))
+        d["bancos"][0]["contas"][0].update(debito_global_adicional=True, debito_global_para="Ana")  # 1.77.0: o adicional do débito global
+        self.assertEqual(json_de("cadastros", {}, d)["contas"][0]["cartao_de_debito_global"], {"moeda": "USD", "adicional": True, "adicional_para": "Ana"})
+        for k in ("debito_global_adicional", "debito_global_para"):
+            del d["bancos"][0]["contas"][0][k]
         d["bancos"][0]["contas"][0]["credito_global_para"] = "Beto"
         self.assertEqual(json_de("cadastros", {}, d)["contas"][0]["cartao_de_credito_global"], {"moeda": "EUR", "adicional": True, "adicional_para": "Beto"}, "1.74.2")
         del d["bancos"][0]["contas"][0]["credito_global_para"]

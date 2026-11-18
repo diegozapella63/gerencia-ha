@@ -396,7 +396,9 @@ def _cadastros(d):
             if adic:
                 it["cartao_de_credito"]["adicionais"] = adic
         if c.get("debito_global"):
-            it["cartao_de_debito_global"] = {"moeda": c["debito_global"]}
+            it["cartao_de_debito_global"] = {"moeda": c["debito_global"], "adicional": c.get("debito_global_adicional") is True}
+            if c.get("debito_global_adicional") is True and c.get("debito_global_para"):  # 1.77.0
+                it["cartao_de_debito_global"]["adicional_para"] = str(c["debito_global_para"])
         if c.get("credito_global"):
             it["cartao_de_credito_global"] = {"moeda": c["credito_global"], "adicional": c.get("credito_global_adicional") is True}
             if c.get("credito_global_adicional") is True and c.get("credito_global_para"):
