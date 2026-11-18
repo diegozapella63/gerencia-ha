@@ -17,7 +17,7 @@ TELAS = {  # tela: (título, as seções)
     'beneficios': ('Benefícios', ['Benefícios', 'Oportunidades']),  # 1.54: as oportunidades embaixo; 1.70: os benefícios com o cabeçalho
 }
 ABAS = {
-    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'CorrerIA', 'IA do Home Assistant', 'Uso da IA', 'Faturas por e-mail', 'Senhas dos PDFs', 'Sensores no Home Assistant'],
+    'Integrações': ['Contas no CronologIA', 'Bens no InventarIA', 'CorrerIA', 'IA', 'Uso da IA', 'Faturas por e-mail', 'Senhas dos PDFs', 'Sensores no Home Assistant'],
     'Dados': ['Exportar', 'Backup na pasta share', 'Importar', 'Versões anteriores', 'Onde ficam os dados', 'Começar do zero'],
     'Aparência': ['Tema', 'Cor do app'],
     'Opções': ['Agora', 'Dicas de economia', 'Fluxo de caixa', 'Investimentos', 'Oportunidades'],
@@ -81,7 +81,7 @@ with sync_playwright() as p:
         cheia(pg, f'm{4+i}-Config-{nome}')
         igual(pg.locator('.mais-painel .mais-head h2').all_inner_texts(), ABAS.get(nome), f'Mais › Configurações › {nome}: as seções')
         if nome == 'Integrações':
-            igual(pg.inner_text('.sync').strip(), 'IA do Home Assistant pronta', 'Integrações: IA pronta')
+            igual(pg.inner_text('.sync').strip(), 'IA pronta', 'Integrações: IA pronta')
     # tema claro: o menu e Configurações
     pg.emulate_media(color_scheme='light'); pg.wait_for_timeout(300)
     abas.nth(0).click(); pg.wait_for_timeout(600)

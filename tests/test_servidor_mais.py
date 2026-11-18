@@ -333,8 +333,15 @@ class TestStatusDaIA(unittest.TestCase):
         d["ajustes"]["ia_entidade"] = "ai_task.sumiu"
         st = S.ia_status(d)
         self.assertEqual((st["pronta"], st["motivo"]), (False, "A IA escolhida não está mais no Home Assistant."))
+        d["ajustes"].update(ia_entidade="ai_task.texto", ia_fotos="ai_task.google", ia_pesquisa="ai_task.sumiu")
+        self.assertFalse(S.ia_status(d)["pronta"], "1.76.0: a de pesquisar saiu do Home Assistant")
+        d["ajustes"]["ia_pesquisa"] = ""
+        st = S.ia_status(d)
+        self.assertEqual((st["pronta"], st["selecionada"]), (True, "ai_task.texto"), "a selecionada é a de conversar")
+        self.assertEqual((S.ia_ent(d), S.ia_ent(d, "fotos"), S.ia_ent(d, "pesquisa")), ("ai_task.texto", "ai_task.google", "ai_task.texto"),
+                         "a de pesquisar vazia é a de conversar")
         self.estados = self.estados[:1]
-        d["ajustes"]["ia_entidade"] = ""
+        d["ajustes"].update(ia_entidade="", ia_fotos="")
         self.assertFalse(S.ia_status(d)["pronta"], "só IA de texto: não lê imagens")
         self.estados = []
         self.assertIn("Nenhuma IA configurada", S.ia_status(d)["motivo"])

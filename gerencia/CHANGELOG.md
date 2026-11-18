@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.76.0
+
+- **Integrações › IA** (antes "IA do Home Assistant"): agora há uma IA para cada uso, como nos outros apps. **Para conversar** (a Conversa, o Colar mensagem, o Falar e as páginas que o app abre), **Para ler fotos e PDFs** (faturas, prints, fotos e PDFs) e **Para pesquisar na internet** (a busca na web das assinaturas em promoção). A de fotos e a de pesquisar começam **Igual à de conversar**, então nada muda até você escolher. Assim uma IA mais barata conversa e uma mais caprichada lê as faturas e pesquisa.
+
 ## 1.75.0
 
 - **Benefícios › o que é cada um**: ao ler os benefícios, a IA também diz o que cada um é e para que serve (por exemplo, o que é um clube de restaurantes) e, quando conhece, o site oficial. O app só guarda o site se ele abrir. Na lista, a explicação aparece embaixo do nome. No formulário ficam **O que é** e **Site**, com **Abrir** o site.

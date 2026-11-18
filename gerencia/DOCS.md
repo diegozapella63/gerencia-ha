@@ -30,12 +30,12 @@ Na primeira vez, a Agora mostra **Vamos começar**: cadastrar o salário e os ga
   - **Benefícios**: salas VIP, créditos e vantagens dos seus planos e cartões, com o que resta e quando renova, e as oportunidades: o que falta para ganhar mais.
   - **Relatório de patrimônio**: investimentos e bens por dono, e investimentos por banco, com **Todos**, **Meus** ou **De terceiros** no alto e o botão **Baixar PDF**.
   - **Configurações**, em abas:
-    - *Integrações*, nesta ordem (a mesma dos outros apps): contas no CronologIA, bens no InventarIA, CorrerIA (WhatsApp, Claude e Gemini), **IA do Home Assistant** (com a chave **Usar IA**), uso da IA, faturas por e-mail, senhas dos PDFs e sensores no Home Assistant.
+    - *Integrações*, nesta ordem (a mesma dos outros apps): contas no CronologIA, bens no InventarIA, CorrerIA (WhatsApp, Claude e Gemini), **IA** (com a chave **Usar IA** e a IA de cada uso), uso da IA, faturas por e-mail, senhas dos PDFs e sensores no Home Assistant.
     - *Dados*: exportar, backup na pasta share (com os backups da pasta e Restaurar), importar, versões anteriores, onde ficam os dados e começar do zero.
     - *Aparência*: tema e cor do app. O tema (Sistema, Claro ou Escuro) vale só no aparelho em que foi escolhido; a cor vale para a casa toda. As 12 cores são as mesmas dos outros apps da família. Com **Cor do dia** (ligada por padrão), a cor muda todo dia, passando pelas cores do app em ordem (sem o Grafite): a mesma o dia todo e em todos os aparelhos, e com o app aberto ela troca à meia-noite. A cor do dia fica marcada; tocar numa cor desliga a Cor do dia e fica com ela, e ligar de novo volta para a do dia.
     - *Opções*: dicas de economia na Agora, conferir as dicas sozinho e avisar no celular, prever o dia a dia no fluxo, corrigir valores pelo rendimento e o aviso das oportunidades de investimento no celular. Valem para todos os aparelhos.
   - **Sobre**, por último: quem faz o app (**CorrerIA Code**), os apps da família, cada um com uma linha e o link para o GitHub, e **Meu GitHub**.
-- As **caixas de seleção** (como **Como é pago** ou **IA usada pelo app**) abrem uma janela de baixo para cima com as opções; a atual vem marcada. O Voltar do celular, o **X** ou tocar fora fecham sem mudar nada. No computador, a janela abre no meio da tela, e dá para escolher com as setas e Enter.
+- As **caixas de seleção** (como **Como é pago** ou **Para conversar**) abrem uma janela de baixo para cima com as opções; a atual vem marcada. O Voltar do celular, o **X** ou tocar fora fecham sem mudar nada. No computador, a janela abre no meio da tela, e dá para escolher com as setas e Enter.
 
 ### No computador
 
@@ -132,7 +132,7 @@ Com **Conferir sozinho** ligado (o padrão, em **Mais › Configurações › Op
 
 **Avisar no celular** (na mesma tela, desligado por padrão) manda um aviso quando aparece uma dica nova: só as que valem a pena (a mesma economia real da Agora, de R$ 10 por ano ou mais) e que você não dispensou. Cada dica é avisada uma vez; se ela sumir e voltar, é avisada de novo. O aviso vai para as pessoas marcadas em **Quem recebe**, nos celulares ligados a cada uma no Home Assistant (**Configurações › Pessoas**, os aparelhos da pessoa com o app Home Assistant), como o aviso de prazos do ResolvIA. Ao ligar, já vem marcado quem está usando o app. **Testar no meu celular** manda um aviso agora para os seus celulares. O que aparece no **Conferir agora** você já está vendo, então não vira aviso.
 
-## IA do Home Assistant
+## IA
 
 O app usa a IA configurada no Home Assistant (ação `ai_task.generate_data`) para ler:
 
@@ -147,7 +147,13 @@ Não precisa dizer o que é: a IA separa sozinha os **gastos**, os **recebimento
 
 A **Situação** começa em **Automática**: o que a IA viu como conta, boleto ou parcela a pagar, ou valor que ainda vai receber, fica pendente; o resto segue a data. Compras no cartão seguem a fatura. Dá para trocar para **Tudo pago** ou **Tudo pendente**.
 
-Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais › Configurações › Integrações › IA do Home Assistant** dá para escolher qual IA usar e ver se ela está pronta.
+Para funcionar, é preciso ter uma integração de IA com **Tarefa de IA** no Home Assistant (por exemplo Google Gemini, OpenAI ou Anthropic). Para ler imagem e PDF, a IA precisa aceitar anexos. Se ela não aceitar o PDF, o app tenta de novo mandando só o texto do arquivo. Em **Mais › Configurações › Integrações › IA** dá para ver se ela está pronta e escolher a IA de cada uso:
+
+- **Para conversar**: a Conversa, o Colar mensagem, o Falar e as páginas que o app abre (preços, ofertas, benefícios). "Padrão do Home Assistant" usa a IA preferida definida lá.
+- **Para ler fotos e PDFs**: faturas, prints, fotos e PDFs (no Ler com IA, na Conversa e pelo WhatsApp). Começa **Igual à de conversar**.
+- **Para pesquisar na internet**: a busca na web das assinaturas em promoção. Começa **Igual à de conversar**; escolha uma IA com a busca na web ligada no Home Assistant.
+
+Assim uma IA mais barata, como o Claude Haiku ou o Gemini Flash-Lite, conversa, e uma mais caprichada lê as faturas e pesquisa.
 
 ### Faturas com senha
 
@@ -192,9 +198,9 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Banco Lua e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
-- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Configurações › Integrações › IA do Home Assistant** aparece se o Falar está pronto.
+- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Configurações › Integrações › IA** aparece se o Falar está pronto.
 - **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). No **Padrão do Home Assistant** fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
-- São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a **IA usada pelo app**, a mesma de Ler com IA. Trocar uma não muda a outra.
+- São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a IA **Para conversar**, a mesma do Colar mensagem. Trocar uma não muda a outra.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Home Assistant Cloud) ou pelo app do celular, e permita o microfone.
 - O áudio vai direto para o Home Assistant e não fica guardado no app.
 
@@ -286,7 +292,7 @@ Com a IA ligada, as Oportunidades começam por **Assinaturas em promoção**: as
 
 - **Nos seus aparelhos**: com o InventarIA (e **Somar os bens** ligado), o app olha os itens da casa (a TV Samsung ou LG, a Google TV, o Fire TV, o Xbox, o PlayStation, o Nintendo Switch, o celular Android ou o iPhone) e fica só com as assinaturas que funcionam neles. Todo celular conta: o que tem app no Android e no iPhone sempre entra. As que não funcionam em nenhum ficam em **Fora dos seus aparelhos (n)**, no fim. Sem o InventarIA, todas.
 - **Só a página oficial**, de quanto em quanto tempo você escolhe em **Mais › Configurações › Opções › Oportunidades**: com o **Avisar no celular** ligado, no **Horário**, todo dia ou **a cada** tantos dias; desligado, quando você abre a tela e a última conferência passou desse tanto de dias. O app abre a página de cada uma, e a IA lista os planos e as promoções. Só vale o preço escrito na página, por tempo limitado (Black Friday, os primeiros meses mais baratos, até uma data) e mais barato que o preço de sempre. A IA só é chamada quando os preços da página mudaram desde a última vez.
-- **Busca da IA**: alguns sites só mostram o preço em reais no navegador, depois de rodar os scripts (o app recebe a página sem preço, ou em dólar ou euro), e outros não deixam o app abrir a página. Para esses, a IA do Home Assistant busca na web, no site oficial do serviço (a IA precisa ter a busca na web ligada, como a do Google). Só vale o que tem o preço em reais no trecho e a fonte no site do serviço, com as mesmas regras da página. A linha diz **pela busca da IA**, e tocar abre a página onde a IA viu. A busca é feita de 3 em 3 dias, no máximo.
+- **Busca da IA**: alguns sites só mostram o preço em reais no navegador, depois de rodar os scripts (o app recebe a página sem preço, ou em dólar ou euro), e outros não deixam o app abrir a página. Para esses, a IA **Para pesquisar na internet** busca na web, no site oficial do serviço (a IA precisa ter a busca na web ligada, como a do Google). Só vale o que tem o preço em reais no trecho e a fonte no site do serviço, com as mesmas regras da página. A linha diz **pela busca da IA**, e tocar abre a página onde a IA viu. A busca é feita de 3 em 3 dias, no máximo.
 - Cada promoção mostra o preço por mês, o de sempre ("de R$ 29,90"), o plano, por quantos meses, para quem vale e até quando, se a página disser, e quanto você paga hoje, se a assinatura está nos fixos. **nova** marca as que apareceram nos últimos 7 dias. Tocar abre a página oficial para assinar.
 - Embaixo: quantas foram conferidas e quando, os seus aparelhos e **Conferir agora**. As que não deu para conferir ficam em **Sem como conferir (n)**, com o motivo: o site não deixa o app abrir a página, o preço em reais só aparece no navegador (e a IA não busca na web), ou nem a busca da IA achou o preço por mês (como um serviço que só vende por 3 meses ou por ano).
 - A promoção nova também aparece nos **Avisos** da Agora (e no Agora do CronologIA) por 7 dias e, com o **Avisar no celular** das Oportunidades ligado, vai para quem está em **Quem recebe**, uma vez cada, junto com as oportunidades de investimento. Tocar no aviso abre as Oportunidades.

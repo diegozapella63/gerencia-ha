@@ -277,7 +277,12 @@ class TestServidor(unittest.TestCase):
         d["ajustes"]["ia_entidade"] = "ai_task.casa"
         lida = S.ler_pagina_promo(P.POR_ID["paramount"], d, {"planos": [{"plano": "Essencial", "mensal": 24.9}]})
         self.assertEqual((lida["status"], lida["via"], len(lida["promocoes"])), ("ok", "busca", 1))
-        self.assertEqual((pedidos[0][0], pedidos[0][1]["task_name"], pedidos[0][1]["entity_id"]), ("promocoes", "GerencIA: busca de Paramount+", "ai_task.casa"))
+        self.assertEqual((pedidos[0][0], pedidos[0][1]["task_name"], pedidos[0][1]["entity_id"]), ("promocoes", "GerencIA: busca de Paramount+", "ai_task.casa"),
+                         "a de pesquisar vazia: a de conversar")
+        d["ajustes"]["ia_pesquisa"] = "ai_task.pesquisa"  # 1.76.0: a busca na web vai pela IA Para pesquisar na internet
+        S.ler_pagina_promo(P.POR_ID["paramount"], d, {"planos": [{"plano": "Essencial", "mensal": 24.9}]})
+        self.assertEqual(pedidos[-1][1]["entity_id"], "ai_task.pesquisa")
+        d["ajustes"]["ia_pesquisa"] = ""
         self.assertIn("Use a busca na web agora.", pedidos[0][1]["instructions"])
         resposta["v"] = '{"erro": "sem_busca"}'
         self.assertEqual(S.ler_pagina_promo(P.POR_ID["paramount"], d)["status"], "sem_precos", "a IA que não busca na web: o motivo de antes")

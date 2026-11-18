@@ -55,6 +55,23 @@ class TestIAReal(unittest.TestCase):
         S.ia_ler({"modo": "auto", "texto": "x"})
         self.assertEqual(self.pedido()["entity_id"], "ai_task.minha_ia")
 
+    def test_a_ia_de_cada_uso(self):
+        """1.76.0: o texto vai pela IA Para conversar e o anexo pela Para ler fotos e PDFs (vazia, a de conversar)."""
+        d = S.vazio()
+        d["ajustes"].update(ia_entidade="ai_task.conversa", ia_fotos="ai_task.leitura")
+        S.salvar(d, versao=False)
+        self.assertEqual(S.ia_ler({"modo": "auto", "texto": "x"})["entidade"], "ai_task.conversa")
+        self.assertEqual(self.pedido()["entity_id"], "ai_task.conversa")
+        self.assertEqual(S.ia_ler({"modo": "auto", "anexo": {"b64": B64}})["entidade"], "ai_task.leitura")
+        self.assertEqual(self.pedido()["entity_id"], "ai_task.leitura")
+        S.ia_tarefa(S.ler(), "beneficios", "GerencIA: teste", "x")
+        self.assertEqual(self.pedido()["entity_id"], "ai_task.conversa", "uma tarefa sem anexo: a de conversar")
+        d = S.ler()
+        d["ajustes"]["ia_fotos"] = ""
+        S.salvar(d, versao=False)
+        S.ia_ler({"modo": "auto", "anexo": {"b64": B64}})
+        self.assertEqual(self.pedido()["entity_id"], "ai_task.conversa", "a de fotos vazia: a de conversar")
+
     def test_varias_paginas_vao_juntas_e_sao_apagadas(self):
         S.ia_ler({"modo": "auto", "dica": "caixa", "anexos": [{"b64": B64}] * 3})
         p = self.pedido()

@@ -449,7 +449,7 @@ class TestTelaComServidor(TelaServidor):
         self.clicar('#ia [data-a="ia-verificar"]')
         self.esperar_aviso("IA pronta")
         self.assertEqual(self.limpo("#ia .status"), "Pronta. Usando IA da Casa.")
-        self.assertEqual(self.js("document.querySelector('#ia-ent').selectedOptions[0].textContent"), "IA da Casa (só texto)")
+        self.assertEqual(self.js("document.querySelector('#ia-ent').selectedOptions[0].textContent"), "IA da Casa", "1.76.0: para conversar, a de texto serve")
 
     def test_ia_nao_pronta_mostra_o_motivo(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})

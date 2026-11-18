@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.75.0';
+const VERSAO = '1.76.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -73,7 +73,7 @@ function taxaBem(k) {
 }
 
 const INDICES_PADRAO = { cdi: 13.65, selic: 13.75, ipca: 4.58, tr: 0.17, auto: true, fonte: 'padrao', atualizado_em: null, datas: {}, erro: null };
-const AJUSTES_PADRAO = { tema: 'auto', cor: '#62B5FF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
+const AJUSTES_PADRAO = { tema: 'auto', cor: '#62B5FF', cor_dia: true, corrigir: true, sensores: false, sensores_v: 2, ia_entidade: '', ia_fotos: '', ia_pesquisa: '', voz_motor: '', bens: true, bens_taxas: {}, dicas_fora: [], integracao: true, ia: true, dicas: true, prever_dia: true,
   op_cdi: null, op_pre: null, op_ipca: null, op_aviso: false, op_para: [], op_hora: '10:00', op_dias: 1, op_simular: 10000 };
 
 /* ------------------------------------------------------------------ util */
@@ -4148,7 +4148,7 @@ function cardIA() {
   const chaveIA = linhaChave('ia', on, 'Usar IA', on
     ? 'Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas.'
     : 'Desligado: os botões de IA somem em todos os aparelhos.');
-  const cab = `<section class="card" id="ia">${maisCab('ia', 'IA do Home Assistant')}
+  const cab = `<section class="card" id="ia">${maisCab('ia', 'IA')}
     ${maisLead('Usa a IA configurada no Home Assistant; o app não guarda chave.')}
     ${chaveIA}`;
   if (!on) return cab + `</section>`;
@@ -4165,14 +4165,17 @@ function cardIA() {
     : v.pronta && s && s.pronta === false ? ['manual', 'Falar: só com a IA pronta.']
     : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
   const falas = (v && v.opcoes) || [];
+  // 1.76.0: a IA de cada uso, como nos outros apps (a de fotos e a de pesquisar vazias são a de conversar)
+  const aj = S.d.ajustes, opIA = (k, primeira, soImagem) => `<option value="">${primeira}</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === (aj[k] || '') ? ' selected' : ''}${soImagem && !e.imagens ? ' disabled' : ''}>${esc(e.nome)}${soImagem && !e.imagens ? ' (só texto)' : ''}</option>`).join('')}`;
   // 1.71.3: tudo o que depende de Usar IA fica no quadro recuado, logo abaixo dela
   return cab + subOpcoes(`<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
-    <div class="campo"><label class="lbl" for="ia-ent">${ic('ia', 'ic-s')}IA usada pelo app</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade">
-      <option value="">Padrão do Home Assistant</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === S.d.ajustes.ia_entidade ? ' selected' : ''}>${esc(e.nome)}${e.imagens ? '' : ' (só texto)'}</option>`).join('')}</select></div>
+    <div class="campo"><label class="lbl" for="ia-ent">${ic('chat', 'ic-s')}Para conversar</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade" aria-label="IA para conversar">${opIA('ia_entidade', 'Padrão do Home Assistant')}</select></div>
+    <div class="campo"><label class="lbl" for="ia-fotos">${ic('camera', 'ic-s')}Para ler fotos e PDFs</label><select id="ia-fotos" class="inp" data-ajuste-sel="ia_fotos" aria-label="IA para ler fotos e PDFs">${opIA('ia_fotos', 'Igual à de conversar', true)}</select></div>
+    <div class="campo"><label class="lbl" for="ia-pesquisa">${ic('search', 'ic-s')}Para pesquisar na internet</label><select id="ia-pesquisa" class="inp" data-ajuste-sel="ia_pesquisa" aria-label="IA para pesquisar na internet">${opIA('ia_pesquisa', 'Igual à de conversar')}</select></div>
     ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">${ic('mic', 'ic-s')}Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
       <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
-    <p class="nota" style="margin:12px 0 0">Para imagem e PDF, a IA precisa aceitar anexos.</p>`) + `</section>`;
+    <p class="nota" style="margin:12px 0 0">Para pesquisar, a IA precisa da busca na web ligada no Home Assistant.</p>`) + `</section>`;
 }
 
 /* --------- Faturas por e-mail: a integração IMAP do Home Assistant (o Gmail, com uma senha de app) avisa cada e-mail
@@ -4782,7 +4785,7 @@ function telaMais() {
     return `${cabecalho('Sobre', '', false, true)}<div class="mais-painel sb-pagina">${maisSobre()}</div>`;
   } else {
     const aba = maisAba();
-    if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA do Home Assistant pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
+    if (aba === 'integracoes') status = !iaOn() ? ['manual', 'IA desligada'] : DEMO ? ['', 'IA simulada na prévia'] : !S.ia ? ['manual', 'Verificando a IA…'] : S.ia.pronta ? ['', 'IA pronta'] : ['erro', S.ia.motivo || 'IA não está pronta'];
     const painel = { integracoes: maisIntegracoes, dados: maisDados, aparencia: maisAparencia, opcoes: maisOpcoes }[aba]();
     corpo = `<div class="abas-wrap"><div class="mais-abas" role="tablist" aria-label="Seções de Configurações">${CONFIG_ABAS.map(([k, n, i]) =>
         `<button role="tab" class="${aba === k ? 'on' : ''}" aria-selected="${aba === k}" data-a="mais-aba" data-v="${k}">${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>
@@ -5859,7 +5862,7 @@ function maisIntegracoes() {
     ...(a.bens !== false && S.bens && S.bens.ok ? [['sensor.gerencia_bens', 'os bens da casa, com o valor de hoje']] : []),
     ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
   ];
-  // a ordem da família: os outros apps › CorrerIA › IA do Home Assistant (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
+  // a ordem da família: os outros apps › CorrerIA › IA (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
   return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para usar em painéis e automações do Home Assistant. Atualizam a cada mudança e a cada 15 minutos.')}
@@ -6131,7 +6134,7 @@ const ICONE_FOLHA = [[/^Apagar/, 'trash'], [/^Restaurar|^Versões/, 'archive-res
   [/recebimento|Recebimento/, 'plus'], [/despesa|Despesa|parcela/, 'minus'], [/plano anual/, 'percent']];
 // e a janela de uma caixa de seleção (selectsheet.js), com o ícone do que se escolhe (sem um, o do título da caixa)
 const ICONE_CAIXA = { 'lf-vinc': 'receipt', categoria: 'blocks', contasel: 'bank', existente: 'trend', 'iae-tipo': 'layers', 'iae-idx': 'percent',
-  'frem-fixo': 'repeat', 'op-hora': 'clock', nivel: 'gift', cartao_nivel: 'card' };
+  'frem-fixo': 'repeat', 'op-hora': 'clock', nivel: 'gift', cartao_nivel: 'card', 'ia-ent': 'chat', 'ia-fotos': 'camera', 'ia-pesquisa': 'search' };
 if (window.__selectSheet) window.__selectSheet.icon = sel => {
   const k = ICONE_CAIXA[sel.id] || ICONE_CAIXA[sel.dataset.iai] || ICONE_CAIXA[sel.dataset.iav] || ICONE_CAIXA[sel.dataset.fbcs];
   return k ? ic(k) : null;
@@ -7550,7 +7553,8 @@ document.addEventListener('change', ev => {
   if (el.matches('[data-op-hora]')) { const v = el.value; if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) persistir(d => { d.ajustes.op_hora = v; }, 'Horário salvo'); return; }
   if (el.dataset.ajusteSel) {
     const k = el.dataset.ajusteSel, v = el.value, fala = k === 'voz_motor';
-    persistir(d => { d.ajustes[k] = v; }, fala ? 'Fala para texto escolhida' : 'IA escolhida').then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
+    const msg = { voz_motor: 'Fala para texto escolhida', ia_entidade: 'IA para conversar escolhida', ia_fotos: 'IA para ler fotos e PDFs escolhida', ia_pesquisa: 'IA para pesquisar na internet escolhida' }[k] || 'IA escolhida';
+    persistir(d => { d.ajustes[k] = v; }, msg).then(() => { if (fala) carregarVoz(); else S.ia = null; render(); });
   }
 });
 // o alvo de uma família (Mais › Invest › Oportunidades): vazio = sem alvo; fora do que faz sentido, volta ao que era

@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.75.0"
+VERSAO = "1.76.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -81,7 +81,7 @@ INDICES_PADRAO = {
 
 # sensores: desligado até ligar em Mais › Configurações › Integrações; sensores_v marca os dados que já têm essa escolha
 # cor_dia: a Cor do dia (Mais › Configurações › Aparência), ligada por padrão, também para quem já tinha escolhido uma cor
-AJUSTES_PADRAO = {"tema": "auto", "cor": "#62B5FF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
+AJUSTES_PADRAO = {"tema": "auto", "cor": "#62B5FF", "cor_dia": True, "corrigir": True, "sensores": False, "sensores_v": 2, "ia_entidade": "", "ia_fotos": "", "ia_pesquisa": "", "voz_motor": "", "integracao": True, "bens": True, "bens_taxas": {},
                   "ia": True, "dicas": True, "dicas_auto": True, "dicas_freq": "mes", "dicas_hora": "08:00", "dicas_aviso": False, "dicas_para": [],
                   "email": False, "email_de": [], "email_remetentes": [], "email_aviso": False, "email_para": [], "correria": False,
                   # Oportunidades de investimento (Mais › Invest): o que a pessoa quer (Avisar quando passar de: % do CDI,
@@ -1283,8 +1283,22 @@ def ia_entidades():
     return sorted(saida, key=lambda e: (not e["imagens"], e["nome"].lower()))
 
 
+def ia_ent(d, uso="conversa"):
+    """1.76.0: a IA de cada uso, como nos outros apps: Para conversar (ia_entidade; vazia, a preferida do Home Assistant),
+    Para ler fotos e PDFs (ia_fotos) e Para pesquisar na internet (ia_pesquisa); a de fotos ou de pesquisa vazia é a de
+    conversar. Um texto (a Conversa, Colar mensagem, o Falar, as páginas que o app abre) vai pela de conversar; um
+    anexo, pela de fotos; a busca na web das promoções, pela de pesquisar."""
+    a = d["ajustes"]
+    conv = a.get("ia_entidade") or ""
+    if uso == "fotos":
+        return a.get("ia_fotos") or conv
+    if uso == "pesquisa":
+        return a.get("ia_pesquisa") or conv
+    return conv
+
+
 def ia_status(d):
-    sel = d["ajustes"].get("ia_entidade") or ""
+    sel = ia_ent(d)
     if not ia_ligada(d):
         return {"pronta": False, "ligada": False, "motivo": "A IA está desligada.", "entidades": [], "selecionada": sel}
     if not TOKEN and not IA_MOCK:
@@ -1296,7 +1310,10 @@ def ia_status(d):
     if not ents:
         return {"pronta": False, "motivo": "Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).",
                 "entidades": [], "selecionada": sel}
-    ok = any(e["imagens"] for e in ents) if not sel else any(e["id"] == sel for e in ents)
+    # 1.76.0: pronta com as escolhidas (conversar, fotos e pesquisar) ainda no Home Assistant; nenhuma escolhida, com uma que lê fotos
+    ids = {e["id"] for e in ents}
+    escolhidas = [x for x in (sel, d["ajustes"].get("ia_fotos") or "", d["ajustes"].get("ia_pesquisa") or "") if x]
+    ok = all(x in ids for x in escolhidas) if escolhidas else any(e["imagens"] for e in ents)
     return {"pronta": ok, "motivo": None if ok else "A IA escolhida não está mais no Home Assistant.",
             "entidades": ents, "selecionada": sel}
 
@@ -1840,9 +1857,8 @@ def ia_ler(corpo):
             return dict(r, entidade="ai_task.simulada")
         return {"itens": limpar(json.loads(json.dumps(IA_SIMULADA_CAIXA if modo == "caixa" else IA_SIMULADA)), d),
                 "entidade": "ai_task.simulada"}
-    ent = d["ajustes"].get("ia_entidade") or ""
-
     compacta = [False]
+    ent = ia_ent(d, "fotos" if bruto else "conversa")  # 1.76.0: com anexo, a IA de ler fotos e PDFs
 
     def chamar(com_anexo, txt):
         instr = ia_prompt(d, modo, com_anexo, txt, saldos, pessoa, so_invest)
@@ -1852,8 +1868,9 @@ def ia_ler(corpo):
             instr += "\nAs imagens anexadas são páginas do mesmo documento, em ordem: leia todas e não repita o que aparecer em duas."
         payload = {"task_name": "GerencIA: " + ("atualizar saldos" if saldos else "ler " + {"caixa": "lançamentos", "holerite": "recibo de pagamento", "auto": "lançamentos e investimentos"}.get(modo, "investimentos")),
                    "instructions": instr}
-        if ent:
-            payload["entity_id"] = ent
+        e = ia_ent(d, "fotos" if com_anexo else "conversa")
+        if e:
+            payload["entity_id"] = e
         tmps = []
         try:
             if com_anexo:
@@ -1940,8 +1957,9 @@ def _anexos(corpo, maximo=4):
 def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240):
     """Uma tarefa de IA com anexos: as imagens e o PDF vão pela pasta media do Home Assistant e são apagados depois."""
     payload = {"task_name": nome, "instructions": instrucoes}
-    if d["ajustes"].get("ia_entidade"):
-        payload["entity_id"] = d["ajustes"]["ia_entidade"]
+    ent = ia_ent(d, "fotos" if arquivos else "conversa")
+    if ent:
+        payload["entity_id"] = ent
     tmps = []
     try:
         if arquivos:
@@ -2198,7 +2216,7 @@ def chat_enviar(corpo, usuario=None):
     else:
         payload = {"task_name": "GerencIA: conversa",
                    "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario)}
-        ent = d["ajustes"].get("ia_entidade") or ""
+        ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent
         try:
@@ -2283,13 +2301,13 @@ def ia_disponivel(d):
         ents = ia_entidades()
     except ErroHA:
         return False
-    sel = d["ajustes"].get("ia_entidade") or ""
+    sel = ia_ent(d)
     return any(e["id"] == sel for e in ents) if sel else bool(ents)
 
 
 def ia_gerar(d, nome, instrucoes, timeout=180):
     payload = {"task_name": nome, "instructions": instrucoes}
-    ent = d["ajustes"].get("ia_entidade") or ""
+    ent = ia_ent(d)
     if ent:
         payload["entity_id"] = ent
     res = ia_chamar("precos", payload, 0, timeout=timeout)
@@ -2676,8 +2694,8 @@ def ler_pagina_ofertas(url, d):
             registrar_uso("ofertas", "ai_task.simulada", len(trechos), 400, 0, 0.5, "ok")
         else:
             payload = {"task_name": f"GerencIA: ofertas de {oportunidades.dominio(url)}", "instructions": oportunidades.prompt_ofertas(url, trechos)}
-            if d["ajustes"].get("ia_entidade"):
-                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            if ia_ent(d):
+                payload["entity_id"] = ia_ent(d)
             dados = ((ia_chamar("ofertas", payload, 0) or {}).get("service_response") or {}).get("data")
             if dados is None:
                 raise ValueError("A IA não devolveu resposta.")
@@ -2945,8 +2963,8 @@ def ler_pagina_promo(serv, d, velho=None):
             registrar_uso("promocoes", "ai_task.simulada", len(trechos), 300, 0, 0.5, "ok")
         else:
             payload = {"task_name": f"GerencIA: promoções de {serv['nome']}", "instructions": promocoes.prompt(serv, trechos)}
-            if d["ajustes"].get("ia_entidade"):
-                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            if ia_ent(d):
+                payload["entity_id"] = ia_ent(d)
             dados = ((ia_chamar("promocoes", payload, 0) or {}).get("service_response") or {}).get("data")
             if dados is None:
                 raise ValueError("A IA não devolveu resposta.")
@@ -2975,8 +2993,8 @@ def promo_busca(serv, d, base, velho, motivo):
             registrar_uso("promocoes", "ai_task.simulada", 400, 300, 0, 0.5, "ok")
         else:
             payload = {"task_name": f"GerencIA: busca de {serv['nome']}", "instructions": promocoes.prompt_busca(serv)}
-            if d["ajustes"].get("ia_entidade"):
-                payload["entity_id"] = d["ajustes"]["ia_entidade"]
+            if ia_ent(d, "pesquisa"):  # 1.76.0: a busca na web vai pela IA Para pesquisar na internet
+                payload["entity_id"] = ia_ent(d, "pesquisa")
             dados = ((ia_chamar("promocoes", payload, 0) or {}).get("service_response") or {}).get("data")
         parsed = extrair_json(dados) if dados is not None else None
         if not isinstance(parsed, dict) or parsed.get("erro"):
@@ -3271,7 +3289,7 @@ def conversa_correria(corpo):
         canal = "correria" if corpo.get("canal") == "correria" else "whatsapp"
         payload = {"task_name": "GerencIA: CorrerIA" if canal == "correria" else "GerencIA: WhatsApp",
                    "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal)}
-        ent = d["ajustes"].get("ia_entidade") or ""
+        ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent
         try:

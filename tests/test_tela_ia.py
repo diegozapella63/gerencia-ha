@@ -1283,13 +1283,30 @@ class TestCardsDaIAEmMais(TelaIA):
     def test_ia_sem_anexos_aparece_como_so_texto_e_a_escolha_fica_gravada(self):
         self.abrir(base(bancos=BANCOS))
         self.integracoes()
-        self.js("(T.S.ia = { pronta: true, selecionada: '', entidades: [{ id: 'ai_task.ia_azul', nome: 'IA Azul', imagens: true },"
-                " { id: 'ai_task.ia_texto', nome: 'IA Texto', imagens: false }] }, T.render(), true)")
-        self.assertEqual(self.textos("#ia-ent option"), ["Padrão do Home Assistant", "IA Azul", "IA Texto (só texto)"])
-        self.pg.select_option("#ia-ent", "ai_task.ia_azul")
+        ia = ("(T.S.ia = { pronta: true, selecionada: '', entidades: [{ id: 'ai_task.ia_azul', nome: 'IA Azul', imagens: true },"
+              " { id: 'ai_task.ia_texto', nome: 'IA Texto', imagens: false }] }, T.render(), true)")
+        self.js(ia)
+        # 1.76.0: a IA de cada uso, como nos outros apps; a que não lê fotos não serve para ler fotos e PDFs
+        self.assertEqual(self.texto("#ia h2"), "IA")
+        self.assertEqual(self.textos("#ia .campo .lbl")[:3], ["Para conversar", "Para ler fotos e PDFs", "Para pesquisar na internet"])
+        self.assertEqual(self.textos("#ia-ent option"), ["Padrão do Home Assistant", "IA Azul", "IA Texto"])
+        self.assertEqual(self.textos("#ia-fotos option"), ["Igual à de conversar", "IA Azul", "IA Texto (só texto)"])
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia-fotos option')].map(o => o.disabled)"), [False, False, True])
+        self.assertEqual(self.textos("#ia-pesquisa option"), ["Igual à de conversar", "IA Azul", "IA Texto"])
+        self.pg.select_option("#ia-ent", "ai_task.ia_texto")
         self.esperar()
-        self.assertEqual(self.dados()["ajustes"]["ia_entidade"], "ai_task.ia_azul")
-        self.assertEqual(self.aviso(), "IA escolhida")
+        self.assertEqual(self.dados()["ajustes"]["ia_entidade"], "ai_task.ia_texto")
+        self.assertEqual(self.aviso(), "IA para conversar escolhida")
+        self.js(ia)  # trocar de IA busca o estado de novo
+        self.pg.select_option("#ia-fotos", "ai_task.ia_azul")
+        self.esperar()
+        self.assertEqual(self.aviso(), "IA para ler fotos e PDFs escolhida")
+        self.js(ia)
+        self.pg.select_option("#ia-pesquisa", "ai_task.ia_azul")
+        self.esperar()
+        self.assertEqual(self.aviso(), "IA para pesquisar na internet escolhida")
+        a = self.dados()["ajustes"]
+        self.assertEqual((a["ia_entidade"], a["ia_fotos"], a["ia_pesquisa"]), ("ai_task.ia_texto", "ai_task.ia_azul", "ai_task.ia_azul"))
 
     def test_uso_por_tipo_com_nomes_em_portugues(self):
         self.abrir(base(bancos=BANCOS))

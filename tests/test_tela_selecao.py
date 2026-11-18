@@ -42,10 +42,10 @@ class Selecao(Tela):
         self.assertEqual(caixa.evaluate("s => getComputedStyle(s).pointerEvents"), "none", "a caixa nunca recebe o toque")
         self.tocar("#ia-ent")
         self.assertTrue(self.aberta())
-        self.assertEqual(self.texto(".ss-head b"), "IA usada pelo app", "o título vem do rótulo da caixa")
+        self.assertEqual(self.texto(".ss-head b"), "IA para conversar", "o título vem do nome da caixa")
         # 1.71.0: o título com o ícone, como as seções (aqui, o do rótulo da caixa)
         self.assertEqual(self.js("document.querySelector('.ss-head .ss-ic svg').innerHTML"), self.js("document.querySelector('label[for=ia-ent] svg').innerHTML"))
-        self.assertEqual(self.textos(".ss-opt"), ["Padrão do Home Assistant", "Google AI Task", "Ollama AI Task (só texto)"])
+        self.assertEqual(self.textos(".ss-opt"), ["Padrão do Home Assistant", "Google AI Task", "Ollama AI Task"])
         self.assertEqual(self.textos(".ss-opt.on"), ["Padrão do Home Assistant"], "a atual marcada")
         cores = self.js("""(() => { const s = document.querySelector('.ss-sheet'), c = getComputedStyle(document.documentElement);
           return [getComputedStyle(s).backgroundColor, getComputedStyle(s.querySelector('.ss-opt.on svg')).color,
@@ -63,7 +63,7 @@ class Selecao(Tela):
         self.esperar()
         self.assertEqual(self.conta(".ss-wrap"), 0, "escolher fecha")
         self.assertEqual(self.dados()["ajustes"]["ia_entidade"], "ai_task.ollama_ai_task", "o change de sempre: o app salva")
-        self.assertIn("IA escolhida", self.aviso() or "")
+        self.assertIn("IA para conversar escolhida", self.aviso() or "")
 
     def test_voltar_x_e_tocar_fora_fecham_so_ela(self):
         tela = self.js("T.S.ui.maisTela")
