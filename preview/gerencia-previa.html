@@ -2136,7 +2136,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.76.0';
+const VERSAO = '1.76.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -7754,7 +7754,7 @@ function montarLerBeneficios() {
           <span class="bler-ck" aria-hidden="true">${x.on ? ic('check', 'ic-s') : ''}</span><span class="bler-t"><b>${esc(nome)}</b><span>${esc(sub)}</span>${x.descricao ? `<small class="ben-desc">${esc(x.descricao)}</small>` : ''}${x.ja ? '<em>já cadastrado</em>' : ''}</span></button>`;
     return {
       titulo: s.itens.length ? 'Benefícios encontrados' : s.metas.length ? 'Oportunidades encontradas' : 'Próximo nível encontrado',
-      corpo: `<p class="da-intro" style="margin:0 0 8px">${s.memoria ? `Do que a IA sabe${de ? ` de ${esc(de)}` : ''}: confira no app ou no site antes de cadastrar. ` : de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
+      corpo: `<p class="da-intro" style="margin:0 0 8px">${s.memoria ? `Do que a IA achou na internet${de ? ` sobre ${esc(de)}` : ''}: confira no app ou no site antes de cadastrar. ` : de ? `De ${esc(de)}. ` : ''}Desmarque o que não quiser.</p>
         ${s.proximo ? `${s.itens.length || s.metas.length ? '<div class="lbl bler-sec">Próximo nível da conta</div>' : ''}<div class="bler-lista">${item('bler-prox', 0, s.proximo, 'Nível ' + s.proximo.nivel, 'Pede ' + brlCurto(+s.proximo.valor || 0) + ' investidos')}</div>${s.itens.length ? '<div class="lbl bler-sec">Benefícios</div>' : ''}` : ''}
         ${s.itens.length ? `<div class="bler-lista">${s.itens.map((x, k) => item('bler-marca', k, x, x.nome, subBen(x))).join('')}</div>` : ''}
         ${s.metas.length ? `${s.itens.length ? '<div class="lbl bler-sec">Oportunidades</div>' : ''}<div class="bler-lista">${s.metas.map((x, k) => item('bler-meta', k, x, x.ganha, subMetaLida(x))).join('')}</div>` : ''}`,

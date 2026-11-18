@@ -6,6 +6,7 @@ import base64
 import os
 import json
 import unittest
+from datetime import date
 from unittest import mock
 
 from tests.base import ServidorFalso, Servidor, importar_servidor, pasta_temp
@@ -98,9 +99,10 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertIn('"descricao": o que é e para que serve', p)
         self.assertIn('Não use o que você sabe de memória (só na "descricao" e no "site")', p)
         self.assertIn('"descricao":"","site":""', p)
-        self.assertIn('Use o que você sabe de Banco Azul', B.prompt("Banco Azul", memoria=True), "a regra continua trocada na memória")
-        e = B.prompt_explicar("Clube Sabor", "Banco Azul, nível Prime")
-        self.assertTrue(e.startswith('Explique, para quem nunca ouviu falar, o benefício "Clube Sabor" (de Banco Azul, nível Prime)'))
+        self.assertIn('Use o que o site oficial de Banco Azul diz hoje', B.prompt("Banco Azul", memoria=True), "a regra continua trocada sem a página")
+        e = B.prompt_explicar("Clube Sabor", "Banco Azul, nível Prime", hoje="18/11/2026")
+        self.assertTrue(e.startswith('Pesquise na internet e explique, para quem nunca ouviu falar, o benefício "Clube Sabor" (de Banco Azul, nível Prime), como ele é hoje (18/11/2026)'))
+        self.assertIn("não o que você lembra de antes", e, "1.76.1: pesquisando, e não de memória")
         self.assertTrue(e.endswith('{"descricao":"","site":""}'))
         self.assertEqual(B.explicado_simulado(" Clube Sabor ")["descricao"], "Clube Sabor: benefício de exemplo, explicado pela IA simulada.")
         it, _ = B.limpar({"beneficios": [{"nome": "Clube Sabor", "tipo": "vantagem", "trecho": "", "descricao": "Dois pratos pelo preço de um", "site": "https://clube.exemplo.com"}]})
@@ -120,10 +122,15 @@ class TestOrigemEPedido(unittest.TestCase):
         self.assertNotIn("proximo_nivel", B.prompt("Plano Sol", "", "x"))
 
     def test_pedido_so_com_o_banco_e_o_nivel(self):
-        """1.74.0: sem print, texto nem página, o que a IA sabe do banco e do nível da pessoa (a tela pede para conferir)."""
-        p = B.prompt("Banco Azul, nível Prime, cartão Black", memoria=True)
-        self.assertTrue(p.startswith("Você conhece os bancos, os cartões e os planos do Brasil. Liste os benefícios que a pessoa ganha com Banco Azul, nível Prime, cartão Black:"))
-        self.assertIn("Use o que você sabe de Banco Azul, nível Prime, cartão Black", p)
+        """1.74.0: sem print, texto nem página, só o banco e o nível da pessoa (a tela pede para conferir). 1.76.1: pesquisando
+        no site oficial de hoje, com a data, e não de memória (os bancos trocam os nomes e os valores dos níveis)."""
+        p = B.prompt("Banco Azul, nível Prime, cartão Black", memoria=True, hoje="18/11/2026")
+        self.assertTrue(p.startswith("Pesquise na internet, no site oficial do banco ou da empresa, os benefícios que a pessoa ganha com Banco Azul, nível Prime, cartão Black:"))
+        self.assertIn("Hoje é 18/11/2026. Use o que o site oficial de Banco Azul, nível Prime, cartão Black diz hoje", p)
+        self.assertIn("não use o que você lembra de antes", p)
+        self.assertIn(date.today().strftime("%d/%m/%Y"), B.prompt("Banco Azul", memoria=True), "sem a data, a de hoje")
+        self.assertIn("com o nome que o banco usa hoje", B.prompt("Banco Azul", memoria=True, conta=True))
+        self.assertNotIn('ex.: \"Black\"', B.prompt("Banco Azul", memoria=True, conta=True), "sem um nome de exemplo, que puxava o de antes")
         self.assertIn("os de um nível acima entram em \"oportunidades\"", p)
         self.assertNotIn("Não use o que você sabe de memória", p)
         self.assertNotIn("Você lê", p)
@@ -397,9 +404,20 @@ class TestIaDeVerdade(unittest.TestCase):
         r = S.beneficios_ler({"origem": "conta:k1"})
         self.assertEqual([(b["nome"], b["total"]) for b in r["beneficios"]], [("Sala VIP", 4)], "sem trecho para conferir, o número fica")
         tipo, payload, n, _ = self.pedidos[0]
-        self.assertIn("Use o que você sabe de Banco Azul, nível Prime, cartão Black", payload["instructions"])
+        self.assertIn("Use o que o site oficial de Banco Azul, nível Prime, cartão Black diz hoje", payload["instructions"])
         self.assertEqual(n, 0)
         self.assertNotIn("attachments", payload)
+        # 1.76.1: sem nada para ler, pesquisa no site oficial de hoje, pela IA Para pesquisar na internet (de memória, a IA
+        # trazia um nível que o banco já trocou de nome e de valor); com um texto, pela de conversar, como antes
+        d = S.ler()
+        d["ajustes"].update(ia_entidade="ai_task.conversa", ia_pesquisa="ai_task.pesquisa")
+        S.salvar(d, versao=False)
+        self.ia({"beneficios": [{"nome": "Sala VIP", "tipo": "contagem", "total": 4, "renova": "ano", "trecho": ""}]},
+                {"beneficios": [{"nome": "Frete grátis", "tipo": "vantagem", "trecho": "Frete grátis"}]})
+        S.beneficios_ler({"origem": "conta:k1"})
+        S.beneficios_ler({"origem": "conta:k1", "texto": "Frete grátis"})
+        self.assertEqual([p[1].get("entity_id") for p in self.pedidos[-2:]], ["ai_task.pesquisa", "ai_task.conversa"])
+        self.assertNotIn("Nível Black", self.pedidos[-2][1]["instructions"], "sem um nome de exemplo, que puxava o de antes")
 
     def test_site_so_fica_se_abrir(self):
         """1.75.0: o site que a IA disse só fica se abrir (ela pode inventar o endereço)."""
@@ -416,6 +434,12 @@ class TestIaDeVerdade(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "A IA caiu."):
                 S.beneficios_explicar({"nome": "Clube Sabor"})
         self.assertIn('o benefício "Clube Sabor"', self.pedidos[1][1]["instructions"])
+        d = S.ler()  # 1.76.1: o Explicar com IA vai pela IA Para pesquisar na internet
+        d["ajustes"].update(ia_entidade="ai_task.conversa", ia_pesquisa="ai_task.pesquisa")
+        S.salvar(d, versao=False)
+        self.ia({"descricao": "Restaurantes", "site": ""})
+        S.beneficios_explicar({"nome": "Clube Sabor"})
+        self.assertEqual(self.pedidos[-1][1].get("entity_id"), "ai_task.pesquisa")
         falso = ServidorFalso({"/ok": (200, "<html>ok</html>")})
         self.addCleanup(falso.fechar)
         self.assertEqual((S._site_abre(falso.url + "/ok"), S._site_abre(falso.url + "/nao")), (True, False))

@@ -243,7 +243,7 @@ class TestLerComIA(TelaBen):
         self.assertFalse(self.js("document.querySelector('[data-a=\"bler-ler\"]').disabled"), "só a conta já basta")
         self.ler()
         self.assertEqual(self.folha(), "Benefícios encontrados")
-        self.assertEqual(self.texto("#folhas .da-intro"), "Do que a IA sabe de Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser.")
+        self.assertEqual(self.texto("#folhas .da-intro"), "Do que a IA achou na internet sobre Banco Azul · Ana: confira no app ou no site antes de cadastrar. Desmarque o que não quiser.")
         self.assertEqual([x[:3] for x in self.itens()], [[True, "Nível Ouro", "Pede R$ 250 mil investidos"], [True, "Cashback", "Vantagem"],
                                                          [True, "Sala VIP", "2 por ano"], [True, "Seguro viagem", "Vantagem"]],
                          "1.74.2: o próximo nível da conta primeiro")

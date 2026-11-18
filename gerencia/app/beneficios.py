@@ -11,6 +11,7 @@ oficial do plano ou do cartão.
 Só biblioteca padrão do Python.
 """
 import re
+from datetime import date
 
 import assinaturas
 import calc
@@ -83,26 +84,31 @@ Responda somente com JSON válido, sem markdown e sem texto antes ou depois, nes
 # 1.74.0: só com o banco e o nível (Identificar benefícios sem print, texto nem página): o que a IA sabe dele, para conferir
 ABRE = "Você lê {fonte}{de} e lista os benefícios que a pessoa ganha:"
 REGRA = "Use só o que estiver escrito{onde}. Não use o que você sabe de memória (só na \"descricao\" e no \"site\")."
-PROMPT_MEMORIA = PROMPT.replace(ABRE, "Você conhece os bancos, os cartões e os planos do Brasil. Liste os benefícios que a pessoa ganha com {de}:").replace(
-    REGRA, "Use o que você sabe de {de} (o que o banco ou a empresa publica no site e no app), para o nível e o cartão dela."
-    " Sem certeza de um número, use \"vantagem\" com total 0; se não souber, devolva as listas vazias. Em \"trecho\", escreva \"\".")
+# 1.76.1: pesquisando na internet, no site oficial de hoje (a IA Para pesquisar na internet): de memória, a IA trazia nomes
+# e valores velhos, como um nível que o banco já trocou de nome e de valor
+PROMPT_MEMORIA = PROMPT.replace(ABRE, "Pesquise na internet, no site oficial do banco ou da empresa, os benefícios que a pessoa ganha com {de}:").replace(
+    REGRA, "Hoje é {hoje}. Use o que o site oficial de {de} diz hoje, para o nível e o cartão dela: os bancos trocam os nomes dos"
+    " níveis, os valores e os benefícios, então não use o que você lembra de antes. Sem achar no site, use o que outras páginas"
+    " recentes dizem; sem certeza de um número, use \"vantagem\" com total 0; se não souber, devolva as listas vazias. Em"
+    " \"trecho\", escreva \"\".").replace("o nível Black a partir de R$ 100 mil", "o nível de cima a partir de R$ 100 mil").replace(
+    "\"Nível Black\", ", "")
 
 
 # 1.74.2: numa conta de banco, o nível de conta logo acima do dela e quanto ele pede investido (vai para Próximo nível e
 # Pede investido, em Editar banco; não entra nas oportunidades, que já mostram o próximo nível da conta)
-PROX = ("\nEm \"proximo_nivel\", o nível de conta logo acima do da pessoa nesse banco: \"nivel\" (o nome, ex.: \"Black\"), \"valor\""
+PROX = ("\nEm \"proximo_nivel\", o nível de conta logo acima do da pessoa nesse banco, com o nome que o banco usa hoje: \"nivel\" (o nome), \"valor\""
         " (quanto ele pede investido, em reais, como número) e \"trecho\" (como acima); {{\"nivel\":\"\",\"valor\":0,\"trecho\":\"\"}} se não"
         " houver. Esse nível não entra em \"oportunidades\", nem o que vale para o nível que ela já tem (o que ele pede para"
         " continuar nele não é oportunidade).")
 PROX_FMT = ',"proximo_nivel":{{"nivel":"","valor":0,"trecho":""}}'
 
 
-def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False, conta=False):
+def prompt(origem="", url="", texto="", anexo=False, preco=0, memoria=False, conta=False, hoje=""):
     prox = {"prox": PROX.replace("{{", "{").replace("}}", "}") if conta else "", "prox_fmt": PROX_FMT.replace("{{", "{").replace("}}", "}") if conta else ""}
     if memoria:
         qual = (" Os benefícios são só os do nível e do cartão dela; os de um nível acima entram em \"oportunidades\", com o valor que"
                 " ele pede" + (", menos o logo acima, que vai em \"proximo_nivel\"." if conta else "."))
-        return PROMPT_MEMORIA.format(de=origem, qual=qual, texto="", **prox)
+        return PROMPT_MEMORIA.format(de=origem, qual=qual, texto="", hoje=hoje or date.today().strftime("%d/%m/%Y"), **prox)
     if url:
         fonte, onde = f"a página {url}", " na página"
     elif anexo:
@@ -211,14 +217,16 @@ def sobre(b):
     return out
 
 
-PROMPT_EXPLICAR = """Explique, para quem nunca ouviu falar, o benefício "{nome}"{de}: o que é e para que serve, em uma ou duas frases curtas (até 200 caracteres), e o endereço oficial dele (https://…), se houver um conhecido.
-Não invente: sem saber o que é, devolva "descricao" vazia; sem saber o site, "site" vazio.
+# 1.76.1: pesquisando na internet, como está hoje (a IA Para pesquisar na internet), e não de memória
+PROMPT_EXPLICAR = """Pesquise na internet e explique, para quem nunca ouviu falar, o benefício "{nome}"{de}, como ele é hoje ({hoje}): o que é e para que serve, em uma ou duas frases curtas (até 200 caracteres), e o endereço oficial dele (https://…), de preferência a página do próprio banco ou da empresa.
+Use o que os sites oficiais dizem hoje, não o que você lembra de antes. Não invente: sem achar o que é, devolva "descricao" vazia; sem achar o site, "site" vazio.
 Responda somente com JSON válido, sem markdown e sem texto antes ou depois, neste formato:
 {{"descricao":"","site":""}}"""
 
 
-def prompt_explicar(nome, origem=""):
-    return PROMPT_EXPLICAR.format(nome=str(nome or "").strip()[:60], de=f" (de {origem})" if origem else "")
+def prompt_explicar(nome, origem="", hoje=""):
+    return PROMPT_EXPLICAR.format(nome=str(nome or "").strip()[:60], de=f" (de {origem})" if origem else "",
+                                  hoje=hoje or date.today().strftime("%d/%m/%Y"))
 
 
 def explicado_simulado(nome):

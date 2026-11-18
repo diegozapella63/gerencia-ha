@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.76.1
+
+- **Identificar benefícios** sem print, texto nem página agora pesquisa no site oficial de hoje, pela IA **Para pesquisar na internet**. Antes a IA respondia de memória e podia trazer um nível que o banco já trocou, como o Black do Inter, que virou Prime e pede R$ 150 mil (o de cima agora é o Win). Use uma IA com a busca na web ligada. Na conferência, o aviso agora diz "Do que a IA achou na internet".
+- **Explicar com IA** (no formulário do benefício) também pesquisa na internet, como o benefício é hoje, pela mesma IA.
+
 ## 1.76.0
 
 - **Integrações › IA** (antes "IA do Home Assistant"): agora há uma IA para cada uso, como nos outros apps. **Para conversar** (a Conversa, o Colar mensagem, o Falar e as páginas que o app abre), **Para ler fotos e PDFs** (faturas, prints, fotos e PDFs) e **Para pesquisar na internet** (a busca na web das assinaturas em promoção). A de fotos e a de pesquisar começam **Igual à de conversar**, então nada muda até você escolher. Assim uma IA mais barata conversa e uma mais caprichada lê as faturas e pesquisa.

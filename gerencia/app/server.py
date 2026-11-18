@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.76.0"
+VERSAO = "1.76.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1954,10 +1954,11 @@ def _anexos(corpo, maximo=4):
     return arquivos
 
 
-def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240):
-    """Uma tarefa de IA com anexos: as imagens e o PDF vão pela pasta media do Home Assistant e são apagados depois."""
+def ia_tarefa(d, tipo_uso, nome, instrucoes, arquivos=(), timeout=240, uso=None):
+    """Uma tarefa de IA com anexos: as imagens e o PDF vão pela pasta media do Home Assistant e são apagados depois.
+    uso: a IA de qual uso (ia_ent); sem ele, a de fotos com anexo e a de conversar sem."""
     payload = {"task_name": nome, "instructions": instrucoes}
-    ent = ia_ent(d, "fotos" if arquivos else "conversa")
+    ent = ia_ent(d, uso or ("fotos" if arquivos else "conversa"))
     if ent:
         payload["entity_id"] = ent
     tmps = []
@@ -2041,7 +2042,8 @@ def beneficios_ler(corpo):
         mandar = beneficios.trechos(texto) if url else texto[:14000]
         instr = beneficios.prompt(de, url, mandar, bool(arquivos), preco, memoria=memoria, conta=origem.startswith("conta:"))
         try:
-            dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos)
+            # 1.76.1: sem print, texto nem página, pesquisa no site oficial de hoje, pela IA Para pesquisar na internet
+            dados = ia_tarefa(d, "beneficios", "GerencIA: ler benefícios", instr, arquivos, uso="pesquisa" if memoria else None)
         except ErroHA as e:
             # IA que não aceita PDF: tenta de novo só com o texto tirado do arquivo
             extra = pdf_texto(arquivos[0][0]) if arquivos and arquivos[0][1] == "application/pdf" else ""
@@ -2115,7 +2117,7 @@ def beneficios_explicar(corpo):
         if not ia_disponivel(d):
             raise ValueError("Nenhuma IA configurada no Home Assistant (integração com tarefa de IA).")
         try:
-            dados = ia_tarefa(d, "beneficios", "GerencIA: explicar benefício", beneficios.prompt_explicar(nome, de))
+            dados = ia_tarefa(d, "beneficios", "GerencIA: explicar benefício", beneficios.prompt_explicar(nome, de), uso="pesquisa")
         except ErroHA as e:
             raise ValueError(str(e)) from None
     r = beneficios.sobre(extrair_json(dados))
