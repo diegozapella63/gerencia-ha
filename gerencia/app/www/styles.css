@@ -16,15 +16,17 @@
   --r-ctl: 12px;
   --nav-h: 76px;
   color-scheme: dark;
-  --bg: #0f1318;
-  --card: #151a21;
-  --card-2: #1c222b;
-  --line: #242b35;
-  --line-2: #2f3743;
+  /* o fundo e os cartões são os do tema do Home Assistant (hatema.js, igual em todos os apps); os cinzas saem deles e do
+     texto, para todos os apps da família terem o mesmo fundo */
+  --bg: var(--ha-bg-dark, #111111);
+  --card: var(--ha-card-dark, #1c1c1c);
+  --card-2: color-mix(in srgb, var(--card) 95%, var(--text));
+  --line: color-mix(in srgb, var(--card) 91%, var(--text));
+  --line-2: color-mix(in srgb, var(--card) 81%, var(--text));
+  --nav: var(--card);
   --text: #eef2f6;
   --text-2: #b6bfcb;
   --muted: #8a94a2;
-  --nav: #0b0e12;
   --placar-bg: #0c0f13;
   --placar-borda: #262d37;
   --placar-ink: #f3f5f8;
@@ -47,8 +49,8 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
-  --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
+  --bg: var(--ha-bg-light, #fafafa); --card: var(--ha-card-light, #ffffff);
+  --text: #121820; --text-2: #3d4754; --muted: #667180;
   --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f; --apo: #2a78d6;
   --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
   --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
@@ -62,8 +64,8 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #f2f4f7; --card: #ffffff; --card-2: #eef1f5; --line: #e3e7ec; --line-2: #d3d9e1;
-    --text: #121820; --text-2: #3d4754; --muted: #667180; --nav: #ffffff;
+    --bg: var(--ha-bg-light, #fafafa); --card: var(--ha-card-light, #ffffff);
+    --text: #121820; --text-2: #3d4754; --muted: #667180;
     --terc: #a85f00; --danger: #c63d2f; --good: #0f8a5f; --apo: #2a78d6;
     --placar-bg: #e6eaf0; --placar-borda: #cdd4de; --placar-ink: #121820; --placar-muted: #5c6673;
     --placar-tile-a: #ffffff; --placar-tile-b: #f1f4f8; --placar-fresta: #c2cad5;
@@ -253,8 +255,8 @@ svg { display: block; }
   padding: 10px 14px; border-radius: 11px; color: var(--muted); font: 500 15px/1.2 var(--font); white-space: nowrap;
 }
 .seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.18); }
-:root[data-theme="dark"] .seg button.on { background: #2c333d; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button.on { background: #2c333d; } }
+:root[data-theme="dark"] .seg button.on { background: color-mix(in srgb, var(--card) 84%, var(--text)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button.on { background: color-mix(in srgb, var(--card) 84%, var(--text)); } }
 .seg button small { font-size: 13px; font-weight: 500; opacity: .75; }
 
 .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -893,8 +895,8 @@ details summary { list-style-position: inside; }
 }
 .mais-abas button:hover { color: var(--text); }
 .mais-abas button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
-:root[data-theme="dark"] .mais-abas button.on { background: #2c333d; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mais-abas button.on { background: #2c333d; } }
+:root[data-theme="dark"] .mais-abas button.on { background: color-mix(in srgb, var(--card) 84%, var(--text)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mais-abas button.on { background: color-mix(in srgb, var(--card) 84%, var(--text)); } }
 .mais-abas .ic-s { width: 17px; height: 17px; }
 @media (max-width: 600px) { .mais-abas .ic-s { display: none; } .mais-abas button { padding: 0 8px; font-size: 14.5px; } }
 .mais-painel.abas { min-height: calc(100dvh - 160px); }

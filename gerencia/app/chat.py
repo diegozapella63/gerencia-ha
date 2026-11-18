@@ -94,7 +94,14 @@ def contas_a_pagar(d, hoje):
         return []
 
 
-def resumo(d, hoje=None):
+def _mais(L, total, mostrados, o_que):
+    """1.78.0: uma lista cortada diz quantos ficaram de fora, para a IA não responder como se fossem todos."""
+    if total > mostrados:
+        L.append(f"… e mais {total - mostrados} {o_que} que não couberam aqui (são {total} ao todo).")
+
+
+def resumo(d, hoje=None, bens=None):
+    """bens (1.78.0): os bens da casa do InventarIA, como a tela (o bens_estado do server.py); sem eles, só os daqui."""
     hoje = hoje or date.today()
     contas = calc.mapa_contas(d)
     cats = {c.get("id"): c.get("nome", "") for c in d.get("categorias", [])}
@@ -124,6 +131,7 @@ def resumo(d, hoje=None):
         for c in ap[:60]:
             sit = "paga" if c["pago"] else "ATRASADA" if c.get("atrasada") else "a pagar"
             L.append(f"{c['id']} | {c['descricao']} | {_brl(c['valor'])} | {c['vencimento']} | {sit}")
+        _mais(L, len(ap), 60, "contas")
 
     desde = (hoje - timedelta(days=45)).isoformat()
     lanc = sorted((l for l in d.get("lancamentos", []) if not l.get("pulado") and str(l.get("data") or "") >= desde),
@@ -136,6 +144,7 @@ def resumo(d, hoje=None):
             conta = calc.nome_conta(contas.get(l.get("conta"))) + (" (cartão)" if l.get("cartao") else "")
             tipo = "aporte" if l.get("aporte") else "recebimento" if rec else "gasto"
             L.append(f"{l.get('data')} | {tipo} | {l.get('descricao', '')} | {_brl(calc.num(l.get('valor')))} | {cats.get(l.get('categoria'), '')} | {sit} | {conta}")
+        _mais(L, len(lanc), 80, "lançamentos (os mais antigos)")
 
     fixos = [r for r in d.get("recorrencias", []) if not r.get("fim") or str(r.get("fim")) >= hoje.isoformat()[:7]]
     if fixos:
@@ -144,20 +153,29 @@ def resumo(d, hoje=None):
             quando = f"todo ano, dia {r.get('dia')}/{str(r.get('inicio') or '')[5:7]}" if r.get("freq") == "anual" else f"todo dia {r.get('dia')}"
             tipo = "aporte" if r.get("aporte") else "recebimento" if r.get("tipo") == "receita" else "gasto"
             L.append(f"{r.get('descricao', '')} | {tipo} | {_brl(calc.num(r.get('valor')))} | {quando} | {cats.get(r.get('categoria'), '')}")
+        _mais(L, len(fixos), 40, "fixos")
 
     invs = d.get("investimentos", [])
     if invs:
         bancos = {b.get("id"): b.get("nome", "") for b in d.get("bancos", [])}
-        ind, corrigir = d.get("indices", {}), d.get("ajustes", {}).get("corrigir", True)
+        ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
         L.append("\nInvestimentos (id | nome | banco | de quem | valor hoje | rendimento | vencimento | liquidez):")
         for i in invs[:80]:
             de = "meu" if i.get("titular") != "terceiros" else (i.get("terceiro") or "terceiros")
             L.append(f"{i.get('id')} | {i.get('nome', '')} | {bancos.get(i.get('banco'), '')} | {de} | {_brl(calc.valor_hoje(i, ind, corrigir, hoje))} | "
                      f"{calc.rotulo_taxa(i)} | {i.get('vencimento') or '-'} | {'diária' if i.get('liquidez') == 'diaria' else 'no vencimento'}")
-        t = calc.totais(d, hoje)
-        L.append(f"Patrimônio: meu {_brl(t['meu'])}, de outras pessoas {_brl(t['terceiros'])}, total {_brl(t['total'])}; rende uns {_brl(t['rende_mes'])} por mês.")
+        _mais(L, len(invs), 80, "investimentos (os totais abaixo contam todos)")
         ix = d.get("indices", {})
         L.append(f"Índices ao ano: CDI {calc.fmt_pct(ix.get('cdi', 0))}%, Selic {calc.fmt_pct(ix.get('selic', 0))}%, IPCA {calc.fmt_pct(ix.get('ipca', 0))}%.")
+    casa = bens.get("hoje") or 0 if isinstance(bens, dict) and bens.get("ok") and bens.get("n") and d.get("ajustes", {}).get("bens") is not False else 0
+    if invs or casa:
+        # 1.78.0: o patrimônio da tela (o placar do Agora): só o seu, investido mais os bens (os do InventarIA com o
+        # valor de hoje); antes ia só a soma dos investimentos, e a IA dizia um patrimônio diferente do da tela
+        p = calc.patrimonio(d, hoje, casa)
+        L.append(f"Patrimônio (como na tela; o dinheiro de outras pessoas fica fora): {_brl(p['patrimonio'])} = investido "
+                 f"{_brl(p['investido'])} + bens {_brl(p['bens'])}"
+                 + (f" (os bens da casa do InventarIA, com o valor de hoje: {_brl(p['bens_da_casa'])}, {bens.get('n')} itens)" if casa else "")
+                 + f". De outras pessoas: {_brl(p['de_outras_pessoas'])}. Os investimentos rendem uns {_brl(p['rende_mes'])} por mês, antes do IR.")
 
     mil = [b for b in d.get("beneficios", []) if isinstance(b, dict) and b.get("tipo") == "milhas"]
     if mil:  # Mais › Benefícios › Milhas (1.63.0): o saldo de hoje, o nível, o que vence e o que dá para trocar
@@ -196,25 +214,25 @@ REGRAS_ACOES = """Ações: quando a pessoa pedir para lançar um gasto ou um rec
 - "investimentos": cada saldo novo ou aplicação, com "existente" (o id da lista de investimentos, se for um deles; senão ""), "valor" (o saldo de agora, se ela disse; senão 0), "aporte" (quanto aplicou agora; senão 0) e, só para um investimento novo, "nome", "banco", "tipo" (cdb, lci, tesouro, poupanca, caixinha, fundo, acoes, ouro, dinheiro, previdencia, outro), "indexador" (cdi_pct, cdi_mais, pre, ipca_mais, selic_mais, poupanca, estimado, parado), "taxa", "vencimento" (AAAA-MM-DD ou "") e "liquidez" ("diaria" ou "vencimento"), e "dono" ("" se for da própria pessoa)."""
 
 
-WHATSAPP = """Você responde pelo WhatsApp da CorrerIA Code, o contato dos apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, curto e direto, como no WhatsApp: frases simples, no máximo uns 4 parágrafos curtos. Formatação do WhatsApp: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
+WHATSAPP = """Você responde pelo WhatsApp da CorrerIA Code, o contato dos apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, com todos os acentos e o ç (você, às, não, alimentação), curto e direto, como no WhatsApp: frases simples, no máximo uns 4 parágrafos curtos. Formatação do WhatsApp: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
 Responda sobre as finanças da casa com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. Contas de cabeça podem errar: some e compare com cuidado.
 Por aqui você só ajuda com as finanças e os apps da casa: para qualquer outro assunto, diga numa frase, com gentileza, que pelo WhatsApp você ajuda só com os apps da CorrerIA Code.
 Pelo WhatsApp ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que por enquanto isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
 
 
 # a conversa na tela do CorrerIA (o app que junta os apps da casa): sem a regra do WhatsApp sobre outros assuntos
-CORRERIA = """Você responde pela conversa do CorrerIA, o app que junta os apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, curto e direto, como num chat de celular: frases simples, no máximo uns 4 parágrafos curtos. Formatação: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
+CORRERIA = """Você responde pela conversa do CorrerIA, o app que junta os apps da casa (o GerencIA é o das finanças). Converse em português do Brasil, com todos os acentos e o ç (você, às, não, alimentação), curto e direto, como num chat de celular: frases simples, no máximo uns 4 parágrafos curtos. Formatação: *negrito* com um asterisco de cada lado e listas com "- "; nada de tabelas, títulos nem links. Valores como R$ 1.234,56 e datas como 20/11.
 Responda sobre as finanças da casa com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. Contas de cabeça podem errar: some e compare com cuidado. Também pode conversar sobre outros assuntos.
 Por aqui ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
 
 
-def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp"):
+def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp", bens=None):
     """O pedido para a IA quando a pergunta vem pelo CorrerIA: pelo WhatsApp (só sobre os apps, a regra da Meta) ou
     pela conversa na tela dele (canal correria). Só responde, sem ações."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
     partes = [(CORRERIA if canal == "correria" else WHATSAPP) + (f"\nQuem está conversando: {nome}." if nome else ""),
-              "Dados do app:\n" + resumo(d, hoje)]
+              "Dados do app:\n" + resumo(d, hoje, bens)]
     conversa = [("IA: " if m.get("papel") == "ia" else "Pessoa: ") + str(m.get("texto") or "").strip()[:MAX_TEXTO]
                 for m in historico[-MAX_HISTORICO:] if str(m.get("texto") or "").strip()]
     partes.append("A conversa (a última mensagem é a que você responde agora):\n" + "\n".join(conversa))
@@ -222,13 +240,13 @@ def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp"):
     return "\n\n".join(partes)
 
 
-def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0):
+def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, bens=None):
     """O pedido para a IA: quem ela é, a tela que a pessoa vê, os dados, as ações e a conversa (a última mensagem é a pergunta)."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
     partes = [
         f"Você é a IA do GerencIA, o app das finanças da casa{' de ' + nome if nome else ''}, no Brasil, dentro do Home Assistant. "
-        "Converse em português do Brasil, curto e direto, como num chat de celular: frases simples, no máximo uns 5 parágrafos curtos. "
+        "Converse em português do Brasil, com todos os acentos e o ç (você, às, não, alimentação), curto e direto, como num chat de celular: frases simples, no máximo uns 5 parágrafos curtos. "
         "Pode usar **negrito** e listas com \"- \"; nada de tabelas nem títulos. Valores como R$ 1.234,56 e datas como 20/11.",
         "Responda sobre as finanças com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. "
         "Contas de cabeça podem errar: some e compare com cuidado. Também pode conversar sobre qualquer outro assunto.",
@@ -236,7 +254,7 @@ def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0):
     tela = (tela or "").strip()[:MAX_TELA]
     if tela:
         partes.append(f"A pessoa está na tela {ABAS.get(aba, aba or 'do app')}. O que aparece nela agora:\n<<<\n{tela}\n>>>")
-    partes.append("Dados do app:\n" + resumo(d, hoje))
+    partes.append("Dados do app:\n" + resumo(d, hoje, bens))
     partes.append(REGRAS_ACOES)
     conversa = []
     for m in historico[-MAX_HISTORICO:]:

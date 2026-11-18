@@ -15,7 +15,9 @@ js = open(os.path.join(W, "app.js"), encoding="utf-8").read()
 caixas = open(os.path.join(W, "selectsheet.js"), encoding="utf-8").read()
 # os campos de texto que a pessoa aumenta (o mesmo arquivo dos outros apps)
 campos = open(os.path.join(W, "textareas.js"), encoding="utf-8").read()
-assert "</script" not in js and "</script" not in caixas and "</script" not in campos
+# o fundo e os cartões do tema do Home Assistant (o mesmo arquivo dos outros apps)
+tema = open(os.path.join(W, "hatema.js"), encoding="utf-8").read()
+assert "</script" not in js and "</script" not in caixas and "</script" not in campos and "</script" not in tema
 
 
 def embute(m):
@@ -29,7 +31,7 @@ html = f'''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GerencIA</title>
-<meta name="theme-color" content="#0f1318">
+<meta name="theme-color" content="#111111">
 <style>
 {css}
 </style>
@@ -41,6 +43,9 @@ html = f'''<!doctype html>
 <script>window.GERENCIA_DEMO = true;</script>
 <script>
 {caixas}
+</script>
+<script>
+{tema}
 </script>
 <script>
 {campos}

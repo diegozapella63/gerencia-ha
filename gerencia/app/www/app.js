@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.77.0';
+const VERSAO = '1.78.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -851,7 +851,7 @@ function aplicarTema() {
   root.style.setProperty('--accent', corDoApp());
   root.dataset.ia = a.ia === false ? 'off' : 'on';
   const meta = $('meta[name="theme-color"]');
-  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0f1318';
+  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#111111';
 }
 if (!DEMO) setInterval(() => { if (S.d && temaAqui() === 'auto') aplicarTema(); }, 2000);
 // o relatório (uma página do servidor) abre no mesmo tema que o app está usando agora

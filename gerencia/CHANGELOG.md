@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.78.0
+
+- **O fundo e os cartões seguem o tema do Home Assistant**, no claro e no escuro: o mesmo fundo do Home Assistant e dos outros apps da família (antes, cada app tinha o seu). Com um tema seu no Home Assistant, o app usa as cores dele; ao trocar o tema ou o modo no Home Assistant, o app muda junto. O mesmo vale para a página do Relatório.
+- **Conversar** e o WhatsApp: a IA responde com todos os acentos (algumas IAs escreviam "voce" e "Alimentacao").
+- **Conversar e CorrerIA**: o patrimônio que a IA recebe é o mesmo da tela, o seu investido mais os bens (os da casa, do InventarIA, com o valor de hoje). Antes ela somava só os investimentos e dava um patrimônio menor. E uma lista grande demais diz à IA quantos ficaram de fora, para ela não responder como se fossem todos.
+
 ## 1.77.0
 
 - **Editar banco › Global**: o débito global e o crédito global ficam cada um no seu grupo. Ligado, cada um mostra embaixo só o que é dele: a moeda e o cartão adicional.

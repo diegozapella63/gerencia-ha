@@ -489,7 +489,7 @@ class TestImagensBackupsVersoes(unittest.TestCase):
     def test_relatorio_no_papel_e_sempre_claro(self):
         h = self.relatorio("escuro")
         impressao = h[h.index("@media print"):]
-        self.assertIn(':root,:root[data-theme],:root:not([data-theme="light"]){--bg:#f6f7f9;--card:#fff;--fg:#141a22', impressao)
+        self.assertIn(':root,:root[data-theme],:root:not([data-theme="light"]){--bg:var(--ha-bg-light,#fafafa);--card:var(--ha-card-light,#fff);--fg:#141a22', impressao)
         self.assertIn(";--bg:#fff;color-scheme:light}", impressao, "no papel, fundo branco")
 
     def test_bens_quando_o_inventaria_quebra(self):

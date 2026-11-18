@@ -43,6 +43,7 @@ class TestInstrucoes(unittest.TestCase):
         hist = [{"papel": "eu", "texto": f"pergunta {n}"} for n in range(30)] + [{"papel": "ia", "texto": "resposta"}, {"papel": "eu", "texto": "Quanto gastei?"}]
         t = chat.instrucoes_whatsapp(self.d(), hist, "Ana Exemplo", HOJE)
         self.assertIn("WhatsApp da CorrerIA Code", t)
+        self.assertIn("com todos os acentos e o ç (você, às, não, alimentação)", t, "1.78.0: com os acentos (uma IA respondia sem eles)")
         self.assertIn("Quem está conversando: Ana.", t)
         self.assertIn("*negrito* com um asterisco", t)
         self.assertIn("só com os apps da CorrerIA Code", t, "outros assuntos, não (a regra da Meta)")

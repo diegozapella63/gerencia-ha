@@ -145,8 +145,35 @@ class TestOQueAIARecebe(unittest.TestCase):
     def test_investimentos_e_patrimonio(self):
         self.assertIn("i-cdb | CDB Azul | Banco Azul | meu | R$ 1.000,00 | 100% do CDI | - | no vencimento", self.r)
         self.assertIn("i-mae | Poupança da Mãe |  | Mãe | R$ 500,00", self.r)
-        self.assertIn("Patrimônio: meu R$ 1.000,00, de outras pessoas R$ 500,00, total R$ 1.500,00", self.r)
+        # 1.78.0: o patrimônio da tela: só o seu (o de outras pessoas à parte)
+        self.assertIn("Patrimônio (como na tela; o dinheiro de outras pessoas fica fora): R$ 1.000,00 = investido R$ 1.000,00 + bens R$ 0,00. "
+                      "De outras pessoas: R$ 500,00.", self.r)
         self.assertIn("CDI 13,65%", self.r)
+
+    def test_patrimonio_com_os_bens_do_inventaria_como_na_tela(self):
+        """1.78.0: com os bens da casa do InventarIA (o placar do Agora soma), a IA recebe o mesmo patrimônio da tela;
+        antes recebia só a soma dos investimentos e dizia um patrimônio menor."""
+        d = dados()
+        d["investimentos"].append({"id": "i-carro", "nome": "Carro", "valor": 40000, "tipo": "bens", "indexador": "parado"})
+        bens = {"ok": True, "hoje": 30000, "n": 12}
+        r = C.resumo(d, HOJE, bens)
+        self.assertIn("Patrimônio (como na tela; o dinheiro de outras pessoas fica fora): R$ 71.000,00 = investido R$ 1.000,00 + bens R$ 70.000,00 "
+                      "(os bens da casa do InventarIA, com o valor de hoje: R$ 30.000,00, 12 itens). De outras pessoas: R$ 500,00.", r)
+        self.assertIn("antes do IR", r)
+        d["ajustes"]["bens"] = False
+        self.assertNotIn("InventarIA, com o valor de hoje", C.resumo(d, HOJE, bens), "Bens da casa desligado: sem eles")
+        self.assertNotIn("InventarIA, com o valor de hoje", C.resumo(dados(), HOJE, {"ok": False, "motivo": "fora do ar"}))
+        self.assertIn("R$ 30.000,00", C.instrucoes(dados(), [{"papel": "eu", "texto": "e o patrimônio?"}], bens=bens, hoje=HOJE))
+        self.assertIn("R$ 30.000,00", C.instrucoes_whatsapp(dados(), [{"papel": "eu", "texto": "e o patrimônio?"}], "Ana", HOJE, bens=bens))
+
+    def test_lista_cortada_diz_quantos_ficaram_de_fora(self):
+        """1.78.0: uma lista que não cabe diz quantos ficaram de fora (a IA não responde como se fossem todos)."""
+        d = dados()
+        d["investimentos"] = [{"id": f"i{n}", "nome": f"CDB {n}", "valor": 100, "indexador": "parado", "tipo": "cdb"} for n in range(85)]
+        r = C.resumo(d, HOJE)
+        self.assertIn("… e mais 5 investimentos (os totais abaixo contam todos) que não couberam aqui (são 85 ao todo).", r)
+        self.assertIn("R$ 8.500,00 = investido R$ 8.500,00", r, "os totais contam todos")
+        self.assertNotIn("… e mais", C.resumo(dados(), HOJE))
 
     def test_categorias_com_id(self):
         self.assertIn("c-mercado: Mercado, despesa", self.r)

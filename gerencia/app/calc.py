@@ -131,6 +131,12 @@ def taxa_anual(inv, ind):
     return 0.0
 
 
+def corrige_valores(data):
+    """Mais › Configurações › Opções › Corrigir valores pelo rendimento: só desligada quando é False, como no app.js
+    (ajustes.corrigir === false); 1.78.0: antes, um None aqui desligava e a IA via o valor informado, a tela o de hoje."""
+    return ((data or {}).get("ajustes") or {}).get("corrigir", True) is not False
+
+
 def valor_hoje(inv, ind, corrigir=True, hoje=None):
     hoje = hoje or date.today()
     v = num(inv.get("valor"))
@@ -376,7 +382,7 @@ def dono(inv):
 
 def totais(data, hoje=None):
     ind = data.get("indices", {})
-    corrigir = data.get("ajustes", {}).get("corrigir", True)
+    corrigir = corrige_valores(data)
     total = meu = terc = mes = 0.0
     pessoas = {}
     for inv in data.get("investimentos", []):
@@ -398,6 +404,27 @@ def totais(data, hoje=None):
         "pessoas": {k: round(v, 2) for k, v in pessoas.items()},
         "quantidade": len(data.get("investimentos", [])),
     }
+
+
+def patrimonio(data, hoje=None, bens_casa=0.0):
+    """1.78.0: o patrimônio como a tela mostra (o placar do Agora, igual ao app.js): só o seu, os investimentos (sem os do
+    tipo Bens) mais os bens (os do InventarIA, já com o valor de hoje, em bens_casa, e os seus do tipo Bens); o rende
+    por mês é só dos investimentos; o dinheiro de outras pessoas fica fora."""
+    ind = data.get("indices", {})
+    corrigir = corrige_valores(data)
+    investido = mes = bens_meus = terc = 0.0
+    for inv in data.get("investimentos", []):
+        v = valor_hoje(inv, ind, corrigir, hoje)
+        if inv.get("titular") == "terceiros":
+            terc += v
+        elif inv.get("tipo") == "bens":
+            bens_meus += v
+        else:
+            investido += v
+            mes += rende_mes(v, taxa_anual(inv, ind))
+    bens_t = bens_meus + max(0.0, float(bens_casa or 0))
+    return {"patrimonio": round(investido + bens_t, 2), "investido": round(investido, 2), "bens": round(bens_t, 2),
+            "bens_da_casa": round(max(0.0, float(bens_casa or 0)), 2), "de_outras_pessoas": round(terc, 2), "rende_mes": round(mes, 2)}
 
 
 # ---------------------------------------------------------------- caixa (recebimentos e despesas)
@@ -701,7 +728,7 @@ def investido_na_conta(c, banco_id, data, hoje=None):
     de_terc = bool(p) and p in terc
     banco = next((b for b in data.get("bancos") or [] if b.get("id") == banco_id), {}) or {}
     do_banco = {k.get("id") for k in banco.get("contas") or [] if isinstance(k, dict)}
-    ind, corrigir = data.get("indices", {}), data.get("ajustes", {}).get("corrigir", True)
+    ind, corrigir = data.get("indices", {}), corrige_valores(data)
     soma = 0.0
     for i in invs:
         if i.get("banco") != banco_id:

@@ -196,6 +196,18 @@ class TestTotais(unittest.TestCase):
         self.assertEqual(t["pessoas"], {"Mãe": 2300, "Terceiros": 500})
         self.assertAlmostEqual(t["rende_mes"], round(2000 * (1.12 ** (1 / 12) - 1), 2))
 
+
+    def test_patrimonio_como_na_tela(self):
+        """1.78.0: o patrimônio do placar do Agora (o mesmo do app.js): investido (sem os do tipo Bens) mais os bens
+        (os seus e os do InventarIA); o de outras pessoas fica fora; o rende por mês é só dos investimentos."""
+        d = {"indices": {}, "ajustes": {}, "investimentos": [
+            {"id": "a", "valor": 1000, "indexador": "parado", "tipo": "cdb"},
+            {"id": "b", "valor": 40000, "indexador": "parado", "tipo": "bens"},
+            {"id": "c", "valor": 800, "indexador": "parado", "tipo": "cdb", "titular": "terceiros", "terceiro": "Mãe"}]}
+        p = calc.patrimonio(d, date(2026, 11, 2), bens_casa=2500)
+        self.assertEqual((p["patrimonio"], p["investido"], p["bens"], p["bens_da_casa"], p["de_outras_pessoas"]), (43500, 1000, 42500, 2500, 800))
+        self.assertEqual(calc.patrimonio(d, date(2026, 11, 2))["patrimonio"], 41000)
+        self.assertEqual(calc.patrimonio(d, date(2026, 11, 2), bens_casa=-5)["bens_da_casa"], 0)
     def test_vazio(self):
         self.assertEqual(calc.totais({}), {"total": 0, "meu": 0, "terceiros": 0, "rende_mes": 0, "pessoas": {}, "quantidade": 0})
 

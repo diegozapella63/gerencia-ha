@@ -27,8 +27,8 @@ def dados():
     return d
 
 
-def chamar(nome, args, d):
-    return F.chamar(nome, args, d, HOJE)
+def chamar(nome, args, d, bens=None):
+    return F.chamar(nome, args, d, HOJE, bens=bens)
 
 
 def json_de(nome, args, d):
@@ -113,6 +113,12 @@ class TestLeitura(unittest.TestCase):
         d = dados()
         r = json_de("investimentos", {}, d)
         self.assertEqual(r["patrimonio"]["de_outras_pessoas"], 800.0)
+        # 1.78.0: o patrimônio da tela: só o seu (investido mais os bens), com os bens da casa do InventarIA
+        self.assertEqual(r["patrimonio"]["patrimonio"], r["patrimonio"]["investido"] + r["patrimonio"]["bens"])
+        com = json.loads(chamar("investimentos", {}, d, bens={"ok": True, "hoje": 12345.67, "n": 3})[0])["patrimonio"]
+        self.assertEqual(com["bens_da_casa"], {"valor_hoje": 12345.67, "itens": 3, "de_onde": "InventarIA, com a depreciação de cada categoria"})
+        self.assertAlmostEqual(com["patrimonio"], r["patrimonio"]["patrimonio"] + 12345.67, places=2)
+        self.assertIn("R$ 12.345,67", chamar("resumo", {}, d, bens={"ok": True, "hoje": 12345.67, "n": 3})[0])
         i2 = next(i for i in r["investimentos"] if i["id"] == "i2")
         self.assertEqual((i2["de_quem"], i2["banco"], i2["liquidez"]), ("Beto", "Banco Azul", "diária"))
         c = json_de("cadastros", {}, d)

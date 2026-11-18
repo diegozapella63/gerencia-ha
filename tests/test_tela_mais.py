@@ -1269,7 +1269,7 @@ class TestDicas(TelaMais):
 
 
 # ---------------------------------------------------------------------------------------------------------------
-CLARO = "rgb(246, 247, 249)"
+CLARO = "rgb(250, 250, 250)"  # 1.78.0: o fundo do tema do Home Assistant (fora dele, o do tema padrão)
 
 
 class TestRelatorioNoTema(TelaMais):
@@ -1309,15 +1309,15 @@ class TestRelatorioNoTema(TelaMais):
             pg.close()
 
     def test_relatorio_escuro_e_claro_na_tela(self):
-        self.assertEqual(self.fundo("escuro"), "rgb(15, 19, 24)")
+        self.assertEqual(self.fundo("escuro"), "rgb(17, 17, 17)")
         self.assertEqual(self.fundo("claro", esquema="dark"), CLARO, "o tema do app vale mais que o do aparelho")
 
     def test_relatorio_automatico_segue_o_aparelho(self):
-        self.assertEqual(self.fundo(None, esquema="dark"), "rgb(15, 19, 24)")
+        self.assertEqual(self.fundo(None, esquema="dark"), "rgb(17, 17, 17)")
         self.assertEqual(self.fundo(None, esquema="light"), CLARO)
 
     def test_relatorio_automatico_dentro_do_home_assistant_segue_o_tema_dele(self):
-        self.assertEqual(self.fundo(None, esquema="light", ha=True), "rgb(15, 19, 24)", "HA escuro com o aparelho claro")
+        self.assertEqual(self.fundo(None, esquema="light", ha=True), "rgb(17, 17, 17)", "HA escuro com o aparelho claro")
         self.assertEqual(self.fundo(None, esquema="dark", ha=False), CLARO, "HA claro com o aparelho escuro")
 
     def test_relatorio_no_celular_nao_corta_o_valor(self):
@@ -1851,7 +1851,7 @@ class TestMaisSobre(TelaMais):
             cores[tema] = self.js("[getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.sobre-topo')).backgroundColor, getComputedStyle(document.querySelector('.sb-nome')).color]")
         self.assertNotEqual(cores["claro"][0], cores["escuro"][0])
         self.assertEqual(cores["claro"][1:], ["rgb(255, 255, 255)", "rgb(18, 24, 32)"], "no claro, o cartão branco e o nome escuro")
-        self.assertEqual(cores["escuro"][1:], ["rgb(21, 26, 33)", "rgb(238, 242, 246)"], "no escuro, o cartão escuro e o nome claro")
+        self.assertEqual(cores["escuro"][1:], ["rgb(28, 28, 28)", "rgb(238, 242, 246)"], "no escuro, o cartão escuro (o do tema do Home Assistant) e o nome claro")
 
 
 class TestNavegacao(TelaMais):

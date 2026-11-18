@@ -359,8 +359,8 @@ def _contas_a_pagar(d, a, hoje):
                   "atrasadas": round(sum(c["valor"] for c in abertas if c["situacao"] == "atrasada"), 2), "contas": out})
 
 
-def _investimentos(d, hoje):
-    ind, corrigir = d.get("indices", {}), d.get("ajustes", {}).get("corrigir", True)
+def _investimentos(d, hoje, bens=None):
+    ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
     bancos = {b.get("id"): b.get("nome", "") for b in d.get("bancos", [])}
     out = []
     for i in d.get("investimentos", []):
@@ -374,9 +374,15 @@ def _investimentos(d, hoje):
         if i.get("obs"):
             it["obs"] = i["obs"]
         out.append(it)
-    t = calc.totais(d, hoje)
-    return _json({"patrimonio": {"meu": t["meu"], "de_outras_pessoas": t["terceiros"], "total": t["total"], "rende_por_mes": t["rende_mes"]},
-                  "investimentos": out})
+    # 1.78.0: o patrimônio da tela (o placar do Agora): o seu, investido mais os bens (os do InventarIA, com o valor de
+    # hoje); antes, a soma dos investimentos (com os de outras pessoas no total)
+    casa = bens.get("hoje") or 0 if isinstance(bens, dict) and bens.get("ok") and bens.get("n") and d.get("ajustes", {}).get("bens") is not False else 0
+    p = calc.patrimonio(d, hoje, casa)
+    pat = {"patrimonio": p["patrimonio"], "investido": p["investido"], "bens": p["bens"], "de_outras_pessoas": p["de_outras_pessoas"],
+           "rende_por_mes": p["rende_mes"], "como": "o da tela: só o seu, investido mais os bens; o rende por mês é antes do IR"}
+    if casa:
+        pat["bens_da_casa"] = {"valor_hoje": p["bens_da_casa"], "itens": bens.get("n"), "de_onde": "InventarIA, com a depreciação de cada categoria"}
+    return _json({"patrimonio": pat, "investimentos": out})
 
 
 def _cadastros(d):
@@ -591,7 +597,7 @@ def _atualizar_inv(d, a, hoje):
     dados = [k for k in ("saldo", "aporte", "resgate") if a.get(k) is not None]
     if len(dados) != 1:
         raise ErroFerramenta("Mande um só: saldo (o de agora), aporte ou resgate.")
-    ind, corrigir = d.get("indices", {}), d.get("ajustes", {}).get("corrigir", True)
+    ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
     antes = round(calc.valor_hoje(inv, ind, corrigir, hoje), 2)
     k = dados[0]
     v = _valor(a[k], k, zero=k == "saldo")
@@ -671,8 +677,9 @@ def _novo_fixo(d, a, hoje):
 
 # ---------------------------------------------------------------- chamar
 
-def chamar(nome, argumentos, d, hoje=None):
-    """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou)."""
+def chamar(nome, argumentos, d, hoje=None, bens=None):
+    """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou). bens (1.78.0): os bens
+    da casa do InventarIA, como a tela (o bens_estado do server.py), para o patrimônio ser o mesmo da tela."""
     hoje = hoje or date.today()
     f = POR_NOME.get(str(nome or ""))
     if not f:
@@ -681,13 +688,13 @@ def chamar(nome, argumentos, d, hoje=None):
     for k in ("lancamentos", "recorrencias", "investimentos", "bancos", "categorias"):
         d.setdefault(k, [])
     if nome == "resumo":
-        return chat.resumo(d, hoje), False
+        return chat.resumo(d, hoje, bens), False
     if nome == "lancamentos":
         return _lancamentos(d, a, hoje), False
     if nome == "contas_a_pagar":
         return _contas_a_pagar(d, a, hoje), False
     if nome == "investimentos":
-        return _investimentos(d, hoje), False
+        return _investimentos(d, hoje, bens), False
     if nome == "cadastros":
         return _cadastros(d), False
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,

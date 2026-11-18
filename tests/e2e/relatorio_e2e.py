@@ -150,7 +150,7 @@ with sync_playwright() as p:
     # no claro
     pg2 = b.new_page(viewport={'width': 390, 'height': 844}, color_scheme='light', device_scale_factor=2)
     pg2.goto(B + 'relatorio?tema=claro&quem=meus'); pg2.wait_for_timeout(400)
-    igual(pg2.evaluate("getComputedStyle(document.body).backgroundColor"), 'rgb(246, 247, 249)', 'claro: o fundo claro')
+    igual(pg2.evaluate("getComputedStyle(document.body).backgroundColor"), 'rgb(250, 250, 250)', 'claro: o fundo claro do Home Assistant (1.78.0)')
     igual(pg2.evaluate("getComputedStyle(document.querySelector('.cab')).backgroundColor"), 'rgb(255, 255, 255)', 'claro: o cabeçalho branco')
     igual(pg2.inner_text('.filtro a.on'), 'Meus', 'claro: Meus marcado')
     pg2.screenshot(path=f'{SP}/shots/relatorio-claro.png', full_page=True)

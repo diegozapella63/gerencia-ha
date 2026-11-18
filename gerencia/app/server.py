@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.77.0"
+VERSAO = "1.78.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -415,7 +415,7 @@ def publicar_sensores_async(d):
 
 def linhas_csv(d):
     ind = d["indices"]
-    corrigir = d["ajustes"].get("corrigir", True)
+    corrigir = calc.corrige_valores(d)
     bancos = {b.get("id"): b.get("nome", "") for b in d["bancos"]}
     cab = ["Nome", "Banco", "Tipo", "De quem", "Rendimento", "Indexador", "Taxa (%)",
            "Valor informado", "Data do valor", "Valor estimado hoje", "Rende por mês",
@@ -550,7 +550,7 @@ def dados_relatorio(d, quem="todos", agora=None, inventario=None, detalhar=False
     usuario: o nome de quem abriu (do Home Assistant), para a conta dos investimentos de antes num banco com várias pessoas."""
     quem = quem if quem in QUEM else "todos"
     ind = d["indices"]
-    corrigir = d["ajustes"].get("corrigir", True)
+    corrigir = calc.corrige_valores(d)
     bancos = {b.get("id"): b for b in d["bancos"]}
     invs = [i for i in d["investimentos"]
             if quem == "todos" or (quem == "terceiros") == (i.get("titular") == "terceiros")]
@@ -774,15 +774,15 @@ def gerar_relatorio(d, tema=None, quem="todos", inventario=None, detalhar=False,
                  f'<h1>Relatório de patrimônio</h1>'
                  f'<p>{FILTRO_SUB[r["quem"]]}{e(_contagem(r))} · {r["gerado"]}</p></div></header>')
 
-    claro = "--bg:#f6f7f9;--card:#fff;--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--seg:#e9edf1"
-    escuro = "--bg:#0f1318;--card:#161c23;--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--seg:#0b0f14"
+    claro = "--bg:var(--ha-bg-light,#fafafa);--card:var(--ha-card-light,#fff);--fg:#141a22;--mut:#5b6573;--linha:#e3e7ec;--linha2:#eef1f4;--borda:#d6dbe2;--seg:#e9edf1"
+    escuro = "--bg:var(--ha-bg-dark,#111111);--card:var(--ha-card-dark,#1c1c1c);--fg:#e8edf3;--mut:#9aa6b4;--linha:#2a3340;--linha2:#1f2732;--borda:#334051;--seg:#0b0f14"
     # no automático, sem o tema do app: o do Home Assistant (a página abre dentro dele) ou o do aparelho
     script_tema = "" if tema else """<script>try{var h=parent!==window?parent.document.querySelector('home-assistant'):null,m=h&&h.hass&&h.hass.themes?h.hass.themes.darkMode:null;
 if(typeof m==='boolean')document.documentElement.setAttribute('data-theme',m?'dark':'light')}catch(e){}</script>"""
     return f"""<!doctype html><html lang="pt-BR"{attr_tema}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Relatório de patrimônio · GerencIA</title>{script_tema}
+<title>Relatório de patrimônio · GerencIA</title>{script_tema}<script src="hatema.js"></script>
 <style>
 :root{{--a:{r['cor']};{claro};color-scheme:light}}
 :root[data-theme="dark"]{{{escuro};color-scheme:dark}}
@@ -2210,14 +2210,14 @@ def chat_enviar(corpo, usuario=None):
         registrar_uso("chat", "ai_task.simulada", 2000, 300, len(arquivos), 0.6, "ok")
         bruto = chat.simulado(texto, d, anexos=len(arquivos))
     elif arquivos:
-        instr = chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, anexos=len(arquivos))
+        instr = chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, anexos=len(arquivos), bens=bens_estado(d))
         try:
             bruto = ia_tarefa(d, "chat", "GerencIA: conversa", instr, arquivos, timeout=180)
         except ErroHA as e:
             raise ValueError(str(e))
     else:
         payload = {"task_name": "GerencIA: conversa",
-                   "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario)}
+                   "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, bens=bens_estado(d))}
         ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent
@@ -3256,7 +3256,7 @@ def usar_ferramenta(corpo):
     cliente = str(corpo.get("cliente") or "CorrerIA")[:40]
     with TRAVA:
         d = ler()
-        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d)
+        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None)
         if mudou:
             d["rev"] = d["rev"] + 1
             salvar(d)
@@ -3290,7 +3290,7 @@ def conversa_correria(corpo):
     else:
         canal = "correria" if corpo.get("canal") == "correria" else "whatsapp"
         payload = {"task_name": "GerencIA: CorrerIA" if canal == "correria" else "GerencIA: WhatsApp",
-                   "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal)}
+                   "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal, bens=bens_estado(d))}
         ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent

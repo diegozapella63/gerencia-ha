@@ -204,6 +204,10 @@ class TestArquivos(unittest.TestCase):
         h = h.decode() if isinstance(h, bytes) else h
         self.assertIn("CDB Azul", h)
         self.assertIn("<html", h.lower())
+        # 1.78.0: o fundo e o cartão do tema do Home Assistant, como o app
+        self.assertIn('<script src="hatema.js"></script>', h)
+        self.assertIn("--bg:var(--ha-bg-light,#fafafa);--card:var(--ha-card-light,#fff);", h)
+        self.assertIn("--bg:var(--ha-bg-dark,#111111);--card:var(--ha-card-dark,#1c1c1c);", h)
 
 
 class TestUso(unittest.TestCase):
