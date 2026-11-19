@@ -24,7 +24,7 @@ with sync_playwright() as p:
     igual([x.get_attribute('data-a') for x in pg.locator('.cab-topo button').all()], ['chat', 'falar'], 'o balão ao lado do microfone')
     pg.click('.cab-topo [data-a="chat"]'); pg.wait_for_timeout(600)
     igual(titulo(), 'Conversar com a IA', 'abre o chat')
-    igual(pg.locator('.ch-sug .chip').count(), 3, 'conversa nova com sugestões')
+    igual(pg.locator('.ch-sug .chip').count(), 6, 'conversa nova com as 6 sugestões (1.79.0)')
     pg.screenshot(path=f'{SP}/shots/chat-vazio.png')
 
     enviar('qual o saldo do caixa?')
