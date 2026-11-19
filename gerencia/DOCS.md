@@ -208,7 +208,7 @@ O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo q
 
 O balão ao lado do microfone abre uma conversa com a IA, a qualquer momento e em qualquer tela. Ela vê os seus dados (caixa, contas a pagar, fixos, lançamentos recentes, investimentos e patrimônio) e o que está na tela aberta, então dá para perguntar "quanto gastei com mercado este mês?", "o que vence esta semana?" ou "quanto rende a minha carteira?". Também conversa sobre outros assuntos.
 
-Com a conversa vazia, aparecem as **perguntas prontas** da tela aberta: é só tocar. Depois, o botão ✨ ao lado da caixa abre as mesmas a qualquer momento. Em **Editar perguntas**, o ✕ tira uma pergunta e **Adicionar** põe outra (aí valem para todas as telas); **Padrão** volta às de cada tela. Embaixo, **Mais perguntas (20)**: um toque põe a pergunta na lista. Ficam guardadas no aparelho.
+Com a conversa vazia, aparecem as **perguntas prontas** da tela aberta: é só tocar. Depois, o botão ✨ ao lado da caixa abre as mesmas a qualquer momento. Em **Editar perguntas**, toque numa pergunta para mudar o texto, o ✕ tira uma pergunta e **Adicionar** põe outra (aí valem para todas as telas); **Padrão** volta às de cada tela. Embaixo, **Mais perguntas (20)**: um toque põe a pergunta na lista. **Perguntas prontas** e **Mais perguntas** fecham e abrem num toque no título. Fica tudo guardado no aparelho.
 
 A IA vê os mesmos números da tela (o patrimônio, o caixa, o valor de hoje de cada investimento) e também os benefícios, as dicas de economia, as oportunidades de investimento, as assinaturas em promoção, a Evolução sem aportes e os últimos 12 meses.
 

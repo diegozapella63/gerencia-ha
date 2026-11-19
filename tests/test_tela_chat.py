@@ -133,14 +133,14 @@ class TestConversar(TelaChat):
         self.abrir()
         self.abrir_chat()
         self.clicar('[data-a="ch-ed-abrir"]')
-        self.assertEqual(self.textos(".ch-ed-lin:not(.ch-ed-modelo) > span"), SEIS)
+        self.assertEqual(self.js("[...document.querySelectorAll('.ch-ed-lin:not(.ch-ed-modelo) > .ch-ed-txt')].map(e => e.value)"), SEIS)
         # 1.79.0: mais 20 modelos, que um toque põe na lista (e sai dos modelos)
         modelos = self.textos(".ch-ed-modelo > span:first-child")
         self.assertEqual(len(modelos), 20)
         self.assertFalse(set(modelos) & set(SEIS))
         self.assertEqual(self.texto(".ch-ed-mais"), "Mais perguntas (20)")
         self.clicar(f'.ch-ed-modelo[data-v="{modelos[0]}"]')
-        self.assertEqual(self.textos(".ch-ed-lin:not(.ch-ed-modelo) > span")[-1], modelos[0])
+        self.assertEqual(self.js("[...document.querySelectorAll('.ch-ed-lin:not(.ch-ed-modelo) > .ch-ed-txt')].map(e => e.value)")[-1], modelos[0])
         self.assertEqual(self.conta(".ch-ed-modelo"), 19)
         self.clicar('[data-a="ch-ed-tirar"] >> nth=6')
         self.clicar('[data-a="ch-ed-tirar"] >> nth=0')
@@ -175,6 +175,33 @@ class TestConversar(TelaChat):
         self.clicar('[data-a="ch-ed-pronto"]')
         self.assertEqual(self.textos(".ch-rapidas .chip"), SEIS)
         self.assertIsNone(self.js("localStorage.getItem('gerencia.perguntas')"))
+
+    def test_mudar_e_recolher_as_perguntas(self):
+        """1.80.0: em Editar perguntas, um toque numa pergunta muda o texto dela (o Enter só termina; vazia, sai), e Perguntas
+        prontas e Mais perguntas fecham pelo título, com a seta; o aparelho lembra."""
+        self.abrir()
+        self.abrir_chat()
+        self.clicar('[data-a="ch-ed-abrir"]')
+        self.assertEqual([t.strip() for t in self.textos('[data-a="ch-ed-dobra"]')], ["Perguntas prontas (6)", "Mais perguntas (20)"])
+        q = ".ch-ed-lin:not(.ch-ed-modelo) > .ch-ed-txt"
+        self.pg.locator(q).nth(1).fill(SEIS[1] + " Hoje")
+        self.pg.locator(q).nth(1).press("Enter")
+        self.assertEqual(self.pg.locator(q).nth(1).input_value(), SEIS[1] + " Hoje", "o Enter não quebra a linha")
+        self.pg.locator(q).nth(2).fill("")
+        self.clicar('[data-a="ch-ed-dobra"][data-v="mais"]')
+        self.assertEqual((self.conta(".ch-ed-modelo"), self.pg.get_attribute('[data-v="mais"].ch-ed-dobra', "aria-expanded")), (0, "false"))
+        self.clicar('[data-a="ch-ed-dobra"][data-v="prontas"]')
+        self.assertEqual((self.conta(".ch-ed-txt"), self.conta("#ch-ed-txt")), (0, 0), "as duas fechadas")
+        self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.perguntas-fechadas'))")), ["mais", "prontas"])
+        self.clicar('[data-a="ch-ed-dobra"][data-v="prontas"]')
+        self.assertEqual(self.pg.locator(q).nth(1).input_value(), SEIS[1] + " Hoje", "fechar e abrir não perde o que mudou")
+        self.clicar('[data-a="ch-ed-pronto"]')
+        self.assertEqual(self.textos(".ch-sug .chip"), [SEIS[0], SEIS[1] + " Hoje"] + SEIS[3:])
+        self.clicar('[data-a="ch-ed-abrir"]')
+        self.assertEqual(self.pg.get_attribute('[data-v="mais"].ch-ed-dobra', "aria-expanded"), "false", "o aparelho lembra")
+        self.clicar('[data-a="ch-ed-dobra"][data-v="mais"]')
+        self.assertEqual(self.conta(".ch-ed-modelo"), 20)
+        self.js("(localStorage.removeItem('gerencia.perguntas'), localStorage.removeItem('gerencia.perguntas-fechadas'), true)")
 
     def test_anexar_foto_e_arquivo(self):
         """O clipe: Tirar foto, Escolher fotos (a galeria, várias) e Escolher arquivo (foto ou PDF); vão junto com a mensagem."""

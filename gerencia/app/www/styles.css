@@ -1362,6 +1362,16 @@ input[readonly] { opacity: .8; }
 .ch-ed-h .ic-s { color: var(--accent-text); }
 .ch-ed-lin { display: flex; align-items: center; gap: 8px; padding: 2px 2px 2px 12px; border-radius: 12px; background: var(--card-2); color: var(--text); }
 .ch-ed-lin span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* 1.80.0: um toque na pergunta muda o texto; Perguntas prontas e Mais perguntas fecham pelo título */
+.ch-ed-txt { flex: 1; min-width: 0; min-height: 24px; padding: 8px 0; border: 0; background: none; color: inherit; font: inherit; line-height: 1.35; resize: none; field-sizing: content; overflow-wrap: anywhere; }
+.ch-ed-txt:focus { outline: none; }
+.ch-ed-lin:has(.ch-ed-txt:focus) { box-shadow: 0 0 0 1.5px var(--accent); }
+.ch-ed-dobra { width: 100%; min-height: 40px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--text); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ch-ed-dobra > span:not(.ch-ed-seta) { flex: 1; min-width: 0; }
+.ch-ed-seta { flex: none; width: 20px; height: 20px; display: grid; place-items: center; transform: rotate(90deg); transition: transform .15s; }
+.ch-ed-dobra .ch-ed-seta .ic-s { color: var(--muted); }
+.ch-ed-dobra[aria-expanded="false"] .ch-ed-seta { transform: none; }
+.ch-ed-dobra:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 12px; }
 .ch-ed-lin .icbtn { width: 40px; height: 40px; color: var(--muted); flex: none; }
 /* 1.79.0: os modelos de Editar perguntas: um toque põe na lista */
 .ch-ed-mais { margin-top: 6px; }

@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.79.0';
+const VERSAO = '1.80.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2889,14 +2889,27 @@ function perguntasChat() {
 function guardarPerguntas(lista) {
   try { if (lista == null) localStorage.removeItem(PERG); else localStorage.setItem(PERG, JSON.stringify(lista)); } catch (e) { /* modo privado */ }
 }
+// 1.80.0: em Editar perguntas, Perguntas prontas e Mais perguntas fecham num toque no título, com a seta no canto (o
+// aparelho lembra, em gerencia.perguntas-fechadas); de início, as duas abertas. Um toque numa pergunta muda o texto dela.
+function edFechadas() {
+  const v = store.get('perguntas-fechadas', []);
+  return new Set(Array.isArray(v) ? v : []);
+}
+function edDobrar(k) {
+  const f = edFechadas();
+  if (f.has(k)) f.delete(k); else f.add(k);
+  store.set('perguntas-fechadas', [...f]);
+}
+const edCab = (k, icone, titulo, fechada, cls = '') => `<button type="button" class="ch-ed-h ch-ed-dobra${cls}" data-a="ch-ed-dobra" data-v="${k}" aria-expanded="${!fechada}">${ic(icone, 'ic-s')}<span>${titulo}</span><span class="ch-ed-seta" aria-hidden="true">${ic('chev', 'ic-s')}</span></button>`;
 function blocoPerguntas() {
   const ed = CH.editando;
-  if (ed) return `<div class="ch-ed"><p class="ch-ed-h">${ic('edit', 'ic-s')}Perguntas prontas</p>
-      ${ed.lista.map((q, i) => `<div class="ch-ed-lin"><span>${esc(q)}</span><button class="icbtn" data-a="ch-ed-tirar" data-v="${i}" aria-label="Tirar “${esc(q)}”" title="Tirar">${ic('x')}</button></div>`).join('')}
+  const F = edFechadas();
+  if (ed) return `<div class="ch-ed">${edCab('prontas', 'edit', `Perguntas prontas (${ed.lista.length})`, F.has('prontas'))}
+      ${F.has('prontas') ? '' : `${ed.lista.map((q, i) => `<div class="ch-ed-lin"><textarea class="ch-ed-txt" data-ch-ed="${i}" rows="${Math.min(4, Math.max(1, Math.ceil(q.length / 32)))}" maxlength="120" enterkeyhint="done" data-size="off" aria-label="Mudar “${esc(q)}”">${esc(q)}</textarea><button class="icbtn" data-a="ch-ed-tirar" data-v="${i}" aria-label="Tirar “${esc(q)}”" title="Tirar">${ic('x')}</button></div>`).join('')}
       <div class="ch-ed-nova"><input id="ch-ed-txt" class="inp" data-ch="rascunho" maxlength="120" placeholder="Nova pergunta" aria-label="Nova pergunta" enterkeyhint="done" value="${esc(ed.rascunho || '')}">
-        <button class="btn" data-a="ch-ed-add">${ic('plus')}Adicionar</button></div>
-      ${((mais) => mais.length ? `<p class="ch-ed-h ch-ed-mais">${ic('ia', 'ic-s')}Mais perguntas (${mais.length})</p>
-        ${mais.map(q => `<button class="ch-ed-lin ch-ed-modelo" data-a="ch-ed-por" data-v="${esc(q)}" aria-label="Pôr “${esc(q)}”"><span>${esc(q)}</span><span class="ch-ed-mais-ic">${ic('plus')}</span></button>`).join('')}` : '')(
+        <button class="btn" data-a="ch-ed-add">${ic('plus')}Adicionar</button></div>`}
+      ${((mais) => mais.length ? `${edCab('mais', 'ia', `Mais perguntas (${mais.length})`, F.has('mais'), ' ch-ed-mais')}
+        ${F.has('mais') ? '' : mais.map(q => `<button class="ch-ed-lin ch-ed-modelo" data-a="ch-ed-por" data-v="${esc(q)}" aria-label="Pôr “${esc(q)}”"><span>${esc(q)}</span><span class="ch-ed-mais-ic">${ic('plus')}</span></button>`).join('')}` : '')(
         perguntasModelos().filter(q => !ed.lista.includes(q)))}
       <div class="ch-ed-bts"><button class="btn" data-a="ch-ed-padrao">${ic('refresh')}Padrão</button><button class="btn pri" data-a="ch-ed-pronto">${ic('check')}Pronto</button></div></div>`;
   const lista = perguntasChat();
@@ -7036,9 +7049,11 @@ document.addEventListener('click', ev => {
     case 'ch-ed-tirar': if (CH && CH.editando) { CH.editando.lista.splice(+v, 1); pintarFolha(); } break;
     case 'ch-ed-por': if (CH && CH.editando && v && !CH.editando.lista.includes(v)) { CH.editando.lista.push(v); pintarFolha(); } break;
     case 'ch-ed-add': perguntaNova(); break;
+    case 'ch-ed-dobra': if (CH && CH.editando) { edDobrar(v); pintarFolha(); } break;
     case 'ch-ed-padrao': if (CH) { guardarPerguntas(null); CH.editando = { lista: perguntasPadrao().slice(), rascunho: '' }; pintarFolha(); } break;
     case 'ch-ed-pronto': if (CH && CH.editando) {
-      const ed = CH.editando, t = (ed.rascunho || '').trim(), lista = ed.lista.concat(t ? [t] : []);
+      // uma pergunta mudada vale como ficou; uma apagada até ficar vazia sai
+      const ed = CH.editando, t = (ed.rascunho || '').trim(), lista = ed.lista.map(q => String(q || '').trim()).filter(Boolean).concat(t ? [t] : []);
       guardarPerguntas(lista.join('\n') === perguntasPadrao().join('\n') ? null : lista);  // as da aba: seguem a aba
       CH.editando = null; pintarFolha();
     } break;
@@ -7332,6 +7347,7 @@ document.addEventListener('input', ev => {
     return;
   }
   if (el.dataset.ch === 'rascunho' && CH && CH.editando) { CH.editando.rascunho = el.value; return; }
+  if (el.dataset.chEd != null && CH && CH.editando) { CH.editando.lista[+el.dataset.chEd] = el.value; return; }
   if (el.dataset.fparte && F) {
     const dig = el.value.replace(/\D/g, '').slice(0, 13), v = dig ? parseInt(dig, 10) / 100 : 0;
     F.partes = Object.assign({}, F.partes, { [el.dataset.fparte]: v });
@@ -7564,6 +7580,7 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
   if (ev.key === 'Enter' && !ev.isComposing && ev.target.id === 'ch-ed-txt') { ev.preventDefault(); perguntaNova(); }
+  if (ev.key === 'Enter' && !ev.isComposing && ev.target.dataset && ev.target.dataset.chEd != null) { ev.preventDefault(); ev.target.blur(); }
   // um texto de uma linha numa caixa que mostra tudo (1.59.0): o Enter não quebra a linha
   if (ev.key === 'Enter' && !ev.shiftKey && ev.target.matches && ev.target.matches('textarea.grow')) { ev.preventDefault(); return; }
   if (ev.key === 'Enter' && ev.target.dataset && (ev.target.dataset.opAlvo || ev.target.matches('[data-op-simular], [data-op-dias]'))) { ev.preventDefault(); ev.target.blur(); return; }
