@@ -10,6 +10,7 @@ from datetime import date
 from tests.base import ServidorFalso, importar_servidor, pasta_temp, Servidor
 S = importar_servidor()
 import chat as C  # noqa: E402  (o importar_servidor põe gerencia/app no caminho)
+import calc  # noqa: E402
 
 HOJE = date(2026, 11, 2)
 
@@ -205,6 +206,58 @@ class TestOQueAIARecebe(unittest.TestCase):
         t = C.instrucoes(dados(), [{"papel": "eu", "texto": "oi"}], "x" * 9000, "mais", "", HOJE)
         self.assertIn("x" * C.MAX_TELA + "\n>>>", t)
         self.assertNotIn("x" * (C.MAX_TELA + 1), t)
+
+
+class TestOQueAIAVeAgora(unittest.TestCase):
+    """1.79.0: o que a IA passou a ver (antes ficava de fora): os meses, a parcela, os descontos e a observação de cada
+    lançamento, a Evolução sem aportes, os benefícios além das milhas, quem usa o app, e o que o servidor junta (as
+    dicas, as oportunidades de investimento e as promoções) no fim do resumo."""
+
+    def test_parcela_descontos_e_observacao(self):
+        d = dados()
+        d["lancamentos"] += [
+            {"id": "l-tv", "tipo": "despesa", "descricao": "TV", "valor": 250, "data": "2026-11-03", "pago": True, "parcela": "3/10", "obs": "na loja  do centro"},
+            {"id": "l-bruto", "tipo": "receita", "descricao": "Salário bruto", "valor": 8000, "data": "2026-11-05", "pago": True,
+             "descontos": [{"descricao": "INSS", "valor": 880}, {"descricao": "Plano de saúde", "modo": "pct", "valor": 5}]},
+        ]
+        r = C.resumo(d, HOJE)
+        self.assertIn("| TV | R$ 250,00 |", r)
+        self.assertIn("parcela 3/10; obs: na loja do centro", r)
+        linha = next(l for l in r.splitlines() if "| Salário bruto |" in l)
+        self.assertIn("descontos: INSS R$ 880,00, Plano de saúde R$ 400,00", linha)
+
+    def test_os_ultimos_meses(self):
+        r = C.resumo(dados(), HOJE)
+        self.assertIn("Meses, do mais novo (mês | entrou | saiu | sobrou;", r)
+        nov = next(l for l in r.splitlines() if l.startswith("11/2026 |"))
+        self.assertIn("| R$ 5.000,00 |", nov, "o que entrou em novembro")
+        self.assertTrue(any(l.startswith("01/2026 |") for l in r.splitlines()), "também os meses de antes dos 45 dias")
+
+    def test_a_evolucao_sem_aportes(self):
+        r = C.resumo(dados(), HOJE)
+        linha = next(l for l in r.splitlines() if l.startswith("Projeção dos seus investimentos"))
+        cdb = dados()["investimentos"][0]
+        um = calc.valor_em(cdb, dados()["indices"], 1, True, HOJE)
+        self.assertIn(f"em 1 ano {C._brl(um)}", linha, "só os seus (o da Mãe fica fora)")
+
+    def test_os_beneficios_alem_das_milhas(self):
+        d = dados()
+        d["beneficios"] = [
+            {"id": "b1", "nome": "Sala VIP", "origem": "conta:k-ana", "tipo": "contagem", "total": 4, "renova": "ano", "desde": "2026-01-10", "usos": ["2026-03-01"], "descricao": "Acesso a salas nos aeroportos"},
+            {"id": "b2", "nome": "Crédito no app de corrida", "origem": "conta:k-ana", "tipo": "saldo", "total": 50, "renova": "mes", "desde": "2026-01-01", "usos": [{"data": "2026-11-01", "valor": 20}]},
+            {"id": "b3", "nome": "Seguro viagem", "origem": "conta:k-ana", "tipo": "vantagem"},
+        ]
+        r = C.resumo(d, HOJE)
+        self.assertIn("Benefícios (nome | de onde | o que é | situação):", r)
+        self.assertIn("Sala VIP | Banco Azul · Ana | Acesso a salas nos aeroportos | sobram ", r)
+        self.assertIn("Seguro viagem | Banco Azul · Ana | - | vantagem", r)
+
+    def test_quem_usa_e_o_que_o_servidor_junta(self):
+        t = C.instrucoes(dados(), [{"papel": "eu", "texto": "oi"}], usuario="Ana Exemplo", hoje=HOJE, extras="Dicas de economia (pagar o plano anual):\n- Streaming: uns R$ 60,00 por ano")
+        self.assertIn("Quem está usando o app agora: Ana Exemplo. As contas no banco dizem de quem são (Banco · Pessoa)", t)
+        self.assertIn("- Streaming: uns R$ 60,00 por ano", t)
+        t, _ = __import__("ferramentas").chamar("resumo", {}, dados(), HOJE, extras="Assinaturas em promoção nos aparelhos da casa:\n- X")
+        self.assertIn("Assinaturas em promoção nos aparelhos da casa:", t, "a ferramenta resumo do CorrerIA também")
 
 
 # ---------------------------------------------------------------------------------------------------------------

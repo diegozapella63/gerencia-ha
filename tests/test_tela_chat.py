@@ -81,6 +81,9 @@ class TestComputador(TelaChat):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+SEIS = ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Onde eu mais gastei este mês?", "Quanto sobrou este mês?", "Qual é o meu patrimônio hoje?", "Gastei 45 no mercado"]  # 1.79.0: as 6 da aba Agora
+
+
 class TestConversar(TelaChat):
     def test_abre_vazia_com_sugestoes_da_aba(self):
         self.abrir(ui={"tab": "investimentos"})
@@ -130,7 +133,16 @@ class TestConversar(TelaChat):
         self.abrir()
         self.abrir_chat()
         self.clicar('[data-a="ch-ed-abrir"]')
-        self.assertEqual(self.textos(".ch-ed-lin span"), ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Gastei 45 no mercado"])
+        self.assertEqual(self.textos(".ch-ed-lin:not(.ch-ed-modelo) > span"), SEIS)
+        # 1.79.0: mais 20 modelos, que um toque põe na lista (e sai dos modelos)
+        modelos = self.textos(".ch-ed-modelo > span:first-child")
+        self.assertEqual(len(modelos), 20)
+        self.assertFalse(set(modelos) & set(SEIS))
+        self.assertEqual(self.texto(".ch-ed-mais"), "Mais perguntas (20)")
+        self.clicar(f'.ch-ed-modelo[data-v="{modelos[0]}"]')
+        self.assertEqual(self.textos(".ch-ed-lin:not(.ch-ed-modelo) > span")[-1], modelos[0])
+        self.assertEqual(self.conta(".ch-ed-modelo"), 19)
+        self.clicar('[data-a="ch-ed-tirar"] >> nth=6')
         self.clicar('[data-a="ch-ed-tirar"] >> nth=0')
         self.preencher("#ch-ed-txt", "Quanto sobrou no mês?")
         self.clicar('[data-a="ch-ed-add"]')
@@ -141,7 +153,7 @@ class TestConversar(TelaChat):
         larg = self.js("[...document.querySelectorAll('.ch-ed-bts .btn')].map(b => Math.round(b.getBoundingClientRect().width))")
         self.assertEqual(len(set(larg)), 1, f"Padrão e Pronto do mesmo tamanho ({larg})")
         self.clicar('[data-a="ch-ed-pronto"]')
-        esperado = ["Quais contas vencem esta semana?", "Gastei 45 no mercado", "Quanto sobrou no mês?", "Qual a maior despesa?"]
+        esperado = SEIS[1:] + ["Quanto sobrou no mês?", "Qual a maior despesa?"]
         self.assertEqual(self.textos(".ch-sug .chip"), esperado)
         self.assertEqual(self.js("JSON.parse(localStorage.getItem('gerencia.perguntas'))"), esperado, "guardadas no aparelho")
         self.assertEqual(self.conta('[data-a="ch-rapidas"]'), 0, "vazia: as perguntas já estão à vista")
@@ -161,7 +173,7 @@ class TestConversar(TelaChat):
         self.clicar('.ch-rapidas [data-a="ch-ed-abrir"]')
         self.clicar('[data-a="ch-ed-padrao"]')
         self.clicar('[data-a="ch-ed-pronto"]')
-        self.assertEqual(self.textos(".ch-rapidas .chip"), ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Gastei 45 no mercado"])
+        self.assertEqual(self.textos(".ch-rapidas .chip"), SEIS)
         self.assertIsNone(self.js("localStorage.getItem('gerencia.perguntas')"))
 
     def test_anexar_foto_e_arquivo(self):
@@ -491,7 +503,7 @@ class TestJanela(TelaChat):
         self.clicar('[data-a="ch-nova"]')
         self.pg.wait_for_timeout(30)
         self.esperar()
-        self.assertEqual((self.conta(".ch-msg"), self.conta(".ch-sug .chip"), self.js("T.CHAT_DEMO.length")), (0, 3, 0))
+        self.assertEqual((self.conta(".ch-msg"), self.conta(".ch-sug .chip"), self.js("T.CHAT_DEMO.length")), (0, 6, 0), "as 6 perguntas de novo")
         self.assertEqual(self.folha(), "Conversar com a IA", "continua aberto, vazio")
 
     def test_sem_mensagens_sem_nova_conversa(self):

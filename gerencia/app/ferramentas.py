@@ -677,7 +677,7 @@ def _novo_fixo(d, a, hoje):
 
 # ---------------------------------------------------------------- chamar
 
-def chamar(nome, argumentos, d, hoje=None, bens=None):
+def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou). bens (1.78.0): os bens
     da casa do InventarIA, como a tela (o bens_estado do server.py), para o patrimônio ser o mesmo da tela."""
     hoje = hoje or date.today()
@@ -688,7 +688,7 @@ def chamar(nome, argumentos, d, hoje=None, bens=None):
     for k in ("lancamentos", "recorrencias", "investimentos", "bancos", "categorias"):
         d.setdefault(k, [])
     if nome == "resumo":
-        return chat.resumo(d, hoje, bens), False
+        return chat.resumo(d, hoje, bens, extras), False
     if nome == "lancamentos":
         return _lancamentos(d, a, hoje), False
     if nome == "contas_a_pagar":

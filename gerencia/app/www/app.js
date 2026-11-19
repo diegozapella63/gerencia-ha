@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.78.0';
+const VERSAO = '1.79.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -2852,16 +2852,33 @@ const ouvidoHTML = s => s.ouvido ? `<div class="ouvido">${ic('mic', 'ic-s')}<spa
 let CH = null, CHG = null, chTimer = null;
 const chatPronto = () => iaOn() && (DEMO || !S.ia || S.ia.pronta !== false);
 const botaoChat = () => chatPronto() ? `<button class="mic-top" data-a="chat" aria-label="Conversar com a IA" title="Conversar com a IA">${ic('chat')}</button>` : '';
+// as primeiras de cada aba (as outras vêm de perguntasDoApp)
 const CH_SUGESTOES = {
-  inicio: ['Como estão minhas finanças este mês?', 'Quais contas vencem esta semana?', 'Gastei 45 no mercado'],
-  caixa: ['Onde eu mais gastei este mês?', 'Quais contas vencem esta semana?', 'Paguei a luz'],
-  investimentos: ['Quanto rende a carteira por mês?', 'O que vence primeiro?', 'Apliquei 500 na reserva'],
-  mais: ['O que dá para fazer neste app?', 'Gastei 45 no mercado', 'Quais contas vencem esta semana?'],
+  caixa: ['Onde eu mais gastei este mês?', 'Paguei a luz'],
+  investimentos: ['Quanto rende a carteira por mês?', 'O que vence primeiro nos investimentos?', 'Apliquei 500 na reserva'],
+  mais: ['O que dá para fazer neste app?'],
 };
 /* Perguntas prontas: as da aba até a pessoa editar (Editar perguntas, guardadas no aparelho em gerencia.perguntas);
    na conversa vazia ficam à vista, e o ✨ ao lado da caixa abre as mesmas a qualquer momento */
 const PERG = 'gerencia.perguntas';
-const perguntasPadrao = () => CH_SUGESTOES[S.ui.tab] || CH_SUGESTOES.inicio;
+/* 1.79.0: 6 perguntas à vista (as da aba primeiro) e, em Editar perguntas, mais 20 modelos (um toque põe); as dos bens
+   da casa, das milhas e dos benefícios só quando o app tem */
+function perguntasDoApp() {
+  const d = S.d || {}, ben = d.beneficios || [], q = (t, ok = true) => (ok ? [t] : []);
+  const milhas = ben.some(b => b && b.tipo === 'milhas'), outros = ben.some(b => b && b.tipo !== 'milhas');
+  return [
+    'Como estão minhas finanças este mês?', 'Quais contas vencem esta semana?', 'Onde eu mais gastei este mês?', 'Quanto sobrou este mês?',
+    'Qual é o meu patrimônio hoje?', 'Gastei 45 no mercado', 'Quanto tenho em caixa hoje?', 'Tem alguma conta atrasada?',
+    'Quanto está a fatura do cartão?', 'Quais são os meus gastos fixos?', 'Quanto gastei com restaurantes este mês?', 'Quanto eu recebi este mês?',
+    'Quais compras parceladas ainda faltam?', 'Quanto rende a carteira por mês?', 'O que vence primeiro nos investimentos?', 'Qual investimento rende mais?',
+    'Quanto tenho com liquidez diária?', ...q('Quanto valem os bens da casa?', bensOn()), ...q('Quantas milhas eu tenho?', milhas),
+    ...q('Quais benefícios eu ainda não usei?', outros), 'Quanto posso gastar até o fim do mês?', 'Compara este mês com o anterior',
+    'Qual categoria subiu mais?', 'Quanto gasto por mês com as contas da casa?', 'Me dá três dicas para gastar menos', 'Quanto vou ter daqui a um ano?',
+    'Paguei a luz', 'Recebi o salário', 'Apliquei 500 na reserva', 'Quanto guardo de outras pessoas?',
+  ];
+}
+const perguntasPadrao = () => [...new Set([...(CH_SUGESTOES[S.ui.tab] || []), ...perguntasDoApp()])].slice(0, 6);
+const perguntasModelos = () => { const at = perguntasPadrao(); return perguntasDoApp().filter(t => !at.includes(t)).slice(0, 20); };
 function perguntasChat() {
   try {
     const v = JSON.parse(localStorage.getItem(PERG) || 'null');
@@ -2878,6 +2895,9 @@ function blocoPerguntas() {
       ${ed.lista.map((q, i) => `<div class="ch-ed-lin"><span>${esc(q)}</span><button class="icbtn" data-a="ch-ed-tirar" data-v="${i}" aria-label="Tirar “${esc(q)}”" title="Tirar">${ic('x')}</button></div>`).join('')}
       <div class="ch-ed-nova"><input id="ch-ed-txt" class="inp" data-ch="rascunho" maxlength="120" placeholder="Nova pergunta" aria-label="Nova pergunta" enterkeyhint="done" value="${esc(ed.rascunho || '')}">
         <button class="btn" data-a="ch-ed-add">${ic('plus')}Adicionar</button></div>
+      ${((mais) => mais.length ? `<p class="ch-ed-h ch-ed-mais">${ic('ia', 'ic-s')}Mais perguntas (${mais.length})</p>
+        ${mais.map(q => `<button class="ch-ed-lin ch-ed-modelo" data-a="ch-ed-por" data-v="${esc(q)}" aria-label="Pôr “${esc(q)}”"><span>${esc(q)}</span><span class="ch-ed-mais-ic">${ic('plus')}</span></button>`).join('')}` : '')(
+        perguntasModelos().filter(q => !ed.lista.includes(q)))}
       <div class="ch-ed-bts"><button class="btn" data-a="ch-ed-padrao">${ic('refresh')}Padrão</button><button class="btn pri" data-a="ch-ed-pronto">${ic('check')}Pronto</button></div></div>`;
   const lista = perguntasChat();
   return `${lista.length ? `<div class="ch-sug">${lista.map(t => `<button class="chip" data-a="ch-sug" data-v="${esc(t)}">${ic('ia', 'ic-s')}${esc(t)}</button>`).join('')}</div>` : ''}
@@ -7014,6 +7034,7 @@ document.addEventListener('click', ev => {
     case 'ch-rapidas': if (CH) { Object.assign(CH, { rapidas: !(CH.rapidas || CH.editando), editando: null, menu: false }); pintarFolha(1e9); } break;
     case 'ch-ed-abrir': if (CH) { Object.assign(CH, { editando: { lista: perguntasChat().slice(), rascunho: '' }, menu: false }); pintarFolha(); } break;
     case 'ch-ed-tirar': if (CH && CH.editando) { CH.editando.lista.splice(+v, 1); pintarFolha(); } break;
+    case 'ch-ed-por': if (CH && CH.editando && v && !CH.editando.lista.includes(v)) { CH.editando.lista.push(v); pintarFolha(); } break;
     case 'ch-ed-add': perguntaNova(); break;
     case 'ch-ed-padrao': if (CH) { guardarPerguntas(null); CH.editando = { lista: perguntasPadrao().slice(), rascunho: '' }; pintarFolha(); } break;
     case 'ch-ed-pronto': if (CH && CH.editando) {

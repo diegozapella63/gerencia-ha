@@ -100,8 +100,9 @@ def _mais(L, total, mostrados, o_que):
         L.append(f"… e mais {total - mostrados} {o_que} que não couberam aqui (são {total} ao todo).")
 
 
-def resumo(d, hoje=None, bens=None):
-    """bens (1.78.0): os bens da casa do InventarIA, como a tela (o bens_estado do server.py); sem eles, só os daqui."""
+def resumo(d, hoje=None, bens=None, extras=""):
+    """bens (1.78.0): os bens da casa do InventarIA, como a tela (o bens_estado do server.py); sem eles, só os daqui.
+    extras (1.79.0): o que o servidor junta da tela (as dicas, as oportunidades de investimento e as promoções)."""
     hoje = hoje or date.today()
     contas = calc.mapa_contas(d)
     cats = {c.get("id"): c.get("nome", "") for c in d.get("categorias", [])}
@@ -143,8 +144,32 @@ def resumo(d, hoje=None, bens=None):
             sit = ("recebido" if rec else "pago") if l.get("pago") else ("a receber" if rec else "a pagar")
             conta = calc.nome_conta(contas.get(l.get("conta"))) + (" (cartão)" if l.get("cartao") else "")
             tipo = "aporte" if l.get("aporte") else "recebimento" if rec else "gasto"
-            L.append(f"{l.get('data')} | {tipo} | {l.get('descricao', '')} | {_brl(calc.num(l.get('valor')))} | {cats.get(l.get('categoria'), '')} | {sit} | {conta}")
+            # 1.79.0: a parcela, os descontos (de um salário bruto) e a observação, como a tela mostra
+            mais = [f"parcela {l['parcela']}" if l.get("parcela") else "",
+                    "descontos: " + ", ".join(f"{x.get('descricao') or 'desconto'} {_brl(x['valor'])}" for x in calc.descontos_de(l)) if calc.descontos_de(l) else "",
+                    f"obs: {' '.join(str(l['obs']).split())[:120]}" if l.get("obs") else ""]
+            mais = "; ".join(x for x in mais if x)
+            L.append(f"{l.get('data')} | {tipo} | {l.get('descricao', '')} | {_brl(calc.num(l.get('valor')))} | {cats.get(l.get('categoria'), '')} | {sit} | {conta}" + (f" | {mais}" if mais else ""))
         _mais(L, len(lanc), 80, "lançamentos (os mais antigos)")
+
+    # 1.79.0: os últimos 12 meses (o que entrou e o que saiu de cada um, pela competência; antes, só 45 dias de lançamentos)
+    meses = []
+    for k in range(12):
+        ym = calc._data_mes(hoje.year, hoje.month - k, 1).isoformat()[:7]
+        ent = sai = 0.0
+        for l in calc.ocorrencias_mes(d, ym):
+            if l.get("ajuste") or l.get("pulado"):
+                continue
+            v = calc.num(l.get("valor"))
+            if l.get("tipo") == "receita":
+                ent += v
+            else:
+                sai += v
+        if ent or sai:
+            meses.append(f"{ym[5:7]}/{ym[:4]} | {_brl(ent)} | {_brl(sai)} | {_brl(ent - sai)}")
+    if meses:
+        L.append("\nMeses, do mais novo (mês | entrou | saiu | sobrou; inclui o que ainda vai ser pago ou recebido):")
+        L += meses
 
     fixos = [r for r in d.get("recorrencias", []) if not r.get("fim") or str(r.get("fim")) >= hoje.isoformat()[:7]]
     if fixos:
@@ -177,6 +202,29 @@ def resumo(d, hoje=None, bens=None):
                  + (f" (os bens da casa do InventarIA, com o valor de hoje: {_brl(p['bens_da_casa'])}, {bens.get('n')} itens)" if casa else "")
                  + f". De outras pessoas: {_brl(p['de_outras_pessoas'])}. Os investimentos rendem uns {_brl(p['rende_mes'])} por mês, antes do IR.")
 
+    if invs:
+        # 1.79.0: a Evolução sem aportes (as taxas de hoje, antes do IR): quanto os seus investimentos e bens valem à frente
+        ind_, corr_ = d.get("indices", {}), calc.corrige_valores(d)
+        meus_ = [i for i in invs if i.get("titular") != "terceiros"]
+        if meus_:
+            em = {a: sum(calc.valor_em(i, ind_, a, corr_, hoje) for i in meus_) for a in (1, 5, 10)}
+            L.append(f"Projeção dos seus investimentos e bens daqui (sem aportes, antes do IR, com as taxas de hoje): em 1 ano {_brl(em[1])}, "
+                     f"em 5 anos {_brl(em[5])}, em 10 anos {_brl(em[10])}.")
+
+    outros_b = [b for b in d.get("beneficios", []) if isinstance(b, dict) and b.get("tipo") != "milhas"]
+    if outros_b:  # 1.79.0: Mais › Benefícios: as salas VIP, os créditos e as vantagens (antes, só as milhas)
+        L.append("\nBenefícios (nome | de onde | o que é | situação):")
+        for b in outros_b[:30]:
+            cb = calc.ciclo_beneficio(b, hoje)
+            if b.get("tipo") == "vantagem":
+                sit = "vantagem"
+            elif b.get("tipo") == "saldo":
+                sit = f"sobra {_brl(cb['restante'] or 0)} de {_brl(calc.num(b.get('total')))}"
+            else:
+                sit = f"sobram {calc.fmt_num(cb['restante'] or 0, 0)} de {calc.fmt_num(calc.num(b.get('total')), 0)}"
+            sit += (f", até {cb['ate']}" if cb.get("ate") else "") + (" (vencido)" if cb.get("vencido") else "")
+            L.append(f"{b.get('nome', '')} | {calc.origem_beneficio(b, d, hoje)['nome']} | {' '.join(str(b.get('descricao') or '').split())[:120] or '-'} | {sit}")
+
     mil = [b for b in d.get("beneficios", []) if isinstance(b, dict) and b.get("tipo") == "milhas"]
     if mil:  # Mais › Benefícios › Milhas (1.63.0): o saldo de hoje, o nível, o que vence e o que dá para trocar
         L.append("\nMilhas (programa | de quem | saldo | nível | vencem | trocas que já dão):")
@@ -203,6 +251,8 @@ def resumo(d, hoje=None, bens=None):
             nome = ("nível " if m.get("nivel") else "") + str(m.get("ganha") or "")
             L.append(f"{nome} | {calc.origem_beneficio(m, d, hoje)['nome']} | {cond} | {sit}")
 
+    if extras:
+        L.append("\n" + extras.strip())
     if cats:
         L.append("\nCategorias (id: nome, tipo): " + "; ".join(f"{c.get('id')}: {c.get('nome', '')}, {c.get('tipo', 'despesa')}" for c in d.get("categorias", [])))
     return "\n".join(L)
@@ -226,13 +276,13 @@ Responda sobre as finanças da casa com os dados abaixo. Não invente números: 
 Por aqui ainda não dá para lançar, pagar nem mudar um saldo: se a pessoa pedir, diga que isso é no app GerencIA (o botão Conversar com a IA faz isso com um toque)."""
 
 
-def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp", bens=None):
+def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp", bens=None, extras=""):
     """O pedido para a IA quando a pergunta vem pelo CorrerIA: pelo WhatsApp (só sobre os apps, a regra da Meta) ou
     pela conversa na tela dele (canal correria). Só responde, sem ações."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
     partes = [(CORRERIA if canal == "correria" else WHATSAPP) + (f"\nQuem está conversando: {nome}." if nome else ""),
-              "Dados do app:\n" + resumo(d, hoje, bens)]
+              "Dados do app:\n" + resumo(d, hoje, bens, extras)]
     conversa = [("IA: " if m.get("papel") == "ia" else "Pessoa: ") + str(m.get("texto") or "").strip()[:MAX_TEXTO]
                 for m in historico[-MAX_HISTORICO:] if str(m.get("texto") or "").strip()]
     partes.append("A conversa (a última mensagem é a que você responde agora):\n" + "\n".join(conversa))
@@ -240,7 +290,7 @@ def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp", b
     return "\n\n".join(partes)
 
 
-def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, bens=None):
+def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, bens=None, extras=""):
     """O pedido para a IA: quem ela é, a tela que a pessoa vê, os dados, as ações e a conversa (a última mensagem é a pergunta)."""
     hoje = hoje or date.today()
     nome = (usuario or "").split(" ")[0]
@@ -254,7 +304,10 @@ def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, b
     tela = (tela or "").strip()[:MAX_TELA]
     if tela:
         partes.append(f"A pessoa está na tela {ABAS.get(aba, aba or 'do app')}. O que aparece nela agora:\n<<<\n{tela}\n>>>")
-    partes.append("Dados do app:\n" + resumo(d, hoje, bens))
+    if usuario:  # 1.79.0: quem usa, e de quem é cada conta (Banco · Pessoa) e cada investimento (meu ou de outra pessoa)
+        partes.append(f"Quem está usando o app agora: {usuario}. As contas no banco dizem de quem são (Banco · Pessoa); os investimentos "
+                      "\"meu\" são da casa, e os de outra pessoa ficam fora do patrimônio.")
+    partes.append("Dados do app:\n" + resumo(d, hoje, bens, extras))
     partes.append(REGRAS_ACOES)
     conversa = []
     for m in historico[-MAX_HISTORICO:]:

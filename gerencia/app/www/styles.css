@@ -1363,6 +1363,10 @@ input[readonly] { opacity: .8; }
 .ch-ed-lin { display: flex; align-items: center; gap: 8px; padding: 2px 2px 2px 12px; border-radius: 12px; background: var(--card-2); color: var(--text); }
 .ch-ed-lin span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .ch-ed-lin .icbtn { width: 40px; height: 40px; color: var(--muted); flex: none; }
+/* 1.79.0: os modelos de Editar perguntas: um toque põe na lista */
+.ch-ed-mais { margin-top: 6px; }
+.ch-ed-modelo { width: 100%; border: 1.5px dashed color-mix(in srgb, var(--card) 80%, var(--text)); background: none; font: inherit; text-align: left; cursor: pointer; }
+.ch-ed-mais-ic { width: 40px; height: 40px; flex: none !important; display: grid; place-items: center; color: var(--accent-text); }
 .ch-ed-nova { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .ch-ed-bts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cab-topo .mic-top + .mic-top { margin-left: 4px; }

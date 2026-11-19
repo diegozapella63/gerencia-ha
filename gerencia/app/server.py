@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.78.0"
+VERSAO = "1.79.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2210,14 +2210,14 @@ def chat_enviar(corpo, usuario=None):
         registrar_uso("chat", "ai_task.simulada", 2000, 300, len(arquivos), 0.6, "ok")
         bruto = chat.simulado(texto, d, anexos=len(arquivos))
     elif arquivos:
-        instr = chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, anexos=len(arquivos), bens=bens_estado(d))
+        instr = chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, anexos=len(arquivos), bens=bens_estado(d), extras=chat_extras(d))
         try:
             bruto = ia_tarefa(d, "chat", "GerencIA: conversa", instr, arquivos, timeout=180)
         except ErroHA as e:
             raise ValueError(str(e))
     else:
         payload = {"task_name": "GerencIA: conversa",
-                   "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, bens=bens_estado(d))}
+                   "instructions": chat.instrucoes(d, historico, corpo.get("tela"), corpo.get("aba"), usuario, bens=bens_estado(d), extras=chat_extras(d))}
         ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent
@@ -3150,6 +3150,42 @@ VOZ = voz.Voz(HA_API, HA_WS, TOKEN, log, simulada=IA_MOCK and not os.environ.get
 BENS = bens.Bens(log)
 
 
+def chat_extras(d):
+    """1.79.0: o que a tela mostra além dos dados, para a Conversa, o WhatsApp e o CorrerIA: as dicas de economia (com
+    as dicas ligadas), as oportunidades de investimento (o Tesouro e, com a IA, as ofertas dos bancos) e as assinaturas
+    em promoção (com elas ligadas). Antes a IA não via nada disso. Sem buscar nada: só o que já foi conferido."""
+    L = []
+    try:
+        if d["ajustes"].get("dicas") is not False:
+            ds = dicas_que_valem(d)
+            if ds:
+                L.append("Dicas de economia (pagar o plano anual; o quanto sobra por ano, já com o que o dinheiro renderia):")
+                L += [f"- {x['nome']}: uns {calc.fmt_brl(x['real'])} por ano" for x in ds[:10]]
+    except Exception as e:  # noqa: BLE001
+        log("Conversa (dicas):", e)
+    try:
+        av = oportunidades.avaliar(oportunidades.todas(oport_ler(), urls_oport(d) if ia_ligada(d) else []), d)
+        if av:
+            un = {"pos": "% do CDI", "pre": "% ao ano", "ipca": "IPCA +"}
+            L.append("Oportunidades de investimento (o rendimento como o de um CDB, antes do IR; * passa do que a pessoa quer):")
+            for x in av[:12]:
+                e = x["eq"]
+                taxa = f"IPCA + {calc.fmt_pct(e['valor'])}%" if e["grupo"] == "ipca" else f"{calc.fmt_pct(e['valor'])}{un[e['grupo']]}"
+                L.append(f"- {x.get('nome', '')}{' (' + x['fonte'] + ')' if x.get('fonte') else ''}: {taxa}"
+                         + (f", vence {x['vencimento']}" if x.get("vencimento") else "") + (" *" if x.get("passa") else ""))
+    except Exception as e:  # noqa: BLE001
+        log("Conversa (oportunidades):", e)
+    try:
+        if promos_on(d):
+            ps = promos_estado(d, disparar=False).get("promocoes") or []
+            if ps:
+                L.append("Assinaturas em promoção nos aparelhos da casa:")
+                L += ["- " + promocoes.linha(x["nome"], x) + (f", até {x['ate']}" if x.get("ate") else "") for x in ps[:10]]
+    except Exception as e:  # noqa: BLE001
+        log("Conversa (promoções):", e)
+    return "\n".join(L)
+
+
 def bens_estado(d, forcar=False):
     """Os bens da casa, do InventarIA, já depreciados; sem o InventarIA (ou desligado), o motivo."""
     if d["ajustes"].get("bens") is False:
@@ -3256,7 +3292,8 @@ def usar_ferramenta(corpo):
     cliente = str(corpo.get("cliente") or "CorrerIA")[:40]
     with TRAVA:
         d = ler()
-        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None)
+        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None,
+                                          extras=chat_extras(d) if nome == "resumo" else "")
         if mudou:
             d["rev"] = d["rev"] + 1
             salvar(d)
@@ -3290,7 +3327,7 @@ def conversa_correria(corpo):
     else:
         canal = "correria" if corpo.get("canal") == "correria" else "whatsapp"
         payload = {"task_name": "GerencIA: CorrerIA" if canal == "correria" else "GerencIA: WhatsApp",
-                   "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal, bens=bens_estado(d))}
+                   "instructions": chat.instrucoes_whatsapp(d, historico, nome, canal=canal, bens=bens_estado(d), extras=chat_extras(d))}
         ent = ia_ent(d)
         if ent:
             payload["entity_id"] = ent

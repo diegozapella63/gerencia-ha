@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.79.0
+
+- **Conversar**: 6 perguntas prontas (as dos bens, das milhas e dos benefícios só quando você tem). Em **Editar perguntas**, embaixo, ficam **Mais perguntas (20)**: um toque põe a pergunta na sua lista.
+- **Conversar, WhatsApp e CorrerIA**: a IA vê o que antes ficava de fora: os benefícios além das milhas (salas VIP, créditos), as dicas de economia, as oportunidades de investimento (Tesouro e as ofertas dos bancos), as assinaturas em promoção, a Evolução sem aportes, os últimos 12 meses, e a parcela, os descontos e a observação de cada lançamento. E sabe quem está usando o app.
+- A opção **Corrigir valores pelo rendimento** vale igual na tela e na IA também quando a opção não está gravada.
+
 ## 1.78.0
 
 - **O fundo e os cartões seguem o tema do Home Assistant**, no claro e no escuro: o mesmo fundo do Home Assistant e dos outros apps da família (antes, cada app tinha o seu). Com um tema seu no Home Assistant, o app usa as cores dele; ao trocar o tema ou o modo no Home Assistant, o app muda junto. O mesmo vale para a página do Relatório.
