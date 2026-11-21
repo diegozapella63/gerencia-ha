@@ -136,6 +136,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 - **Dados**: Exportar › Backup na pasta share › Importar › Versões anteriores › Onde ficam os dados › Começar do zero.
 - **Aparência**: o tema vale no aparelho (começa em Sistema; aqui, `localStorage` `gerencia.tema`, e o `ajustes.tema` de antes vale até escolher); o fundo e os cartões são os do tema do Home Assistant (`hatema.js`, igual em todos os apps: publica `--ha-bg-light`, `--ha-card-light`, `--ha-bg-dark` e `--ha-card-dark`, as do modo de agora lidas do Home Assistant e as do outro, do tema padrão dele; os cinzas, como linhas e campos, saem do cartão misturado com o texto, `color-mix`, nunca uma cor fixa puxada para a cor do app); a cor do app vale para a casa toda; uma paleta só, de 12 cores (Vermelho, Coral, Laranja, Ouro, Verde, Menta, Turquesa, Azul, Índigo, Lilás, Rosa, Grafite; `CORES_APP` no app.js e no calc.py); a Cor do dia é a mesma em todos os apps (as 11 sem o Grafite, pelo número do dia).
 
+**Teclado no celular** (1.82.4): no fim do `app.js`, o `tecladoCalmo` (o mesmo código do `teclado.js` dos outros apps): com o foco num campo de texto, ou quando o teclado muda a altura da tela, as páginas em volta do app (a do Home Assistant) voltam para o começo; a página do próprio app não é tocada.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

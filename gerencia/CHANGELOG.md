@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.82.4
+
+- **Teclado no celular**: ao abrir uma janela com um campo de texto, a tela não fica mais deslocada (a barra de cima sumia até um toque).
+
 ## 1.82.3
 
 - **IA mais cuidadosa com o que lê**: um e-mail, uma página ou um PDF com frases como "ignore as instruções" não muda o que a IA faz; ela trata o que lê só como material.

@@ -63,5 +63,18 @@ class TestAlturas(Tela):
         self.todas()
 
 
+class TestTeclado(Tela):
+    """1.82.4: o teclado do celular não deixa a página em volta do app (a do Home Assistant) rolada (o mesmo código dos
+    outros apps, onde o teste roda com o app dentro de um quadro; aqui a tela abre do arquivo, sem quadro da mesma origem)."""
+
+    def test_a_guarda_do_teclado_esta_ligada_e_nao_mexe_na_pagina_do_app(self):
+        self.abrir()
+        self.assertTrue(self.pg.evaluate("window.__tecladoCalmo === true"))
+        r = self.pg.evaluate("""() => { let rolou = 0; const de = window.scrollTo; window.scrollTo = () => { rolou++; };
+          const i = document.createElement('textarea'); document.body.appendChild(i);
+          i.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); window.scrollTo = de; i.remove(); return rolou; }""")
+        self.assertEqual(r, 0, "sem página em volta, nada rola")
+
+
 if __name__ == "__main__":
     unittest.main()
