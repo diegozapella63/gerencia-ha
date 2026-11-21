@@ -123,6 +123,18 @@ class TestIAReal(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Quota exceeded"):
             S.ia_ler({"modo": "auto", "texto": "x"})
         self.assertEqual(S.resumo_uso()["today"]["quota"] >= 1, True, "conta como sem cota")
+        # 1.82.2: a IA fora do ar ou sobrecarregada: uma frase, sem o JSON do provedor (que fica no Uso da IA)
+        cru = 'Error generating content: {"error": {"code": 503, "message": "The model is overloaded. Please try again later.", "status": "UNAVAILABLE"}}'
+        self.responder = lambda p: (500, {"message": cru})
+        with self.assertRaises(ValueError) as cm:
+            S.ia_ler({"modo": "auto", "texto": "x"})
+        self.assertIn(S.IA_FORA_DO_AR, str(cm.exception))
+        self.assertNotIn("UNAVAILABLE", str(cm.exception))
+        self.assertIn("UNAVAILABLE", json.dumps(S.resumo_uso(), ensure_ascii=False), "o texto técnico fica no Uso da IA")
+        self.assertTrue(S.ia_fora_do_ar("503 Service Unavailable"))
+        self.assertFalse(S.ia_fora_do_ar('{"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}}'), "sem cota é outro aviso")
+        self.assertFalse(S.ia_fora_do_ar("Você gastou R$ 503,00."))
+        self.assertFalse(S.ia_fora_do_ar(None))
         self.responder = lambda p: (200, {"service_response": {}})
         with self.assertRaisesRegex(ValueError, "não devolveu resposta"):
             S.ia_ler({"modo": "auto", "texto": "x"})

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.82.2
+
+- **IA fora do ar**: quando a IA está sobrecarregada, a Conversa e a leitura dizem isso numa frase, em vez de mostrar o erro técnico (que continua no Uso da IA).
+
 ## 1.82.1
 
 - **Começar do zero**: a cópia de antes agora é guardada na hora em **Versões anteriores** (antes, só se a última tivesse mais de 10 minutos, e o que mudou nesse meio tempo se perdia).

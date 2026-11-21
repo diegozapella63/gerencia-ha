@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.82.1"
+VERSAO = "1.82.2"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1249,6 +1249,16 @@ def publicar_uso_sensor():
         _uso_sensor["dia"] = uso_dia()
 
 
+IA_FORA_DO_AR = "A IA está fora do ar ou sobrecarregada agora. Tente de novo daqui a pouco."
+_IA_FORA = re.compile(r'"status"\s*:\s*"(?!RESOURCE_EXHAUSTED)[A-Z_]{4,}"|"code"\s*:\s*5\d\d\b|\b(?:UNAVAILABLE|overloaded|Service Unavailable)\b', re.I)
+
+
+def ia_fora_do_ar(msg):
+    """1.82.2: o erro do provedor da IA como ele veio (o JSON com code 503 e status UNAVAILABLE): fora do ar ou
+    sobrecarregada. A tela e a Conversa dizem isso numa frase, sem o texto técnico (que fica no Uso da IA)."""
+    return bool(_IA_FORA.search(str(msg or "")))
+
+
 def ia_chamar(tipo, payload, imagens=0, timeout=180):
     """Chama a ação ai_task.generate_data e registra a chamada no uso da IA."""
     t0, resultado, saida, erro = time.time(), "ok", 0, ""
@@ -1262,6 +1272,8 @@ def ia_chamar(tipo, payload, imagens=0, timeout=180):
         return res
     except Exception as e:
         resultado, erro = "cota" if e_cota(e) else "erro", str(e) or type(e).__name__
+        if resultado == "erro" and isinstance(e, ErroHA) and ia_fora_do_ar(e):
+            raise ErroHA(IA_FORA_DO_AR) from None
         raise
     finally:
         try:
