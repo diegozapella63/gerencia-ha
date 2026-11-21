@@ -69,6 +69,23 @@ class TestBotao(TelaChat):
         self.assertEqual(self.conta('.top-acts [data-a="chat"]'), 1)
 
 
+class TestEnterNoCelular(TelaChat):
+    """1.82.5: no celular (o teclado da tela), o Enter da Conversa é uma linha nova e quem envia é o botão."""
+
+    def test_o_enter_vai_para_a_proxima_linha(self):
+        self.abrir()
+        self.pg.evaluate('() => { window.__mm = window.__mm || window.matchMedia.bind(window); window.matchMedia = (q) => (q === "(hover: none) and (pointer: coarse)" ? { matches: true } : window.__mm(q)); }')
+        self.abrir_chat()
+        self.assertEqual(self.pg.get_attribute("#ch-txt", "enterkeyhint"), "enter")
+        antes = self.pg.locator(".ch-msg").count()
+        self.pg.fill("#ch-txt", "linha um")
+        self.pg.press("#ch-txt", "Enter")
+        self.pg.wait_for_timeout(200)
+        self.assertEqual(self.pg.input_value("#ch-txt"), "linha um\n")
+        self.assertEqual(self.pg.locator(".ch-msg").count(), antes, "nada foi enviado")
+        self.pg.evaluate('() => { window.matchMedia = window.__mm; }')
+
+
 class TestComputador(TelaChat):
     LARGURA, ALTURA = 1280, 800
 

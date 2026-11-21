@@ -3,7 +3,8 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.82.4';
+const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
+const VERSAO = '1.82.5';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3020,7 +3021,7 @@ function montarChat() {
   const pe = `<div class="ch-pe">${aberto ? `<div class="ch-rapidas">${blocoPerguntas()}</div>` : ''}${menu}${prev}${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
         ${on ? `<button class="icbtn ch-cancelar" data-a="ch-mic-cancelar" aria-label="Cancelar: não enviar o que falei" title="Cancelar">${ic('x')}</button>` : ''}
         ${ocupado ? '' : `<button class="icbtn ch-clip${s.menu ? ' on' : ''}" data-a="ch-menu" aria-label="Anexar" title="Anexar" aria-expanded="${s.menu ? 'true' : 'false'}"${s.enviando ? ' disabled' : ''}>${ic('clip')}</button>`}
-        <textarea id="ch-txt" data-ch="texto" rows="1" data-size="off" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
+        <textarea id="ch-txt" data-ch="texto" rows="1" data-size="off" enterkeyhint="${noCelular() ? 'enter' : 'send'}" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
         ${rap ? `<button class="icbtn ch-qbt${aberto ? ' on' : ''}" data-a="ch-rapidas" aria-label="Perguntas prontas" title="Perguntas prontas" aria-expanded="${aberto ? 'true' : 'false'}">${ic('ia')}</button>` : ''}
         ${botaoChat1()}</div></div>`;
   return {
@@ -7615,7 +7616,8 @@ document.addEventListener('keydown', ev => {
   }
   if (ev.key === 'Escape' && document.activeElement?.id === 'q' && S.ui.busca) { S.ui.busca = ''; render(); }
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('div[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
-  if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH) { ev.preventDefault(); enviarChat(CH.texto); }
+  // 1.82.5: no celular (o teclado da tela), o Enter da Conversa vai para a próxima linha e quem envia é o botão
+  if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.target.id === 'ch-txt' && CH && !noCelular()) { ev.preventDefault(); enviarChat(CH.texto); }
   if (ev.key === 'Enter' && ev.target.id === 'email-de') { ev.preventDefault(); emailDeAdicionar(); }
   if (ev.key === 'Enter' && !ev.isComposing && ev.target.id === 'ch-ed-txt') { ev.preventDefault(); perguntaNova(); }
   if (ev.key === 'Enter' && !ev.isComposing && ev.target.dataset && ev.target.dataset.chEd != null) { ev.preventDefault(); ev.target.blur(); }
