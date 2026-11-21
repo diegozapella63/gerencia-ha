@@ -29,7 +29,8 @@ with sync_playwright() as p:
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)
     pg.click('[data-a="cx-modo"][data-v="lista"]'); pg.wait_for_timeout(300)
     luz = pg.locator('.lanc:has-text("Conta de luz") [data-a="lanc-pagar"]')
-    igual(luz.count(), 1, 'conta de luz com Pagar')
+    # o exemplo já traz confirmado o que venceu até hoje: a luz (dia 21) só espera o Pagar antes do dia 21
+    igual(luz.count(), 1 if date.today().day < 21 else 0, 'conta de luz com Pagar (até o dia 20; depois, o exemplo já traz paga)')
     if luz.count():
         luz.first.click(); pg.wait_for_timeout(300)
         pg.fill('#pg-v', ''); pg.click('#pg-v'); pg.keyboard.type('28745'); pg.wait_for_timeout(100)
