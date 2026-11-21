@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.82.3
+
+- **IA mais cuidadosa com o que lê**: um e-mail, uma página ou um PDF com frases como "ignore as instruções" não muda o que a IA faz; ela trata o que lê só como material.
+
 ## 1.82.2
 
 - **IA fora do ar**: quando a IA está sobrecarregada, a Conversa e a leitura dizem isso numa frase, em vez de mostrar o erro técnico (que continua no Uso da IA).
