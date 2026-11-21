@@ -198,8 +198,8 @@ Os arquivos enviados ficam em `media/gerencia/ia-temp` só durante a leitura.
 
 O microfone fica no alto de cada tela, à direita. Toque, fale e toque de novo quando terminar (até 2 minutos). Por exemplo: "gastei 45 no mercado hoje no cartão do Banco Lua e recebi 300 do João pelo Pix". O Home Assistant transcreve com a fala para texto do assistente de voz preferido (Configurações › Assistentes de voz; com o Home Assistant Cloud já vem pronta) e a IA separa sozinha os gastos, os recebimentos, as contas a pagar e a receber e os investimentos, como numa mensagem colada. Você confere antes de lançar, com o que foi ouvido no alto.
 
-- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Configurações › Integrações › IA** aparece se o Falar está pronto.
-- **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). No **Padrão do Home Assistant** fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao padrão.
+- O microfone só aparece com a IA ligada e uma fala para texto no Home Assistant. Em **Mais › Configurações › Integrações › Falar** (um cartão só dele, logo depois do IA, igual ao dos outros apps) aparece se está **Pronto para ouvir** e com quem transcreve; sem fala para texto, o cartão mostra **Como configurar**.
+- **Fala para texto**: uma lista, como a da IA, com as falas para texto do Home Assistant (Home Assistant Cloud, Google AI STT, faster-whisper…). Em **Automático** (que diz qual é) fica a que o Home Assistant usa no assistente de voz principal (Configurações › Assistentes de voz). Se a escolhida sumir do Home Assistant, o app volta ao automático.
 - São duas peças: a **fala para texto** só transforma a voz em texto; quem entende o texto é a IA **Para conversar**, a mesma do Colar mensagem. Trocar uma não muda a outra.
 - O navegador precisa deixar usar o microfone: abra o Home Assistant pelo endereço com https (como o do Home Assistant Cloud) ou pelo app do celular, e permita o microfone.
 - O áudio vai direto para o Home Assistant e não fica guardado no app.
@@ -320,7 +320,7 @@ O que está parado (encerrado, vencido ou ignorado de propósito) fica numa seç
 
 Em **Mais › Configurações › Integrações**, a chave **Usar IA** liga e desliga tudo o que usa IA: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e a conferência de preços das dicas. Desligada, os botões somem nos aparelhos todos, e as dicas de plano anual também (o preço é conferido pela IA); as dicas de categoria acima da média continuam, porque não usam IA.
 
-Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, atualizar saldos, conferir preço, falar, conversa) e as últimas chamadas (a que deu erro mostra o motivo, embaixo dela), no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA.
+Logo abaixo, **Uso da IA** mostra quantas chamadas o app fez hoje, nos últimos 7 dias e no mês, com um gráfico por dia, os tipos (ler lançamentos, ler investimentos, ler recibo, atualizar saldos, conferir preço, falar, conversa) e as últimas chamadas (a que deu erro mostra o motivo, embaixo dela), no mesmo jeito do InventarIA, do ResolvIA e do CronologIA. O Home Assistant não informa tokens nem custo, então o app estima os tokens pelo tamanho do texto. O consumo exato fica no painel do provedor da IA: o fim do cartão traz, para cada IA em uso (a de conversar, a de fotos e a de pesquisar), o site onde ver o consumo e o saldo (o Google AI Studio, o Claude Console ou o da OpenAI).
 
 ## Sensores
 

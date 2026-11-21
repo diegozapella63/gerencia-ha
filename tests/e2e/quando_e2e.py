@@ -31,6 +31,6 @@ with sync_playwright() as p:
     pg.locator('#dicas').screenshot(path=f'{SP}/shots/dicas-quando.png')
     # Falar: texto do status
     ir_mais(pg, 'config', 'integracoes', 1200)
-    t = [x for x in pg.locator('#integ-ia .status, .status').all_inner_texts() if x.startswith('Falar')]
-    igual(t, ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”.'], 'o status do Falar')
+    t = [' '.join(x.split()) for x in pg.locator('#falar .status').all_inner_texts()]
+    igual(t, ['Pronto para ouvir · Transcreve com Fala simulada (teste).'], 'o status do Falar')
     print('ERROS', erros); b.close()

@@ -1011,7 +1011,8 @@ class TestAparenciaEDados(TelaMais):
 
     def test_tema_claro_e_escuro(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
-        self.assertIn("Só neste aparelho", self.texto("#app"))
+        self.assertIn("Cada aparelho guarda a sua escolha.", self.texto("#tema"))
+        self.assertEqual(self.texto("#cor .painel-lead"), "Vale para todos os aparelhos.", "1.82.0: os mesmos textos dos outros apps")
         self.clicar('[data-a="tema"][data-v="claro"]')
         self.assertEqual((self.js("document.documentElement.dataset.theme"), self.tema_aqui()), ("light", '"claro"'))
         self.assertEqual(self.js("document.querySelector('[data-a=\"tema\"][data-v=\"claro\"]').getAttribute('aria-checked')"), "true")
@@ -1553,7 +1554,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "uso-ia", "email", "senhas-pdf", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "falar", "uso-ia", "email", "senhas-pdf", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

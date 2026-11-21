@@ -29,6 +29,6 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{SP}/shots/v2-revisao.png')
     pg.click('.folha-cab [data-a="fechar"]'); pg.wait_for_timeout(400)
     ir_mais(pg, 'config', 'integracoes', 1200)
-    igual([t for t in pg.locator('#ia .status').all_inner_texts() if 'Falar' in t],
-          ['Falar: pronto. A voz vira texto com “Fala simulada (teste)”.'], 'Mais › Configurações › Integrações: Falar pronto, com a fala para texto usada')
+    igual([' '.join(t.split()) for t in pg.locator('#falar .status').all_inner_texts()],
+          ['Pronto para ouvir · Transcreve com Fala simulada (teste).'], 'Mais › Configurações › Integrações › Falar: pronto, com a fala para texto usada')
     print('ERROS', erros); b.close()

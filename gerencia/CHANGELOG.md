@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.82.0
+
+- **Integrações › Falar**: um cartão só dele, logo depois do IA, com os mesmos textos dos outros apps: **Pronto para ouvir** e quem transcreve, a **Fala para texto** (com **Automático**, que diz qual é), **Verificar de novo** e, sem fala para texto, **Como configurar**.
+- **Uso da IA**: no fim, uma linha para cada IA em uso (a de conversar, a de fotos e a de pesquisar), com o site onde ver o consumo e o saldo. As **Últimas chamadas** dizem quantas são.
+- **Oportunidades**: o **Tesouro Direto** abre o site num toque.
+- Os mesmos textos dos outros apps em **Uso da IA**, **Sensores no Home Assistant**, **Tema** e **Cor do app**.
+
 ## 1.81.0
 
 - **Conversar › Falar**: ouvindo, o clipe dá lugar ao **Cancelar**: o microfone para e nada é enviado. Antes só dava para mandar.

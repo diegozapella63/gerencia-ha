@@ -385,6 +385,11 @@ svg { display: block; }
 /* Atalho no celular: os passos e o caminho com o Copiar ao lado */
 .passos { margin: 0 0 14px; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
 .passos li + li { margin-top: 4px; }
+/* 1.82.0: Falar › Como configurar (sem fala para texto) e, no Uso da IA, onde ver o consumo de cada IA em uso */
+.passos-box { margin-top: 14px; }
+.passos-box b { display: block; margin-bottom: 6px; }
+.passos-box .passos { margin-bottom: 0; }
+.uso-nota + .uso-nota { margin-top: 4px; }
 /* o caminho na largura toda (inteiro também em 320 px), o Copiar embaixo */
 .copiar { display: grid; gap: 8px; }
 .copiar .inp { min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: 14px; }

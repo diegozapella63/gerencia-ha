@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.81.0';
+const VERSAO = '1.82.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -4194,23 +4194,38 @@ function cardIA() {
   else if (s.pronta) st = ['', `Pronta. Usando ${s.selecionada ? esc((s.entidades.find(e => e.id === s.selecionada) || {}).nome || s.selecionada) : 'a IA padrão do Home Assistant'}.`];
   else st = ['erro', esc(s.motivo || 'A IA não está pronta.')];
   const ents = (s && s.entidades) || [];
-  const v = S.voz;
-  // o microfone só aparece com a IA pronta (vozPronta): com ela fora do ar, não diz que está pronto
-  const fala = DEMO ? ['', 'Falar: na prévia, a fala é simulada.'] : !v ? ['manual', 'Falar: verificando o assistente de voz…']
-    : v.pronta && s && s.pronta === false ? ['manual', 'Falar: só com a IA pronta.']
-    : v.pronta ? ['', `Falar: pronto. A voz vira texto com ${v.nome ? `“${esc(v.nome)}”` : 'a fala para texto do Home Assistant'}.`] : ['manual', `Falar: ${esc(v.motivo || 'não está pronto.')}`];
-  const falas = (v && v.opcoes) || [];
   // 1.76.0: a IA de cada uso, como nos outros apps (a de fotos e a de pesquisar vazias são a de conversar)
   const aj = S.d.ajustes, opIA = (k, primeira, soImagem) => `<option value="">${primeira}</option>${ents.map(e => `<option value="${esc(e.id)}"${e.id === (aj[k] || '') ? ' selected' : ''}${soImagem && !e.imagens ? ' disabled' : ''}>${esc(e.nome)}${soImagem && !e.imagens ? ' (só texto)' : ''}</option>`).join('')}`;
   // 1.71.3: tudo o que depende de Usar IA fica no quadro recuado, logo abaixo dela
-  return cab + subOpcoes(`<div class="status ${st[0]}">${st[1]}</div><div class="status ${fala[0]}" style="margin-top:-6px">${fala[1]}</div>
+  return cab + subOpcoes(`<div class="status ${st[0]}">${st[1]}</div>
     <div class="campo"><label class="lbl" for="ia-ent">${ic('chat', 'ic-s')}Para conversar</label><select id="ia-ent" class="inp" data-ajuste-sel="ia_entidade" aria-label="IA para conversar">${opIA('ia_entidade', 'Padrão do Home Assistant')}</select></div>
     <div class="campo"><label class="lbl" for="ia-fotos">${ic('camera', 'ic-s')}Para ler fotos e PDFs</label><select id="ia-fotos" class="inp" data-ajuste-sel="ia_fotos" aria-label="IA para ler fotos e PDFs">${opIA('ia_fotos', 'Igual à de conversar', true)}</select></div>
     <div class="campo"><label class="lbl" for="ia-pesquisa">${ic('search', 'ic-s')}Para pesquisar na internet</label><select id="ia-pesquisa" class="inp" data-ajuste-sel="ia_pesquisa" aria-label="IA para pesquisar na internet">${opIA('ia_pesquisa', 'Igual à de conversar')}</select></div>
-    ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">${ic('mic', 'ic-s')}Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor">
-      <option value="">Padrão do Home Assistant</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === (S.d.ajustes.voz_motor || '') ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     <button class="btn out" data-a="ia-verificar">${ic('refresh')}Verificar de novo</button>
     <p class="nota" style="margin:12px 0 0">Para pesquisar, a IA precisa da busca na web ligada no Home Assistant.</p>`) + `</section>`;
+}
+
+/* --------- Falar (1.82.0): um cartão só dele, depois do IA, com os mesmos textos dos outros apps da família (antes, duas
+   linhas dentro do IA): quem transcreve, a Fala para texto para escolher e o Verificar de novo */
+function cardFalar() {
+  const v = S.voz, s = S.ia, falas = (v && v.opcoes) || [], motor = S.d.ajustes.voz_motor || '';
+  // o microfone só aparece com a IA pronta (vozPronta): com ela fora do ar, não diz que está pronto
+  const st = DEMO ? ['', 'Pronto para ouvir', 'Na prévia, a fala é simulada.'] : !v ? ['manual', 'Verificando…', '']
+    : v.pronta && s && s.pronta === false ? ['manual', 'Sem fala para texto', 'Só com a IA pronta.']
+    : v.pronta ? ['', 'Pronto para ouvir', `Transcreve com ${esc(v.nome || 'a fala para texto do Home Assistant')}.${v.escolha_sumiu ? ' O escolhido não foi encontrado: usando o automático.' : ''}`]
+    : ['erro', 'Sem fala para texto', esc(v.motivo || '')];
+  const auto = !motor && v && v.pronta && v.nome ? `: ${esc(v.nome)}` : '';
+  return `<section class="card" id="falar">${maisCab('mic', 'Falar')}
+    ${maisLead('Quem transforma a fala em texto. Não muda o assistente de voz do Home Assistant.')}
+    <div class="status ${st[0]}"><span><b>${st[1]}</b>${st[2] ? ` · ${st[2]}` : ''}</span></div>
+    ${falas.length ? `<div class="campo"><label class="lbl" for="voz-motor">${ic('mic', 'ic-s')}Fala para texto</label><select id="voz-motor" class="inp" data-ajuste-sel="voz_motor" aria-label="Fala para texto">
+      <option value="">Automático${auto}</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === motor ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
+    ${DEMO ? '' : `<button class="btn out" data-a="voz-verificar">${ic('refresh')}Verificar de novo</button>`}
+    ${v && !v.pronta && !DEMO ? `<div class="passos-box"><b>Como configurar</b><ol class="passos">
+      <li>Com o Home Assistant Cloud, a fala para texto já vem pronta.</li>
+      <li>Sem ele, instale um motor de fala: o app Whisper (local, de graça) com a integração Wyoming, ou a fala para texto de uma IA como Google Gemini ou OpenAI.</li>
+      <li>Volte aqui, toque em Verificar de novo e escolha o motor na lista.</li></ol></div>` : ''}
+  </section>`;
 }
 
 /* --------- Faturas por e-mail: a integração IMAP do Home Assistant (o Gmail, com uma senha de app) avisa cada e-mail
@@ -5066,7 +5081,7 @@ function cardOportunidades() {
   if (O === undefined) carregarOport();
   const ops = O ? [...(O.titulos || []), ...(iaOn() ? O.ofertas || [] : [])] : [];
   let h = `<section class="card" id="oportunidades">${maisCab('target', 'Oportunidades')}
-    ${maisLead(`Taxas de hoje do Tesouro Direto${iaOn() ? ' e dos seus bancos' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}
+    ${maisLead(`Taxas de hoje do ${site('https://www.tesourodireto.com.br/', 'Tesouro Direto')}${iaOn() ? ' e dos seus bancos' : ''}, perto do seu alvo e dos seus investimentos. Sem alvo, vale o que render mais que os seus.`)}
     <label class="op-sim"><span>Simular com</span><span class="pref mini larga"><span>R$</span><input data-op-simular inputmode="decimal" value="${NF0.format(+S.d.ajustes.op_simular || 10000)}" aria-label="Valor da simulação, em reais"></span></label>`;
   let escondidas = 0;
   for (const [g, nome] of GRUPOS_OP) {
@@ -5917,10 +5932,10 @@ function maisIntegracoes() {
     ...(a.bens !== false && S.bens && S.bens.ok ? [['sensor.gerencia_bens', 'os bens da casa, com o valor de hoje']] : []),
     ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
   ];
-  // a ordem da família: os outros apps › CorrerIA › IA (com o Falar) › Uso da IA › (as faturas por e-mail) › Sensores
-  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardUsoIA() + cardEmail() + cardSenhas() : '') + `
+  // a ordem da família: os outros apps › CorrerIA › IA › Falar › Uso da IA › (as faturas por e-mail) › Sensores
+  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
-      ${maisLead('Para usar em painéis e automações do Home Assistant. Atualizam a cada mudança e a cada 15 minutos.')}
+      ${maisLead('Para usar em painéis e automações do Home Assistant.')}
       ${linhaChave('sensores', sens, 'Criar sensores', sens ? 'Ligado.' : 'Desligado: nenhum sensor no Home Assistant.')}
       ${sens ? `<div class="sub-op"><div class="sub-box sensor-list">${lista.map(([e, o]) => `<div class="sensor-row"><code>${e}</code><span>${esc(o)}</span></div>`).join('')}</div></div>` : ''}
     </section>`;
@@ -5942,6 +5957,23 @@ function nomeIA(id) {
   if (!id || id === 'padrão do Home Assistant') return 'Padrão do Home Assistant';
   const e = ((S.ia && S.ia.entidades) || []).find(x => x.id === id);
   return e ? e.nome : id === 'ai_task.simulada' ? 'IA simulada (teste)' : id.replace(/^[a-z_]+\./, '').replace(/_/g, ' ');
+}
+// 1.82.0: onde ver o consumo e o saldo de cada IA em uso (a de conversar, a de fotos e a de pesquisar), como nos outros apps
+const site = (href, texto) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${texto}</a>`;
+const PROVEDORES_IA = [
+  [/google|gemini/, () => `Gemini: consumo e cota no ${site('https://aistudio.google.com/', 'Google AI Studio')}, em Dashboard › Usage; o saldo dos créditos, em Billing.`],
+  [/openai|chatgpt|gpt/, () => `OpenAI: consumo e custo em ${site('https://platform.openai.com/usage', 'platform.openai.com/usage')}.`],
+  [/anthropic|claude/, () => `Claude: consumo e custo no ${site('https://platform.claude.com/usage', 'Claude Console')}; o saldo dos créditos, em ${site('https://platform.claude.com/settings/billing', 'Billing')}.`],
+];
+function provedoresIA(u) {
+  const ents = (S.ia && S.ia.entidades) || [], aj = S.d.ajustes, de = id => { const e = ents.find(x => x.id === id); return e ? `${e.id} ${e.nome}` : (id || ''); };
+  const acha = t => PROVEDORES_IA.filter(([re]) => re.test(String(t).toLowerCase()));
+  let achados = acha([aj.ia_entidade, aj.ia_fotos, aj.ia_pesquisa, ...((u && u.recent) || []).map(c => c.entity)].map(de).join(' '));
+  if (!achados.length) {  // na padrão do Home Assistant: o provedor das IAs de lá, se for um só
+    const todos = new Set(ents.flatMap(e => acha(`${e.id} ${e.nome}`)));
+    if (todos.size === 1) achados = [...todos];
+  }
+  return achados.length ? achados.map(([, nota]) => `<p class="nota uso-nota">${nota()}</p>`).join('') : '<p class="nota uso-nota">O consumo exato fica no painel do provedor da IA.</p>';
 }
 function cardUsoIA() {
   const u = S.uso;
@@ -5973,11 +6005,11 @@ function cardUsoIA() {
       <div class="uso-dias" aria-hidden="true">${u.days.map(x => `<span>${x.day === hojeK ? 'hoje' : diaSem(x.day)}</span>`).join('')}</div>
       <p class="uso-cap" aria-live="polite">${diaLongo(sel.day)}: <b>${plural(sel.calls || 0, 'chamada', 'chamadas')}</b>${sel.errors ? `, ${sel.errors} com erro` : ''}${sel.quota ? `, ${sel.quota} sem cota` : ''}.</p>
       ${tipos.length ? `<ul class="uso-tipos" aria-label="Nos últimos 7 dias">${tipos.map(([k, n]) => `<li>${esc(USO_TIPO[k] || k)} <b>${n}</b></li>`).join('')}</ul>` : ''}
-      <details class="uso-ult"><summary>${ic('chev', 'ic-s')}${ic('clock', 'ic-s')}Últimas chamadas</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
-      <p class="nota">Tokens estimados pelo texto. Custo e limites exatos ficam no painel do provedor.</p>`;
+      <details class="uso-ult"><summary>${ic('chev', 'ic-s')}${ic('clock', 'ic-s')}Últimas chamadas${(u.recent || []).length ? ` (${u.recent.length})` : ''}</summary><ul>${recentes || '<li>Nenhuma chamada ainda.</li>'}</ul></details>
+      ${provedoresIA(u)}`;
   }
   return `<section class="card" id="uso-ia">${maisCab('chart-column', 'Uso da IA')}
-    ${maisLead('Chamadas do app à IA do Home Assistant.')}
+    ${maisLead('As chamadas do app para a IA. Os tokens são estimados.')}
     ${corpo}</section>`;
 }
 
@@ -6022,10 +6054,11 @@ const tamanhoTxt = n => n >= 1048576 ? `${(n / 1048576).toLocaleString('pt-BR', 
 function maisAparencia() {
   const a = S.d.ajustes, cor = corAppAtual(), tema = temaAqui();
   return `<section class="card" id="tema">${maisCab('contrast', 'Tema')}
-      ${maisLead('Só neste aparelho. Sistema segue o Home Assistant.')}
+      ${maisLead('Cada aparelho guarda a sua escolha.')}
       <div class="seg temas" role="radiogroup" aria-label="Tema">${[['auto', 'Sistema', 'smartphone'], ['claro', 'Claro', 'sun'], ['escuro', 'Escuro', 'moon']].map(([k, n, i]) =>
         `<button role="radio" aria-checked="${tema === k}" class="${tema === k ? 'on' : ''}" data-a="tema" data-v="${k}">${ic(i)}<span>${n}</span></button>`).join('')}</div></section>
     <section class="card" id="cor">${maisCab('palette', 'Cor do app')}
+      ${maisLead('Vale para todos os aparelhos.')}
       ${linhaChave('cor_dia', corDiaOn(), 'Cor do dia', 'Muda a cor do app todo dia.')}
       <div class="tag-cores" role="radiogroup" aria-label="Cor do app">${CORES_APP.map(([n, hex]) =>
         `<button class="tsw${cor === hex ? ' on' : ''}" role="radio" aria-checked="${cor === hex}" style="--a:${hex}" data-a="cor" data-v="${hex}">
@@ -7121,6 +7154,7 @@ document.addEventListener('click', ev => {
     case 'iae-ok': { const r = IAS.edit.r; if (!(r.valor > 0)) { toast('Coloque o valor.'); break; }
       r.nome = String(r.nome || '').trim() || r.banco || 'Investimento'; r.taxa = Number(String(r.taxa ?? '').replace(',', '.')) || 0;
       IAS.invs[IAS.edit.k] = Object.assign(r, { marcado: true, confianca: 'alta' }); IAS.edit = null; IAS.etapa = 'revisao'; pintarFolha(); break; }
+    case 'voz-verificar': S.voz = null; render(); api.vozStatus().then(v => { S.voz = v; render(); toast(v.pronta ? 'Fala para texto atualizada' : (v.motivo || 'Sem fala para texto')); }).catch(e => { S.voz = { pronta: false, motivo: e.message }; render(); }); break;
     case 'ia-verificar': S.ia = null; carregarVoz(); render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
     case 'f-foto-add':
       escolherArquivo('image/*').then(async file => {

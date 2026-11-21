@@ -1277,7 +1277,7 @@ class TestCardsDaIAEmMais(TelaIA):
         self.integracoes()
         self.assertEqual((self.texto("#ia .linha-sw b"), self.texto("#ia .linha-sw span")), ("Usar IA", "Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas."))
         self.assertEqual(self.pg.get_attribute('#ia [data-a="ajuste"][data-k="ia"]', "aria-checked"), "true")
-        self.assertEqual(self.textos("#ia .status"), ["Na prévia, a leitura por IA é simulada.", "Falar: na prévia, a fala é simulada."])
+        self.assertEqual(self.textos("#ia .status, #falar .status"), ["Na prévia, a leitura por IA é simulada.", "Pronto para ouvir · Na prévia, a fala é simulada."])
         self.assertEqual(_limpo(self.texto("#app .sync")), "IA simulada na prévia")
 
     def test_ia_sem_anexos_aparece_como_so_texto_e_a_escolha_fica_gravada(self):
@@ -1307,6 +1307,34 @@ class TestCardsDaIAEmMais(TelaIA):
         self.assertEqual(self.aviso(), "IA para pesquisar na internet escolhida")
         a = self.dados()["ajustes"]
         self.assertEqual((a["ia_entidade"], a["ia_fotos"], a["ia_pesquisa"]), ("ai_task.ia_texto", "ai_task.ia_azul", "ai_task.ia_azul"))
+
+    def test_uso_da_ia_o_consumo_de_cada_ia_em_uso(self):
+        """1.82.0: no fim do Uso da IA, uma linha para cada IA em uso (a de conversar, a de fotos e a de pesquisar), com
+        o site do consumo e do saldo, como nos outros apps; sem saber o provedor, só onde fica."""
+        self.abrir(base(bancos=BANCOS, ajustes={"ia_entidade": "ai_task.google_ai_task", "ia_fotos": "ai_task.claude_ai_task"}))
+        self.integracoes()
+        ias = "[{ id: 'ai_task.google_ai_task', nome: 'Google AI Task', imagens: true }, { id: 'ai_task.claude_ai_task', nome: 'Claude AI Task', imagens: true }, { id: 'ai_task.casa', nome: 'IA da casa', imagens: true }]"
+        self.js(f"(T.S.ia = {{ pronta: true, selecionada: '', entidades: {ias} }}, T.render(), true)")
+        self.assertEqual(self.texto("#uso-ia .painel-lead"), "As chamadas do app para a IA. Os tokens são estimados.", "o mesmo texto dos outros apps")
+        self.assertEqual(self.textos("#uso-ia .uso-nota"), ["Gemini: consumo e cota no Google AI Studio, em Dashboard › Usage; o saldo dos créditos, em Billing.",
+                                                           "Claude: consumo e custo no Claude Console; o saldo dos créditos, em Billing."])
+        self.assertEqual(self.js("[...document.querySelectorAll('#uso-ia .uso-nota a')].map(a => [a.textContent, a.href, a.target])"),
+                         [["Google AI Studio", "https://aistudio.google.com/", "_blank"], ["Claude Console", "https://platform.claude.com/usage", "_blank"],
+                          ["Billing", "https://platform.claude.com/settings/billing", "_blank"]])
+        self.assertRegex(_limpo(self.texto("#uso-ia .uso-ult summary")), r"^Últimas chamadas \(\d+\)$")
+        self.assertFalse(self.js("document.documentElement.scrollWidth > innerWidth"), "nada sai da tela")
+        # na padrão do Home Assistant: com as IAs de lá de um provedor só, o dele; com mais de um, só onde fica
+        self.js("(T.S.d.ajustes.ia_entidade = '', T.S.d.ajustes.ia_fotos = '', T.S.uso.recent = [], T.render(), true)")
+        self.assertEqual(self.textos("#uso-ia .uso-nota"), ["O consumo exato fica no painel do provedor da IA."])
+        self.js("(T.S.ia.entidades = T.S.ia.entidades.slice(0, 1), T.render(), true)")
+        self.assertEqual(len(self.textos("#uso-ia .uso-nota")), 1)
+        self.assertIn("Google AI Studio", self.texto("#uso-ia .uso-nota"))
+
+    def test_o_tesouro_direto_abre_num_toque(self):
+        """1.82.0: onde a tela fala de um site, o nome abre o site."""
+        self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "invest"})
+        self.assertEqual(self.js("[...document.querySelectorAll('#oportunidades .painel-lead a')].map(a => [a.textContent, a.href, a.target])"),
+                         [["Tesouro Direto", "https://www.tesourodireto.com.br/", "_blank"]])
 
     def test_uso_por_tipo_com_nomes_em_portugues(self):
         self.abrir(base(bancos=BANCOS))

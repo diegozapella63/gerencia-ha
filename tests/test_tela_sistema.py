@@ -417,17 +417,22 @@ class TestTelaComServidor(TelaServidor):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "bancos"})
         self.js("(T.S.voz = null, true)")  # como na primeira vez, antes de o assistente de voz responder
         self.ir_mais("config", "integracoes")
-        st = self.textos("#ia .status")
-        self.assertEqual(st, ["Verificando a IA do Home Assistant…", "Falar: verificando o assistente de voz…"])
-        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status')].map(e => e.className)"), ["status manual", "status manual"])
+        st = self.textos("#ia .status, #falar .status")
+        self.assertEqual(st, ["Verificando a IA do Home Assistant…", "Verificando…"])
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status, #falar .status')].map(e => e.className)"), ["status manual", "status manual"])
+        # 1.82.0: o Falar num cartão só dele, depois do IA, com os mesmos textos dos outros apps da família
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia, #falar, #uso-ia')].map(e => e.id)"), ["ia", "falar", "uso-ia"])
+        self.assertEqual(self.texto("#falar h2"), "Falar")
+        self.assertEqual(self.texto("#falar .painel-lead"), "Quem transforma a fala em texto. Não muda o assistente de voz do Home Assistant.")
         self.clicar('#ia [data-a="ia-verificar"]')  # Verificar de novo, ainda esperando
         self.assertEqual(self.pedidos("api/voz/status"), [["GET", "api/voz/status"]], "Verificar de novo pergunta também pela fala")
         self.assertEqual(self.soltar("GET api/voz/status"), 1)
         self.assertGreaterEqual(self.soltar("GET api/ia/status"), 2, "o pedido de quando abriu e o do Verificar de novo")
         self.assertEqual(self.esperar_aviso("IA"), "IA pronta")
-        st = [_limpo(t) for t in self.textos("#ia .status")]
+        st = [_limpo(t) for t in self.textos("#ia .status, #falar .status")]
         self.assertEqual(st[0], "Pronta. Usando a IA padrão do Home Assistant.")
-        self.assertEqual(st[1], "Falar: pronto. A voz vira texto com “Fala da Casa”.", "1.68.0: sem explicar o que a tela já mostra")
+        self.assertEqual(st[1], "Pronto para ouvir · Transcreve com Fala da Casa.", "1.82.0: como nos outros apps")
+        self.assertEqual(self.conta("#falar .passos-box"), 0, "pronto: sem o Como configurar")
         self.assertEqual(self.js("[...document.querySelectorAll('#ia-ent option')].map(o => o.textContent)"), ["Padrão do Home Assistant", "IA da Casa"])
 
     def test_mais_pede_a_situacao_da_ia_uma_vez_so(self):
@@ -457,9 +462,22 @@ class TestTelaComServidor(TelaServidor):
         self.responder("GET api/voz/status", 200, {"pronta": False, "motivo": "nenhum assistente com fala para texto."})
         self.clicar('#ia [data-a="ia-verificar"]')
         self.assertEqual(self.esperar_aviso("Nenhuma"), "Nenhuma IA configurada no Home Assistant.")
-        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status')].map(e => [e.className, e.textContent])"),
-                         [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status manual", "Falar: nenhum assistente com fala para texto."]])
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status, #falar .status')].map(e => [e.className, e.textContent])"),
+                         [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status erro", "Sem fala para texto · nenhum assistente com fala para texto."]])
         self.assertEqual(self.conta('#app .cab-topo [data-a="falar"]'), 0, "sem a IA pronta, o microfone do alto some")
+        # sem fala para texto: o Como configurar dos outros apps, e o Verificar de novo do próprio cartão
+        self.assertEqual(self.texto("#falar .passos-box b"), "Como configurar")
+        self.assertEqual(self.js("[...document.querySelectorAll('#falar .passos li')].map(e => e.textContent)"),
+                         ["Com o Home Assistant Cloud, a fala para texto já vem pronta.",
+                          "Sem ele, instale um motor de fala: o app Whisper (local, de graça) com a integração Wyoming, ou a fala para texto de uma IA como Google Gemini ou OpenAI.",
+                          "Volte aqui, toque em Verificar de novo e escolha o motor na lista."])
+        self.responder("GET api/voz/status", 200, {"pronta": True, "nome": "Fala da Casa", "opcoes": [{"id": "stt.casa", "nome": "Fala da Casa"}]})
+        self.clicar('#falar [data-a="voz-verificar"]')
+        self.assertEqual(self.esperar_aviso("Fala"), "Fala para texto atualizada")
+        self.assertEqual(self.js("[...document.querySelectorAll('#voz-motor option')].map(o => o.textContent)"), ["Automático: Fala da Casa", "Fala da Casa"])
+        self.responder("GET api/voz/status", 500, {"erro": "fora do ar"})
+        self.clicar('#falar [data-a="voz-verificar"]')
+        self.pg.wait_for_selector("#falar .status.erro")
 
     # (era bug até a 1.28.0: a fala para texto pronta e a IA não, a linha dizia "Falar: pronto… O microfone fica no alto de cada tela", sem microfone)
     def test_falar_nao_diz_pronto_sem_a_ia_pronta(self):
@@ -468,8 +486,8 @@ class TestTelaComServidor(TelaServidor):
         self.clicar('#ia [data-a="ia-verificar"]')
         self.esperar_aviso("Nenhuma")
         self.assertEqual(self.js("T.S.voz.pronta"), True, "a fala para texto está pronta")
-        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status')].map(e => [e.className, e.textContent])"),
-                         [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status manual", "Falar: só com a IA pronta."]])
+        self.assertEqual(self.js("[...document.querySelectorAll('#ia .status, #falar .status')].map(e => [e.className, e.textContent])"),
+                         [["status erro", "Nenhuma IA configurada no Home Assistant."], ["status manual", "Sem fala para texto · Só com a IA pronta."]])
         self.assertEqual(self.conta('#app [data-a="falar"]'), 0, "e o microfone não aparece")
 
     def test_verificar_de_novo_com_o_servidor_fora_avisa(self):
@@ -653,7 +671,7 @@ class TestTemaDoHomeAssistant(TelaServidor):
         self.abrir(base(ajustes={"corrigir": True}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
         self.assertEqual(self.pg.locator('#tema [data-a="tema"]').all_inner_texts(), ["Sistema", "Claro", "Escuro"])
         self.assertEqual(self.pg.locator('#tema [aria-checked="true"]').inner_text(), "Sistema", "começa em Sistema")
-        self.assertIn("Sistema segue o Home Assistant", self.pg.locator("#tema").inner_text())
+        self.assertIn("Cada aparelho guarda a sua escolha.", self.pg.locator("#tema").inner_text(), "1.82.0: o mesmo texto dos outros apps")
 
     def test_segue_o_modo_escuro_e_o_claro_do_home_assistant(self):
         self.abrir(base(ajustes={"corrigir": True, "tema": "claro"}), ui={"tab": "mais", "maisTela": "config", "maisAba": "aparencia"})
@@ -784,7 +802,7 @@ class TestPrevia(TelaSistema):
 
     def test_verificar_a_ia_na_previa(self):
         self.abrir(base(), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
-        self.assertEqual(self.textos("#ia .status"), ["Na prévia, a leitura por IA é simulada.", "Falar: na prévia, a fala é simulada."])
+        self.assertEqual(self.textos("#ia .status, #falar .status"), ["Na prévia, a leitura por IA é simulada.", "Pronto para ouvir · Na prévia, a fala é simulada."])
         self.clicar('#ia [data-a="ia-verificar"]')
         self.assertEqual(self.esperar_aviso("IA"), "IA pronta")
         self.assertEqual(self.js("T.S.ia.pronta"), True)
