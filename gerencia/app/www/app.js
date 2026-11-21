@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.82.0';
+const VERSAO = '1.82.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -796,6 +796,7 @@ function persistir(mut, ok, desfazer) {
     const corpo = { rev: novo.rev, bancos: novo.bancos, investimentos: novo.investimentos, ajustes: novo.ajustes, exemplo: novo.exemplo,
       lancamentos: novo.lancamentos, recorrencias: novo.recorrencias, categorias: novo.categorias, beneficios: novo.beneficios, metas: novo.metas };
     if (novo._hist) { corpo.substituir_historico = true; corpo.historico = novo._hist; }
+    if (novo._zerar) corpo.zerar = true;  // Começar do zero: uma cópia em Versões anteriores antes, sem esperar os 10 minutos
     try {
       S.d = normalizar(await api.save(corpo));
       render();
@@ -4184,7 +4185,7 @@ function cardIA() {
     ? 'Ligado: Ler com IA, Ler recibo, Falar, Conversar com a IA, Atualizar saldos e os preços das dicas.'
     : 'Desligado: os botões de IA somem em todos os aparelhos.');
   const cab = `<section class="card" id="ia">${maisCab('ia', 'IA')}
-    ${maisLead('Usa a IA configurada no Home Assistant; o app não guarda chave.')}
+    ${maisLead('Usa a IA configurada no Home Assistant. O app não guarda chave.')}
     ${chaveIA}`;
   if (!on) return cab + `</section>`;
   const s = S.ia;
@@ -4222,7 +4223,7 @@ function cardFalar() {
       <option value="">Automático${auto}</option>${falas.map(o => `<option value="${esc(o.id)}"${o.id === motor ? ' selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>` : ''}
     ${DEMO ? '' : `<button class="btn out" data-a="voz-verificar">${ic('refresh')}Verificar de novo</button>`}
     ${v && !v.pronta && !DEMO ? `<div class="passos-box"><b>Como configurar</b><ol class="passos">
-      <li>Com o Home Assistant Cloud, a fala para texto já vem pronta.</li>
+      <li>Com o ${site('https://www.nabucasa.com/', 'Home Assistant Cloud')}, a fala para texto já vem pronta.</li>
       <li>Sem ele, instale um motor de fala: o app Whisper (local, de graça) com a integração Wyoming, ou a fala para texto de uma IA como Google Gemini ou OpenAI.</li>
       <li>Volte aqui, toque em Verificar de novo e escolha o motor na lista.</li></ol></div>` : ''}
   </section>`;
@@ -6034,13 +6035,13 @@ function maisDados() {
         ${exp('zip', 'archive', 'Tudo (ZIP)', 'Dados, planilhas e imagens. É o que o Importar traz de volta.', 'Baixar ZIP')}
       </ul></section>
     <section class="card" id="backup">${maisCab('archive', 'Backup na pasta share')}
-      ${maisLead('Cópia completa em <code>share/gerencia</code>. O backup do Home Assistant também inclui o app.')}
+      ${maisLead('Cópia completa em <code>share/gerencia</code>. Os backups do Home Assistant também incluem o GerencIA.')}
       <button class="btn pri" data-a="backup">${ic('archive')}Criar backup</button>${listaBk}</section>
     <section class="card" id="importar">${maisCab('upload', 'Importar')}
-      ${maisLead('Um .zip ou .json exportado pelo GerencIA. Antes, o app guarda uma cópia do que existe.')}
+      ${maisLead('Um .zip ou .json exportado pelo GerencIA. Antes, o app guarda uma cópia do que existe hoje.')}
       <button class="btn" data-a="importar">${ic('upload')}Escolher arquivo</button></section>
     <section class="card" id="versoes">${maisCab('clock', 'Versões anteriores')}
-      ${maisLead('Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.')}
+      ${maisLead('Uma cópia a cada 10 minutos de uso e antes de importar, restaurar ou começar do zero. Ficam as 3 mais recentes.')}
       <button class="btn" data-a="versoes">${ic('clock')}Ver versões</button></section>
     <section class="card" id="onde">${maisCab('database', 'Onde ficam os dados')}
       ${maisLead('<code>/data/gerencia.json</code> e as imagens em <code>/data/fotos</code>, no backup do Home Assistant. Sem internet, só os índices, a IA e as dicas param.')}</section>
@@ -6659,7 +6660,7 @@ function abrirVersoes() {
       : !lista.length ? '<p style="color:var(--muted)">Nenhuma versão anterior ainda.</p>'
         : lista.map(v => {
           const q = v.quando ? new Date(v.quando) : null;
-          const motivo = { 'antes-de-importar': 'antes de importar', 'antes-de-restaurar': 'antes de restaurar' }[v.motivo] || 'automática';
+          const motivo = { 'antes-de-importar': 'antes de importar', 'antes-de-restaurar': 'antes de restaurar', 'antes-de-apagar': 'antes de começar do zero' }[v.motivo] || 'automática';
           return `<div class="versao-row"><div><b>${q ? fData(q) + ' às ' + q.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : esc(v.nome)}</b>
             <span>${plural(v.investimentos, 'investimento', 'investimentos')} · ${brl(v.total, 0)} · ${motivo}</span></div>
             <button class="btn peq" data-a="restaurar" data-v="${esc(v.nome)}">${ic('archive-restore', 'ic-s')}Restaurar</button></div>`;
@@ -7200,7 +7201,7 @@ document.addEventListener('click', ev => {
       break;
     case 'apagar-tudo':
       confirmar({ titulo: 'Apagar tudo?', texto: `Saem ${plural(S.d.investimentos.length, 'investimento', 'investimentos')} e ${plural(S.d.bancos.length, 'banco', 'bancos')}. Uma cópia fica em Versões anteriores.`, botao: 'Apagar tudo', perigo: true,
-        acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.beneficios = []; d.exemplo = false; d._hist = []; }, 'Tudo apagado') });
+        acao: () => persistir(d => { d.bancos = []; d.investimentos = []; d.lancamentos = []; d.recorrencias = []; d.beneficios = []; d.exemplo = false; d._hist = []; d._zerar = true; }, 'Tudo apagado') });  // _zerar (1.82.1): o servidor guarda a cópia de antes na hora
       break;
     case 'tema': store.set('tema', v); aplicarTema(); render(); break;  // só neste aparelho
     // escolher uma cor desliga a Cor do dia e fica com ela

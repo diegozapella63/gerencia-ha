@@ -193,6 +193,12 @@ class TestOQueAIARecebe(unittest.TestCase):
         self.assertIn("Pessoa: oi\nIA: Olá! [propôs lançar (1): confirmado; propôs pagar (1): ainda sem confirmar]\nPessoa: quanto gastei?", t)
         self.assertTrue(t.rstrip().endswith('{"resposta":"","lancamentos":[],"pagar":[],"investimentos":[]}'))
         self.assertIn('"pagar": cada conta da lista', t)
+        # 1.82.1: o contexto da família (a mesma frase em todos os apps)
+        self.assertIn(C.FAMILIA, t)
+        self.assertLess(t.index(C.FAMILIA), t.index("A pessoa está na tela"))
+        for app in ("ResolvIA (listas de tarefas)", "CronologIA (agenda", "GerencIA (finanças)", "InventarIA (inventário", "MemorIA (blocos", "EconomIA (lista de compras", "CorrerIA (os apps no WhatsApp"):
+            self.assertIn(app, C.FAMILIA)
+        self.assertTrue(C.FAMILIA.endswith("Você só vê os dados deste app: se a pessoa perguntar algo que é de outro, diga em qual app está, sem inventar."))
 
     def test_instrucoes_sem_tela_e_historico_curto(self):
         hist = [{"papel": "eu", "texto": f"m{k}"} for k in range(30)]

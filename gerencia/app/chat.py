@@ -290,6 +290,10 @@ def instrucoes_whatsapp(d, historico, usuario="", hoje=None, canal="whatsapp", b
     return "\n\n".join(partes)
 
 
+# 1.82.1: o contexto da família, igual em todos os apps: a IA só vê os dados daqui e diz em qual app está o resto
+FAMILIA = ("Este app é um dos apps da casa (a família da CorrerIA Code), cada um com o seu assunto: ResolvIA (listas de tarefas), CronologIA (agenda, rotinas, remédios e placar), GerencIA (finanças), InventarIA (inventário da casa), MemorIA (blocos de anotações), EconomIA (lista de compras e preços) e CorrerIA (os apps no WhatsApp e em outras IAs). Você só vê os dados deste app: se a pessoa perguntar algo que é de outro, diga em qual app está, sem inventar.")
+
+
 def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, bens=None, extras=""):
     """O pedido para a IA: quem ela é, a tela que a pessoa vê, os dados, as ações e a conversa (a última mensagem é a pergunta)."""
     hoje = hoje or date.today()
@@ -300,6 +304,7 @@ def instrucoes(d, historico, tela="", aba="", usuario="", hoje=None, anexos=0, b
         "Pode usar **negrito** e listas com \"- \"; nada de tabelas nem títulos. Valores como R$ 1.234,56 e datas como 20/11.",
         "Responda sobre as finanças com os dados abaixo. Não invente números: se faltar o dado, diga o que falta. "
         "Contas de cabeça podem errar: some e compare com cuidado. Também pode conversar sobre qualquer outro assunto.",
+        FAMILIA,  # 1.82.1: os outros apps da casa, para dizer em qual está o que não é daqui
     ]
     tela = (tela or "").strip()[:MAX_TELA]
     if tela:

@@ -157,6 +157,21 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(self.s.post("/api/versoes/restaurar", {"nome": "x.json"})[2]["erro"], "Versão inválida.")
         self.assertEqual(self.s.post("/api/versoes/restaurar", {"nome": "gerencia-20000101-000000-x.json"})[2]["erro"], "Essa versão não existe mais.")
 
+    def test_comecar_do_zero_guarda_a_copia_na_hora(self):
+        """1.82.1: o Apagar tudo (zerar) guarda a versão de antes mesmo com outra de menos de 10 minutos."""
+        self.estado(categorias=[{"id": "c1", "nome": "Antes", "tipo": "despesa"}])
+        self.estado(lancamentos=[{"id": "l1", "tipo": "despesa", "descricao": "Mercado", "valor": 45.9, "data": "2026-11-04", "categoria": "c1"}])
+        n = len(self.s.get("/api/versoes")[2])
+        self.estado(lancamentos=[{"id": "l2", "tipo": "despesa", "descricao": "Padaria", "valor": 9.5, "data": "2026-11-04", "categoria": "c1"}])
+        self.assertEqual(len(self.s.get("/api/versoes")[2]), n, "uma gravação comum logo depois de outra não guarda versão")
+        d = self.estado(lancamentos=[], zerar=True)
+        self.assertEqual(d["lancamentos"], [])
+        vs = [v for v in self.s.get("/api/versoes")[2] if v["motivo"] == "antes-de-apagar"]
+        self.assertEqual(len(vs), 1, "a cópia de antes de apagar")
+        st, _, volta = self.s.post("/api/versoes/restaurar", {"nome": vs[0]["nome"]})
+        self.assertEqual((st, [x["descricao"] for x in volta["lancamentos"]]), (200, ["Padaria"]), "a cópia tem o que existia na hora de apagar")
+        self.assertNotIn("zerar", volta)
+
     def test_importar(self):
         dados = {"investimentos": [{"id": "imp", "nome": "Importado", "valor": 10, "indexador": "parado"}]}
         st, _, d = self.s.pedir("POST", "/api/importar", json.dumps(dados).encode(), {"X-Nome-Arquivo": "dados.json"})

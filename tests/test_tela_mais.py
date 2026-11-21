@@ -1171,12 +1171,16 @@ class TestAparenciaEDados(TelaMais):
         self.clicar('[data-a="apagar-tudo"]')
         self.assertEqual(self.folha(), "Apagar tudo?")
         self.assertIn("Saem 1 investimento e 2 bancos.", self.folha_texto())
+        # 1.82.1: o pedido avisa o servidor (zerar), que guarda a cópia de antes na hora
+        self.js("(() => { const s = T.api.save; window.__zerar = []; T.api.save = (c) => { window.__zerar.push(c.zerar === true); return s.call(T.api, c); }; })()")
         self.clicar('.folha-pe [data-a="confirmar"]')
         d = self.dados()
         self.assertEqual((d["bancos"], d["investimentos"], d["lancamentos"], d["recorrencias"]), ([], [], [], []))
         self.assertIn("c-viagens", [c["id"] for c in d["categorias"]], "as categorias continuam")
         self.assertEqual(d["ajustes"]["tema"], "escuro", "as preferências continuam")
         self.assertEqual(self.esperar_aviso("apagado"), "Tudo apagado")
+        self.assertEqual(self.js("window.__zerar"), [True])
+        self.assertNotIn("_zerar", d)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -1654,7 +1658,7 @@ class TestMenuMais(TelaMais):
 
     def test_versoes_anteriores_explicam_quando_guardam(self):
         self.abrir(base(bancos=BANCOS), ui={"tab": "mais", "maisTela": "config", "maisAba": "dados"})
-        self.assertEqual(self.texto("#versoes .painel-lead"), "Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.")
+        self.assertEqual(self.texto("#versoes .painel-lead"), "Uma cópia a cada 10 minutos de uso e antes de importar, restaurar ou começar do zero. Ficam as 3 mais recentes.")
 
     def test_mais_no_alto_volta_ao_menu(self):
         self.abrir(base(bancos=BANCOS))

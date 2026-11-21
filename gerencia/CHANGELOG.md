@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.82.1
+
+- **Começar do zero**: a cópia de antes agora é guardada na hora em **Versões anteriores** (antes, só se a última tivesse mais de 10 minutos, e o que mudou nesse meio tempo se perdia).
+- **Conversa**: a IA sabe quais são os outros apps da casa e, quando a pergunta é de outro app, diz em qual deles está.
+- **Falar › Como configurar**: o **Home Assistant Cloud** abre o site num toque.
+- **Dados** e **IA**: os textos de cima no mesmo jeito dos outros apps.
+
 ## 1.82.0
 
 - **Integrações › Falar**: um cartão só dele, logo depois do IA, com os mesmos textos dos outros apps: **Pronto para ouvir** e quem transcreve, a **Fala para texto** (com **Automático**, que diz qual é), **Verificar de novo** e, sem fala para texto, **Como configurar**.

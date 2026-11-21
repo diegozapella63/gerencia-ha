@@ -471,6 +471,9 @@ class TestTelaComServidor(TelaServidor):
                          ["Com o Home Assistant Cloud, a fala para texto já vem pronta.",
                           "Sem ele, instale um motor de fala: o app Whisper (local, de graça) com a integração Wyoming, ou a fala para texto de uma IA como Google Gemini ou OpenAI.",
                           "Volte aqui, toque em Verificar de novo e escolha o motor na lista."])
+        # 1.82.1: o Home Assistant Cloud abre o site num toque
+        self.assertEqual(self.js("[...document.querySelectorAll('#falar .passos a')].map(a => [a.textContent, a.getAttribute('href'), a.target, a.rel])"),
+                         [["Home Assistant Cloud", "https://www.nabucasa.com/", "_blank", "noopener noreferrer"]])
         self.responder("GET api/voz/status", 200, {"pronta": True, "nome": "Fala da Casa", "opcoes": [{"id": "stt.casa", "nome": "Fala da Casa"}]})
         self.clicar('#falar [data-a="voz-verificar"]')
         self.assertEqual(self.esperar_aviso("Fala"), "Fala para texto atualizada")

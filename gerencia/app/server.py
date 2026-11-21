@@ -40,7 +40,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.82.0"
+VERSAO = "1.82.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3718,7 +3718,13 @@ class Handler(BaseHTTPRequestHandler):
                 atual["historico"] = corpo["historico"]
             d = normalizar(atual)
             d["rev"] = atual["rev"] + 1
-            salvar(d)
+            if corpo.get("zerar") is True:
+                # 1.82.1, Começar do zero: a cópia de antes fica em Versões anteriores na hora (antes, só se a última
+                # tivesse mais de 10 minutos: o que mudou nesse meio tempo se perdia)
+                guardar_versao("antes-de-apagar", forcar=True)
+                salvar(d, versao=False)
+            else:
+                salvar(d)
         if integracao_ligada(d) != ligada_antes or depreciacao(d) != dep_antes:
             publicar_integracao(d)
         if correria_estado(d) != correria_antes:

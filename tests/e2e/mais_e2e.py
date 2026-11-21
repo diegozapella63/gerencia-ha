@@ -76,7 +76,7 @@ with sync_playwright() as p:
         nome=abas.nth(i).inner_text().strip()
         if nome=='Dados':
             pg.click('[data-a="backup"]'); pg.wait_for_timeout(900)
-            igual(pg.inner_text('#versoes .painel-lead'), 'Uma cópia a cada 10 minutos de uso e antes de importar ou restaurar. Ficam as 3 mais recentes.', 'Dados: quando as versões anteriores são guardadas')
+            igual(pg.inner_text('#versoes .painel-lead'), 'Uma cópia a cada 10 minutos de uso e antes de importar, restaurar ou começar do zero. Ficam as 3 mais recentes.', 'Dados: quando as versões anteriores são guardadas')
             sim(len(get('api/backups')) >= 1, 'Dados: Criar backup grava o .zip na pasta share', get('api/backups'))
         cheia(pg, f'm{4+i}-Config-{nome}')
         igual(pg.locator('.mais-painel .mais-head h2').all_inner_texts(), ABAS.get(nome), f'Mais › Configurações › {nome}: as seções')
