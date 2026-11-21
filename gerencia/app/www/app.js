@@ -3,7 +3,7 @@
 'use strict';
 
 const DEMO = !!window.GERENCIA_DEMO;
-const VERSAO = '1.80.0';
+const VERSAO = '1.81.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -3008,7 +3008,8 @@ function montarChat() {
   }
   const ph = on ? 'Ouvindo… toque no visto quando terminar' : s.rec === 'starting' ? 'Abrindo o microfone…' : s.rec === 'transcrevendo' ? 'Transcrevendo…' : 'Escreva para a IA';
   // o clipe (Tirar foto, Escolher fotos, Escolher arquivo) à esquerda; o ✨ das perguntas prontas com a conversa andando;
-  // o botão redondo da direita: o microfone com a caixa vazia (ouvindo, o visto), o Enviar com texto ou arquivo
+  // o botão redondo da direita: o microfone com a caixa vazia (ouvindo, o visto), o Enviar com texto ou arquivo;
+  // 1.81.0: ouvindo, o clipe dá lugar ao Cancelar (o microfone para e nada é transcrito nem enviado)
   const rap = !ocupado && s.msgs && s.msgs.length, aberto = rap && (s.rapidas || s.editando);
   const menu = s.menu && !ocupado ? `<div class="ch-menu" role="menu">
       <button class="ch-op" role="menuitem" data-a="ch-camera">${ic('camera')}Tirar foto</button>
@@ -3016,6 +3017,7 @@ function montarChat() {
       <button class="ch-op" role="menuitem" data-a="ch-arquivo">${ic('file')}Escolher arquivo</button></div>` : '';
   const prev = s.anexos.length ? `<div class="ch-prevs">${s.anexos.map((a, i) => `<div class="ch-prev">${a.pdf ? `<span class="ia-pdf">${ic('file')}</span>` : `<img src="${a.dataUrl}" alt="">`}<span>${esc(a.nome)}</span><button class="icbtn" data-a="ch-anexo-rm" data-v="${i}" aria-label="Tirar ${esc(a.nome)}">${ic('x')}</button></div>`).join('')}</div>` : '';
   const pe = `<div class="ch-pe">${aberto ? `<div class="ch-rapidas">${blocoPerguntas()}</div>` : ''}${menu}${prev}${s.erro ? `<div class="msg-erro">${esc(s.erro)}</div>` : ''}<div class="ch-campo">
+        ${on ? `<button class="icbtn ch-cancelar" data-a="ch-mic-cancelar" aria-label="Cancelar: não enviar o que falei" title="Cancelar">${ic('x')}</button>` : ''}
         ${ocupado ? '' : `<button class="icbtn ch-clip${s.menu ? ' on' : ''}" data-a="ch-menu" aria-label="Anexar" title="Anexar" aria-expanded="${s.menu ? 'true' : 'false'}"${s.enviando ? ' disabled' : ''}>${ic('clip')}</button>`}
         <textarea id="ch-txt" data-ch="texto" rows="1" data-size="off" enterkeyhint="send" aria-label="Mensagem para a IA" placeholder="${ph}"${ocupado ? ' disabled' : ''}>${esc(s.texto)}</textarea>
         ${rap ? `<button class="icbtn ch-qbt${aberto ? ' on' : ''}" data-a="ch-rapidas" aria-label="Perguntas prontas" title="Perguntas prontas" aria-expanded="${aberto ? 'true' : 'false'}">${ic('ia')}</button>` : ''}
@@ -7063,6 +7065,7 @@ document.addEventListener('click', ev => {
     case 'ch-arquivo': if (CH) { CH.menu = false; pintarFolha(); escolherArquivo('image/*,application/pdf').then(f => f && anexarChat([f])); } break;
     case 'ch-anexo-rm': if (CH) { CH.anexos.splice(+v, 1); pintarFolha(); } break;
     case 'ch-mic': if (CH && CH.rec === 'on') terminarDitado(); else comecarDitado(); break;
+    case 'ch-mic-cancelar': if (CH && CH.rec === 'on') { pararDitado(); Object.assign(CH, { rec: 'off', erro: '' }); pintarFolha(); } break;
     case 'ch-ok': confirmarAcaoChat(id, el.dataset.g); break;
     case 'ch-editar': editarAcaoChat(id, el.dataset.g); break;
     case 'ch-nova':

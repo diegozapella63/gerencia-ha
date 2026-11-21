@@ -219,7 +219,7 @@ E ela faz, sempre pedindo confirmação: peça para **lançar** um gasto ou rece
 - **Confirmar** faz na hora, com as mesmas regras da leitura por IA (conta, categoria, cartão e fatura, parcelas). Se parecer repetido, abre a conferência antes.
 - **Editar** abre a janela de sempre (a conferência da leitura por IA ou o Confirmar pagamento) por cima da conversa; salvar ou o Voltar do celular voltam para ela.
 
-O microfone dentro da conversa (o botão redondo da direita, com a caixa vazia; escrevendo, ele vira o Enviar) dita a pergunta (precisa de uma fala para texto no Home Assistant, como no Falar). A conversa fica guardada no app (as últimas 60 mensagens): fechou, abre de onde parou; **Nova conversa**, no alto, recomeça do zero. O Voltar do celular fecha a conversa. Usa a mesma IA de Ler com IA e respeita a chave **Usar IA**: desligada, o balão some.
+O microfone dentro da conversa (o botão redondo da direita, com a caixa vazia; escrevendo, ele vira o Enviar) dita a pergunta (precisa de uma fala para texto no Home Assistant, como no Falar). Ouvindo, ele vira o **Pronto** (manda o que foi dito) e o clipe dá lugar ao **Cancelar** (para o microfone sem mandar nada). A conversa fica guardada no app (as últimas 60 mensagens): fechou, abre de onde parou; **Nova conversa**, no alto, recomeça do zero. O Voltar do celular fecha a conversa. Usa a mesma IA de Ler com IA e respeita a chave **Usar IA**: desligada, o balão some.
 
 ## Imagens
 

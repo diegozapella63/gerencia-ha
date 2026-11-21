@@ -595,6 +595,31 @@ class TestDitar(TelaChat):
         self.assertEqual(self.texto(".ch-pe .msg-erro"), "Não ouvi nada. Toque no microfone e fale.")
         self.assertEqual(self.conta(".ch-msg"), 0)
 
+    def test_cancelar_enquanto_ouve_nao_manda_nada(self):
+        """1.81.0: ouvindo, o clipe dá lugar ao Cancelar: o microfone para, nada é transcrito nem enviado."""
+        self.abrir()
+        self.js("(T.S.voz = { pronta: true }, window.__cancelou = 0, window.__ouviu = 0, true)")
+        self.abrir_chat()
+        self.falsa("vozTexto", "() => (window.__ouviu++, Promise.resolve({ texto: 'não era para ir' }))")
+        self.js("""(window.__G = T.Gravador, T.Gravador = class { async start() {} segundos() { return 2; } stop() { return new Int16Array(32000); } cancel() { window.__cancelou++; } }, true)""")
+        self.addCleanup(lambda: self.js("(T.Gravador = window.__G, true)"))
+        self.assertEqual((self.conta('[data-a="ch-mic-cancelar"]'), self.conta(".ch-clip")), (0, 1), "sem ouvir: o clipe, sem o Cancelar")
+        self.clicar('[data-a="ch-mic"]')
+        self.pg.wait_for_function("window.GERENCIA_TESTE.CH.rec === 'on'")
+        self.esperar()
+        self.assertEqual((self.conta('[data-a="ch-mic-cancelar"]'), self.conta(".ch-clip")), (1, 0), "ouvindo: o Cancelar no lugar do clipe")
+        self.assertEqual(self.pg.get_attribute('[data-a="ch-mic-cancelar"]', "aria-label"), "Cancelar: não enviar o que falei")
+        lados = self.js("['[data-a=\"ch-mic-cancelar\"]', '[data-a=\"ch-mic\"]'].map(s => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; })")
+        self.assertEqual(lados[0], lados[1], "o Cancelar e o Pronto do mesmo tamanho")
+        self.clicar('[data-a="ch-mic-cancelar"]')
+        self.esperar()
+        self.assertEqual((self.js("T.CH.rec"), self.js("T.CHG"), self.js("window.__cancelou"), self.js("window.__ouviu")), ("off", None, 1, 0))
+        self.assertEqual((self.conta(".ch-msg"), self.conta(".ch-pe .msg-erro")), (0, 0), "nada foi enviado, e sem aviso de erro")
+        self.assertEqual((self.conta('[data-a="ch-mic-cancelar"]'), self.conta(".ch-clip"), self.pg.get_attribute(".ch-pri", "data-a")), (0, 1, "ch-mic"), "a caixa volta ao normal")
+        self.assertFalse(self.pg.locator("#ch-txt").is_disabled())
+        self.js("(document.querySelector('[data-a=\"ch-mic-cancelar\"]') || { click() {} }).click()")  # sem ouvir, nada acontece
+        self.assertEqual(self.js("T.CH.rec"), "off")
+
     def test_fechar_enquanto_ouve_desliga_o_microfone(self):
         self.abrir()
         self.js("(T.S.voz = { pronta: true }, window.__cancelou = 0, true)")

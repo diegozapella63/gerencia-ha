@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.81.0
+
+- **Conversar › Falar**: ouvindo, o clipe dá lugar ao **Cancelar**: o microfone para e nada é enviado. Antes só dava para mandar.
+
 ## 1.80.0
 
 - **Conversa › Editar perguntas**: toque numa pergunta para mudar o texto dela. **Perguntas prontas** e **Mais perguntas** fecham e abrem num toque no título, com a seta no canto, e o aparelho lembra.
