@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.83.0';
+const VERSAO = '1.84.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -549,6 +549,8 @@ const apiServidor = {
   bensAtualizar: () => fetch('api/bens/atualizar', { method: 'POST' }).then(jsonOk),
   iaUso: () => fetch('api/ia/uso', { cache: 'no-store' }).then(jsonOk),
   vozStatus: () => fetch('api/voz/status', { cache: 'no-store' }).then(jsonOk),
+  memoria: () => fetch('api/memoria-ia', { cache: 'no-store' }).then(jsonOk),
+  memoriaMudar: c => fetch('api/memoria-ia', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then(jsonOk),
   vozTexto: pcm => fetch('api/voz', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pcm }).then(jsonOk),
   backups: () => fetch('api/backups', { cache: 'no-store' }).then(jsonOk),
   restaurarBackup: nome => fetch('api/backups/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }).then(jsonOk),
@@ -693,6 +695,18 @@ function apiDemo() {
     },
     async chatAcao(id, grupo, estado) { const m = CHAT_DEMO.find(x => x.id === id); if (m) m.estado = Object.assign({}, m.estado, { [grupo]: estado }); return { mensagens: clone(CHAT_DEMO) }; },
     async chatLimpar() { CHAT_DEMO.length = 0; return { mensagens: [] }; },
+    // a Memória da IA: na prévia, fica na memória da página
+    async memoria() { this._mem = this._mem || [{ id: 'm1', texto: 'Padaria é sempre da categoria Alimentação', em: '2026-11-02T09:30:00-0300', app: 'GerencIA', quem: 'Ana' }]; return { lista: clone(this._mem), max: 60 }; },
+    async memoriaMudar(c) {
+      await this.memoria();
+      if (c.acao === 'apagar') this._mem = this._mem.filter(x => x.id !== c.id);
+      else {
+        const t = String(c.texto || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+        if (t.length < 3) throw new Error('Escreva o que é para lembrar.');
+        if (!this._mem.some(x => x.texto.toLowerCase() === t.toLowerCase())) this._mem.push({ id: 'm' + Date.now(), texto: t, em: new Date().toISOString(), app: 'GerencIA', quem: 'Ana' });
+      }
+      return { lista: clone(this._mem), max: 60 };
+    },
     async vozStatus() {
       const opcoes = [{ id: 'stt.home_assistant_cloud', nome: 'Home Assistant Cloud', idioma: 'pt-BR', assistentes: ['Home Assistant'], preferido: true },
         { id: 'stt.google_ai_stt', nome: 'Google AI STT', idioma: 'pt-BR', assistentes: ['Gemini'], preferido: false }];
@@ -4209,6 +4223,24 @@ function cardIA() {
 
 /* --------- Falar (1.82.0): um cartão só dele, depois do IA, com os mesmos textos dos outros apps da família (antes, duas
    linhas dentro do IA): quem transcreve, a Fala para texto para escolher e o Verificar de novo */
+// 1.84.0: a Memória da IA (Integrações, depois do IA): uma lista só, da casa, compartilhada por todos os apps (fica na
+// pasta share); escrever uma frase, ver a lista, apagar
+function carregarMemoria() {
+  api.memoria().then(r => { S.mem = r; if (!FOLHA) render(); }).catch(() => { S.mem = { lista: [], erro: true }; if (!FOLHA) render(); });
+}
+function cardMemoria() {
+  if (!S.mem && !S.memPedida) { S.memPedida = true; carregarMemoria(); }
+  const m = S.mem, lista = (m && m.lista) || [];
+  const quando = x => { const t = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(x.em || ''); return [t ? `${t[3]}/${t[2]}/${t[1]} ${t[4]}:${t[5]}` : '', x.app, x.quem].filter(Boolean).join(' · '); };
+  return `<section class="card" id="memoria-ia">${maisCab('ia', 'Memória da IA')}
+    ${maisLead('Uma memória só, da casa, compartilhada por todos os apps: o que você escreve aqui a IA lembra em toda conversa, em qualquer um deles.')}
+    <div class="campo"><label class="lbl" for="mem-texto">${ic('edit', 'ic-s')}O que lembrar</label>
+      <textarea id="mem-texto" class="inp" rows="1" maxlength="240" placeholder="Padaria é sempre da categoria Alimentação"></textarea></div>
+    <button class="btn pri larga mem-salvar" data-a="mem-add">${ic('check', 'ic-s')}Salvar</button>
+    ${!m ? '<p class="painel-lead mem-vazio">Carregando…</p>' : lista.length ? `<div class="mem-lista">${lista.map(x => `<div class="senha-l"><span><b>${esc(x.texto)}</b><small>${esc(quando(x))}</small></span>
+      <button class="icbtn" data-a="mem-del" data-v="${esc(x.id)}" aria-label="Apagar">${ic('trash')}</button></div>`).join('')}</div>` : ''}
+  </section>`;
+}
 function cardFalar() {
   const v = S.voz, s = S.ia, falas = (v && v.opcoes) || [], motor = S.d.ajustes.voz_motor || '';
   // o microfone só aparece com a IA pronta (vozPronta): com ela fora do ar, não diz que está pronto
@@ -5935,7 +5967,7 @@ function maisIntegracoes() {
     ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
   ];
   // a ordem da família: os outros apps › CorrerIA › IA › Falar › Uso da IA › (as faturas por e-mail) › Sensores
-  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardMemoria() + cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para usar em painéis e automações do Home Assistant.')}
       ${linhaChave('sensores', sens, 'Criar sensores', sens ? 'Ligado.' : 'Desligado: nenhum sensor no Home Assistant.')}
@@ -7156,6 +7188,11 @@ document.addEventListener('click', ev => {
     case 'iae-ok': { const r = IAS.edit.r; if (!(r.valor > 0)) { toast('Coloque o valor.'); break; }
       r.nome = String(r.nome || '').trim() || r.banco || 'Investimento'; r.taxa = Number(String(r.taxa ?? '').replace(',', '.')) || 0;
       IAS.invs[IAS.edit.k] = Object.assign(r, { marcado: true, confianca: 'alta' }); IAS.edit = null; IAS.etapa = 'revisao'; pintarFolha(); break; }
+    case 'mem-add':
+    case 'mem-del':
+      api.memoriaMudar(a === 'mem-add' ? { acao: 'nova', texto: ($('#mem-texto') || {}).value || '' } : { acao: 'apagar', id: el.dataset.v })
+        .then(r => { S.mem = r; render(); toast(a === 'mem-add' ? 'A IA vai lembrar' : 'Apagado da memória'); }).catch(e => toast(e.message));
+      break;
     case 'voz-verificar': S.voz = null; render(); api.vozStatus().then(v => { S.voz = v; render(); toast(v.pronta ? 'Fala para texto atualizada' : (v.motivo || 'Sem fala para texto')); }).catch(e => { S.voz = { pronta: false, motivo: e.message }; render(); }); break;
     case 'ia-verificar': S.ia = null; carregarVoz(); render(); api.iaStatus().then(st => { S.ia = st; render(); toast(st.pronta ? 'IA pronta' : (st.motivo || 'IA não está pronta')); }).catch(e => toast(e.message)); break;
     case 'f-foto-add':

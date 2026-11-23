@@ -1409,6 +1409,13 @@ input[readonly] { opacity: .8; }
 
 /* Senhas dos PDFs (Integrações) e a senha pedida na leitura por IA */
 .senhas { display: flex; flex-direction: column; }
+/* 1.84.0: a Memória da IA: o campo de uma linha (aumenta puxando o canto), o Salvar e a lista das frases */
+#mem-texto { height: 50px; min-height: 50px; resize: vertical; }
+.mem-salvar { margin-top: 10px; }
+@media (min-width: 1000px) { .mem-salvar { width: 280px; display: flex; margin-left: auto; } }
+.mem-lista { margin-top: 14px; }
+.mem-lista b { font-weight: 500; overflow-wrap: anywhere; }
+.mem-lista small { color: var(--muted); font-size: 13px; }
 .senha-l { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .senha-l:first-child { border-top: 0; padding-top: 2px; }
 .senha-l > .ic { color: var(--muted); flex: none; }

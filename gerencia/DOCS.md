@@ -424,6 +424,12 @@ O CorrerIA usa, com `Authorization: Bearer <chave>`:
 | POST | `/api/integracao/ferramentas` | `{nome, argumentos, pessoa: {id, nome}, cliente}` → `{texto}`; argumento inválido: 400 `{erro}` (diz o que vale). |
 | POST | `/api/integracao/conversa` | Só com a IA ligada: `{texto, historico, pessoa, canal, anexo?: {tipo, nome, b64}}` → `{resposta}`. O `correria.json` diz os tipos de anexo (`anexos`: PDF, JPG, PNG e WebP). |
 
+## Memória da IA
+
+Em **Mais › Configurações › Integrações › Memória da IA** (com o Usar IA ligado) você escreve o que a IA deve lembrar em toda conversa: "o café é sempre o da marca azul", "a feira é no sábado". É **uma memória só, da casa, compartilhada por todos os apps** da família: o que você escreve aqui vale na Conversa e na leitura por IA dos outros apps, e o que foi escrito neles aparece aqui, com o nome do app. Cada frase tem o **Apagar**. São até 60 frases de 240 letras.
+
+A memória fica na pasta share do Home Assistant (`share/familia/memoria_ia.json`), fora dos apps: funciona com um app só instalado, e não precisa do CorrerIA. Ela não entra no Exportar nem no Começar do zero de um app (é de todos); apague as frases pelo cartão.
+
 ## Dados e backup
 
 - Tudo fica em `/data/gerencia.json`, que entra nos backups do Home Assistant. As imagens dos investimentos ficam em `/data/fotos`, e as senhas dos PDFs em `/data/senhas_pdf.json` (fora das exportações e dos backups da pasta share).

@@ -32,6 +32,18 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(st, 200, novo)
         return novo
 
+    # ---- a Memória da IA (1.84.0): uma lista só, da casa, na pasta share, fora do app
+    def test_memoria_da_ia(self):
+        arq = os.path.join(os.path.dirname(self.s.dirs["share"]), "familia", "memoria_ia.json")
+        self.assertEqual(self.s.get("/api/memoria-ia")[2], {"lista": [], "max": 60})
+        st, _, r = self.s.post("/api/memoria-ia", {"acao": "nova", "texto": "Padaria é sempre Alimentação"})
+        self.assertEqual((st, [(x["texto"], x["app"]) for x in r["lista"]]), (200, [("Padaria é sempre Alimentação", "GerencIA")]))
+        self.assertTrue(os.path.exists(arq), "na pasta share, ao lado da pasta do app")
+        st, _, erro = self.s.post("/api/memoria-ia", {"acao": "nova", "texto": " a "})
+        self.assertEqual((st, erro), (400, {"erro": "Escreva o que é para lembrar."}))
+        st, _, r = self.s.post("/api/memoria-ia", {"acao": "apagar", "id": r["lista"][0]["id"]})
+        self.assertEqual((st, r["lista"]), (200, []))
+
     # ---- páginas
     def test_paginas_e_arquivos(self):
         st, cab, corpo = self.s.get("/")

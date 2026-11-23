@@ -782,6 +782,32 @@ class TestIntegracoes(TelaMais):
         self.clicar('#nav [data-a="novo"]')
         self.assertFalse(self.visivel('.escolhas [data-a="ia"]'), "Ler com IA some do Adicionar")
 
+    # ---- a Memória da IA (1.84.0): o cartão em Integrações, logo depois do IA; uma memória só, compartilhada por todos os apps
+    def test_memoria_da_ia(self):
+        self.abrir()
+        self.ir_mais("config", "integracoes")
+        self.pg.wait_for_selector("#memoria-ia .mem-lista .senha-l")
+        ids = self.js("[...document.querySelectorAll('#app section.card, #tela section.card, section.card')].map(s => s.id)")
+        self.assertEqual(ids.index("memoria-ia"), ids.index("ia") + 1, ids)
+        self.assertEqual(self.texto("#memoria-ia h2"), "Memória da IA")
+        self.assertIn("Uma memória só, da casa, compartilhada por todos os apps", self.texto("#memoria-ia .painel-lead"))
+        self.assertEqual(self.js("[document.querySelectorAll('#memoria-ia .mais-head svg').length > 0, document.querySelectorAll('#memoria-ia .lbl svg').length, [...document.querySelectorAll('#memoria-ia .btn')].every(b => b.querySelector('svg'))]"), [True, 1, True])
+        self.assertEqual(self.js("[...document.querySelectorAll('#memoria-ia .senha-l')].map(l => l.querySelector('b').textContent)"), ["Padaria é sempre da categoria Alimentação"])
+        self.assertIn("GerencIA · Ana", self.texto("#memoria-ia .senha-l small"))
+        self.preencher("#mem-texto", "A feira é no sábado")
+        self.clicar('#memoria-ia [data-a="mem-add"]')
+        self.pg.wait_for_function("document.querySelectorAll('#memoria-ia .senha-l').length === 2")
+        self.assertEqual(self.pg.input_value("#mem-texto"), "", "o campo fica vazio para a próxima")
+        self.clicar('#memoria-ia [data-a="mem-del"]')
+        self.pg.wait_for_function("document.querySelectorAll('#memoria-ia .senha-l').length === 1")
+        self.assertEqual(self.js("document.querySelector('#memoria-ia .senha-l b').textContent"), "A feira é no sábado")
+        caixa = self.js("[Math.round(document.querySelector('#mem-texto').getBoundingClientRect().height), Math.round(document.querySelector('.mem-salvar').getBoundingClientRect().height)]")
+        self.assertEqual(caixa[0], caixa[1], "o campo e o botão com a mesma altura")
+        self.assertTrue(self.js("document.documentElement.scrollWidth <= window.innerWidth"), "nada passa da largura")
+        # a memória é da IA: com Usar IA desligado, o cartão some
+        self.js("(T.S.d.ajustes.ia = false, T.render(), true)")
+        self.assertEqual(self.js("document.querySelectorAll('#memoria-ia').length"), 0)
+
     # ---- Senhas dos PDFs (as senhas ficam no servidor; a tela só vê o nome e o fim escondido)
     def senhas(self):
         return self.js("[...document.querySelectorAll('#senhas-pdf .senha-l')].map(l => [l.querySelector('b').textContent, l.querySelector('small').textContent])")
@@ -1558,7 +1584,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "falar", "uso-ia", "email", "senhas-pdf", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "memoria-ia", "falar", "uso-ia", "email", "senhas-pdf", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):
