@@ -41,7 +41,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.84.0"
+VERSAO = "1.84.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3515,7 +3515,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def corpo_json(self):
         b = self.corpo()
-        return json.loads(b.decode("utf-8")) if b else {}
+        dado = json.loads(b.decode("utf-8")) if b else {}
+        if not isinstance(dado, dict):  # 1.84.1: uma lista, um número ou null no lugar do objeto era um erro 500 em toda rota
+            raise ValueError("O pedido precisa ser um objeto JSON.")
+        return dado
 
     def caminho(self):
         return urlparse(self.path).path.rstrip("/") or "/"

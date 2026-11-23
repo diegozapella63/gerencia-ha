@@ -33,6 +33,14 @@ class TestHTTP(unittest.TestCase):
         return novo
 
     # ---- a Memória da IA (1.84.0): uma lista só, da casa, na pasta share, fora do app
+    def test_o_pedido_que_nao_e_um_objeto_e_recusado(self):
+        """1.84.1: uma lista, um número ou null no corpo do pedido era um erro 500 em toda rota que lê o corpo."""
+        for caminho in ("/api/memoria-ia", "/api/senhas", "/api/fotos", "/api/ia/ler"):
+            for corpo in ([], 5, "texto", None):
+                st, _, r = self.s.pedir("POST", caminho, corpo=json.dumps(corpo).encode())
+                self.assertEqual((st, r), (400, {"erro": "O pedido precisa ser um objeto JSON."}), (caminho, corpo))
+        self.assertEqual(self.s.pedir("PUT", "/api/state", corpo=b"[]")[0], 400)
+
     def test_memoria_da_ia(self):
         arq = os.path.join(os.path.dirname(self.s.dirs["share"]), "familia", "memoria_ia.json")
         self.assertEqual(self.s.get("/api/memoria-ia")[2], {"lista": [], "max": 60})
