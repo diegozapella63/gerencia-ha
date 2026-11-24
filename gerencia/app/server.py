@@ -41,7 +41,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.86.0"
+VERSAO = "1.87.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3227,6 +3227,13 @@ def chat_extras(d):
                 L += ["- " + promocoes.linha(x["nome"], x) + (f", até {x['ate']}" if x.get("ate") else "") for x in ps[:10]]
     except Exception as e:  # noqa: BLE001
         log("Conversa (promoções):", e)
+    try:  # 1.87.0: o aviso Fatura do e-mail para conferir da Agora
+        es = emails_pendentes(d)
+        if es:
+            L.append(f"Faturas do e-mail esperando a conferência: {len(es)} ("
+                     + "; ".join(str(x.get("de") or x.get("endereco") or "e-mail") for x in es[:5]) + ").")
+    except Exception as e:  # noqa: BLE001
+        log("Conversa (e-mails):", e)
     return "\n".join(L)
 
 
@@ -3283,7 +3290,7 @@ CONEXAO = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, extra={"no
 # fica em share/gerencia/correria.json, que só existe com Mais › Configurações › Integrações › CorrerIA ligado.
 CORRERIA = integracao.Conexao(DATA_DIR, SHARE_DIR, PORTA, VERSAO, log, nome="correria",
                               extra={"nome": "GerencIA", "assunto": "finanças da casa: caixa, gastos, recebimentos, contas a pagar, "
-                                     "cartões e faturas, investimentos e patrimônio"})
+                                     "cartões e faturas, as faturas que chegam por e-mail para conferir, investimentos e patrimônio"})
 CORRERIA_USO = {"ultimo": None}  # a última ferramenta usada: {"app": "Claude", "em", "nome"}
 
 
@@ -3334,6 +3341,12 @@ def usar_ferramenta(corpo):
     nome = str(corpo.get("nome") or "")
     pessoa = corpo.get("pessoa") if isinstance(corpo.get("pessoa"), dict) else {}
     cliente = str(corpo.get("cliente") or "CorrerIA")[:40]
+    if nome in EMAIL_FERRAMENTAS:
+        texto, mudou = ferramenta_email(nome, corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {})
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        if mudou:
+            log("CorrerIA:", cliente, nome, "→", texto.split("\n")[0][:160])
+        return {"texto": texto}
     with TRAVA:
         d = ler()
         texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None,
@@ -3346,6 +3359,48 @@ def usar_ferramenta(corpo):
         quem = str(pessoa.get("nome") or "")[:40]
         log("CorrerIA:", cliente + (f" ({quem})" if quem else ""), nome, "→", texto.split("\n")[0][:160])
     return {"texto": texto}
+
+
+# 1.87.0: as faturas do e-mail (e as fotos e PDFs pelo WhatsApp) que esperam a conferência, pelo CorrerIA: as mesmas do
+# aviso da Agora (emails_pendentes); lançar segue o Conferir lançamentos da tela (ferramentas.lancar_email) e a fatura fica
+# para conferir só com o que sobrou (email_resto), ou sai (feito); ignorar é o Ignorar da tela
+EMAIL_FERRAMENTAS = ("faturas_do_email", "lancar_fatura_do_email", "ignorar_fatura_do_email")
+
+
+def _fixo_do_email(it, d):
+    """O fixo do remetente (Sempre é um fixo), se ainda vale nos próximos 12 meses (o fixoDoEmail do app.js), ou ""."""
+    rg = emails.regra(it.get("endereco"), d["ajustes"].get("email_remetentes")) if it.get("endereco") else None
+    if not rg or rg.get("acao") != "fixo":
+        return ""
+    a, m = date.today().year, date.today().month
+    meses = [f"{a + (m - 1 + k) // 12:04d}-{(m - 1 + k) % 12 + 1:02d}" for k in range(1, 13)]
+    r = next((x for x in d.get("recorrencias", []) if x.get("id") == rg.get("fixo")), None)
+    return r["id"] if r and any(calc.ativa_em(r, ym) for ym in meses) else ""
+
+
+def ferramenta_email(nome, a):
+    with TRAVA:
+        d = ler()
+        itens = emails_pendentes(d)
+        if nome == "faturas_do_email":
+            return ferramentas.texto_faturas_email(d, itens, {it["id"]: _fixo_do_email(it, d) for it in itens}), False
+        eid = str(a.get("id") or "")
+        it = next((x for x in itens if x["id"] == eid), None)
+        if not it:
+            raise ferramentas.ErroFerramenta("Essa fatura não está mais para conferir: veja gerencia_faturas_do_email.")
+        if nome == "ignorar_fatura_do_email":
+            _email_mudar(eid, estado="ignorado", erro="")
+            return f"Ignorada: a fatura de {it.get('de') or 'e-mail'} saiu da conferência, sem lançar nada.", True
+        if it["estado"] != "conferir":
+            raise ferramentas.ErroFerramenta(f"Essa fatura ainda não dá para lançar: {ferramentas.EMAIL_ESTADO.get(it['estado'], it['estado'])}.")
+        texto, resto, sem_fixo = ferramentas.lancar_email(d, it, a, _fixo_do_email(it, d))
+        d["rev"] = d["rev"] + 1
+        salvar(d)
+        if resto["lancamentos"] or resto["investimentos"]:
+            email_resto(eid, resto["lancamentos"], resto["investimentos"], sem_fixo)
+        else:
+            _email_mudar(eid, estado="feito", erro="")
+    return texto, True
 
 
 PERGUNTA_RE = re.compile(r"\?|^(quanto|quantos|quantas|qual|quais|quando|onde|como|o que|que|por que|porque|tem|é|e)\b", re.I)

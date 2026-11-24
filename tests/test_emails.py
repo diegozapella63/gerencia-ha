@@ -843,3 +843,86 @@ class TestPagamentoDaFatura(unittest.TestCase):
         self.assertIn('"pagamento online"', S.ia_prompt(d, "caixa", False, "x"))
         self.assertIn('"pagamento_fatura": true', S.ia_prompt(d, "auto", False, "x"))
 
+
+
+class TestFerramentasDoEmail(ComServidor):
+    """1.87.0 (o dono: "Tem algum email para revisar hj?" e a IA do CorrerIA não achou): as faturas do e-mail que esperam a
+    conferência, pelas ferramentas do CorrerIA: ver, lançar (como o Conferir lançamentos da tela) e ignorar."""
+
+    def setUp(self):
+        super().setUp()
+        with S.TRAVA:
+            d = S.ler()
+            d["lancamentos"], d["recorrencias"] = [], []
+            d["bancos"] = [{"id": "b-lua", "nome": "Banco Lua", "contas": [{"id": "k-lua", "pessoa": "Ana", "cartao": True, "fechamento": 3, "vencimento": 10}]}]
+            S.salvar(d, versao=False)
+
+    def usar(self, nome, **a):
+        return S.usar_ferramenta({"nome": nome, "argumentos": a, "cliente": "CorrerIA"})["texto"]
+
+    def test_ver_lancar_algumas_linhas_e_o_resto_fica(self):
+        self.assertIn("Nenhuma fatura do e-mail", self.usar("faturas_do_email"))
+        eid = S.email_chegou(evento())
+        txt = self.usar("faturas_do_email")
+        self.assertIn(f"id {eid}: Banco Azul, «Sua fatura de novembro»", txt)
+        self.assertIn("1. − iFood · R$ 64,90", txt)
+        self.assertIn("Banco Lua · Ana (cartão de crédito)", txt, "a conta pelo banco que a IA viu, no cartão")
+        self.assertIn("parcela 2/6", txt)
+        self.assertIn("Faturas do e-mail esperando a conferência: 1 (Banco Azul)", self.usar("resumo"))
+        r = self.usar("lancar_fatura_do_email", id=eid, linhas=[1, 3])
+        self.assertIn("iFood · R$ 64,90", r)
+        self.assertIn("Ficam para conferir 2 linhas.", r)
+        ls = S.ler()["lancamentos"]
+        self.assertEqual(sorted((l["descricao"], l.get("parcela", "")) for l in ls),
+                         [("Magazine Luiza", f"{p}/6") for p in range(2, 7)] + [("iFood", "")], "as próximas parcelas também, como na tela")
+        self.assertTrue(all(l["conta"] == "k-lua" and l["cartao"] for l in ls if l["tipo"] == "despesa"))
+        it = self.itens()[0]
+        self.assertEqual((it["estado"], [x["descricao"] for x in it["resultado"]["lancamentos"]]), ("conferir", ["Posto Shell", "Pix do João"]))
+        # o resto, sem dizer as linhas: as que valem; a fatura sai da conferência
+        r = self.usar("lancar_fatura_do_email", id=eid)
+        self.assertIn("A fatura saiu da conferência.", r)
+        self.assertEqual(self.itens()[0]["estado"], "feito")
+        self.assertIn("Nenhuma fatura do e-mail", self.usar("faturas_do_email"))
+        with self.assertRaisesRegex(ValueError, "não está mais para conferir"):
+            self.usar("lancar_fatura_do_email", id=eid)
+
+    def test_ignorar_linhas_erradas_ja_lancado_e_o_fixo_do_remetente(self):
+        eid = S.email_chegou(evento())
+        with self.assertRaisesRegex(ValueError, "não tem a linha 9"):
+            self.usar("lancar_fatura_do_email", id=eid, linhas=[9])
+        with self.assertRaisesRegex(ValueError, "linhas: uma lista"):
+            self.usar("lancar_fatura_do_email", id=eid, linhas="1")
+        self.assertIn("Ignorada", self.usar("ignorar_fatura_do_email", id=eid))
+        self.assertEqual(self.itens()[0]["estado"], "ignorado")
+        self.assertEqual(S.ler()["lancamentos"], [], "ignorar não lança nada")
+        # um remetente que é um fixo: a primeira despesa vai para o fixo do mês, na conta e na categoria dele
+        with S.TRAVA:
+            d = S.ler()
+            ym = S.date.today().isoformat()[:7]
+            d["recorrencias"] = [{"id": "r-luz", "tipo": "despesa", "descricao": "Luz", "valor": 150, "dia": 10, "inicio": "2026-01", "categoria": "c-contas", "conta": "", "cartao": False}]
+            d["ajustes"]["email_remetentes"] = [{"de": "bancoazul.com.br", "acao": "fixo", "fixo": "r-luz"}]
+            d["lancamentos"] = [{"id": "l-pix", "tipo": "receita", "descricao": "Pix do João", "valor": 150, "data": S.date.today().isoformat(), "pago": True, "categoria": "c-reembolso"}]
+            S.salvar(d, versao=False)
+        eid = S.email_chegou(evento("202", assunto="Conta de dezembro"))
+        txt = self.usar("faturas_do_email")
+        self.assertIn(f"vai para o fixo Luz de {ym[5:]}/{ym[:4]}", txt)
+        self.assertIn("Pix do João · R$ 150,00", txt)
+        self.assertIn("parece já lançado", txt)
+        self.usar("lancar_fatura_do_email", id=eid, linhas=[1], pago=True)
+        luz = next(l for l in S.ler()["lancamentos"] if l.get("recorrencia") == "r-luz")
+        self.assertEqual((luz["valor"], luz["competencia"], luz["categoria"], luz["pago"]), (64.9, ym, "c-contas", True))
+        it = next(x for x in self.itens() if x["id"] == eid)
+        self.assertTrue(it["resultado"].get("sem_fixo"), "o resto não vai mais para o fixo")
+        txt = self.usar("faturas_do_email")
+        self.assertNotIn("vai para o fixo", txt)
+        self.assertIn("1. − Posto Shell", txt, "as que ficam, de novo numeradas; a que parecia já lançada sai, como na tela")
+        self.assertNotIn("Pix do João", txt)
+        # sem nenhuma que valha (todas parecem já lançadas), o erro diz o que fazer
+        with S.TRAVA:
+            d = S.ler()
+            hj = S.date.today().isoformat()
+            d["lancamentos"] += [{"id": "l-p", "tipo": "despesa", "descricao": "Posto Shell", "valor": 210, "data": hj, "pago": True},
+                                 {"id": "l-m", "tipo": "despesa", "descricao": "Magazine Luiza", "valor": 189.9, "data": hj, "pago": True}]
+            S.salvar(d, versao=False)
+        with self.assertRaisesRegex(ValueError, "Nenhuma linha para lançar"):
+            self.usar("lancar_fatura_do_email", id=eid)

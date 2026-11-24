@@ -41,8 +41,9 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "lancar", "editar_lancamento",
-                                 "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento", "ajustar_saldo", "novo_fixo"])
+        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "lancar",
+                                 "editar_lancamento", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
+                                 "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -51,7 +52,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:5])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:6])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):

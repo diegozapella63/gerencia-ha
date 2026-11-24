@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.87.0
+
+- **Pelo CorrerIA**: a IA agora vê as **faturas do e-mail para conferir** (e as fotos e PDFs mandados pelo WhatsApp), as mesmas do aviso da Agora. Perguntas como "tem algum e-mail para revisar hoje?" passam a ter resposta: de quem é, o assunto e cada linha lida, com a conta, a categoria, o fixo e o que parece já lançado.
+- Pela conversa também dá para **lançar** a fatura (todas as linhas que valem, ou só as que você disser) e **ignorar**, como no Conferir lançamentos da tela. Como toda mudança pelo CorrerIA, só depois do seu sim. As linhas que ficarem continuam para conferir.
+
 ## 1.86.0
 
 - **Caixa › Lançamentos › Selecionar**, como no InventarIA, no ResolvIA e no MemorIA: toque em **Selecionar** (ou segure o dedo num lançamento), marque vários (ou **Todos**) e toque em **Alterar** para mudar de uma vez a **categoria** e a situação (**Pago** ou **A pagar**), ou em **Apagar**. Depois, o **Desfazer** volta tudo como era.

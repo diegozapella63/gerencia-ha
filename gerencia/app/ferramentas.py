@@ -31,7 +31,8 @@ CORES_BANCO = ["#56AEFF", "#B79BFF", "#4CD3A5", "#FFA23A", "#FF77A8", "#F2C14E",
 INSTRUCOES = ("GerencIA: as finanças da casa (caixa, contas a pagar, cartões e faturas, investimentos e patrimônio). Valores em "
               "reais e datas no formato AAAA-MM-DD. Comece por gerencia_resumo; os ids que ele mostra servem nas outras "
               "ferramentas. Uma conta que já está em contas a pagar (fixo ou fatura) se paga com gerencia_marcar_pago, não se "
-              "lança de novo. Antes de gravar, diga à pessoa o que vai ser feito.")
+              "lança de novo. As faturas e contas que chegaram por e-mail (e as fotos e PDFs mandados pelo WhatsApp) e esperam a "
+              "conferência estão em gerencia_faturas_do_email. Antes de gravar, diga à pessoa o que vai ser feito.")
 
 
 class ErroFerramenta(ValueError):
@@ -73,6 +74,13 @@ FERRAMENTAS = [
     {"nome": "cadastros", "titulo": "Cadastros", "grava": False,
      "descricao": "Contas de banco (com o cartão de crédito: dia de fechamento e de vencimento), categorias, bancos, fixos, as "
                   "pessoas dos investimentos de terceiros, os tipos de investimento e os rendimentos aceitos.",
+     "entrada": _obj({})},
+    # 1.87.0 (o dono: "Tem algum email para revisar hj?" e a IA não achou): as faturas do e-mail que esperam a conferência
+    {"nome": "faturas_do_email", "titulo": "Faturas do e-mail para conferir", "grava": False,
+     "descricao": "As faturas, contas e recibos que chegaram por e-mail (ou por foto e PDF pelo WhatsApp), foram lidos pela IA do "
+                  "GerencIA e esperam a conferência (o aviso Fatura do e-mail para conferir): de quem, o assunto, quando chegou e cada "
+                  "linha lida (o número, a descrição, o valor, a data, a categoria, a conta, se vai para um fixo e se parece já lançada). "
+                  "Use para \"tem e-mail para revisar?\", \"chegou alguma fatura?\".",
      "entrada": _obj({})},
     {"nome": "lancar", "titulo": "Lançar gasto ou recebimento", "grava": True,
      "descricao": "Lança um gasto (despesa) ou um recebimento (receita). Compra parcelada: valor de cada parcela, parcelas e "
@@ -125,6 +133,18 @@ FERRAMENTAS = [
                   "A diferença entra como um lançamento \"Ajuste de saldo\", fora das entradas, das saídas e das categorias, como o "
                   "Ajustar saldo da tela. Use só quando a pessoa disser o saldo certo: nunca para lançar um gasto.",
      "entrada": _obj({"saldo": {"type": "number", "description": "O saldo certo de agora, em reais (pode ser negativo)."}}, ["saldo"])},
+    {"nome": "lancar_fatura_do_email", "titulo": "Lançar fatura do e-mail", "grava": True,
+     "descricao": "Lança o que a IA leu de uma fatura do e-mail (de gerencia_faturas_do_email), como o Conferir lançamentos da tela: "
+                  "sem linhas, as que a tela já marca (fora as que parecem já lançadas e o pagamento da própria fatura). A linha que "
+                  "vai para um fixo entra no fixo do mês. As linhas que ficarem continuam para conferir.",
+     "entrada": _obj({"id": {"type": "string", "description": "O id da fatura em gerencia_faturas_do_email."},
+                      "linhas": {"type": "array", "items": {"type": "integer", "minimum": 1}, "description": "Os números das linhas a lançar."},
+                      "conta": {"type": "string", "description": "Id ou nome da conta, para todas as linhas (sem ela, a que a tela escolhe)."},
+                      "pago": {"type": "boolean", "description": "Tudo pago (true) ou tudo pendente (false); sem ele, pela data e pelo que a IA leu."}},
+                     ["id"])},
+    {"nome": "ignorar_fatura_do_email", "titulo": "Ignorar fatura do e-mail", "grava": True,
+     "descricao": "Tira uma fatura do e-mail da conferência sem lançar nada (o Ignorar da tela).",
+     "entrada": _obj({"id": {"type": "string", "description": "O id da fatura em gerencia_faturas_do_email."}}, ["id"])},
     {"nome": "novo_fixo", "titulo": "Novo fixo", "grava": True,
      "descricao": "Cadastra um gasto ou recebimento que se repete todo mês (ou todo ano), como aluguel, salário ou IPVA. Aparece "
                   "nas contas a pagar a cada mês.",
@@ -697,6 +717,207 @@ def _novo_fixo(d, a, hoje):
 
 # ---------------------------------------------------------------- chamar
 
+# ---------------------------------------------------------------- as faturas do e-mail (1.87.0)
+# As linhas como o Conferir lançamentos da tela as mostra (prepararRevisaoCaixa, iaPago e aplicarIACaixa no app.js): a conta
+# pelo banco que a IA viu, o cartão, a categoria, o que parece já lançado, o pagamento da própria fatura e o fixo do remetente.
+EMAIL_ESTADO = {"conferir": "para conferir", "lendo": "a IA ainda está lendo",
+                "senha": "o PDF tem senha (cadastre em Mais › Configurações › Integrações › Senhas dos PDFs)", "erro": "não consegui ler"}
+RE_PAG_FATURA = re.compile(r"^(pagamento|pagto|pgto)\b|debito automatico|pagamento (recebido|online|da fatura|de fatura|efetuado)")
+
+
+def _banco_por_nome(d, nome):
+    n = _norm(nome)
+    if not n:
+        return None
+    bs = [b for b in d.get("bancos", []) if isinstance(b, dict) and _norm(b.get("nome"))]
+    return next((b for b in bs if _norm(b.get("nome")) == n), None) or next((b for b in bs if _norm(b["nome"]) in n or n in _norm(b["nome"])), None)
+
+
+def _conta_do_banco(contas, b, cartao):
+    cs = [k for k, c in contas.items() if c.get("banco") == b.get("id")]
+    return (cartao and next((k for k in cs if contas[k].get("cartao")), None)) or (cs[0] if cs else "")
+
+
+def linhas_email(d, resultado, fixo="", hoje=None):
+    """As linhas lidas de uma fatura, prontas para lançar como na tela (cada uma com o número na leitura, _k)."""
+    hoje = hoje or date.today()
+    contas, its = calc.mapa_contas(d), []
+    for k, x in enumerate((resultado or {}).get("lancamentos") or []):
+        if not isinstance(x, dict) or calc.num(x.get("valor"), 0) <= 0:
+            continue
+        tipo = "receita" if x.get("tipo") == "receita" else "despesa"
+        its.append({"_k": k, "tipo": tipo, "descricao": _texto(x.get("descricao")) or ("Recebimento" if tipo == "receita" else "Despesa"),
+                    "valor": round(calc.num(x.get("valor"), 0), 2), "data": (calc.parse_data(x.get("data")) or hoje).isoformat(),
+                    "categoria": str(x.get("categoria") or ""), "cartao": x.get("cartao"), "banco": str(x.get("banco") or ""),
+                    "situacao": x.get("situacao") or "", "parcela_atual": int(calc.num(x.get("parcela_atual"), 0) or 0),
+                    "parcelas_total": int(calc.num(x.get("parcelas_total"), 0) or 0), "pagamento_fatura": x.get("pagamento_fatura") is True})
+    maioria = sum(1 for i in its if i["cartao"]) > len(its) / 2
+    nome_banco = next((i["banco"] for i in its if i["banco"]), "")
+    b, lista = _banco_por_nome(d, nome_banco), list(contas)
+    if b:
+        conta = _conta_do_banco(contas, b, maioria)
+    elif nome_banco:  # um banco que não está cadastrado: sem conta, em vez de cair noutro banco
+        conta = ""
+    else:
+        conta = (next((k for k in lista if contas[k].get("cartao")), "") if maioria else "") or (lista[0] if lista else "")
+    no_cartao_todas = maioria and bool((contas.get(conta) or {}).get("cartao"))
+    cats = {c.get("id"): c for c in d.get("categorias", [])}
+    for it in its:
+        bi = _banco_por_nome(d, it["banco"])
+        ci = _conta_do_banco(contas, bi, it["cartao"]) if bi else ""
+        it["conta"] = ci or ("" if it["banco"] and not bi else conta) or ""
+        tem = bool((contas.get(it["conta"]) or {}).get("cartao"))
+        it["no_cartao"] = it["tipo"] == "despesa" and tem and (it["cartao"] is True if ci else no_cartao_todas and it["cartao"] is not False)
+        if not it["categoria"]:
+            it["categoria"] = "c-outros-receb" if it["tipo"] == "receita" else "c-outros-gastos"
+        if it["categoria"] not in cats:
+            it["categoria"] = next((c.get("id") for c in d.get("categorias", []) if c.get("tipo", "despesa") == it["tipo"]), "")
+        di = date.fromisoformat(it["data"])
+        it["dup"] = any(l.get("tipo") == it["tipo"] and abs(calc.num(l.get("valor")) - it["valor"]) < 0.01
+                        and abs(((calc.parse_data(l.get("data")) or hoje) - di).days) <= 2 and _norm(l.get("descricao"))[:4] == _norm(it["descricao"])[:4]
+                        for l in d.get("lancamentos", []))
+        it["desconsiderado"] = it["pagamento_fatura"] or (it["tipo"] == "receita" and (bool(it["cartao"]) or maioria)
+                                                          and bool(RE_PAG_FATURA.search(_norm(it["descricao"]))))
+        it["fixo"] = ""
+    r = next((x for x in d.get("recorrencias", []) if fixo and x.get("id") == fixo), None)
+    alvo = r and next((i for i in its if i["tipo"] == "despesa"), None)
+    if alvo:  # o remetente é um fixo (Sempre é um fixo): a primeira despesa vai para o fixo do mês, na conta e na categoria dele
+        ym = alvo["data"][:7]
+        m = next((l for l in d.get("lancamentos", []) if l.get("recorrencia") == r["id"] and l.get("competencia") == ym and not l.get("pulado")), None)
+        alvo.update(fixo=r["id"], fixo_nome=r.get("descricao", ""), fixo_mes=ym,
+                    dup=bool(m and m.get("pago") and abs(calc.num(m.get("valor")) - alvo["valor"]) < 0.01))
+        if r.get("categoria") in cats:
+            alvo["categoria"] = r["categoria"]
+        if r.get("conta") in contas:
+            alvo["conta"], alvo["no_cartao"] = r["conta"], bool(r.get("cartao")) and bool(contas[r["conta"]].get("cartao"))
+    return its
+
+
+def _pago_email(d, it, data, hoje, contas, pago=None):
+    if isinstance(pago, bool):
+        return pago
+    if not it["no_cartao"] and it["situacao"] in ("feito", "pendente"):
+        return it["situacao"] == "feito"
+    dc = calc.data_caixa({"data": data, "conta": it["conta"], "cartao": it["no_cartao"]}, contas, d)
+    return bool(dc and dc <= hoje)
+
+
+def texto_faturas_email(d, itens, regras_fixo, hoje=None):
+    """A lista das faturas do e-mail que esperam a conferência. itens: as do email_publico do server.py; regras_fixo: o
+    fixo de cada uma (id do e-mail -> id do fixo, ou "")."""
+    hoje = hoje or date.today()
+    if not itens:
+        return "Nenhuma fatura do e-mail (nem foto ou PDF do WhatsApp) esperando a conferência."
+    contas = calc.mapa_contas(d)
+    L = [f"{len(itens)} {'fatura' if len(itens) == 1 else 'faturas'} esperando a conferência:"]
+    for it in itens:
+        de = it.get("de") or it.get("endereco") or ("WhatsApp" if it.get("origem") == "whatsapp" else "e-mail")
+        quando = _dm(str(it.get("recebido_em") or it.get("data") or "")[:10])
+        L.append(f"\n- id {it['id']}: {de}{' (pelo WhatsApp)' if it.get('origem') == 'whatsapp' else ''}"
+                 + (f", «{it['assunto']}»" if it.get("assunto") else "") + (f", chegou em {quando}" if quando else "")
+                 + f" · {EMAIL_ESTADO.get(it.get('estado'), it.get('estado'))}" + (f" ({it['erro']})" if it.get("estado") == "erro" and it.get("erro") else ""))
+        if it.get("estado") != "conferir":
+            continue
+        res = it.get("resultado") or {}
+        linhas = linhas_email(d, res, "" if res.get("sem_fixo") else regras_fixo.get(it["id"], ""), hoje)
+        for i in linhas:
+            c = contas.get(i["conta"])
+            extra = [_nome_cat(d, i["categoria"]), (calc.nome_conta(c) + (" (cartão de crédito)" if i["no_cartao"] else "")) if c else "sem conta"]
+            if i["parcelas_total"]:
+                extra.append(f"parcela {i['parcela_atual']}/{i['parcelas_total']}")
+            if i["fixo"]:
+                extra.append(f"vai para o fixo {i['fixo_nome']} de {i['fixo_mes'][5:]}/{i['fixo_mes'][:4]}")
+            if i["dup"]:
+                extra.append("parece já lançado")
+            if i["desconsiderado"]:
+                extra.append("é o pagamento da própria fatura (não se lança)")
+            L.append(f"  {i['_k'] + 1}. {'+' if i['tipo'] == 'receita' else '−'} {i['descricao']} · {_brl(i['valor'])} · {_dm(i['data'])} · "
+                     + " · ".join(x for x in extra if x))
+        invs = [x for x in res.get("investimentos") or [] if isinstance(x, dict)]
+        if invs:
+            L.append(f"  E {len(invs)} {'investimento' if len(invs) == 1 else 'investimentos'} (esses se conferem na tela).")
+    L.append("\nPara lançar: gerencia_lancar_fatura_do_email (com os números das linhas, ou sem eles para as que valem); para tirar "
+             "da conferência sem lançar: gerencia_ignorar_fatura_do_email.")
+    return "\n".join(L)
+
+
+def lancar_email(d, it, a, fixo="", hoje=None):
+    """Lança as linhas de uma fatura do e-mail (it: a do email_publico, em conferir). Devolve (texto, as linhas que ficam
+    para conferir, sem_fixo)."""
+    hoje = hoje or date.today()
+    res = it.get("resultado") or {}
+    linhas = linhas_email(d, res, "" if res.get("sem_fixo") else fixo, hoje)
+    pedidas = a.get("linhas")
+    if pedidas is not None:
+        if not isinstance(pedidas, list) or not all(isinstance(n, int) and not isinstance(n, bool) for n in pedidas):
+            raise ErroFerramenta("linhas: uma lista com os números das linhas (1, 2, …).")
+        validos = {i["_k"] + 1 for i in linhas}
+        fora = [n for n in pedidas if n not in validos]
+        if fora:
+            raise ErroFerramenta(f"Essa fatura não tem a linha {fora[0]}. As linhas: {', '.join(str(n) for n in sorted(validos))}.")
+        escolhidas = [i for i in linhas if i["_k"] + 1 in pedidas]
+    else:
+        escolhidas = [i for i in linhas if not i["dup"] and not i["desconsiderado"]]
+    if not escolhidas:
+        raise ErroFerramenta("Nenhuma linha para lançar: as que a IA leu parecem já lançadas ou são o pagamento da fatura. "
+                             "Diga os números das linhas, se quiser lançar mesmo assim, ou ignore a fatura.")
+    contas = calc.mapa_contas(d)
+    if a.get("conta") not in (None, ""):
+        conta = _conta(d, a.get("conta"))
+        for i in escolhidas:
+            i["conta"], i["no_cartao"] = conta, i["no_cartao"] and bool(contas[conta].get("cartao"))
+    pago = a.get("pago") if isinstance(a.get("pago"), bool) else None
+    feitos = []
+    for i in escolhidas:
+        base = {"tipo": i["tipo"], "descricao": i["descricao"], "valor": i["valor"], "categoria": i["categoria"], "conta": i["conta"],
+                "cartao": i["no_cartao"], "obs": ""}
+        if i["tipo"] == "despesa" and i["categoria"] == "c-investimentos":
+            base.update(aporte=True, cartao=False)
+        if i["fixo"]:
+            r = next(x for x in d["recorrencias"] if x["id"] == i["fixo"])
+            ym, pg = i["fixo_mes"], _pago_email(d, i, i["data"], hoje, contas, pago)
+            if not calc.num(r.get("valor")) > 0:
+                r["valor"] = i["valor"]
+            if not r.get("conta") and i["conta"]:
+                r.update(conta=i["conta"], cartao=base["cartao"])
+            m = next((l for l in d["lancamentos"] if l.get("recorrencia") == r["id"] and l.get("competencia") == ym), None)
+            if m:
+                m.update(valor=i["valor"], conta=i["conta"] or m.get("conta", ""), cartao=base["cartao"], categoria=i["categoria"] or m.get("categoria", ""))
+                if not m.get("pago"):
+                    m.update(pago=pg, data=i["data"])
+                m.pop("pulado", None)
+            else:
+                m = {"id": integracao.uid(), "tipo": r.get("tipo", "despesa"), "descricao": r.get("descricao", i["descricao"]), "valor": i["valor"],
+                     "categoria": i["categoria"] or r.get("categoria", ""), "conta": i["conta"], "cartao": base["cartao"], "data": i["data"],
+                     "pago": pg, "obs": r.get("obs", ""), "recorrencia": r["id"], "competencia": ym}
+                d["lancamentos"].append(m)
+            feitos.append(m)
+            continue
+        if i["parcelas_total"] and i["parcela_atual"]:
+            g = "g-" + integracao.uid()
+            d0 = date.fromisoformat(i["data"])
+            for p in range(i["parcela_atual"], i["parcelas_total"] + 1):  # as próximas parcelas também (o padrão da tela)
+                dt = calc._data_mes(d0.year, d0.month + (p - i["parcela_atual"]), d0.day).isoformat()
+                l = dict(base, id=integracao.uid(), data=dt, parcela=f"{p}/{i['parcelas_total']}", grupo=g,
+                         pago=_pago_email(d, i, dt, hoje, contas, pago) if p == i["parcela_atual"] else False)
+                d["lancamentos"].append(l)
+                if p == i["parcela_atual"]:
+                    feitos.append(l)
+        else:
+            l = dict(base, id=integracao.uid(), data=i["data"], pago=_pago_email(d, i, i["data"], hoje, contas, pago))
+            d["lancamentos"].append(l)
+            feitos.append(l)
+    lancadas = {i["_k"] for i in escolhidas}
+    resto = [i["_k"] for i in linhas if i["_k"] not in lancadas and not i["dup"] and not i["desconsiderado"]]
+    invs = [k for k, x in enumerate(res.get("investimentos") or []) if isinstance(x, dict)]
+    txt = f"Lançado da fatura de {it.get('de') or 'e-mail'}:\n" + "\n".join("- " + _descrever(d, l, contas) for l in feitos)
+    txt += (f"\nFicam para conferir {len(resto)} {'linha' if len(resto) == 1 else 'linhas'}." if resto
+            else "\nA fatura saiu da conferência." if not invs else "")
+    if invs:
+        txt += f"\nOs {len(invs)} investimentos lidos continuam para conferir na tela."
+    return txt, {"lancamentos": resto, "investimentos": invs}, any(i["fixo"] for i in escolhidas)
+
+
 def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou). bens (1.78.0): os bens
     da casa do InventarIA, como a tela (o bens_estado do server.py), para o patrimônio ser o mesmo da tela."""
@@ -717,6 +938,8 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _investimentos(d, hoje, bens), False
     if nome == "cadastros":
         return _cadastros(d), False
+    if nome.endswith("_email"):  # as faturas do e-mail ficam com o server.py (ferramenta_email), que tem a lista delas
+        raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo}[nome]
