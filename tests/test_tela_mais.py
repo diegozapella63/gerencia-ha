@@ -794,6 +794,8 @@ class TestIntegracoes(TelaMais):
         self.assertEqual(self.js("[document.querySelectorAll('#memoria-ia .mais-head svg').length > 0, document.querySelectorAll('#memoria-ia .lbl svg').length, [...document.querySelectorAll('#memoria-ia .btn')].every(b => b.querySelector('svg'))]"), [True, 1, True])
         self.assertEqual(self.js("[...document.querySelectorAll('#memoria-ia .senha-l')].map(l => l.querySelector('b').textContent)"), ["Padaria é sempre da categoria Alimentação"])
         self.assertIn("GerencIA · Ana", self.texto("#memoria-ia .senha-l small"))
+        self.preencher("#mem-texto", "A feira da casa é sempre no sábado de manhã, e o pão é o da padaria da esquina, nunca o do mercado")
+        self.assertTrue(self.js("(() => { const t = document.querySelector('#mem-texto'); return t.scrollHeight <= t.clientHeight + 1 && t.offsetHeight > 60; })()"), "o campo cresce com o texto, sem rolagem dentro dele")
         self.preencher("#mem-texto", "A feira é no sábado")
         self.clicar('#memoria-ia [data-a="mem-add"]')
         self.pg.wait_for_function("document.querySelectorAll('#memoria-ia .senha-l').length === 2")

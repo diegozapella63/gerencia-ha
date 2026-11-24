@@ -1410,7 +1410,8 @@ input[readonly] { opacity: .8; }
 /* Senhas dos PDFs (Integrações) e a senha pedida na leitura por IA */
 .senhas { display: flex; flex-direction: column; }
 /* 1.84.0: a Memória da IA: o campo de uma linha (aumenta puxando o canto), o Salvar e a lista das frases */
-#mem-texto { height: 50px; min-height: 50px; resize: vertical; }
+#mem-texto { height: auto; min-height: 50px; max-height: 40vh; field-sizing: content; resize: vertical; }
+#mem-texto::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mem-salvar { margin-top: 10px; }
 @media (min-width: 1000px) { .mem-salvar { width: 280px; display: flex; margin-left: auto; } }
 .mem-lista { margin-top: 14px; }
