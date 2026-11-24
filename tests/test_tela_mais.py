@@ -1778,6 +1778,7 @@ class TestMaisSobre(TelaMais):
             ("InventarIA", "inventario-ha", "Inventário da casa: cômodos, itens e valores."),
             ("EconomIA", "economia-ha", "Lista de compras com o melhor preço perto de casa."),
             ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa."),
+            ("OdisseIA", "odisseia", "Os filmes e as séries da casa: o que ver e onde."),
             ("CorrerIA", "correria-ha", "Pergunte e peça a qualquer app, no chat ou no WhatsApp.")]
 
     def versao(self):
@@ -1825,7 +1826,7 @@ class TestMaisSobre(TelaMais):
         self.assertEqual([tuple(x) for x in linhas], [(n, f"{self.GH}/{r}", t) for n, r, t in self.APPS])
         self.assertEqual(self.js("[...document.querySelectorAll('#os-apps .sb-wm')].map(w => w.innerHTML)"),
                          [f"{n[:-2]}<span>IA</span>" for n, _, _ in self.APPS], "o IA de cada nome na cor de destaque, sem espaço no meio")
-        self.assertEqual(self.conta("#os-apps .sb-app .mais-ic svg"), 7, "cada app com o seu ícone")
+        self.assertEqual(self.conta("#os-apps .sb-app .mais-ic svg"), 8, "cada app com o seu ícone")
 
     def test_este_app_marcado_com_a_versao(self):
         self.abrir_sobre()

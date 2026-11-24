@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.85.1
+
+- **Mais › Sobre**: o **OdisseIA** (os filmes e as séries da casa) entra na lista dos apps.
+
 ## 1.85.0
 
 - **CorrerIA**: pela IA do CorrerIA (na Conversa, no WhatsApp e nas rondas) dá para **ajustar o saldo do caixa**: você diz o saldo certo e a diferença entra como "Ajuste de saldo", igual ao Ajustar saldo da tela. Como toda mudança por lá, só depois do seu sim.
