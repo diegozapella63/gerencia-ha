@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.85.0
+
+- **CorrerIA**: pela IA do CorrerIA (na Conversa, no WhatsApp e nas rondas) dá para **ajustar o saldo do caixa**: você diz o saldo certo e a diferença entra como "Ajuste de saldo", igual ao Ajustar saldo da tela. Como toda mudança por lá, só depois do seu sim.
+
 ## 1.84.2
 
 - **Memória da IA**: o campo **O que lembrar** cresce com o texto, sem a barra de rolagem dentro dele.

@@ -148,6 +148,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.84.2 (o dono: "esses campos com scroll quebram as pernas"): o campo da Memória da IA cresce com o texto (`field-sizing: content`, até 40vh), sem rolagem dentro dele; uma linha continua com 50 px e o tamanho puxado pelo canto continua guardado.
 
+1.85.0 (o dono: "pode criar" as ferramentas que faltavam para as rondas do CorrerIA): a ferramenta `ajustar_saldo` (`{saldo}`; grava): o Ajustar saldo do Caixa da tela (`confirmarAjuste` no app.js): a diferença para o `calc.caixa(d)["saldo"]` vira um lançamento `ajuste: true`, pago hoje (receita ou despesa), ou nada se já está certo. Para a etapa Finanças: Saldo do caixa do CorrerIA 1.35.0. Teste: `test_ajustar_saldo`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

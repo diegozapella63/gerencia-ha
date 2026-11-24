@@ -119,6 +119,12 @@ FERRAMENTAS = [
                       "taxa": {"type": "number", "description": "Pelo indexador: 110 (% do CDI), 6.5 (IPCA + 6,5% a.a.), 13 (prefixado)."},
                       "vencimento": _DATA, "liquidez": {"type": "string", "enum": ["diaria", "vencimento"]},
                       "de_quem": {"type": "string"}}, ["nome", "valor", "tipo"])},
+    # 1.85.0 (o dono: "pode criar" as ferramentas que faltavam para as rondas do CorrerIA): o Ajustar saldo do Caixa da tela
+    {"nome": "ajustar_saldo", "titulo": "Ajustar o saldo do caixa", "grava": True,
+     "descricao": "Acerta o saldo do caixa com o que a pessoa diz que tem de verdade (o saldo de hoje está em gerencia_resumo). "
+                  "A diferença entra como um lançamento \"Ajuste de saldo\", fora das entradas, das saídas e das categorias, como o "
+                  "Ajustar saldo da tela. Use só quando a pessoa disser o saldo certo: nunca para lançar um gasto.",
+     "entrada": _obj({"saldo": {"type": "number", "description": "O saldo certo de agora, em reais (pode ser negativo)."}}, ["saldo"])},
     {"nome": "novo_fixo", "titulo": "Novo fixo", "grava": True,
      "descricao": "Cadastra um gasto ou recebimento que se repete todo mês (ou todo ano), como aluguel, salário ou IPVA. Aparece "
                   "nas contas a pagar a cada mês.",
@@ -610,6 +616,20 @@ def _atualizar_inv(d, a, hoje):
     return f"Atualizado: {inv.get('nome', '')}: {_brl(antes)} → {_brl(novo)} ({obs})."
 
 
+def _ajustar_saldo(d, a, hoje):
+    """O Ajustar saldo da tela (confirmarAjuste no app.js): a diferença para o saldo dito vira um lançamento de ajuste, pago hoje."""
+    v = a.get("saldo")
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or abs(v) > 1e11:
+        raise ErroFerramenta("saldo precisa ser um número, em reais (o saldo certo de agora).")
+    antes = round(calc.caixa(d, hoje)["saldo"], 2)
+    dif = round(float(v) - antes, 2)
+    if abs(dif) < 0.01:
+        return f"O saldo já está certo: {_brl(antes)}."
+    d["lancamentos"].append({"id": integracao.uid(), "tipo": "receita" if dif > 0 else "despesa", "descricao": "Ajuste de saldo", "valor": abs(dif),
+                             "categoria": "", "conta": "", "cartao": False, "data": hoje.isoformat(), "pago": True, "ajuste": True, "obs": ""})
+    return f"Saldo ajustado: {_brl(antes)} → {_brl(round(float(v), 2))} (ajuste de {'+' if dif > 0 else '-'}{_brl(abs(dif))})."
+
+
 def _novo_inv(d, a, hoje):
     nome = _texto(a.get("nome"), 80)
     if not nome:
@@ -698,5 +718,6 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     if nome == "cadastros":
         return _cadastros(d), False
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
-           "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo}[nome]
+           "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
+           "ajustar_saldo": _ajustar_saldo}[nome]
     return faz(d, a, hoje), True

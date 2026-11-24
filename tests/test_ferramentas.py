@@ -42,7 +42,7 @@ class TestLista(unittest.TestCase):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
         self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "lancar", "editar_lancamento",
-                                 "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento", "novo_fixo"])
+                                 "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento", "ajustar_saldo", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -298,6 +298,25 @@ class TestInvestimentos(unittest.TestCase):
         self.assertEqual((i["banco"], i["taxa"], i["vencimento"], i["titular"], i["terceiro"]), ("b1", 92, "2028-01-10", "terceiros", "Beto"))
         with self.assertRaisesRegex(F.ErroFerramenta, "Tipo inválido"):
             chamar("novo_investimento", {"nome": "X", "valor": 1, "tipo": "bens"}, d)
+
+    def test_ajustar_saldo(self):
+        """1.85.0: o Ajustar saldo da tela, pela ferramenta: a diferença vira um lançamento de ajuste, pago hoje."""
+        d = dados()
+        antes = round(F.calc.caixa(d, HOJE)["saldo"], 2)
+        n = len(d["lancamentos"])
+        t, mudou = chamar("ajustar_saldo", {"saldo": antes}, d)
+        self.assertEqual((t, len(d["lancamentos"])), (f"O saldo já está certo: {F._brl(antes)}.", n))
+        t, mudou = chamar("ajustar_saldo", {"saldo": antes + 150.5}, d)
+        l = d["lancamentos"][-1]
+        self.assertEqual((mudou, l["tipo"], l["descricao"], l["valor"], l["ajuste"], l["pago"], l["data"], l["categoria"]),
+                         (True, "receita", "Ajuste de saldo", 150.5, True, True, HOJE.isoformat(), ""))
+        self.assertIn("(ajuste de +R$ 150,50)", t)
+        self.assertAlmostEqual(F.calc.caixa(d, HOJE)["saldo"], antes + 150.5, places=2)
+        chamar("ajustar_saldo", {"saldo": -20}, d)
+        self.assertEqual((d["lancamentos"][-1]["tipo"], round(F.calc.caixa(d, HOJE)["saldo"], 2)), ("despesa", -20))
+        for ruim in ("mil", None, True, float("nan")):
+            with self.assertRaises(F.ErroFerramenta):
+                chamar("ajustar_saldo", {"saldo": ruim}, d)
 
     def test_novo_fixo(self):
         d = dados()
