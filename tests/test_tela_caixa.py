@@ -1279,3 +1279,115 @@ class TestAvisos(Caixa):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------------------------------------------
+MERC = desp("l-merc", "Mercado do bairro", 80, "2026-11-01", True, conta="k-verde", categoria="c-mercado")
+FREELA = rec("l-free", "Freela", 700, "2026-11-03", False, conta="k-verde", categoria="c-salario")
+
+
+class TestSelecionar(Caixa):
+    """1.86.0: Caixa › Lançamentos › Selecionar (como no InventarIA, no ResolvIA e no MemorIA)."""
+
+    def comecar(self):
+        self.clicar('[data-a="lsel-comecar"]')
+
+    def test_alterar_a_categoria_e_a_situacao_de_varios_com_desfazer(self):
+        self.caixa(lancamentos=[PADARIA, MERC, NET, FREELA], recorrencias=[LUZ])
+        self.assertEqual(self.texto('.lsum'), "5 lançamentos\nSelecionar", "com o fixo do mês")
+        self.comecar()
+        self.assertEqual(self.texto('.lsum .sel-n'), "Selecionar")
+        self.assertEqual(self.conta('.selbar [disabled]'), 2, "Apagar e Alterar só com algum marcado")
+        self.clicar('.lanc[data-id="l1"]')
+        self.assertIsNone(self.folha(), "selecionando, o toque marca (não abre)")
+        self.assertEqual(self.conta('.lanc.fora[data-id="l-free"]'), 1, "uma seleção é de um tipo só")
+        self.clicar('.lanc[data-id="v:r-luz:2026-11"]')
+        self.clicar('.lanc[data-id="l-net"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "3 selecionados")
+        self.assertIn("R$ 262,40", self.texto('.lsum'), "a soma dos marcados")
+        self.clicar('[data-a="lsel-alterar"]')
+        self.assertEqual(self.folha(), "Alterar 3 lançamentos")
+        self.assertEqual(self.marcados('[data-a="lt-set"]'), ["Manter", "Manter"], "tudo começa em Manter")
+        self.assertEqual(self.conta('.folha [data-k="cat"][data-v="c-salario"]'), 0, "só as categorias de despesa")
+        self.clicar('.folha [data-a="lt-set"][data-k="cat"][data-v="c-contas"]')
+        self.clicar('.folha [data-a="lt-set"][data-k="sit"][data-v="pago"]')
+        self.clicar('.folha [data-a="lt-ok"]')
+        self.assertEqual(self.aviso(), "3 lançamentos alterados")
+        ls = {l["id"]: l for l in self.dados()["lancamentos"]}
+        self.assertEqual((ls["l1"]["categoria"], ls["l-net"]["categoria"], ls["l-net"]["pago"]), ("c-contas", "c-contas", True))
+        luz = next(l for l in ls.values() if l.get("recorrencia") == "r-luz")
+        self.assertEqual((luz["categoria"], luz["pago"], luz["competencia"]), ("c-contas", True, "2026-11"), "o fixo do mês é lançado com a mudança")
+        self.assertEqual(ls["l-merc"]["categoria"], "c-mercado", "o que não foi marcado fica")
+        self.assertEqual(self.conta('.lsum.sel'), 0, "depois de alterar, a seleção acaba")
+        self.desfazer()
+        ls = {l["id"]: l for l in self.dados()["lancamentos"]}
+        self.assertEqual((ls["l1"]["categoria"], ls["l-net"]["categoria"], ls["l-net"]["pago"]), ("c-mercado", "c-contas", False))
+        self.assertFalse(any(l.get("recorrencia") == "r-luz" for l in ls.values()), "o fixo volta a não estar lançado")
+
+    def test_todos_nenhum_e_o_voltar(self):
+        self.caixa(lancamentos=[PADARIA, MERC, FREELA])
+        self.comecar()
+        self.clicar('[data-a="lsel-todos"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "2 selecionados", "Todos: os do tipo do primeiro")
+        self.assertIn("Nenhum", self.texto('[data-a="lsel-todos"]'))
+        self.clicar('[data-a="lsel-todos"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "Selecionar")
+        self.clicar('.lanc[data-id="l-free"]')
+        self.assertEqual(self.conta('.lanc.fora'), 2, "marcado um recebimento, as despesas ficam de fora")
+        self.voltar()
+        self.assertEqual(self.conta('.lsum.sel'), 0, "o Voltar do celular sai")
+        self.assertEqual(self.conta('button.visto[data-a="lanc-pagar"]'), 1, "e voltam os círculos")
+        # segurar o dedo começa com ele marcado
+        self.pg.dispatch_event('.lanc[data-id="l-merc"]', "contextmenu")
+        self.assertEqual(self.texto('.lsum .sel-n'), "1 selecionado")
+        self.clicar('[data-a="lsel-fim"]')
+        self.assertEqual(self.conta('.lsum.sel'), 0)
+        # dentro da seleção, uma janela e o Voltar fecham só ela
+        self.comecar()
+        self.clicar('.lanc[data-id="l1"]')
+        self.clicar('[data-a="lsel-alterar"]')
+        self.voltar()
+        self.assertEqual((self.folha(), self.texto('.lsum .sel-n')), (None, "1 selecionado"))
+        self.ir("inicio")
+        self.ir("caixa")
+        self.assertEqual(self.conta('.lsum.sel'), 0, "saindo do Caixa, a seleção acaba")
+        self.assertEqual(self.erros, [])
+
+    def test_apagar_varios_com_fixo_e_parcela(self):
+        par = desp("l-p2", "Sofá", 300, "2026-11-08", False, conta="k-verde", categoria="c-compras", grupo="g-1", parcela="2/3")
+        par3 = desp("l-p3", "Sofá", 300, "2026-12-08", False, conta="k-verde", categoria="c-compras", grupo="g-1", parcela="3/3")
+        self.caixa(lancamentos=[PADARIA, MERC, par, par3], recorrencias=[LUZ])
+        self.comecar()
+        for i in ("l1", "l-p2", "v:r-luz:2026-11"):
+            self.clicar(f'.lanc[data-id="{i}"]')
+        self.clicar('[data-a="lsel-apagar"]')
+        self.assertEqual(self.folha(), "Apagar 3 lançamentos?")
+        self.assertIn("R$ 462,50. O fixo sai só deste mês; a parcela, só ela.", self.folha_texto())
+        self.clicar('.folha-pe [data-a="confirmar"]')
+        self.assertEqual(self.aviso(), "3 lançamentos apagados")
+        ls = self.dados()["lancamentos"]
+        self.assertEqual(sorted(l["id"] for l in ls if not l.get("pulado")), ["l-merc", "l-p3"], "a outra parcela fica")
+        self.assertEqual([(l["recorrencia"], l["competencia"]) for l in ls if l.get("pulado")], [("r-luz", "2026-11")])
+        self.assertEqual(len(self.dados()["recorrencias"]), 1, "o fixo continua")
+        self.desfazer()
+        self.assertEqual(sorted(l["id"] for l in self.dados()["lancamentos"]), ["l-merc", "l-p2", "l-p3", "l1"])
+
+    def test_compras_do_cartao_mudam_so_a_categoria(self):
+        self.caixa(lancamentos=[FARM, POSTO])
+        self.comecar()
+        self.assertEqual(self.conta('button.visto'), 0, "selecionando, sem o Paguei da fatura")
+        self.clicar('.lanc.fatura')
+        self.clicar('[data-a="lsel-todos"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "2 selecionados", "as compras da fatura aberta")
+        self.clicar('[data-a="lsel-alterar"]')
+        self.assertEqual(self.conta('.folha [data-k="sit"]'), 0, "no cartão, quem paga é a fatura")
+        self.clicar('.folha [data-a="lt-set"][data-k="cat"][data-v="c-saude"]')
+        self.clicar('.folha [data-a="lt-ok"]')
+        self.assertEqual({l["categoria"] for l in self.dados()["lancamentos"]}, {"c-saude"})
+        self.assertFalse(any(l["pago"] for l in self.dados()["lancamentos"]))
+        # nada a mudar: fecha sem gravar
+        self.comecar()
+        self.clicar('.lanc[data-id="l-farm"]')  # a fatura continua aberta
+        self.clicar('[data-a="lsel-alterar"]')
+        self.clicar('.folha [data-a="lt-ok"]')
+        self.assertIsNone(self.folha())

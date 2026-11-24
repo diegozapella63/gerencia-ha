@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.85.1';
+const VERSAO = '1.86.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -1907,8 +1907,10 @@ function caixaLista() {
   }
   const dentro = new Set([...ligadosDe.values()].flat().map(x => x.id));
   const pais = new Set(lista.filter(l => temDescontos(l)).map(l => l.id));
+  const soltos = lista.filter(l => !naFatura.has(l.id) && !dentro.has(l.id) && !(aninha && l.desconto && pais.has(l.pai)));
+  const sel = selLanc(lista, [...soltos, ...faturas.filter(f => S.ui.faturaAberta === f.k).flatMap(f => f.itens)]);
   const entradas = [
-    ...lista.filter(l => !naFatura.has(l.id) && !dentro.has(l.id) && !(aninha && l.desconto && pais.has(l.pai))).map(l => {
+    ...soltos.map(l => {
       const lig = ligadosDe.get(l.id) || [], ds = aninha && (pais.has(l.id) || lig.length);
       const menos = ds ? totalDescontos(l) + lig.reduce((s2, x) => s2 + (+x.valor || 0), 0) : 0;
       return { dc: l.dc, html: linhaLanc(l) + (ds ? blocoDescontos(l, lig) : ''), net: sinal(l) * (+l.valor || 0) - menos, ord: ehRec(l) ? 0 : 1 };
@@ -1919,6 +1921,7 @@ function caixaLista() {
     return html + `<div class="vazio">Nada ${u.cxFiltro === 'tudo' ? 'lançado' : 'com esse filtro'} em ${nomeMes(ym).split(' ')[0]}.<br><br>
       <button class="btn" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar</button></div></div></div>`;
   }
+  html += sel.cab;
   let dia = null;
   for (const e of entradas) {
     if (e.dc !== dia) {
@@ -1929,8 +1932,119 @@ function caixaLista() {
     }
     html += e.html;
   }
-  return html + '</div></div>';
+  return html + sel.pe + '</div></div>';
 }
+
+/* --------- Selecionar (1.86.0, como no InventarIA, no ResolvIA e no MemorIA): marcar vários lançamentos e mudar de uma
+   vez a categoria e a situação, ou apagar, com o Desfazer. Uma seleção é de um tipo só (despesas ou recebimentos); os
+   descontos, as despesas que dão baixa com um recebimento, os ajustes e os aportes ficam de fora (têm regras próprias).
+   Um fixo do mês ainda não lançado é lançado com a mudança; apagar um fixo tira só o deste mês, e uma parcela, só ela.
+   Vale só para o que está na lista (mudou o mês ou o filtro, sai o que sumiu); o Voltar do celular sai. */
+const podeSel = l => !String(l.id).startsWith('d:') && !l.desconto && !(l.vinculo && !ehRec(l)) && !l.ajuste && !ehAporte(l);
+let LSEL_TIPO = '';
+function selLanc(lista, visiveis) {
+  const LS = S.lsel;
+  if (!LS) {
+    LSEL_TIPO = '';
+    const n = lista.filter(l => !l.desconto).length;
+    return { cab: lista.some(podeSel) ? `<div class="lsum"><span>${plural(n, 'lançamento', 'lançamentos')}</span><button class="btn peq" data-a="lsel-comecar">${ic('list-checks', 'ic-s')}Selecionar</button></div>` : '', pe: '' };
+  }
+  const daLista = new Map(lista.filter(podeSel).map(l => [l.id, l]));
+  for (const id of [...LS]) if (!daLista.has(id)) LS.delete(id);
+  const marcados = [...LS].map(id => daLista.get(id));
+  const vis = visiveis.filter(podeSel);
+  // nada marcado: qualquer um pode ser o primeiro (e o Todos marca os do tipo do primeiro da lista)
+  LSEL_TIPO = marcados.length ? marcados[0].tipo : '';
+  const podem = vis.filter(l => l.tipo === (LSEL_TIPO || (vis[0] || {}).tipo));
+  S.lselPodem = podem.map(l => l.id);
+  const n = LS.size, todos = n > 0 && podem.every(l => LS.has(l.id)), soma = marcados.reduce((s, l) => s + (+l.valor || 0), 0);
+  const nome = plural(n, 'lançamento', 'lançamentos');
+  return {
+    cab: `<div class="lsum sel"><button class="icbtn" data-a="lsel-fim" aria-label="Cancelar seleção">${ic('x')}</button><span class="sel-n">${n ? plural(n, 'selecionado', 'selecionados') : 'Selecionar'}</span>${n ? `<b>${brl(soma)}</b>` : ''}
+      <button class="btn peq" data-a="lsel-todos"${podem.length ? '' : ' disabled'}>${ic('list-checks', 'ic-s')}${todos ? 'Nenhum' : 'Todos'}</button></div>`,
+    pe: `<div class="selbar"><button class="btn perigo" data-a="lsel-apagar"${n ? '' : ' disabled'}>${ic('trash', 'ic-s')}Apagar</button><button class="btn pri" data-a="lsel-alterar"${n ? '' : ' disabled'}>${ic('edit', 'ic-s')}${n ? 'Alterar ' + nome : 'Alterar'}</button></div>`,
+  };
+}
+const lselMarcados = () => {
+  if (!S.lsel) return [];
+  return [...S.lsel].map(id => acharLanc(id)).filter(Boolean);
+};
+function lselComecar(id) {
+  S.lsel = new Set(id ? [id] : []);
+  try { history.pushState({ lsel: 1 }, ''); } catch (e) { /* sem histórico */ }
+  render();
+}
+function lselFim() {
+  if (history.state && history.state.lsel) { try { history.back(); return; } catch (e) { /* ok */ } }
+  S.lsel = null;
+  render();
+}
+let LT = null;
+const LT_MANTER = '__manter__';
+function lselAlterar() {
+  const ls = lselMarcados();
+  if (!ls.length) return;
+  LT = { ids: ls.map(l => l.id), tipo: ls[0].tipo, cat: LT_MANTER, sit: LT_MANTER, cartao: ls.some(l => l.cartao) };
+  abrirFolha(() => {
+    const rec = LT.tipo === 'receita', n = plural(LT.ids.length, 'lançamento', 'lançamentos');
+    const chip = (k, val, rot, extra = '') => `<button class="chip${LT[k] === val ? ' on' : ''}" data-a="lt-set" data-k="${k}" data-v="${esc(val)}"${extra}>${rot}</button>`;
+    const cats = S.d.categorias.filter(c => c.tipo === LT.tipo && c.id !== 'c-investimentos');
+    let c = `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${chip('cat', LT_MANTER, 'Manter')}${cats.map(k =>
+      chip('cat', k.id, `<span class="bol"></span>${esc(k.nome)}`, ` style="--c:${corOk(k.cor) || '#B8B0B0'}"`)).join('')}</div></div>`;
+    // no cartão, quem paga é a fatura
+    if (!LT.cartao) c += `<div class="campo"><div class="lbl">Situação</div><div class="chips c3" style="margin:0">${chip('sit', LT_MANTER, 'Manter')}${chip('sit', 'pago', rec ? 'Recebido' : 'Pago')}${chip('sit', 'aberto', rec ? 'A receber' : 'A pagar')}</div></div>`;
+    return { titulo: `Alterar ${n}`, icone: 'edit', corpo: c,
+      pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="lt-ok">${ic('check')}Salvar</button>` };
+  });
+}
+function lselSalvar() {
+  const f = LT;
+  if (!f) return;
+  if (f.cat === LT_MANTER && f.sit === LT_MANTER) { fecharFolha(); return; }
+  const ls = f.ids.map(id => acharLanc(id)).filter(Boolean);
+  persistir(d => mutLote(d, ls, { categoria: f.cat === LT_MANTER ? null : f.cat, pago: f.sit === LT_MANTER || f.cartao ? null : f.sit === 'pago' }),
+    `${plural(ls.length, 'lançamento alterado', 'lançamentos alterados')}`, true).then(ok => { if (!ok) return; fecharFolha(); S.lsel = null; render(); });
+}
+// a mudança de vários de uma vez: a categoria e a situação; um fixo do mês ainda não lançado é lançado com ela
+function mutLote(d, ls, { categoria = null, pago = null }) {
+  for (const l of ls) {
+    const muda = {};
+    if (categoria !== null && (l.categoria || '') !== categoria) muda.categoria = categoria;
+    if (pago !== null && !l.cartao && !!l.pago !== pago) muda.pago = pago;
+    if (!Object.keys(muda).length) continue;
+    let x;
+    if (l.virtual) d.lancamentos.push(x = materializar(l, muda));
+    else { x = d.lancamentos.find(y => y.id === l.id); if (x) Object.assign(x, muda); }
+    if (x && 'pago' in muda) baixaVinculados(d, x);
+  }
+}
+function lselApagar() {
+  const ls = lselMarcados();
+  if (!ls.length) return;
+  const fixos = ls.filter(l => l.recorrencia).length, parcelas = ls.filter(l => l.grupo).length, soma = ls.reduce((s, l) => s + (+l.valor || 0), 0);
+  const nota = [fixos ? (fixos === 1 ? 'O fixo sai só deste mês' : 'Os fixos saem só deste mês') : '', parcelas ? (parcelas === 1 ? 'a parcela, só ela' : 'as parcelas, só elas') : ''].filter(Boolean).join('; ');
+  confirmar({ titulo: `Apagar ${plural(ls.length, 'lançamento', 'lançamentos')}?`, botao: 'Apagar', perigo: true,
+    texto: `<b>${plural(ls.length, 'lançamento', 'lançamentos')}</b>, ${brl(soma)}.${nota ? ' ' + nota.charAt(0).toUpperCase() + nota.slice(1) + '.' : ''} Uma cópia fica em Versões anteriores.`,
+    acao: () => persistir(d => apagarLote(d, ls), `${plural(ls.length, 'lançamento apagado', 'lançamentos apagados')}`, true).then(ok => { if (ok) { S.lsel = null; render(); } }) });
+}
+function apagarLote(d, ls) {
+  for (const l of ls) {
+    if (l.recorrencia) {
+      if (l.virtual) d.lancamentos.push(materializar(l, { pulado: true }));
+      else { const x = d.lancamentos.find(y => y.id === l.id); if (x) x.pulado = true; }
+    } else d.lancamentos = d.lancamentos.filter(x => x.id !== l.id);
+  }
+}
+// segurar o dedo num lançamento (no celular, o contextmenu) começa o Selecionar com ele marcado, como nos outros apps
+document.addEventListener('contextmenu', ev => {
+  const row = ev.target.closest && ev.target.closest('.cx-lista .lanc[data-id]');
+  if (!row || S.lsel) return;
+  const l = acharLanc(row.dataset.id);
+  if (!l || !podeSel(l)) return;
+  ev.preventDefault();
+  try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* sem vibração */ }
+  lselComecar(l.id);
+});
 
 function linhaLanc(l, dentroFatura) {
   const cat = catDe(l.categoria);
@@ -1945,9 +2059,12 @@ function linhaLanc(l, dentroFatura) {
   // como no CronologIA: o que já foi pago fica verde, com o visto; o que falta tem o círculo do lado para dar baixa
   const baixa = !dentroFatura && !l.desconto && !l.vinculo && !l.ajuste;
   const verbo = rec ? 'Recebi' : apo ? 'Apliquei' : 'Paguei', feito = rec ? 'Recebido' : apo ? 'Aplicado' : 'Pago';
-  const marca = !baixa ? '' : l.pago ? `<span class="visto on" role="img" aria-label="${feito}" title="${feito}">${ic('check')}</span>`
+  const LS = S.lsel, pode = LS && podeSel(l) && (!LSEL_TIPO || l.tipo === LSEL_TIPO), on = pode && LS.has(l.id);
+  const marca = LS ? (pode ? `<span class="lmarca${on ? ' on' : ''}" aria-hidden="true">${ic('check')}</span>` : '')
+    : !baixa ? '' : l.pago ? `<span class="visto on" role="img" aria-label="${feito}" title="${feito}">${ic('check')}</span>`
     : `<button class="visto${atras ? ' atras' : ''}" data-a="lanc-pagar" data-id="${esc(l.id)}" aria-label="${verbo}: ${esc(l.descricao)}" title="${verbo}">${ic('check')}</button>`;
-  return `<div class="lanc${dentroFatura ? ' sub' : ''}${baixa && l.pago ? ' feito' : ''}" data-a="lanc" data-id="${esc(l.id)}" role="button" tabindex="0">
+  const acao = !LS ? 'data-a="lanc"' : pode ? `data-a="lsel-marcar" aria-pressed="${on}"` : 'aria-disabled="true"';
+  return `<div class="lanc${dentroFatura ? ' sub' : ''}${baixa && l.pago ? ' feito' : ''}${LS && !pode ? ' fora' : ''}${on ? ' marcado' : ''}" ${acao} data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
     <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
     <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}</span>${marca}
@@ -1963,7 +2080,7 @@ function linhaFatura(f) {
     <span class="ini" style="--c:${corOk(bancoDe(c?.banco)?.cor) || '#B8B0B0'}">${ic('card', 'ic-s')}</span>
     <span class="lanc-t"><b>Fatura ${esc(nomeConta(c))}</b><span>${plural(f.itens.length, 'compra', 'compras')} · vence ${fDataC(pData(f.dc))} · ${aberta ? 'toque para fechar' : 'toque para ver'}</span></span>
     <span class="lanc-d"><b class="sai">− ${brl(f.total)}</b>${f.pago ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? 'Atrasada' : 'Aberta'}</span>`}</span>
-    ${f.pago ? `<span class="visto on" role="img" aria-label="Paga" title="Paga">${ic('check')}</span>` : `<button class="visto${atras ? ' atras' : ''}" data-a="fatura-pagar" data-v="${esc(f.k)}" aria-label="Paguei a fatura ${esc(nomeConta(c))}" title="Paguei">${ic('check')}</button>`}
+    ${S.lsel ? '' : f.pago ? `<span class="visto on" role="img" aria-label="Paga" title="Paga">${ic('check')}</span>` : `<button class="visto${atras ? ' atras' : ''}" data-a="fatura-pagar" data-v="${esc(f.k)}" aria-label="Paguei a fatura ${esc(nomeConta(c))}" title="Paguei">${ic('check')}</button>`}
   </div>${aberta ? `<div class="fatura-itens">${itens.map(l => linhaLanc(l, true)).join('')}</div>` : ''}`;
 }
 
@@ -4913,7 +5030,7 @@ const PRODUTOS = [
   ['InventarIA', 'inventario-ha', 'package', 'Inventário da casa: cômodos, itens e valores.'],
   ['EconomIA', 'economia-ha', 'receipt', 'Lista de compras com o melhor preço perto de casa.'],
   ['MemorIA', 'memoria-ha', 'book-open', 'Cadernos de anotação que abrem na hora certa.'],
-  ['OdisseIA', 'odisseia', 'clapperboard', 'Os filmes e as séries da casa: o que ver e onde.'],
+  ['OdisseIA', 'odisseia', 'clapperboard', 'Os filmes, as séries e os jogos da casa: o que ver, jogar e onde.'],
   ['CorrerIA', 'correria-ha', 'chat', 'Pergunte e peça a qualquer app, no chat ou no WhatsApp.'],
 ];
 // "GerencIA" com o "IA" na cor de destaque, numa peça só (o nome não quebra)
@@ -6315,6 +6432,9 @@ function fecharFolha(semHistorico, umNivel) {
 window.addEventListener('popstate', () => {
   // o Voltar que o app pediu chegou; uma folha aberta enquanto isso marca a entrada dela agora
   if (VOLTA !== null && chegouVolta()) return;
+  const lsel = !!(history.state && history.state.lsel);
+  if (!lsel && S.lsel && !FOLHA) { S.lsel = null; render(); }
+  else if (lsel && !S.lsel && !FOLHA && !CAM) { try { history.back(); } catch (e) { /* ok */ } return; }
   const alvo = nivelHist();
   if (CAM && CAM.h > alvo) fecharCamera(true);
   while (FOLHA && FOLHA.h > alvo) fecharFolha(true, true);
@@ -6892,6 +7012,7 @@ function render() {
   if (!S.d) return;
   aplicarTema();
   const telas = { inicio: telaInicio, caixa: telaCaixa, investimentos: telaInvest, mais: telaMais };
+  if (S.lsel && !(S.ui.tab === 'caixa' && S.ui.cxModo === 'lista' && temCaixa())) S.lsel = null;
   const foco = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.ui;
   const pos = foco ? document.activeElement.selectionStart : null;
   $('#app').innerHTML = (telas[S.ui.tab] || telaInicio)();
@@ -6985,6 +7106,14 @@ document.addEventListener('click', ev => {
     case 'novo-inv': abrirInvestimento(null); break;
     case 'lanc-novo': abrirLancamento(null, { tipo: v === 'receita' ? 'receita' : 'despesa' }); break;
     case 'lanc': abrirLancamento(id); break;
+    case 'lsel-comecar': lselComecar(); break;
+    case 'lsel-fim': lselFim(); break;
+    case 'lsel-marcar': if (S.lsel) { if (S.lsel.has(id)) S.lsel.delete(id); else S.lsel.add(id); render(); } break;
+    case 'lsel-todos': { const P = S.lselPodem || [], todos = P.length && P.every(x => S.lsel.has(x)); S.lsel = new Set(todos ? [] : P); render(); break; }
+    case 'lsel-alterar': lselAlterar(); break;
+    case 'lsel-apagar': lselApagar(); break;
+    case 'lt-set': if (LT) { LT[el.dataset.k] = v; pintarFolha(); } break;
+    case 'lt-ok': lselSalvar(); break;
     case 'lanc-pagar': {
       const l = acharLanc(id);
       if (l && ehRec(l) && (temPartes(l) || temDescontos(l))) { abrirLancamento(id); Object.assign(LF, { pago: true, pagoMexido: true, descAberto: true, confirmando: true }); pintarFolha(); }

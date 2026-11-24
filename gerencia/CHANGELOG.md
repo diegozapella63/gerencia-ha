@@ -1,5 +1,15 @@
 # Mudanças
 
+## 1.86.0
+
+- **Caixa › Lançamentos › Selecionar**, como no InventarIA, no ResolvIA e no MemorIA: toque em **Selecionar** (ou segure o dedo num lançamento), marque vários (ou **Todos**) e toque em **Alterar** para mudar de uma vez a **categoria** e a situação (**Pago** ou **A pagar**), ou em **Apagar**. Depois, o **Desfazer** volta tudo como era.
+  - Uma seleção é de um tipo só: despesas ou recebimentos.
+  - As compras no cartão (abra a fatura para marcar) mudam só a categoria: quem paga é a fatura.
+  - Um fixo do mês ainda não lançado é lançado com a mudança; apagar um fixo tira só o deste mês, e uma parcela, só ela.
+  - Ficam de fora os descontos na fonte, as despesas descontadas de um recebimento, os ajustes de saldo e os aportes.
+  - O Voltar do celular sai da seleção.
+- **Mais › Sobre**: o OdisseIA agora fala também dos jogos.
+
 ## 1.85.1
 
 - **Mais › Sobre**: o **OdisseIA** (os filmes e as séries da casa) entra na lista dos apps.

@@ -1708,3 +1708,20 @@ input[readonly] { opacity: .8; }
    "Vencimento (opcional)", que não podem virar linhas separadas) */
 .campo label:has(> .campo-ic), .campo .lbl:has(> .campo-ic), label.lbl:has(> .campo-ic) { display: block; }
 .campo-ic { display: inline-block; vertical-align: -3px; margin-right: 8px; color: var(--accent-text); }
+
+/* 1.86.0: Selecionar no Caixa, como no InventarIA */
+.lsum { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 6px; padding: 0 4px; color: var(--muted); font-size: 15px; }
+.lsum.sel { gap: 8px; }
+.lsum.sel .icbtn { margin-left: -8px; flex: none; }
+.lsum.sel .sel-n { flex: 1; min-width: 0; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsum.sel b { color: var(--text); font: 600 17px/1 var(--font-d); white-space: nowrap; }
+.lsum .btn { flex: none; }
+.lmarca { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); color: transparent; }
+.lmarca svg { width: 16px; height: 16px; stroke-width: 3; }
+.lmarca.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.lanc.marcado { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.lanc.fora { opacity: .45; cursor: default; }
+.selbar { position: sticky; bottom: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom, 0px)); z-index: 5; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  margin-top: 12px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
+.selbar .btn { justify-content: center; min-width: 0; }
+@media (min-width: 1000px) { .selbar { bottom: 16px; } }

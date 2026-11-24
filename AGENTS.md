@@ -150,6 +150,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.85.0 (o dono: "pode criar" as ferramentas que faltavam para as rondas do CorrerIA): a ferramenta `ajustar_saldo` (`{saldo}`; grava): o Ajustar saldo do Caixa da tela (`confirmarAjuste` no app.js): a diferença para o `calc.caixa(d)["saldo"]` vira um lançamento `ajuste: true`, pago hoje (receita ou despesa), ou nada se já está certo. Para a etapa Finanças: Saldo do caixa do CorrerIA 1.35.0. Teste: `test_ajustar_saldo`.
 
+1.86.0 (o dono, sobre o Selecionar do OdisseIA: "veja se os outros apps estão assim"): **Caixa › Lançamentos › Selecionar** (`S.lsel`, um `Set` de ids; `selLanc(lista, visiveis)` monta a `.lsum` e a `.selbar`; `podeSel`: fora os `d:`, as despesas com `vinculo`, os ajustes e os aportes; `LSEL_TIPO`: uma seleção é de um tipo só). A seleção ocupa uma entrada no histórico (`{lsel: 1}`; o `popstate` sai dela e pula a que sobrou); o `render` acaba com ela fora do Caixa › Lançamentos; segurar o dedo (`contextmenu`) começa com o lançamento. **Alterar** (`lselAlterar`, `LT`, `lt-set`, `lt-ok`; Categoria e Situação, com Manter; sem Situação quando há compra no cartão) grava pelo `mutLote` (um fixo do mês virtual é materializado com a mudança; a situação passa pelo `baixaVinculados`); **Apagar** (`lselApagar`, `apagarLote`: o fixo fica `pulado` só no mês, a parcela sai só ela); os dois com o Desfazer do `persistir(..., true)`. Testes: `TestSelecionar` no `tests/test_tela_caixa.py`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

@@ -43,6 +43,15 @@ Com a tela larga (1000 pixels ou mais, como no ResolvIA, no CronologIA e no Inve
 
 ## Caixa
 
+### Selecionar
+
+Na lista de **Lançamentos**, toque em **Selecionar** (ou segure o dedo num lançamento) e marque vários; **Todos** marca os do mês que estão na tela. Com eles marcados:
+
+- **Alterar** muda de uma vez a **Categoria** e a **Situação** (Pago ou A pagar; Recebido ou A receber). Tudo começa em **Manter**: só muda o que você escolher.
+- **Apagar** tira todos. Um fixo sai só daquele mês e uma parcela, só ela.
+
+Depois, o **Desfazer** do aviso volta tudo como era. Uma seleção é de um tipo só (despesas ou recebimentos). As compras no cartão aparecem com a fatura aberta e mudam só a categoria (quem paga é a fatura). Os descontos na fonte, as despesas descontadas de um recebimento, os ajustes de saldo e os aportes ficam de fora. O Voltar do celular sai da seleção.
+
 ### Fixos
 
 Para apagar um fixo, abra ele (no caixa ou em Mais › Caixa › Fixos) e toque na lixeira: **só o daquele mês** (ou ano), **parar a partir dali** (o que já foi lançado continua no caixa) ou **apagar o fixo e o que ele já lançou**. Um fixo parado sai da lista de Fixos.

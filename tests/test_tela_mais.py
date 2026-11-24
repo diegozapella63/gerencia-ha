@@ -1778,7 +1778,7 @@ class TestMaisSobre(TelaMais):
             ("InventarIA", "inventario-ha", "Inventário da casa: cômodos, itens e valores."),
             ("EconomIA", "economia-ha", "Lista de compras com o melhor preço perto de casa."),
             ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa."),
-            ("OdisseIA", "odisseia", "Os filmes e as séries da casa: o que ver e onde."),
+            ("OdisseIA", "odisseia", "Os filmes, as séries e os jogos da casa: o que ver, jogar e onde."),
             ("CorrerIA", "correria-ha", "Pergunte e peça a qualquer app, no chat ou no WhatsApp.")]
 
     def versao(self):

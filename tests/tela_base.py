@@ -144,7 +144,7 @@ _ABRIR = """async (a) => {
   const u0 = JSON.parse(window.__UI0);
   for (const k of Object.keys(T.S.ui)) if (!(k in u0)) delete T.S.ui[k]; // o que um teste deixou (ex.: descAberto) não passa para o próximo
   Object.assign(T.S.ui, u0, a.ui || {});
-  Object.assign(T.S, { oculto: false, bens: a.bens === undefined ? null : a.bens, promos: a.promos === undefined ? null : a.promos, dicas: null, ia: null, uso: null, backups: null, senhas: undefined, senhasPedido: null, oport: undefined });
+  Object.assign(T.S, { lsel: null, oculto: false, bens: a.bens === undefined ? null : a.bens, promos: a.promos === undefined ? null : a.promos, dicas: null, ia: null, uso: null, backups: null, senhas: undefined, senhasPedido: null, oport: undefined });
   T.OP_TODAS = false;
   T.api._senhas = [];  // as senhas dos PDFs da prévia (na memória)
   T.S.d = T.normalizar(r);
