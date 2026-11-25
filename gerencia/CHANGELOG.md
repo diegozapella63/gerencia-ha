@@ -1,5 +1,14 @@
 # Mudanças
 
+## 1.88.0
+
+- **Pelo CorrerIA**, a IA agora também:
+  - **muda um fixo** de agora em diante (valor, descrição, dia, categoria, conta), sem mexer nos meses já lançados;
+  - **encerra um fixo** a partir de um mês, ou **apaga** o fixo com tudo o que ele lançou;
+  - **anota o uso de um benefício** (sala VIP, crédito, cupom) e o **resgate de milhas**, e **atualiza o saldo de milhas**;
+  - **cria uma categoria** e **cadastra um banco** (ou a conta de outra pessoa num banco que já existe), com o cartão de crédito.
+- Como toda mudança pelo CorrerIA, só depois do seu sim.
+
 ## 1.87.0
 
 - **Pelo CorrerIA**: a IA agora vê as **faturas do e-mail para conferir** (e as fotos e PDFs mandados pelo WhatsApp), as mesmas do aviso da Agora. Perguntas como "tem algum e-mail para revisar hoje?" passam a ter resposta: de quem é, o assunto e cada linha lida, com a conta, a categoria, o fixo e o que parece já lançado.

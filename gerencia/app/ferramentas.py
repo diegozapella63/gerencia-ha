@@ -47,6 +47,7 @@ def _obj(props, obrig=()):
 
 _DATA = {"type": "string", "description": "AAAA-MM-DD"}
 _ID = {"type": "string", "description": "O id do lançamento (de gerencia_lancamentos, gerencia_resumo ou gerencia_contas_a_pagar)."}
+_FIXO = {"type": "string", "description": "O id do fixo (r-...; em gerencia_cadastros) ou o de um mês dele (v:r-...:AAAA-MM)."}
 
 FERRAMENTAS = [
     {"nome": "resumo", "titulo": "Resumo das finanças", "grava": False,
@@ -145,6 +146,38 @@ FERRAMENTAS = [
     {"nome": "ignorar_fatura_do_email", "titulo": "Ignorar fatura do e-mail", "grava": True,
      "descricao": "Tira uma fatura do e-mail da conferência sem lançar nada (o Ignorar da tela).",
      "entrada": _obj({"id": {"type": "string", "description": "O id da fatura em gerencia_faturas_do_email."}}, ["id"])},
+    # 1.88.0 (o dono: "todas", das que faltavam): o que a tela faz e a IA não fazia
+    {"nome": "editar_fixo", "titulo": "Mudar um fixo", "grava": True,
+     "descricao": "Muda um fixo de agora em diante (o valor, a descrição, o dia, a categoria, a conta): os meses que ainda não foram "
+                  "lançados seguem o novo; os já lançados ficam como foram. Para mudar só um mês, use gerencia_editar_lancamento.",
+     "entrada": _obj({"id": _FIXO, "descricao": {"type": "string"}, "valor": {"type": "number", "exclusiveMinimum": 0},
+                      "dia": {"type": "integer", "minimum": 1, "maximum": 31}, "categoria": {"type": "string"},
+                      "conta": {"type": "string", "description": "Id ou nome; vazio tira a conta."}, "cartao": {"type": "boolean"}}, ["id"])},
+    {"nome": "encerrar_fixo", "titulo": "Encerrar ou apagar um fixo", "grava": True, "apaga": True,
+     "descricao": "Para um fixo a partir de um mês: o que foi lançado antes continua, e os meses dali em diante que não foram pagos "
+                  "saem. Com apagar_tudo, apaga o fixo e tudo o que ele já lançou (como o Apagar fixo da tela).",
+     "entrada": _obj({"id": _FIXO, "a_partir": {"type": "string", "description": "AAAA-MM; sem ele, o mês de hoje."},
+                      "apagar_tudo": {"type": "boolean"}}, ["id"])},
+    {"nome": "usar_beneficio", "titulo": "Usar um benefício ou resgatar milhas", "grava": True,
+     "descricao": "Anota o uso de um benefício de Mais › Benefícios (sala VIP, crédito, cupom...: os de gerencia_resumo): numa "
+                  "contagem desconta 1 (ou a quantidade), num saldo desconta o valor; num programa de milhas, as milhas resgatadas.",
+     "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do benefício (ou do programa de milhas)."},
+                      "quantidade": {"type": "number", "exclusiveMinimum": 0, "description": "Contagem: padrão 1. Saldo: o valor usado. Milhas: as resgatadas."},
+                      "data": _DATA}, ["beneficio"])},
+    {"nome": "atualizar_milhas", "titulo": "Atualizar o saldo de milhas", "grava": True,
+     "descricao": "Põe o saldo de hoje de um programa de milhas (o que a pessoa vê no app do programa).",
+     "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do programa de milhas."},
+                      "saldo": {"type": "integer", "minimum": 0}}, ["beneficio", "saldo"])},
+    {"nome": "nova_categoria", "titulo": "Nova categoria", "grava": True,
+     "descricao": "Cria uma categoria de gasto (despesa) ou de recebimento (receita), com uma cor da paleta.",
+     "entrada": _obj({"nome": {"type": "string"}, "tipo": {"type": "string", "enum": ["despesa", "receita"]}}, ["nome", "tipo"])},
+    {"nome": "novo_banco", "titulo": "Cadastrar banco ou conta", "grava": True,
+     "descricao": "Cadastra um banco com a conta de uma pessoa, ou acrescenta a conta de outra pessoa num banco que já existe; com o "
+                  "cartão de crédito (o dia em que a fatura fecha e o dia em que vence), se houver.",
+     "entrada": _obj({"banco": {"type": "string", "description": "O nome do banco."}, "pessoa": {"type": "string", "description": "De quem é a conta."},
+                      "cartao_de_credito": {"type": "boolean"}, "fecha_dia": {"type": "integer", "minimum": 1, "maximum": 31},
+                      "vence_dia": {"type": "integer", "minimum": 1, "maximum": 31}, "limite": {"type": "number", "exclusiveMinimum": 0},
+                      "cartao_de_debito": {"type": "boolean", "description": "Padrão: true."}}, ["banco"])},
     {"nome": "novo_fixo", "titulo": "Novo fixo", "grava": True,
      "descricao": "Cadastra um gasto ou recebimento que se repete todo mês (ou todo ano), como aluguel, salário ou IPVA. Aparece "
                   "nas contas a pagar a cada mês.",
@@ -715,6 +748,191 @@ def _novo_fixo(d, a, hoje):
             + (f" · {_nome_cat(d, cat)}" if cat else "") + f". O deste mês: id v:{r['id']}:{data.isoformat()[:7]}.")
 
 
+# ---------------------------------------------------------------- fixos, benefícios, categorias e bancos (1.88.0)
+
+def _fixo(d, v):
+    v = str(v or "").strip()
+    rid = v.split(":")[1] if v.startswith("v:") and v.count(":") == 2 else v
+    r = next((x for x in d.get("recorrencias", []) if x.get("id") == rid), None)
+    if not r:
+        n = _norm(v)
+        achados = [x for x in d.get("recorrencias", []) if n and _norm(x.get("descricao")) == n]
+        r = achados[0] if len(achados) == 1 else None
+    if not r:
+        fixos = ", ".join(f"{x.get('descricao')} ({x.get('id')})" for x in d.get("recorrencias", [])) or "nenhum"
+        raise ErroFerramenta(f"Fixo não encontrado: {v}. Os fixos: {fixos}.")
+    return r
+
+
+def _ym_de(v, hoje):
+    s = str(v or "").strip()
+    if not s:
+        return hoje.isoformat()[:7]
+    if not re.fullmatch(r"\d{4}-\d{2}", s[:7]) or not 1 <= int(s[5:7]) <= 12:
+        raise ErroFerramenta(f"a_partir inválido: {v}. Use AAAA-MM.")
+    return s[:7]
+
+
+def _editar_fixo(d, a, hoje):
+    r = _fixo(d, a.get("id"))
+    mud = []
+    if a.get("descricao") not in (None, ""):
+        r["descricao"] = _texto(a["descricao"], 60)
+        mud.append("descrição")
+    if a.get("valor") is not None:
+        r["valor"] = _valor(a["valor"])
+        mud.append("valor")
+    if a.get("dia") is not None:
+        dia = int(calc.num(a["dia"], 0))
+        if not 1 <= dia <= 31:
+            raise ErroFerramenta("dia: de 1 a 31.")
+        r["dia"] = dia
+        mud.append("dia")
+    if a.get("categoria") is not None:
+        r["categoria"] = _categoria(d, a["categoria"], r.get("tipo", "despesa"))
+        mud.append("categoria")
+    if a.get("conta") is not None:
+        r["conta"] = _conta(d, a["conta"])
+        if not r["conta"]:
+            r["cartao"] = False
+        mud.append("conta")
+    if isinstance(a.get("cartao"), bool):
+        if a["cartao"] and not (calc.mapa_contas(d).get(r.get("conta")) or {}).get("cartao"):
+            raise ErroFerramenta("A conta desse fixo não tem cartão de crédito.")
+        r["cartao"] = a["cartao"] and r.get("tipo") == "despesa"
+        mud.append("cartão")
+    if not mud:
+        raise ErroFerramenta("Diga o que muda: descricao, valor, dia, categoria, conta ou cartao.")
+    quando = "todo ano" if r.get("freq") == "anual" else f"todo dia {r.get('dia')}"
+    return (f"Fixo mudado ({', '.join(mud)}): {r.get('descricao')} · {_brl(calc.num(r.get('valor')))} · {quando}"
+            + (f" · {_nome_cat(d, r.get('categoria'))}" if r.get("categoria") else "") + ". Os meses já lançados ficam como foram.")
+
+
+def _encerrar_fixo(d, a, hoje):
+    r = _fixo(d, a.get("id"))
+    rid = r["id"]
+    if a.get("apagar_tudo") is True:
+        n = len([x for x in d["lancamentos"] if x.get("recorrencia") == rid and not x.get("pulado")])
+        d["recorrencias"] = [x for x in d["recorrencias"] if x.get("id") != rid]
+        d["lancamentos"] = [x for x in d["lancamentos"] if x.get("recorrencia") != rid]
+        for x in d["recorrencias"] + d["lancamentos"]:  # as despesas descontadas deste recebimento ficam por conta própria
+            if x.get("vinculo") == rid:
+                x.pop("vinculo", None)
+        return f"Fixo apagado: {r.get('descricao')}" + (f", com os {n} meses que ele já tinha lançado." if n else ".")
+    ym = _ym_de(a.get("a_partir"), hoje)
+    if ym <= (r.get("inicio") or ""):
+        d["recorrencias"] = [x for x in d["recorrencias"] if x.get("id") != rid]
+    else:
+        y, m = int(ym[:4]), int(ym[5:7]) - 1
+        r["fim"] = f"{y - (m == 0):04d}-{(m - 1) % 12 + 1 if m else 12:02d}"
+    d["lancamentos"] = [x for x in d["lancamentos"] if not (x.get("recorrencia") == rid and (x.get("competencia") or "") >= ym and not x.get("pago"))]
+    return f"Fixo encerrado: {r.get('descricao')} não aparece mais a partir de {ym[5:]}/{ym[:4]}. O que já foi lançado antes continua."
+
+
+def _beneficio(d, v):
+    v = str(v or "").strip()
+    bs = [b for b in d.get("beneficios", []) if isinstance(b, dict)]
+    b = next((x for x in bs if x.get("id") == v), None)
+    if not b:
+        n = _norm(v)
+        achados = [x for x in bs if n and (_norm(x.get("nome")) == n or _norm(f"{x.get('nome')} {x.get('pessoa') or ''}") == n)] or \
+                  [x for x in bs if n and n in _norm(f"{x.get('nome')} {x.get('pessoa') or ''}")]
+        b = achados[0] if len(achados) == 1 else None
+    if not b:
+        nomes = ", ".join(f"{x.get('nome')}{' · ' + x['pessoa'] if x.get('pessoa') else ''} ({x.get('id')})" for x in bs) or "nenhum cadastrado"
+        raise ErroFerramenta(f"Benefício não encontrado: {v}. Os de Mais › Benefícios: {nomes}.")
+    return b
+
+
+def _usar_beneficio(d, a, hoje):
+    b = _beneficio(d, a.get("beneficio"))
+    data = _data(a.get("data"), hoje)
+    if b.get("tipo") == "vantagem":
+        raise ErroFerramenta(f"{b.get('nome')} é uma vantagem: não tem o que descontar.")
+    milhas = b.get("tipo") == "milhas"
+    if b.get("tipo") == "contagem" and a.get("quantidade") is None:
+        qtd = 1.0
+    elif a.get("quantidade") is None:
+        raise ErroFerramenta("Diga a quantidade: " + ("as milhas resgatadas." if milhas else "o valor usado."))
+    else:
+        qtd = _valor(a.get("quantidade"), "quantidade")
+    if milhas:
+        qtd = float(round(qtd))
+    b["usos"] = (b.get("usos") or []) + [{"id": "u-" + integracao.uid(), "data": data.isoformat(), "qtd": qtd}]
+    b["usos"] = b["usos"][-200:]
+    if milhas:
+        m = calc.milhas_de(b, hoje)
+        return f"Resgate anotado em {b.get('nome')}{' · ' + b['pessoa'] if b.get('pessoa') else ''}: {calc.fmt_num(qtd, 0)} milhas. Ficam {calc.fmt_num(m['saldo'], 0)}."
+    cb = calc.ciclo_beneficio(b, hoje)
+    resto = _brl(cb["restante"] or 0) if b.get("tipo") == "saldo" else calc.fmt_num(cb["restante"] or 0, 0)
+    return f"Uso anotado em {b.get('nome')} ({_dm(data.isoformat())}). Restam {resto} neste período."
+
+
+def _atualizar_milhas(d, a, hoje):
+    b = _beneficio(d, a.get("beneficio"))
+    if b.get("tipo") != "milhas":
+        raise ErroFerramenta(f"{b.get('nome')} não é um programa de milhas.")
+    saldo = calc.num(a.get("saldo"), -1)
+    if saldo < 0:
+        raise ErroFerramenta("saldo: as milhas de hoje, 0 ou mais.")
+    antes = calc.milhas_de(b, hoje)["saldo"]
+    # o saldo dito já tem os resgates de hoje: eles não descontam de novo (o milhas_de tira os de saldo_em em diante)
+    hoje_ja = sum(calc.num(u.get("qtd")) for u in b.get("usos") or [] if isinstance(u, dict) and (calc.parse_data(u.get("data")) or date.min) >= hoje)
+    b.update(saldo=int(round(saldo + hoje_ja)), saldo_em=hoje.isoformat())
+    return f"Saldo de {b.get('nome')}{' · ' + b['pessoa'] if b.get('pessoa') else ''}: {calc.fmt_num(saldo, 0)} milhas (antes, {calc.fmt_num(antes, 0)})."
+
+
+CORES_CATEGORIA = ["#FF5A4E", "#FF8A65", "#FFA23A", "#F2C14E", "#8BD45F", "#4CD3A5", "#3CCBDA", "#62B5FF", "#8F9BFF", "#B79BFF", "#FF77A8"]
+
+
+def _nova_categoria(d, a, hoje):
+    tipo = a.get("tipo")
+    if tipo not in ("despesa", "receita"):
+        raise ErroFerramenta("tipo: despesa (gasto) ou receita (recebimento).")
+    nome = _texto(a.get("nome"), 40)
+    if not nome:
+        raise ErroFerramenta("Falta o nome da categoria.")
+    cats = d.setdefault("categorias", [])
+    igual = next((c for c in cats if _norm(c.get("nome")) == _norm(nome) and c.get("tipo", "despesa") == tipo), None)
+    if igual:
+        raise ErroFerramenta(f"Já existe a categoria {igual.get('nome')} ({igual.get('id')}).")
+    usadas = [str(c.get("cor") or "").upper() for c in cats]
+    cor = min(CORES_CATEGORIA, key=lambda x: (usadas.count(x.upper()), CORES_CATEGORIA.index(x)))
+    c = {"id": "c-" + integracao.uid(), "nome": nome, "tipo": tipo, "cor": cor}
+    cats.append(c)
+    return f"Categoria criada: {nome} ({'gasto' if tipo == 'despesa' else 'recebimento'}). id: {c['id']}"
+
+
+def _novo_banco(d, a, hoje):
+    nome = _texto(a.get("banco"), 40)
+    if not nome:
+        raise ErroFerramenta("Falta o nome do banco.")
+    pessoa = _texto(a.get("pessoa"), 40)
+    cartao = a.get("cartao_de_credito") is True
+    dia = lambda v, p: min(31, max(1, int(calc.num(v, p) or p)))  # noqa: E731
+    if cartao and (a.get("fecha_dia") is None or a.get("vence_dia") is None):
+        raise ErroFerramenta("Com cartão de crédito, diga fecha_dia e vence_dia (os dias da fatura).")
+    conta = {"id": "k-" + integracao.uid(), "pessoa": pessoa, "cartao": cartao, "fechamento": dia(a.get("fecha_dia"), 1), "vencimento": dia(a.get("vence_dia"), 10)}
+    if a.get("cartao_de_debito") is False:
+        conta["debito"] = False
+    if cartao and a.get("limite") is not None:
+        conta["limite"] = _valor(a.get("limite"), "limite")
+    bancos = d.setdefault("bancos", [])
+    b = next((x for x in bancos if _norm(x.get("nome")) == _norm(nome)), None)
+    if b:
+        if any(_norm(c.get("pessoa")) == _norm(pessoa) for c in b.get("contas") or []):
+            raise ErroFerramenta(f"{b.get('nome')} já tem a conta {'de ' + pessoa if pessoa else 'sem pessoa'}. Para mudar o cartão, use a tela (Mais › Bancos).")
+        b.setdefault("contas", []).append(conta)
+        txt = f"Conta acrescentada em {b.get('nome')}"
+    else:
+        usadas = [str(x.get("cor") or "").upper() for x in bancos]
+        cor = min(CORES_BANCO, key=lambda x: (usadas.count(x.upper()), CORES_BANCO.index(x)))
+        bancos.append({"id": "b-" + integracao.uid(), "nome": nome, "cor": cor, "obs": "", "contas": [conta]})
+        txt = f"Banco cadastrado: {nome}"
+    return (txt + (f", de {pessoa}" if pessoa else "") + (f", com cartão de crédito (fecha dia {conta['fechamento']}, vence dia {conta['vencimento']})" if cartao else "")
+            + f". id da conta: {conta['id']}")
+
+
 # ---------------------------------------------------------------- chamar
 
 # ---------------------------------------------------------------- as faturas do e-mail (1.87.0)
@@ -942,5 +1160,6 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
-           "ajustar_saldo": _ajustar_saldo}[nome]
+           "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
+           "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco}[nome]
     return faz(d, a, hoje), True

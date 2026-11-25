@@ -43,7 +43,8 @@ class TestLista(unittest.TestCase):
         nomes = [f["nome"] for f in fs]
         self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "lancar",
                                  "editar_lancamento", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
-                                 "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "novo_fixo"])
+                                 "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
+                                 "usar_beneficio", "atualizar_milhas", "nova_categoria", "novo_banco", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -51,7 +52,7 @@ class TestLista(unittest.TestCase):
             self.assertTrue(set(f["entrada"]["required"]) <= set(f["entrada"]["properties"]), f["nome"])
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
-        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento"])
+        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo"])
         self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:6])
         json.dumps(fs)  # vai como JSON
 
@@ -431,3 +432,93 @@ class TestBordas(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNovas188(unittest.TestCase):
+    """1.88.0 (o dono: "todas"): mudar e encerrar um fixo, usar um benefício, resgatar e atualizar milhas, criar categoria e
+    cadastrar banco ou conta, com as regras da tela."""
+
+    def setUp(self):
+        self.d = dados()
+        self.d["beneficios"] = [
+            {"id": "bn-vip", "nome": "Sala VIP", "tipo": "contagem", "total": 4, "renova": "ano", "desde": "2026-01-01", "usos": []},
+            {"id": "bn-cred", "nome": "Crédito de viagem", "tipo": "saldo", "total": 300, "renova": "ano", "desde": "2026-01-01", "usos": []},
+            {"id": "bn-van", "nome": "Seguro de viagem", "tipo": "vantagem", "renova": "nunca", "desde": "2026-01-01"},
+            {"id": "bn-mil", "nome": "Voa Mais", "tipo": "milhas", "pessoa": "Ana", "saldo": 10000, "saldo_em": "2026-11-01", "usos": []},
+        ]
+
+    def gravar(self, _nome, **a):
+        t, mudou = chamar(_nome, a, self.d)
+        self.assertTrue(mudou)
+        return t
+
+    def test_editar_fixo_de_agora_em_diante(self):
+        self.d["lancamentos"].append({"id": "m-out", "tipo": "despesa", "descricao": "Internet", "valor": 120, "data": "2026-10-25", "pago": True,
+                                      "recorrencia": "r-net", "competencia": "2026-10"})
+        t = self.gravar("editar_fixo", id="v:r-net:2026-11", valor=149.9, dia=28, categoria="Casa")
+        r = next(x for x in self.d["recorrencias"] if x.get("id") == "r-net")
+        self.assertEqual((r["valor"], r["dia"], r["categoria"]), (149.9, 28, "c-casa"))
+        self.assertIn("Os meses já lançados ficam como foram", t)
+        self.assertEqual(next(x for x in self.d["lancamentos"] if x["id"] == "m-out")["valor"], 120)
+        self.gravar("editar_fixo", id="Salário fixo", conta="Banco Azul")
+        self.assertEqual(next(x for x in self.d["recorrencias"] if x.get("id") == "r-sal")["conta"], "cc", "pelo nome também")
+        for args, erro in (({"id": "r-net"}, "Diga o que muda"), ({"id": "r-nada", "valor": 1}, "Fixo não encontrado"),
+                           ({"id": "r-net", "dia": 40}, "dia: de 1 a 31"), ({"id": "r-net", "cartao": True}, "não tem cartão")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("editar_fixo", args, self.d)
+
+    def test_encerrar_a_partir_de_um_mes_e_apagar_tudo(self):
+        self.d["lancamentos"] += [
+            {"id": "n-nov", "tipo": "despesa", "descricao": "Internet", "valor": 120, "data": "2026-11-25", "pago": True, "recorrencia": "r-net", "competencia": "2026-11"},
+            {"id": "n-dez", "tipo": "despesa", "descricao": "Internet", "valor": 120, "data": "2026-12-25", "pago": False, "recorrencia": "r-net", "competencia": "2026-12"}]
+        t = self.gravar("encerrar_fixo", id="r-net", a_partir="2026-12")
+        self.assertIn("a partir de 12/2026", t)
+        r = next(x for x in self.d["recorrencias"] if x.get("id") == "r-net")
+        self.assertEqual(r["fim"], "2026-11")
+        self.assertEqual({x["id"] for x in self.d["lancamentos"] if x.get("recorrencia") == "r-net"}, {"n-nov"}, "o de dezembro, não pago, sai")
+        self.gravar("encerrar_fixo", id="r-sal")
+        self.assertEqual(next(x for x in self.d["recorrencias"] if x.get("id") == "r-sal")["fim"], "2026-10", "sem a_partir: o mês de hoje")
+        self.d["lancamentos"].append({"id": "d-plano", "tipo": "despesa", "descricao": "Plano", "valor": 1, "data": "2026-11-05", "vinculo": "r-net"})
+        t = self.gravar("encerrar_fixo", id="r-net", apagar_tudo=True)
+        self.assertIn("com os 1 meses", t)
+        self.assertFalse(any(x.get("id") == "r-net" for x in self.d["recorrencias"]))
+        self.assertNotIn("vinculo", next(x for x in self.d["lancamentos"] if x["id"] == "d-plano"))
+        self.d["recorrencias"].append({"id": "r-novo", "tipo": "despesa", "descricao": "Academia", "valor": 90, "dia": 3, "inicio": "2026-12"})
+        self.gravar("encerrar_fixo", id="r-novo", a_partir="2026-12")
+        self.assertFalse(any(x.get("id") == "r-novo" for x in self.d["recorrencias"]), "parado antes de começar: sai")
+        with self.assertRaisesRegex(F.ErroFerramenta, "a_partir inválido"):
+            chamar("encerrar_fixo", {"id": "r-sal", "a_partir": "2026-13"}, self.d)
+
+    def test_usar_beneficio_e_milhas(self):
+        self.assertIn("Restam 3", self.gravar("usar_beneficio", beneficio="sala vip"))
+        self.assertIn("Restam R$ 180,00", self.gravar("usar_beneficio", beneficio="bn-cred", quantidade=120, data="2026-11-10"))
+        self.assertIn("Ficam 7.500", self.gravar("usar_beneficio", beneficio="Voa Mais", quantidade=2500))
+        self.assertEqual([u["data"] for u in self.d["beneficios"][0]["usos"]], ["2026-11-15"], "sem data: hoje")
+        self.assertIn("(antes, 7.500)", self.gravar("atualizar_milhas", beneficio="voa mais ana", saldo=12000))
+        b = self.d["beneficios"][3]
+        self.assertEqual((b["saldo_em"], calc.milhas_de(b, HOJE)["saldo"]), ("2026-11-15", 12000), "o resgate de hoje não desconta de novo do saldo dito")
+        for nome, args, erro in (("usar_beneficio", {"beneficio": "Seguro de viagem"}, "vantagem"), ("usar_beneficio", {"beneficio": "bn-cred"}, "o valor usado"),
+                                 ("usar_beneficio", {"beneficio": "Nada"}, "Benefício não encontrado"), ("atualizar_milhas", {"beneficio": "bn-vip", "saldo": 1}, "não é um programa"),
+                                 ("atualizar_milhas", {"beneficio": "bn-mil", "saldo": -1}, "0 ou mais")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar(nome, args, self.d)
+
+    def test_nova_categoria_e_novo_banco(self):
+        t = self.gravar("nova_categoria", nome="Viagens", tipo="despesa")
+        c = self.d["categorias"][-1]
+        self.assertEqual((c["nome"], c["tipo"], c["id"] in t, c["cor"] in F.CORES_CATEGORIA), ("Viagens", "despesa", True, True))
+        self.assertEqual(F._categoria(self.d, "viagens", "despesa"), c["id"], "e já serve para lançar")
+        with self.assertRaisesRegex(F.ErroFerramenta, "Já existe"):
+            chamar("nova_categoria", {"nome": "viagens", "tipo": "despesa"}, self.d)
+        self.gravar("novo_banco", banco="Banco Verde", pessoa="Beto", cartao_de_credito=True, fecha_dia=3, vence_dia=10, limite=5000, cartao_de_debito=False)
+        b = self.d["bancos"][-1]
+        self.assertEqual((b["nome"], b["contas"][0]["pessoa"], b["contas"][0]["fechamento"], b["contas"][0]["limite"], b["contas"][0]["debito"]),
+                         ("Banco Verde", "Beto", 3, 5000, False))
+        t = self.gravar("novo_banco", banco="banco azul", pessoa="Beto")
+        self.assertIn("Conta acrescentada em Banco Azul", t)
+        self.assertEqual([c["pessoa"] for c in self.d["bancos"][0]["contas"]], ["Ana", "Beto"])
+        self.assertEqual(F._conta(self.d, "Banco Azul · Beto"), self.d["bancos"][0]["contas"][1]["id"], "e já serve para lançar")
+        for args, erro in (({"banco": "Banco Azul", "pessoa": "Ana"}, "já tem a conta"), ({"banco": "Banco Lua", "cartao_de_credito": True}, "fecha_dia e vence_dia"),
+                           ({"banco": " "}, "Falta o nome")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("novo_banco", args, self.d)
