@@ -377,6 +377,26 @@ class TestMaisBancos(TelaMais):
         self.clicar('.folha .dobra-c[data-dobra="banco-obs"] > .lbl')
         self.assertEqual(self.conta('.folha #b-obs:visible'), 1, "abre de novo num toque")
 
+    def test_1_89_campos_de_escolha_fecham_com_o_escolhido(self):
+        """1.89.0: nas janelas, todo campo de escolher (os chips, as opções lado a lado, as datas) fecha pelo título, como nos
+        outros apps; fechado, o escolhido ao lado (Situação · Pago). O aparelho lembra."""
+        self.abrir_bancos()
+        self.addCleanup(lambda: self.js("(localStorage.removeItem('gerencia.campos'), T.CAMPOS_F = null, true)"))
+        self.clicar('#nav [data-a="novo"]')
+        self.clicar('#folhas [data-a="lanc-novo"][data-v="despesa"]')
+        sit = '.folha .dobra-c[data-dobra="c:Situação"]'
+        self.assertEqual(self.conta(sit + ' > .lbl[role="button"][aria-expanded="true"]'), 1, "Situação fecha pelo título")
+        self.assertEqual(self.conta(sit + ' .fl-auto:visible'), 0, "aberto, sem o escolhido no título")
+        self.clicar(sit + ' > .lbl')
+        self.assertTrue(self.js(f"document.querySelector('{sit}').classList.contains('shut')"))
+        self.assertEqual(self.conta(sit + ' .seg:visible'), 0, "fechado, as opções somem")
+        self.assertRegex(self.texto(sit + ' .fl-auto'), r"^· (Pago|A pagar)$", "fechado, o escolhido ao lado do título")
+        data = '.folha .dobra-c[data-dobra="c:Data da compra"], .folha .dobra-c[data-dobra="c:Data"]'
+        self.assertEqual(self.conta(data), 1, "a data também fecha")
+        self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.campos'))")), ["c:Situação"], "o aparelho lembra")
+        self.clicar(sit + ' > .lbl')
+        self.assertEqual(self.conta(sit + ' .seg:visible'), 1, "abre de novo num toque")
+
     def test_cadastrar_banco_com_pessoa_e_cartao(self):
         self.abrir_bancos()
         self.clicar('.btn[data-a="banco"]')
@@ -1778,7 +1798,7 @@ class TestMaisSobre(TelaMais):
             ("InventarIA", "inventario-ha", "Inventário da casa: cômodos, itens e valores."),
             ("EconomIA", "economia-ha", "Lista de compras com o melhor preço perto de casa."),
             ("MemorIA", "memoria-ha", "Cadernos de anotação que abrem na hora certa."),
-            ("OdisseIA", "odisseia", "Os filmes, as séries e os jogos da casa: o que ver, jogar e onde."),
+            ("OdisseIA", "odisseia", "Filmes, séries e jogos: o que ver, jogar e onde."),
             ("CorrerIA", "correria-ha", "Pergunte e peça a qualquer app, no chat ou no WhatsApp.")]
 
     def versao(self):

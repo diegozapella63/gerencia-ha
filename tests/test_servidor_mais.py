@@ -1,6 +1,7 @@
 """server.py, o resto: índices do Banco Central, sensores no Home Assistant, dicas de economia (assinaturas,
 página oficial, dólar), status da IA, imagens dos investimentos, backups, versões e a rotina (contra serviços de mentira)."""
 import json
+import threading
 import os
 import time
 import unittest
@@ -74,6 +75,11 @@ class TestBancoCentral(unittest.TestCase):
 # ---------------------------------------------------------------------------------------------------------------
 class TestSensores(unittest.TestCase):
     def setUp(self):
+        # 1.89.0: a publicação em segundo plano de um teste de antes (publicar_sensores_async) podia chegar a este Home
+        # Assistant falso e trocar o estado que o teste confere (no GitHub, a próxima conta virou "unknown"): espera
+        for t in threading.enumerate():
+            if getattr(t, "_target", None) is S.publicar_sensores:
+                t.join(10)
         self.ha = ServidorFalso({})
         self.ha.rotas = _Tudo200()
         self.addCleanup(self.ha.fechar)

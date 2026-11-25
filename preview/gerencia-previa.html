@@ -2296,7 +2296,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.88.0';
+const VERSAO = '1.89.0';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -7322,7 +7322,7 @@ const PRODUTOS = [
   ['InventarIA', 'inventario-ha', 'package', 'Inventário da casa: cômodos, itens e valores.'],
   ['EconomIA', 'economia-ha', 'receipt', 'Lista de compras com o melhor preço perto de casa.'],
   ['MemorIA', 'memoria-ha', 'book-open', 'Cadernos de anotação que abrem na hora certa.'],
-  ['OdisseIA', 'odisseia', 'clapperboard', 'Os filmes, as séries e os jogos da casa: o que ver, jogar e onde.'],
+  ['OdisseIA', 'odisseia', 'clapperboard', 'Filmes, séries e jogos: o que ver, jogar e onde.'],
   ['CorrerIA', 'correria-ha', 'chat', 'Pergunte e peça a qualquer app, no chat ou no WhatsApp.'],
 ];
 // "GerencIA" com o "IA" na cor de destaque, numa peça só (o nome não quebra)
@@ -9274,8 +9274,42 @@ function camposFechados() {
   if (!CAMPOS_F) { try { CAMPOS_F = new Set(JSON.parse(localStorage.getItem(CAMPOS_KEY) || '[]')); } catch (e) { CAMPOS_F = new Set(); } }
   return CAMPOS_F;
 }
+/* 1.89.0 (o dono: "esse adicionar com essas opçõezinhas de retrair tem que mostrar o que foi selecionado do ladinho"):
+   nas janelas, todo campo de escolher (os chips, as opções lado a lado, os quadrinhos, as datas) fecha pelo título,
+   como nos outros apps; fechado, o escolhido vai ao lado (.fl-val.fl-auto, lido dos botões marcados), menos quando o
+   campo já diz o seu (a .fl-val dele) */
+const ESCOLHAS_C = ':scope > .chips, :scope > .seg, :scope > .imp-tiles, :scope > .escolhas, :scope > .cores';
+const SUB_C = 'small, .sub, .badge, .ajuda';
+const textoBotao = b => [...b.childNodes].filter(n => n.nodeType === 3 || (n.nodeType === 1 && !n.matches(SUB_C) && n.tagName !== 'svg'))
+  .map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+function valorCampo(c) {
+  const meu = el => el.closest('.campo') === c && !el.closest('.lbl');
+  const v = [...c.querySelectorAll('.on, [aria-pressed="true"], [aria-checked="true"]')]
+    .filter(b => meu(b) && b.matches('button, .chip, .op, [role="radio"]'))
+    .map(b => textoBotao(b) || b.getAttribute('title') || b.getAttribute('aria-label') || '').filter(Boolean);
+  return [...new Set(v)].join(', ');
+}
+function camposDeEscolha(raiz) {
+  for (const c of raiz.querySelectorAll('.folha .campo:not(.dobra-c)')) {
+    const t = c.querySelector(':scope > .lbl');
+    if (!t || !c.querySelector(ESCOLHAS_C) || c.parentElement.closest('.campo')) continue;
+    const nome = [...t.childNodes].filter(n => n.nodeType === 3 || (n.nodeType === 1 && !n.matches('.fl-val') && n.tagName !== 'svg')).map(n => n.textContent).join('').trim();
+    if (!nome) continue;
+    c.classList.add('dobra-c');
+    c.dataset.dobra = 'c:' + nome;
+  }
+  for (const c of raiz.querySelectorAll('.dobra-c')) {
+    const t = c.querySelector(':scope > .lbl');
+    if (!t || t.querySelector(':scope > .fl-val:not(.fl-auto)')) continue;
+    const v = valorCampo(c), span = t.querySelector(':scope > .fl-auto');
+    if (!v) { if (span) span.remove(); continue; }
+    if (span) span.textContent = '· ' + v;
+    else t.insertAdjacentHTML('beforeend', `<span class="fl-val fl-auto">· ${esc(v)}</span>`);
+  }
+}
 function aplicarCampos(raiz = document) {
   const f = camposFechados();
+  camposDeEscolha(raiz);
   for (const c of raiz.querySelectorAll('.dobra-c')) {
     const t = c.querySelector(':scope > .lbl, :scope > .ben-grupo-cab'), k = c.dataset.dobra;
     if (!t || !k) continue;

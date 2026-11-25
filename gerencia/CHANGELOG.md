@@ -1,5 +1,12 @@
 # Mudanças
 
+## 1.89.0
+
+- Nas janelas (como a **Nova despesa**), todo campo de escolher fecha num toque no título, como nos outros apps:
+  **Categoria**, **Data**, **Situação**, **Como pagou**, **Repetir**… Fechado, o escolhido aparece ao lado do título
+  (**Situação · Pago**, **Repetir · Todo mês**), e o aparelho lembra o que ficou fechado.
+- Em **Mais › Sobre**, a linha do OdisseIA ficou mais curta.
+
 ## 1.88.0
 
 - **Pelo CorrerIA**, a IA agora também:

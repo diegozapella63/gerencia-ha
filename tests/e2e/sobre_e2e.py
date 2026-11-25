@@ -47,7 +47,7 @@ with sync_playwright() as p:
         igual((aqui.count(), aqui.get_attribute('href'), junta(aqui.locator('.sb-aqui').inner_text())), (1, f'{GH}/gerencia-ha', f'Este app · v{VERSAO}'),
               f'{nome}: este app marcado, com a v{VERSAO}')
         alvos = pg.locator('.sb-pagina a').evaluate_all("xs => xs.map(x => x.target + ' ' + x.rel)")
-        igual(alvos, ['_blank noopener'] * 8, f'{nome}: os 8 links abrem fora')
+        igual(alvos, ['_blank noopener'] * 9, f'{nome}: os 9 links abrem fora (os 8 apps e o Meu GitHub)')
         gh = pg.locator('a.sb-github')
         igual((gh.get_attribute('href'), gh.inner_text().strip()), (GH, 'Meu GitHub'), f'{nome}: Meu GitHub')
         passa = pg.evaluate("document.documentElement.scrollWidth - window.innerWidth")
