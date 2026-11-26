@@ -231,6 +231,10 @@ class TestConversar(TelaChat):
         with self.pg.expect_file_chooser() as fc:
             self.clicar('[data-a="ch-galeria"]')
         self.assertTrue(fc.value.is_multiple(), "a galeria deixa escolher várias")
+        # 1.91.1: no app do Home Assistant no Android (que perde o que se escolhe com multiple), uma de cada vez
+        self.assertEqual(self.js("""(() => { const T = window.GERENCIA_TESTE, antes = T.haAndroid();
+          Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Linux; Android 14) Home Assistant/2026.10.1', configurable: true });
+          const no = T.haAndroid(); delete navigator.userAgent; return [antes, no]; })()"""), [False, True])
         self.assertEqual(self.conta(".ch-menu"), 0, "escolher fecha o menu")
         fc.value.set_files(files=[dict(jpg, name="nota.jpg"), dict(jpg, name="nota2.jpg")])
         self.pg.wait_for_function("document.querySelectorAll('.ch-prev').length === 2")

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.91.1
+
+- No app do Home Assistant no Android, o **Escolher fotos** da Conversa pega uma foto de cada vez: escolhendo várias, o app do Android não entregava nenhuma.
+
 ## 1.91.0
 
 - As cores das **categorias** e dos **bancos** são as 12 da Aparência, as mesmas de todos os apps da família (Vermelho, Coral, Laranja, Ouro, Verde, Menta, Turquesa, Azul, Índigo, Lilás, Rosa e Grafite). Uma categoria ou um banco com uma cor de antes continua com ela, e a escolha aparece marcada na cor mais próxima. As categorias de início ficaram com cores das 12 (Pets, em verde; Lazer, em turquesa).

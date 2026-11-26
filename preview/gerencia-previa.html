@@ -2296,7 +2296,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.91.0';
+const VERSAO = '1.91.1';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -5370,10 +5370,13 @@ async function anexarChat(files) {
   }
   if (CH) { CH.erro = ''; pintarFolha(1e9); }
 }
+// 1.91.1 (o dono, no ResolvIA: "Escolher fotos abre, escolho a foto, mas nada acontece"): o app do Home Assistant no Android
+// perde o que se escolhe com multiple; lá, uma foto de cada vez
+const haAndroid = () => /Home Assistant\//.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
 function escolherVarios(accept) {
   return new Promise(res => {
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = accept; inp.multiple = true; inp.style.display = 'none';
+    inp.type = 'file'; inp.accept = accept; inp.multiple = !haAndroid(); inp.style.display = 'none';
     inp.onchange = () => { res([...(inp.files || [])]); inp.remove(); };
     document.body.appendChild(inp); inp.click();
   });
