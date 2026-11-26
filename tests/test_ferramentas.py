@@ -53,7 +53,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:6])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:8])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
