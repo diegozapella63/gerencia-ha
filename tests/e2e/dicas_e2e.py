@@ -21,21 +21,21 @@ with sync_playwright() as p:
         if not st['conferindo'] and st['assinaturas'] and all(a['status']!='pendente' for a in st['assinaturas']): break
         time.sleep(0.5)
     ass = {a['descricao']: a for a in st['assinaturas']}
-    igual(sorted(ass), ['Nabu Casa', 'Spotify'], 'acha as assinaturas do exemplo nos fixos')
-    igual({k: (a['valor'], a['status']) for k, a in ass.items()}, {'Spotify': (23.9, 'ok'), 'Nabu Casa': (34.9, 'ok')}, 'as duas conferidas na página oficial')
+    igual(sorted(ass), ['Home Assistant Cloud', 'Spotify'], 'acha as assinaturas do exemplo nos fixos')
+    igual({k: (a['valor'], a['status']) for k, a in ass.items()}, {'Spotify': (23.9, 'ok'), 'Home Assistant Cloud': (34.9, 'ok')}, 'as duas conferidas na página oficial')
     dicas = {d['id']: d for d in st['dicas']}
     igual(sorted(dicas), ['anual:r:r-musica', 'anual:r:r-nabu'], 'uma dica por assinatura')
     for a in st['assinaturas']:
         perto(a.get('economia_ano'), round(12 * a['valor'] - (a.get('preco_anual') or 0), 2), f"{a['descricao']}: economia = 12 mensalidades − o anual")
     igual(sorted(d['economia_ano'] for d in st['dicas']), sorted(a.get('economia_ano') for a in st['assinaturas']), 'cada dica com a economia da assinatura')
     igual(dicas['anual:r:r-musica']['preco_anual'], 239.0, 'Spotify: o anual da página (R$ 239)')
-    igual((dicas['anual:r:r-musica']['estimado'], dicas['anual:r:r-nabu']['estimado']), (False, True), 'em dólar (Nabu Casa) é estimado; em reais, não')
+    igual((dicas['anual:r:r-musica']['estimado'], dicas['anual:r:r-nabu']['estimado']), (False, True), 'em dólar (Home Assistant Cloud) é estimado; em reais, não')
     pg.wait_for_timeout(7000)  # front faz polling
     pg.screenshot(path=f'{SP}/shots/e1-inicio.png', full_page=True)
-    # mudar Nabu Casa para anual
+    # mudar Home Assistant Cloud para anual
     nabu=dicas['anual:r:r-nabu']
     pg.click(f'[data-a="dica-anual"][data-v="{nabu["id"]}"]'); pg.wait_for_timeout(500)
-    igual(pg.inner_text('.folha-cab h2'), 'Nabu Casa no plano anual', 'janela de mudar para anual')
+    igual(pg.inner_text('.folha-cab h2'), 'Home Assistant Cloud no plano anual', 'janela de mudar para anual')
     dia = 9
     prim = date(hoje.year, hoje.month, dia) if dia > hoje.day else date.fromisoformat(mes(1) + f'-{dia:02d}')
     igual(pg.input_value('#da-data'), prim.isoformat(), 'a primeira cobrança anual é a próxima no dia do fixo')
@@ -48,11 +48,11 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{SP}/shots/e2-anual.png')
     pg.click('[data-a="da-ok"]'); pg.wait_for_timeout(1500)
     d=api('api/state')
-    rs=[r for r in d['recorrencias'] if 'Nabu' in r['descricao']]
+    rs=[r for r in d['recorrencias'] if 'Home Assistant Cloud' in r['descricao']]
     igual([(r.get('freq'), r['valor'], r['inicio'], r.get('fim'), r['dia']) for r in rs],
           [(None, 34.9, mes(-6), mes(-1, prim), 9), ('anual', 355, prim.isoformat()[:7], None, 9)], 'o fixo mensal para e entra um anual')
     st=api('api/dicas')
-    igual({a['descricao']: a['status'] for a in st['assinaturas']}, {'Spotify': 'ok', 'Nabu Casa': 'ja_anual'}, 'Nabu Casa fica como já anual')
+    igual({a['descricao']: a['status'] for a in st['assinaturas']}, {'Spotify': 'ok', 'Home Assistant Cloud': 'ja_anual'}, 'Home Assistant Cloud fica como já anual')
     igual([x['id'] for x in st['dicas']], ['anual:r:r-musica'], 'sobra só a dica do Spotify')
     # dispensar spotify
     sp=[x for x in st['dicas'] if x['servico']=='spotify']
@@ -68,7 +68,7 @@ with sync_playwright() as p:
     tem(el.inner_text(), 'Mostrar dispensadas (1)', 'Mais › Caixa: mostrar a dispensada')
     tem(el.inner_text(), 'Última verificação: hoje às', 'Mais › Caixa: a data da última verificação')
     el.screenshot(path=f'{SP}/shots/e4-mais-dicas.png')
-    tem(pg.inner_text('#fixos'), f'Todo ano, 9 de {MESES[prim.month - 1]}', 'Fixos: o Nabu Casa anual')
+    tem(pg.inner_text('#fixos'), f'Todo ano, 9 de {MESES[prim.month - 1]}', 'Fixos: o Home Assistant Cloud anual')
     pg.locator('#fixos').screenshot(path=f'{SP}/shots/e5-fixos.png')
     # form com Todo ano
     pg.click('#nav [data-v="caixa"]'); pg.wait_for_timeout(400)

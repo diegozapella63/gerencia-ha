@@ -1,4 +1,4 @@
-"""Quadro Dicas de economia no Início (tema escuro e claro): uma dica por assinatura com plano anual conferido (Nabu Casa
+"""Quadro Dicas de economia no Início (tema escuro e claro): uma dica por assinatura com plano anual conferido (Home Assistant Cloud
 e Spotify do exemplo), a economia real (desconto menos o que o dinheiro renderia), a fonte e o total no alto."""
 import sys
 from playwright.sync_api import sync_playwright
@@ -18,7 +18,7 @@ with sync_playwright() as p:
         igual(c.count(), 1, f'{esquema}: o quadro de dicas no Início')
         subs = pg.locator('.card.dicas .dica:has([data-a="dica-anual"])')
         nomes = sorted(x.split(' no plano anual')[0] for x in subs.locator('.dica-t b').all_inner_texts())
-        igual(nomes, ['Nabu Casa', 'Spotify'], f'{esquema}: dicas do plano anual das assinaturas do exemplo')
+        igual(nomes, ['Home Assistant Cloud', 'Spotify'], f'{esquema}: dicas do plano anual das assinaturas do exemplo')
         soma = 0
         for i in range(subs.count()):
             d = subs.nth(i)

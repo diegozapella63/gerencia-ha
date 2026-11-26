@@ -11,7 +11,8 @@ import re
 import unicodedata
 
 CATALOGO = [
-    {"id": "nabucasa", "nome": "Nabu Casa (Home Assistant Cloud)", "curto": "Nabu Casa",
+    # 1.90.2: na tela, Home Assistant Cloud (o padrão da família); o nome de antes fica para a IA achar os preços
+    {"id": "nabucasa", "nome": "Nabu Casa (Home Assistant Cloud)", "curto": "Home Assistant Cloud",
      "padrao": r"\bnabu ?casa\b|\bhome assistant cloud\b|\bha cloud\b",
      "url": "https://www.nabucasa.com/pricing/"},
     {"id": "claude", "nome": "Claude", "curto": "Claude",

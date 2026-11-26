@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.90.1';
+const VERSAO = '1.90.2';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -614,7 +614,7 @@ function apiDemo() {
       // Na prévia: preços conferidos nas páginas oficiais em 18/10/2026 (no app, o servidor confere de novo a cada 30 dias)
       await espera(250);
       const F = [
-        { id: 'nabucasa', nome: 'Nabu Casa', re: /nabu ?casa|home assistant cloud/i, fonte: 'https://www.nabucasa.com/pricing/', dominio: 'nabucasa.com', planos: [{ plano: 'Mensal', moeda: 'USD', mensal: 6.5, anual: 65 }] },
+        { id: 'nabucasa', nome: 'Home Assistant Cloud', re: /nabu ?casa|home assistant cloud/i, fonte: 'https://www.nabucasa.com/pricing/', dominio: 'nabucasa.com', planos: [{ plano: 'Mensal', moeda: 'USD', mensal: 6.5, anual: 65 }] },
         { id: 'spotify', nome: 'Spotify', re: /spotify/i, fonte: 'https://www.spotify.com/br-pt/premium/', dominio: 'spotify.com', planos: [{ plano: 'Premium Individual', moeda: 'BRL', mensal: 23.9, anual: 239 }, { plano: 'Premium Duo', moeda: 'BRL', mensal: 31.9, anual: 379 }, { plano: 'Premium Família', moeda: 'BRL', mensal: 40.9, anual: 490 }] },
         { id: 'microsoft365', nome: 'Microsoft 365', re: /microsoft ?365|office ?365/i, fonte: 'https://www.microsoft.com/pt-br/microsoft-365/buy/compare-all-microsoft-365-products', dominio: 'microsoft.com', planos: [{ plano: 'Personal', moeda: 'BRL', mensal: 51, anual: 509 }, { plano: 'Family', moeda: 'BRL', mensal: 60, anual: 599 }] },
       ];
@@ -637,7 +637,7 @@ function apiDemo() {
         dicas.push(Object.assign({ id: 'anual:' + x.chave }, x));
       }
       dicas.sort((a, b) => b.economia_ano - a.economia_ano);
-      return { dicas, assinaturas, conferindo: false, catalogo: ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
+      return { dicas, assinaturas, conferindo: false, catalogo: ['Home Assistant Cloud', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'], dolar: { valor: dolar, data: '14/10/2026' } };
     },
     async dicasConferir() { await espera(900); return this.dicas(); },
     // oportunidades na prévia: taxas de exemplo do Tesouro Direto (inventadas) e uma página de ofertas de um banco inventado
@@ -1781,7 +1781,7 @@ function caixaExemplo() {
     R({ id: 'r-acad', tipo: 'despesa', descricao: 'Academia', valor: 129, dia: 3, categoria: 'c-saude', conta: 'k-lua-ana', cartao: true }),
     R({ id: 'r-stream', tipo: 'despesa', descricao: 'Streaming', valor: 55.9, dia: 15, categoria: 'c-assinaturas', conta: 'k-lua-ana', cartao: true }),
     R({ id: 'r-musica', tipo: 'despesa', descricao: 'Spotify', valor: 23.9, dia: 22, categoria: 'c-assinaturas', conta: 'k-lua-beto', cartao: true }),
-    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Nabu Casa', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-lua-ana', cartao: true }),
+    R({ id: 'r-nabu', tipo: 'despesa', descricao: 'Home Assistant Cloud', valor: 34.9, dia: 9, categoria: 'c-assinaturas', conta: 'k-lua-ana', cartao: true }),
     R({ id: 'r-aporte', tipo: 'despesa', descricao: 'Aporte nos investimentos', valor: 800, dia: 6, categoria: 'c-investimentos', conta: 'k-coral-ana', aporte: true }),
     R({ id: 'r-cel', tipo: 'despesa', descricao: 'Celular', valor: 59.99, dia: 14, categoria: 'c-contas', conta: 'k-sol-ana', cartao: true }),
   ];
@@ -4033,7 +4033,7 @@ function cardDicas() {
 
 function cardDicasMais() {
   const st = S.dicas;
-  const catalogo = (st && st.catalogo) || ['Nabu Casa', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'];
+  const catalogo = (st && st.catalogo) || ['Home Assistant Cloud', 'Claude', 'Spotify', 'Microsoft 365', 'Deezer'];
   const fora = (S.d.ajustes.dicas_fora || []).length;
   const subs = (st && st.assinaturas) || [];
   let h = `<section class="card" id="dicas">${maisCab('percent', 'Dicas de economia')}

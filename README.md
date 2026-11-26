@@ -31,7 +31,7 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 
 - **Agora** com um placar de plaquinhas que viram, como num painel de cotações, na cor do app: o seu patrimônio (investimentos e bens) e quanto rende por mês, com o caixa do mês, as dicas e os avisos logo abaixo.
 - **Caixa do mês**: quanto entrou, quanto saiu, o que falta pagar e o saldo previsto para o fim do mês.
-- **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa.
+- **Recebimentos e despesas** com categoria, conta e cartão de cada pessoa, e o **Selecionar** para mudar ou apagar vários de uma vez.
 - **Fixos** todo mês ou todo ano, com valor padrão: o salário pode vir maior ou menor num mês sem mudar o padrão.
 - **Salário bruto** com impostos na fonte e descontos (como o plano de saúde), preenchido pelo **Ler recibo** com IA.
 - **Cartão de crédito**: compras, parcelas e fixos entram no mês em que a fatura vence, também nos gráficos dos próximos meses.
@@ -45,14 +45,14 @@ A primeira instalação leva alguns minutos, porque o app é montado no próprio
 - **Bens da casa**: com o [InventarIA](https://github.com/diegozapella63/inventario-ha), os itens entram no patrimônio, perdendo valor por categoria. Um carro ou um imóvel, seu ou de terceiros, entra como investimento do tipo **Bens**.
 - **Leitura por IA**: fatura em PDF, print, foto de papel (também pela câmera, no **Digitalizar com IA**) ou texto do WhatsApp viram lançamentos, e print do banco vira investimento. Você confere tudo antes de lançar.
 - **Falar**: o microfone no alto de cada tela. Fale os gastos e recebimentos; o Home Assistant transcreve e a IA separa os lançamentos para você conferir.
-- **Conversar com a IA**: o balão ao lado do microfone. Pergunte sobre o que está na tela ou sobre o seu dinheiro, ou peça para lançar, pagar uma conta ou atualizar um saldo: a IA mostra e você confirma.
+- **Conversar com a IA**: o balão ao lado do microfone. Pergunte sobre o que está na tela ou sobre o seu dinheiro, ou peça para lançar, pagar uma conta ou atualizar um saldo: a IA mostra e você confirma. A **Memória da IA** é uma só, da casa, compartilhada por todos os apps da família.
 - **Usar IA**: uma chave liga e desliga tudo o que usa IA; o **Uso da IA** mostra as chamadas de cada dia.
 - **Dicas de economia**: quando uma assinatura tem plano anual mais barato, com o preço conferido na página oficial do serviço.
-- **Oportunidades de investimento**: as taxas do Tesouro Direto e as ofertas dos bancos que você cadastrou (a IA lê a página de ofertas de cada um), comparadas com o que você já tem, com aviso no celular no horário escolhido.
-- **Benefícios** dos cartões e planos (salas VIP, créditos, vantagens): quanto ainda resta no período. A IA lê o regulamento, um print ou a página oficial e cadastra.
+- **Oportunidades de investimento**: as taxas do Tesouro Direto e as ofertas dos bancos que você cadastrou (a IA lê a página de ofertas de cada um), comparadas com o que você já tem, com aviso no celular no horário escolhido, e as **assinaturas em promoção** (vídeo, música e jogos) que funcionam nos aparelhos da casa.
+- **Benefícios** dos cartões e planos (salas VIP, créditos, vantagens): quanto ainda resta no período. A IA lê o regulamento, um print ou a página oficial e cadastra. As **milhas** de cada pessoa: o saldo de hoje, o que vence, o próximo nível e o que já dá para trocar.
 - **Faturas por e-mail**: com a integração IMAP do Home Assistant, as faturas, recibos e assinaturas em PDF que chegam por e-mail aparecem na Agora para conferir. Cada remetente pode virar **Nunca considerar**, **É um fixo** ou **Novo fixo**.
 - **PDF com senha**: as senhas das faturas ficam guardadas aqui e abrem as próximas sozinhas.
-- **CorrerIA**: com o [CorrerIA](https://github.com/diegozapella63/CorrerIA-ha), as finanças no WhatsApp, no Claude e no Gemini (perguntar, lançar, pagar, atualizar saldos).
+- **CorrerIA**: com o [CorrerIA](https://github.com/diegozapella63/CorrerIA-ha), as finanças no WhatsApp, no Claude e no Gemini (perguntar, lançar, pagar, atualizar saldos, conferir as faturas do e-mail, os benefícios e as oportunidades) e nas **Rondas** das finanças, do mês e do patrimônio.
 - **Imagens** nos investimentos (comprovante, print do banco).
 - **Sensores** no Home Assistant, se quiser: patrimônio, seu dinheiro, de terceiros, rendimento, saldo em caixa, entradas e saídas do mês, bens, uso da IA, a próxima conta, a conta vencida e a fatura de cada cartão (com o uso do limite).
 - **Contas no CronologIA**: com o [CronologIA](https://github.com/diegozapella63/cronologia-ha) instalado, as contas a pagar e as faturas aparecem na agenda, com o **Paguei** que dá baixa aqui. A ligação é automática.

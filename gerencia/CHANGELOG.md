@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.90.2
+
+- Nas **Dicas de economia**, o serviço da nuvem do Home Assistant aparece como **Home Assistant Cloud**, como nos outros apps (antes, Nabu Casa).
+
 ## 1.90.1
 
 - As **perguntas prontas** da Conversa (e as **Mais perguntas** do **Editar perguntas**) ficaram gerais, para valer em qualquer casa: saíram as que citavam itens, valores, compromissos ou cômodos inventados, como «Gastei 45 no mercado» e «Paguei a luz». As perguntas que você já editou continuam como estão.
