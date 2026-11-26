@@ -86,4 +86,8 @@ jobs:
         with:
           repository: diegozapella63/memoria-ha
           path: memoria-ha
+      - uses: actions/checkout@v4
+        with:
+          repository: diegozapella63/OdisseIA
+          path: odisseia
       - run: python3 gerencia-ha/tools/iguais.py --exigir
