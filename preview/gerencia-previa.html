@@ -1722,6 +1722,10 @@ input[readonly] { opacity: .8; }
 .lsum.sel .sel-n { flex: 1; min-width: 0; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lsum.sel b { color: var(--text); font: 600 17px/1 var(--font-d); white-space: nowrap; }
 .lsum .btn { flex: none; }
+/* 1.93.0 (PADROES.md): a contagem à esquerda, em 15 px, cinza; o Selecionar à direita, na cor do app, sem caixa */
+.lsum:not(.sel) { min-height: 40px; }
+.lsum:not(.sel) > .btn.peq { min-height: 40px; padding: 0 2px; border: 0; background: none; box-shadow: none; color: var(--accent-text); font: 600 15px var(--font); gap: 6px; }
+.lsum:not(.sel) > .btn.peq .ic-s { width: 18px; height: 18px; }
 .lmarca { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); color: transparent; }
 .lmarca svg { width: 16px; height: 16px; stroke-width: 3; }
 .lmarca.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -1734,16 +1738,19 @@ input[readonly] { opacity: .8; }
 
 /* 1.92.0: Agrupar por, no padrão da família (o dos Consumíveis do InventarIA): o título pequeno que fecha o bloco (fechado, o
    escolhido ao lado), as escolhas numa barra só, do mesmo tamanho; os grupos com o ícone, o nome, quantos e a soma */
-.agrupar { display: grid; gap: 8px; margin: 0 0 14px; }
+/* 1.93.0 (PADROES.md, "O alto das listas"): a linha igual nos apps: 40 px, o ícone de 18 px na cor do app, o nome em 15 px,
+   peso 500, na cor do texto; fechado, o escolhido em cinza; a seta no fim */
+.agrupar { display: grid; gap: 4px; margin: 0 0 8px; }
 .agrupar.fechado { gap: 0; }
-.agrupar-l { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; padding: 0 2px; color: var(--muted); font: 500 14px var(--font); text-align: left; -webkit-tap-highlight-color: transparent; }
+.agrupar-l { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 2px; color: var(--text); font: 500 15px var(--font); text-align: left; -webkit-tap-highlight-color: transparent; }
+.agrupar-l > .ic-s:first-child { width: 18px; height: 18px; color: var(--accent-text); }
 .agrupar-l::after {
   content: ""; flex: none; width: 18px; height: 18px; margin-left: auto; background: var(--muted); transition: transform .2s;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 18px no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 18px no-repeat;
 }
 .agrupar.fechado > .agrupar-l::after { transform: rotate(-90deg); }
-.agrupar-l .agrupar-val { color: var(--text); font-weight: 600; }
+.agrupar-l .agrupar-val { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-weight: 500; }
 .seg.agrupar-seg { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); margin: 0; }
 .seg.agrupar-seg button { min-height: 42px; padding: 8px 6px; }
 .seg.agrupar-seg button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -2331,7 +2338,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.92.0';
+const VERSAO = '1.93.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];

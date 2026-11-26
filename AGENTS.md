@@ -151,6 +151,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.92.0 (o dono: "do mesmo jeito que criamos esse agrupar por… [nos Consumíveis do InventarIA]… a gente precisa adicionar ele em outros locais… se tiver alguma já fora do padrão, deixa nesse padrão"): `agruparHtml(chave, opcoes, atual, attrs)` (o bloco: o título `.agrupar-l`, `agrupar-dobra`, `gerencia.agrupar-fechado` no aparelho; fechado, a `.agrupar-val`; o `.seg.agrupar-seg`). **Caixa › Lançamentos**: `CX_AGRUPAR`, `cxAgrupar()` (`gerencia.agrupar`.caixa), `cxAgruparHtml()` (fora do Selecionar) e `gruposCaixa(entradas, como, hj)` (Categoria, Conta, Situação; `.cx-grupo`, `.cx-grupo-h` com `cx-grupo` e `gerencia.cx-grupos`); por Categoria, as compras do cartão saem da fatura (`linhaLanc(l, 'cartao')`: com a conta e a data da compra, sem a baixa) e entram no Selecionar; nos grupos, a data vai na linha (`linhaLanc(l, false, {data: true})`). **Investimentos › Divisão**: o `gAgrup` pelo `agruparHtml('divisao', …)`. Teste: `TestAgruparPor` no `tests/test_tela_caixa.py`.
 
+1.93.0 (o dono: "cada tela tem tamanho de fonte diferente… documenta nos padrões.md e aplica ele em todos os apps"): o `.agrupar-l` no padrão do **O alto das listas** do `PADROES.md` (40 px, 15 px, peso 500, na cor do texto, o ícone de 18 px na cor do app, o `.agrupar-val` em cinza) e a `.lsum` com o Selecionar sem caixa, na cor do app, em 15 px. Teste: `TestAgruparPor` e `TestSelecionar`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.
