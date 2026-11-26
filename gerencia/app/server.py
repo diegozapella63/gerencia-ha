@@ -41,7 +41,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.89.0"
+VERSAO = "1.90.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3341,6 +3341,16 @@ def usar_ferramenta(corpo):
     nome = str(corpo.get("nome") or "")
     pessoa = corpo.get("pessoa") if isinstance(corpo.get("pessoa"), dict) else {}
     cliente = str(corpo.get("cliente") or "CorrerIA")[:40]
+    if nome == "oportunidades":
+        d = ler()
+        a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
+        c = oport_ler()
+        av = oportunidades.avaliar(oportunidades.todas(c, urls_oport(d) if ia_ligada(d) else []), d)
+        t = c.get("tesouro") or {}
+        aviso = "" if av else ("O Tesouro Direto ainda não foi lido: abra Mais › Oportunidades no GerencIA." if not t.get("titulos") else "")
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        return {"texto": ferramentas.texto_oportunidades(av, promos_estado(d, disparar=False).get("promocoes") or [] if promos_on(d) else [],
+                                                         a.get("so_as_que_passam") is True, ia_ligada(d), aviso)}
     if nome in EMAIL_FERRAMENTAS:
         texto, mudou = ferramenta_email(nome, corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {})
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}

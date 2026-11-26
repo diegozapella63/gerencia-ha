@@ -83,6 +83,20 @@ FERRAMENTAS = [
                   "linha lida (o número, a descrição, o valor, a data, a categoria, a conta, se vai para um fixo e se parece já lançada). "
                   "Use para \"tem e-mail para revisar?\", \"chegou alguma fatura?\".",
      "entrada": _obj({})},
+    # 1.90.0 (o dono: "revisa se mais etapas ou ferramentas devem ser integradas nas rondas"): Mais › Benefícios e as
+    # Oportunidades, só leitura
+    {"nome": "beneficios", "titulo": "Benefícios e milhas", "grava": False,
+     "descricao": "Mais › Benefícios: cada benefício (sala VIP, crédito, cupom, vantagem) com o que sobra no período e até quando; "
+                  "as milhas de cada pessoa (o saldo de hoje, o nível, o que vence e as trocas que já dão); e as oportunidades dos "
+                  "benefícios (o que falta para o próximo nível ou para ganhar mais). "
+                  "Use para \"quantas salas VIP eu tenho?\", \"minhas milhas vencem?\".",
+     "entrada": _obj({})},
+    {"nome": "oportunidades", "titulo": "Oportunidades de investimento e assinaturas em promoção", "grava": False,
+     "descricao": "Mais › Oportunidades: os títulos do Tesouro Direto e as ofertas das páginas dos bancos cadastrados, com o equivalente "
+                  "em CDB, se passam do que a casa quer e como ficam perto dos investimentos dela (as que passam primeiro); e as "
+                  "assinaturas de vídeo, música e jogos em promoção nos aparelhos da casa. Use para \"tem algum investimento bom?\", "
+                  "\"alguma assinatura em promoção?\".",
+     "entrada": _obj({"so_as_que_passam": {"type": "boolean", "description": "Só as que passam do que a casa quer (sem as outras do Tesouro)."}})},
     {"nome": "lancar", "titulo": "Lançar gasto ou recebimento", "grava": True,
      "descricao": "Lança um gasto (despesa) ou um recebimento (receita). Compra parcelada: valor de cada parcela, parcelas e "
                   "parcela_atual (as próximas entram nos meses seguintes). Sem pago, fica pago se a data já passou (no cartão de "
@@ -1136,6 +1150,50 @@ def lancar_email(d, it, a, fixo="", hoje=None):
     return txt, {"lancamentos": resto, "investimentos": invs}, any(i["fixo"] for i in escolhidas)
 
 
+def texto_beneficios(d, hoje):
+    """A ferramenta beneficios: o mesmo texto do resumo."""
+    L = chat.beneficios_linhas(d, hoje)
+    return "\n".join(L).strip() if L else "Nenhum benefício em Mais › Benefícios."
+
+
+def texto_oportunidades(avaliadas, promos, so_passam=False, ia=True, avisos=""):
+    """A ferramenta oportunidades (o server.py junta o que foi lido): os investimentos que passam do que a casa quer
+    primeiro, as três melhores de cada família que não passam (sem so_passam) e as assinaturas em promoção."""
+    import oportunidades as op
+    import promocoes
+    passam = [x for x in avaliadas if x.get("passa")]
+    outras, vistos = [], {}
+    if not so_passam:
+        for x in avaliadas:
+            if not x.get("passa") and vistos.get(x["eq"]["grupo"], 0) < 3:
+                vistos[x["eq"]["grupo"]] = vistos.get(x["eq"]["grupo"], 0) + 1
+                outras.append(x)
+
+    def linha(x):
+        t = f"- {op.linha_aviso(x)} · {x.get('fonte') or ''}"
+        if x.get("vencimento"):
+            t += f" · vence em {_dm(x['vencimento'])}"
+        if x.get("minimo"):
+            t += f" · mínimo {_brl(x['minimo'])}"
+        return t
+
+    L = ["Investimentos que passam do que a casa quer:" if passam else "Nenhum investimento passa do que a casa quer agora."]
+    L += [linha(x) for x in passam]
+    if outras:
+        L.append("Outros, os melhores de cada tipo:")
+        L += [linha(x) for x in outras]
+    if not ia:
+        L.append("As ofertas dos bancos e as assinaturas em promoção pedem o Usar IA ligado no GerencIA.")
+    elif promos:
+        L.append("Assinaturas em promoção:")
+        L += [f"- {promocoes.linha(x['nome'], x)}" + (f", até {_dm(x['ate'])}" if x.get("ate") else "") for x in promos]
+    else:
+        L.append("Nenhuma assinatura em promoção.")
+    if avisos:
+        L.append(avisos)
+    return "\n".join(L)
+
+
 def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou). bens (1.78.0): os bens
     da casa do InventarIA, como a tela (o bens_estado do server.py), para o patrimônio ser o mesmo da tela."""
@@ -1156,7 +1214,9 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _investimentos(d, hoje, bens), False
     if nome == "cadastros":
         return _cadastros(d), False
-    if nome.endswith("_email"):  # as faturas do e-mail ficam com o server.py (ferramenta_email), que tem a lista delas
+    if nome == "beneficios":
+        return texto_beneficios(d, hoje), False
+    if nome.endswith("_email") or nome == "oportunidades":  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,

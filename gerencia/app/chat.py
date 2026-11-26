@@ -211,6 +211,19 @@ def resumo(d, hoje=None, bens=None, extras=""):
             L.append(f"Projeção dos seus investimentos e bens daqui (sem aportes, antes do IR, com as taxas de hoje): em 1 ano {_brl(em[1])}, "
                      f"em 5 anos {_brl(em[5])}, em 10 anos {_brl(em[10])}.")
 
+    L += beneficios_linhas(d, hoje)
+
+    if extras:
+        L.append("\n" + extras.strip())
+    if cats:
+        L.append("\nCategorias (id: nome, tipo): " + "; ".join(f"{c.get('id')}: {c.get('nome', '')}, {c.get('tipo', 'despesa')}" for c in d.get("categorias", [])))
+    return "\n".join(L)
+
+
+def beneficios_linhas(d, hoje):
+    """Mais › Benefícios no texto (o resumo e a ferramenta beneficios do CorrerIA, 1.90.0): os benefícios com o que
+    sobra, as milhas e as oportunidades dos benefícios."""
+    L = []
     outros_b = [b for b in d.get("beneficios", []) if isinstance(b, dict) and b.get("tipo") != "milhas"]
     if outros_b:  # 1.79.0: Mais › Benefícios: as salas VIP, os créditos e as vantagens (antes, só as milhas)
         L.append("\nBenefícios (nome | de onde | o que é | situação):")
@@ -250,12 +263,7 @@ def resumo(d, hoje=None, bens=None, extras=""):
                    else f"faltam {_brl(pr['falta'])} (tem {_brl(pr['tem'])}{' de média' if m.get('tipo') == 'gasto' else ''})")
             nome = ("nível " if m.get("nivel") else "") + str(m.get("ganha") or "")
             L.append(f"{nome} | {calc.origem_beneficio(m, d, hoje)['nome']} | {cond} | {sit}")
-
-    if extras:
-        L.append("\n" + extras.strip())
-    if cats:
-        L.append("\nCategorias (id: nome, tipo): " + "; ".join(f"{c.get('id')}: {c.get('nome', '')}, {c.get('tipo', 'despesa')}" for c in d.get("categorias", [])))
-    return "\n".join(L)
+    return L
 
 
 REGRAS_ACOES = """Ações: quando a pessoa pedir para lançar um gasto ou um recebimento, pagar uma conta, atualizar o saldo de um investimento ou aplicar num investimento, proponha a ação. O app mostra a ação para ela conferir e confirmar: nada é feito sem o toque dela. Não proponha ação que ela não pediu, e diga na resposta, numa frase, o que vai ficar para ela confirmar.

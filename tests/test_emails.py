@@ -926,3 +926,17 @@ class TestFerramentasDoEmail(ComServidor):
             S.salvar(d, versao=False)
         with self.assertRaisesRegex(ValueError, "Nenhuma linha para lançar"):
             self.usar("lancar_fatura_do_email", id=eid)
+
+
+class TestOportunidadesPeloCorrerIA(ComServidor):
+    """1.90.0: a ferramenta oportunidades lê o que a tela Oportunidades mostra (as taxas do Tesouro já lidas e as promoções)."""
+
+    def test_o_tesouro_lido_e_sem_ler(self):
+        S.oport_gravar({})
+        t = S.usar_ferramenta({"nome": "oportunidades", "argumentos": {}, "cliente": "CorrerIA"})["texto"]
+        self.assertIn("O Tesouro Direto ainda não foi lido", t)
+        S.oport_gravar({"tesouro": {"titulos": [S.oportunidades.titulo("Tesouro Prefixado 2031", "pre", 14.2, "2031-01-01", 30)], "em": S.agora_iso()}})
+        t = S.usar_ferramenta({"nome": "oportunidades", "argumentos": {"so_as_que_passam": False}, "cliente": "CorrerIA"})["texto"]
+        self.assertIn("Tesouro Prefixado 2031: 14,20% ao ano", t)
+        self.assertNotIn("ainda não foi lido", t)
+        self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "oportunidades")

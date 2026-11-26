@@ -41,7 +41,7 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "lancar",
                                  "editar_lancamento", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
                                  "usar_beneficio", "atualizar_milhas", "nova_categoria", "novo_banco", "novo_fixo"])
@@ -522,3 +522,43 @@ class TestNovas188(unittest.TestCase):
                            ({"banco": " "}, "Falta o nome")):
             with self.assertRaisesRegex(F.ErroFerramenta, erro):
                 chamar("novo_banco", args, self.d)
+
+
+class TestNovas190(unittest.TestCase):
+    """1.90.0 (as rondas do CorrerIA: "revisa se mais etapas ou ferramentas devem ser integradas"): os benefícios e as
+    oportunidades, só leitura."""
+
+    def test_beneficios_com_o_que_sobra_as_milhas_e_o_proximo_nivel(self):
+        d = dados()
+        self.assertEqual(chamar("beneficios", {}, d), ("Nenhum benefício em Mais › Benefícios.", False))
+        d["beneficios"] = [
+            {"id": "bn-vip", "nome": "Sala VIP", "tipo": "contagem", "total": 4, "renova": "ano", "desde": "2026-01-01", "usos": [{"data": "2026-03-01", "qtd": 1}]},
+            {"id": "bn-mil", "nome": "Voa Mais", "tipo": "milhas", "pessoa": "Ana", "saldo": 12000, "saldo_em": "2026-11-01",
+             "vencem": [{"qtd": 2000, "data": "2027-01-10"}], "proximo": {"nivel": "Ouro", "pede": 20000, "tem": 15000}},
+        ]
+        t, mudou = chamar("beneficios", {}, d)
+        self.assertFalse(mudou)
+        self.assertIn("Sala VIP |", t)
+        self.assertIn("sobram 3 de 4", t)
+        self.assertIn("Voa Mais | Ana | 12.000", t)
+        self.assertIn("2.000 em 2027-01-10", t)
+        self.assertIn("nível Ouro | Voa Mais · Ana | 20.000 qualificáveis | faltam 5.000", t)
+        self.assertIn(t, F.chat.resumo(d, HOJE), "o mesmo texto do resumo")
+
+    def test_oportunidades_so_pelo_servidor_e_o_texto(self):
+        with self.assertRaises(LookupError):
+            chamar("oportunidades", {}, dados())
+        x = {"id": "td:a", "nome": "Tesouro IPCA+ 2035", "fonte": "Tesouro Direto", "indexador": "ipca_mais", "taxa": 7.5, "vencimento": "2035-05-15",
+             "minimo": 35.2, "eq": {"grupo": "ipca", "valor": 7.5}, "passa": "alvo", "meus": None}
+        outras = [dict(x, id=f"td:{k}", nome=f"Tesouro Selic 20{k}", indexador="selic_mais", taxa=0.1, eq={"grupo": "pos", "valor": 100}, passa="") for k in range(29, 34)]
+        t = F.texto_oportunidades([x] + outras, [{"nome": "Cine Mais", "preco": 9.9, "meses": 3, "normal": 29.9, "ate": "2026-12-10"}])
+        self.assertIn("Investimentos que passam do que a casa quer:\n- Tesouro IPCA+ 2035: IPCA + 7,50% · Tesouro Direto · vence em 15/05/2035 · mínimo R$ 35,20", t)
+        self.assertEqual(t.count("Tesouro Selic"), 3, "das que não passam, as três melhores de cada tipo")
+        self.assertIn("- Cine Mais: R$ 9,90 por mês por 3 meses (depois R$ 29,90), até 10/12/2026", t)
+        t = F.texto_oportunidades([x] + outras, [], so_passam=True)
+        self.assertEqual((t.count("Tesouro Selic"), "Nenhuma assinatura em promoção." in t), (0, True))
+        t = F.texto_oportunidades(outras, [], ia=False, avisos="O Tesouro Direto ainda não foi lido.")
+        self.assertIn("Nenhum investimento passa do que a casa quer agora.", t)
+        self.assertIn("pedem o Usar IA ligado", t)
+        self.assertTrue(t.endswith("O Tesouro Direto ainda não foi lido."))
+        self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-2:], ["beneficios", "oportunidades"])

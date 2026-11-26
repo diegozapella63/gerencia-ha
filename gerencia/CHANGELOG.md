@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.90.0
+
+- O **CorrerIA** (no WhatsApp, no Claude, no Gemini e nas **Rondas**) passa a ler os **Benefícios** (o que sobra de cada um, as milhas, o que vence e o que falta para o próximo nível) e as **Oportunidades** (os investimentos que passam do que você quer e as assinaturas em promoção). Só lê: nada muda no GerencIA.
+
 ## 1.89.0
 
 - Nas janelas (como a **Nova despesa**), todo campo de escolher fecha num toque no título, como nos outros apps:
