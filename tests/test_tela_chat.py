@@ -98,7 +98,7 @@ class TestComputador(TelaChat):
 
 
 # ---------------------------------------------------------------------------------------------------------------
-SEIS = ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Onde eu mais gastei este mês?", "Quanto sobrou este mês?", "Qual é o meu patrimônio hoje?", "Gastei 45 no mercado"]  # 1.79.0: as 6 da aba Agora
+SEIS = ["Como estão minhas finanças este mês?", "Quais contas vencem esta semana?", "Onde eu mais gastei este mês?", "Quanto sobrou este mês?", "Qual é o meu patrimônio hoje?", "Quanto tenho em caixa hoje?"]  # 1.79.0: as 6 da aba Agora
 
 
 class TestConversar(TelaChat):
@@ -180,11 +180,11 @@ class TestConversar(TelaChat):
         self.clicar('[data-a="ch-rapidas"]')
         self.assertEqual(self.textos(".ch-rapidas .chip"), esperado, "o ✨ abre as mesmas")
         self.assertEqual(self.pg.get_attribute('[data-a="ch-rapidas"]', "aria-expanded"), "true")
-        self.clicar('.ch-rapidas .chip:has-text("Gastei 45 no mercado")')
+        self.clicar('.ch-rapidas .chip:has-text("Quanto tenho em caixa hoje?")')
         self.pg.wait_for_function("!window.GERENCIA_TESTE.CH.enviando")
         self.esperar()
         self.assertEqual(self.conta(".ch-rapidas"), 0, "perguntar fecha as perguntas")
-        self.assertEqual(self.bolhas()[2], "Gastei 45 no mercado")
+        self.assertEqual(self.bolhas()[2], "Quanto tenho em caixa hoje?")
         # Padrão: as da aba de novo, nada guardado
         self.clicar('[data-a="ch-rapidas"]')
         self.clicar('.ch-rapidas [data-a="ch-ed-abrir"]')

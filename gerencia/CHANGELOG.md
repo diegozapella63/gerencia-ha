@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.90.1
+
+- As **perguntas prontas** da Conversa (e as **Mais perguntas** do **Editar perguntas**) ficaram gerais, para valer em qualquer casa: saíram as que citavam itens, valores, compromissos ou cômodos inventados, como «Gastei 45 no mercado» e «Paguei a luz». As perguntas que você já editou continuam como estão.
+
 ## 1.90.0
 
 - O **CorrerIA** (no WhatsApp, no Claude, no Gemini e nas **Rondas**) passa a ler os **Benefícios** (o que sobra de cada um, as milhas, o que vence e o que falta para o próximo nível) e as **Oportunidades** (os investimentos que passam do que você quer e as assinaturas em promoção). Só lê: nada muda no GerencIA.

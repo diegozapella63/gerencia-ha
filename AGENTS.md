@@ -160,6 +160,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.90.0 (o dono: "revisa se mais etapas ou ferramentas devem ser integradas nas rondas do CorrerIA"): as ferramentas `beneficios` (leitura: o `chat.beneficios_linhas`, o mesmo texto do resumo, que passou a usá-lo: os benefícios com o que sobra, as milhas e as oportunidades dos benefícios) e `oportunidades` (leitura; `so_as_que_passam`): como as do e-mail, fica com o server.py (`usar_ferramenta`: o `oport_ler`, o `oportunidades.avaliar` das páginas de agora, só com a IA ligada, e o `promos_estado(d, disparar=False)`), e o texto é o `ferramentas.texto_oportunidades` (as que passam, as três melhores de cada tipo que não passam e as assinaturas em promoção); no `ferramentas.chamar`, um `LookupError`. Para as etapas Benefícios, Milhas, Oportunidades e Assinaturas das rondas do CorrerIA 1.37.0. Testes: `TestNovas190` no `tests/test_ferramentas.py` e `TestOportunidadesPeloCorrerIA` no `tests/test_emails.py`.
 
+1.90.1 (o dono: "revisar as 20 perguntas padrões da IA, tem algumas muito específicas"): as **perguntas prontas** da Conversa (as 6 à vista e as 20 do Mais perguntas) são gerais e valem em qualquer casa: nada de itens, valores, compromissos, cômodos ou nomes inventados («Adiciona leite na lista», «Marca dentista sexta às 15h», «Onde está o liquidificador?»); o pedido com o detalhe é o que a pessoa escreve. Vale em todos os apps da família.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

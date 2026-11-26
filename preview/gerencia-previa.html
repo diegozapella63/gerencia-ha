@@ -2296,7 +2296,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.90.0';
+const VERSAO = '1.90.1';
 
 const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
@@ -5280,27 +5280,28 @@ const chatPronto = () => iaOn() && (DEMO || !S.ia || S.ia.pronta !== false);
 const botaoChat = () => chatPronto() ? `<button class="mic-top" data-a="chat" aria-label="Conversar com a IA" title="Conversar com a IA">${ic('chat')}</button>` : '';
 // as primeiras de cada aba (as outras vêm de perguntasDoApp)
 const CH_SUGESTOES = {
-  caixa: ['Onde eu mais gastei este mês?', 'Paguei a luz'],
-  investimentos: ['Quanto rende a carteira por mês?', 'O que vence primeiro nos investimentos?', 'Apliquei 500 na reserva'],
+  caixa: ['Onde eu mais gastei este mês?', 'Quais contas ainda faltam pagar este mês?'],
+  investimentos: ['Quanto rende a carteira por mês?', 'O que vence primeiro nos investimentos?', 'Qual investimento rende mais?'],
   mais: ['O que dá para fazer neste app?'],
 };
 /* Perguntas prontas: as da aba até a pessoa editar (Editar perguntas, guardadas no aparelho em gerencia.perguntas);
    na conversa vazia ficam à vista, e o ✨ ao lado da caixa abre as mesmas a qualquer momento */
 const PERG = 'gerencia.perguntas';
 /* 1.79.0: 6 perguntas à vista (as da aba primeiro) e, em Editar perguntas, mais 20 modelos (um toque põe); as dos bens
-   da casa, das milhas e dos benefícios só quando o app tem */
+   da casa, das milhas e dos benefícios só quando o app tem. 1.90.1 (o dono: "tem algumas muito específicas"): só perguntas
+   que valem em qualquer casa, sem valores, contas ou itens inventados */
 function perguntasDoApp() {
   const d = S.d || {}, ben = d.beneficios || [], q = (t, ok = true) => (ok ? [t] : []);
   const milhas = ben.some(b => b && b.tipo === 'milhas'), outros = ben.some(b => b && b.tipo !== 'milhas');
   return [
     'Como estão minhas finanças este mês?', 'Quais contas vencem esta semana?', 'Onde eu mais gastei este mês?', 'Quanto sobrou este mês?',
-    'Qual é o meu patrimônio hoje?', 'Gastei 45 no mercado', 'Quanto tenho em caixa hoje?', 'Tem alguma conta atrasada?',
-    'Quanto está a fatura do cartão?', 'Quais são os meus gastos fixos?', 'Quanto gastei com restaurantes este mês?', 'Quanto eu recebi este mês?',
+    'Qual é o meu patrimônio hoje?', 'Quanto tenho em caixa hoje?', 'Tem alguma conta atrasada?',
+    'Quanto está a fatura do cartão?', 'Quais são os meus gastos fixos?', 'Quanto gastei em cada categoria este mês?', 'Quanto eu recebi este mês?',
     'Quais compras parceladas ainda faltam?', 'Quanto rende a carteira por mês?', 'O que vence primeiro nos investimentos?', 'Qual investimento rende mais?',
     'Quanto tenho com liquidez diária?', ...q('Quanto valem os bens da casa?', bensOn()), ...q('Quantas milhas eu tenho?', milhas),
     ...q('Quais benefícios eu ainda não usei?', outros), 'Quanto posso gastar até o fim do mês?', 'Compara este mês com o anterior',
     'Qual categoria subiu mais?', 'Quanto gasto por mês com as contas da casa?', 'Me dá três dicas para gastar menos', 'Quanto vou ter daqui a um ano?',
-    'Paguei a luz', 'Recebi o salário', 'Apliquei 500 na reserva', 'Quanto guardo de outras pessoas?',
+    'Quais contas ainda faltam pagar este mês?', 'Qual foi o maior gasto do mês?', 'Tem alguma assinatura que eu possa cortar?', 'Quanto guardo de outras pessoas?',
   ];
 }
 const perguntasPadrao = () => [...new Set([...(CH_SUGESTOES[S.ui.tab] || []), ...perguntasDoApp()])].slice(0, 6);
