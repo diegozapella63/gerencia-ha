@@ -134,7 +134,7 @@ _ABRIR = """async (a) => {
   const T = window.GERENCIA_TESTE;
   T.fecharFolha(true);
   if (T.CAM) T.fecharCamera(true);
-  try { localStorage.removeItem('gerencia.tema'); } catch (e) { /* o tema é de cada aparelho: um teste não passa o seu para o próximo */ }
+  try { for (const k of ['tema', 'agrupar', 'agrupar-fechado', 'cx-grupos']) localStorage.removeItem('gerencia.' + k); } catch (e) { /* o que é de cada aparelho (o tema, o Agrupar por): um teste não passa o seu para o próximo */ }
   let rev = 0;
   try { await T.api.save({ rev: -1 }); } catch (e) { rev = e.d.rev; }
   const d = a.d;

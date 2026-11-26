@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.91.1';
+const VERSAO = '1.92.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -1467,7 +1467,8 @@ function grafComposicao(lista) {
   const total = gs.reduce((s, g) => s + g.v, 0) || 1;
   const sel = gs.find(g => g.k === u.gSel);
   const opts = [['banco', 'Banco'], ['dono', 'De quem'], ['tipo', 'Tipo'], ['liq', 'Liquidez']];
-  let html = `<div class="chips c4">${opts.map(([k, n]) => `<button class="chip${u.gAgrup === k ? ' on' : ''}" data-a="g" data-k="gAgrup" data-v="${k}">${ic({ banco: 'bank', dono: 'user', tipo: 'layers', liq: 'clock' }[k], 'ic-s')}${n}</button>`).join('')}</div>`;
+  // 1.92.0: o Agrupar por da família (antes, botões soltos)
+  let html = agruparHtml('divisao', opts.map(([k, n]) => [k, n, { banco: 'bank', dono: 'user', tipo: 'layers', liq: 'clock' }[k]]), u.gAgrup, k => `data-a="g" data-k="gAgrup" data-v="${k}"`);
   html += `<div class="graf-card" style="padding:18px 18px 8px">
     <div class="stat-duo" style="margin:0 0 10px"><div><span>Total</span><b>${brl(total, 0)}</b></div><div><span>Rende por mês</span><b>${brl(gs.reduce((s, g) => s + g.mes, 0), 0)}</b></div></div>
     <div class="pilha-cap">${sel ? `<b>${esc(sel.nome)}</b> · ${brl(sel.v, 0)} · ${pct1(sel.v / total * 100)}%` : 'Toque numa parte para ver o valor'}</div>
@@ -1916,20 +1917,24 @@ function caixaLista() {
   const dentro = new Set([...ligadosDe.values()].flat().map(x => x.id));
   const pais = new Set(lista.filter(l => temDescontos(l)).map(l => l.id));
   const soltos = lista.filter(l => !naFatura.has(l.id) && !dentro.has(l.id) && !(aninha && l.desconto && pais.has(l.pai)));
-  const sel = selLanc(lista, [...soltos, ...faturas.filter(f => S.ui.faturaAberta === f.k).flatMap(f => f.itens)]);
+  const como = cxAgrupar(), porCat = como === 'categoria', op = { data: como !== 'data', semCat: porCat };
+  const sel = selLanc(lista, [...soltos, ...faturas.filter(f => porCat || S.ui.faturaAberta === f.k).flatMap(f => f.itens)]);
   const entradas = [
     ...soltos.map(l => {
       const lig = ligadosDe.get(l.id) || [], ds = aninha && (pais.has(l.id) || lig.length);
       const menos = ds ? totalDescontos(l) + lig.reduce((s2, x) => s2 + (+x.valor || 0), 0) : 0;
-      return { dc: l.dc, html: linhaLanc(l) + (ds ? blocoDescontos(l, lig) : ''), net: sinal(l) * (+l.valor || 0) - menos, ord: ehRec(l) ? 0 : 1 };
+      return { dc: l.dc, html: linhaLanc(l, false, op) + (ds ? blocoDescontos(l, lig) : ''), net: sinal(l) * (+l.valor || 0) - menos, ord: ehRec(l) ? 0 : 1, l };
     }),
-    ...faturas.map(f => ({ dc: f.dc, html: linhaFatura(f), net: -f.total, ord: 2 })),
+    // por Categoria, cada compra do cartão vai para a categoria dela; nos outros, a fatura é uma linha só
+    ...(porCat ? faturas.flatMap(f => f.itens.map(l => ({ dc: l.data || l.dc, html: linhaLanc(l, 'cartao', op), net: sinal(l) * (+l.valor || 0), ord: 1, l })))
+      : faturas.map(f => ({ dc: f.dc, html: linhaFatura(f), net: -f.total, ord: 2, f }))),
   ].sort((a, b) => a.dc < b.dc ? -1 : a.dc > b.dc ? 1 : a.ord - b.ord);
   if (!entradas.length) {
     return html + `<div class="vazio">Nada ${u.cxFiltro === 'tudo' ? 'lançado' : 'com esse filtro'} em ${nomeMes(ym).split(' ')[0]}.<br><br>
       <button class="btn" data-a="lanc-novo" data-v="despesa">${ic('plus')}Lançar</button></div></div></div>`;
   }
-  html += sel.cab;
+  html += cxAgruparHtml() + sel.cab;
+  if (como !== 'data') return html + gruposCaixa(entradas, como, hj) + sel.pe + '</div></div>';
   let dia = null;
   for (const e of entradas) {
     if (e.dc !== dia) {
@@ -1941,6 +1946,46 @@ function caixaLista() {
     html += e.html;
   }
   return html + sel.pe + '</div></div>';
+}
+
+/* --------- Agrupar por (1.92.0; o dono: "do mesmo jeito que criamos esse agrupar por… a gente precisa adicionar ele em
+   outros locais"; o modelo é o dos Consumíveis do InventarIA, o mesmo do ResolvIA, do OdisseIA e da CronologIA): o título
+   pequeno que fecha o bloco (fechado, o escolhido ao lado), as escolhas numa barra só, do mesmo tamanho; cada grupo com o
+   ícone, o nome, quantos e a soma, que fecha pelo título. O aparelho lembra (gerencia.agrupar, gerencia.agrupar-fechado e
+   gerencia.cx-grupos). */
+const CX_AGRUPAR = [['data', 'Data', 'calendar'], ['categoria', 'Categoria', 'layers'], ['conta', 'Conta', 'bank'], ['situacao', 'Situação', 'clock']];
+const cxAgrupar = () => { const v = store.get('agrupar', {}).caixa; return CX_AGRUPAR.some(o => o[0] === v) ? v : 'data'; };
+function agruparHtml(chave, opcoes, atual, attrs) {
+  const shut = store.get('agrupar-fechado', {})[chave] === true;
+  const nome = (opcoes.find(o => o[0] === atual) || opcoes[0])[1];
+  return `<div class="agrupar${shut ? ' fechado' : ''}"><button class="agrupar-l" id="agrupar-${chave}" data-a="agrupar-dobra" data-v="${chave}" aria-expanded="${!shut}">${ic('layers', 'ic-s')}<span>Agrupar por</span>${shut ? `<span class="agrupar-val">· ${esc(nome)}</span>` : ''}</button>
+    ${shut ? '' : `<div class="seg agrupar-seg" role="radiogroup" aria-labelledby="agrupar-${chave}" style="--n:${opcoes.length}">${opcoes.map(([k, n, i]) =>
+      `<button class="${k === atual ? 'on' : ''}" role="radio" aria-checked="${k === atual}" ${attrs(k)}>${ic(i, 'ic-s')}<span>${n}</span></button>`).join('')}</div>`}</div>`;
+}
+const cxAgruparHtml = () => S.lsel ? '' : agruparHtml('caixa', CX_AGRUPAR, cxAgrupar(), k => `data-a="cx-agrupar" data-v="${k}"`);
+function gruposCaixa(entradas, como, hj) {
+  const fechados = new Set(store.get('cx-grupos', []));
+  const chave = {
+    categoria: e => e.l.ajuste ? '_ajuste' : catDe(e.l.categoria) ? e.l.categoria : '',
+    conta: e => ((e.f ? e.f.conta : e.l.conta) && contaDe(e.f ? e.f.conta : e.l.conta) ? (e.f ? e.f.conta : e.l.conta) : ''),
+    situacao: e => (e.f ? e.f.pago : e.l.pago) ? 'pago' : e.dc < hj ? 'atras' : 'pend',
+  }[como];
+  const info = k => {
+    if (como === 'categoria') return k === '_ajuste' ? ['Ajuste de saldo', 'sliders', '#B5B9C2'] : k ? [catDe(k).nome, 'layers', corCat({ categoria: k })] : ['Sem categoria', 'layers', '#B5B9C2'];
+    if (como === 'conta') { const c = contaDe(k); return c ? [nomeConta(c), c.cartao ? 'card' : 'bank', corOk(bancoDe(c.banco)?.cor) || '#B5B9C2'] : ['Sem conta', 'wallet', '#B5B9C2']; }
+    return { atras: ['Atrasados', 'alert', 'var(--danger)'], pend: ['A pagar e receber', 'clock', 'var(--terc)'], pago: ['Pagos e recebidos', 'check', 'var(--good)'] }[k];
+  };
+  const m = new Map();
+  for (const e of entradas) { const k = chave(e); if (!m.has(k)) m.set(k, []); m.get(k).push(e); }
+  const soma = es => es.reduce((s2, e) => s2 + e.net, 0);
+  const ordem = como === 'situacao' ? ['atras', 'pend', 'pago'].filter(k => m.has(k))
+    : [...m.keys()].sort((a, b) => (a === '') - (b === '') || (como === 'categoria' ? Math.abs(soma(m.get(b))) - Math.abs(soma(m.get(a))) : info(a)[0].localeCompare(info(b)[0], 'pt-BR')));
+  return ordem.map(k => {
+    const es = m.get(k), [nome, icone, cor] = info(k), net = soma(es), id = como + ':' + (k || '-'), off = fechados.has(id);
+    return `<section class="cx-grupo${off ? ' fechado' : ''}"><button class="cx-grupo-h" data-a="cx-grupo" data-v="${esc(id)}" aria-expanded="${!off}">
+      <span class="ini" style="--c:${cor}">${ic(icone)}</span><span class="cx-grupo-t"><b>${esc(nome)}</b><span>${plural(es.length, 'lançamento', 'lançamentos')}</span></span>
+      <span class="cx-grupo-v ${net >= 0 ? 'ent' : 'sai'}">${net >= 0 ? '+' : '−'} ${brl(Math.abs(net), 0)}</span></button>${off ? '' : es.map(e => e.html).join('')}</section>`;
+  }).join('');
 }
 
 /* --------- Selecionar (1.86.0, como no InventarIA, no ResolvIA e no MemorIA): marcar vários lançamentos e mudar de uma
@@ -2054,13 +2099,17 @@ document.addEventListener('contextmenu', ev => {
   lselComecar(l.id);
 });
 
-function linhaLanc(l, dentroFatura) {
+// dentroFatura: true (a linha dentro da fatura aberta) ou 'cartao' (1.92.0: a compra do cartão solta, no Agrupar por
+// Categoria: com a conta e a data da compra, sem a baixa, que é a da fatura); op.data põe a data na frente (nos outros
+// agrupamentos) e op.semCat tira a categoria (no Agrupar por Categoria, o grupo já diz)
+function linhaLanc(l, dentroFatura, op = {}) {
   const cat = catDe(l.categoria);
   const nomeCat = l.ajuste ? 'Ajuste de saldo' : (cat?.nome || 'Sem categoria');
   const atras = !l.pago && (l.dc || l.data) < iso(hoje());
   const rec = ehRec(l);
-  const conta = !dentroFatura && l.conta ? nomeConta(contaDe(l.conta)) + (l.cartao ? ' · cartão' : '') : '';
-  const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura ? fDataC(pData(l.data)) : '',
+  const conta = dentroFatura !== true && l.conta ? nomeConta(contaDe(l.conta)) + (l.cartao ? ' · cartão' : '') : '';
+  const quando = op.data && !dentroFatura && l.dc ? fDataC(pData(l.dc)) : dentroFatura === 'cartao' ? fDataC(pData(l.data)) : '';
+  const extras = [l.parcela ? 'parcela ' + l.parcela : '', l.recorrencia ? 'fixo' : '', dentroFatura === true ? fDataC(pData(l.data)) : '',
     l.desconto ? 'descontado de ' + (l.paiDesc || 'recebimento') : '', l.vinculo && !ehRec(l) ? 'baixa com ' + nomeVinculo(l) : ''].filter(Boolean);
   const apo = ehAporte(l);
   const estado = l.pago || dentroFatura || l.desconto || l.vinculo ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? (rec || apo ? 'Atrasado' : 'Atrasada') : (rec ? 'A receber' : apo ? 'A aplicar' : 'A pagar')}</span>`;
@@ -2072,9 +2121,9 @@ function linhaLanc(l, dentroFatura) {
     : !baixa ? '' : l.pago ? `<span class="visto on" role="img" aria-label="${feito}" title="${feito}">${ic('check')}</span>`
     : `<button class="visto${atras ? ' atras' : ''}" data-a="lanc-pagar" data-id="${esc(l.id)}" aria-label="${verbo}: ${esc(l.descricao)}" title="${verbo}">${ic('check')}</button>`;
   const acao = !LS ? 'data-a="lanc"' : pode ? `data-a="lsel-marcar" aria-pressed="${on}"` : 'aria-disabled="true"';
-  return `<div class="lanc${dentroFatura ? ' sub' : ''}${baixa && l.pago ? ' feito' : ''}${LS && !pode ? ' fora' : ''}${on ? ' marcado' : ''}" ${acao} data-id="${esc(l.id)}" role="button" tabindex="0">
+  return `<div class="lanc${dentroFatura === true ? ' sub' : ''}${baixa && l.pago ? ' feito' : ''}${LS && !pode ? ' fora' : ''}${on ? ' marcado' : ''}" ${acao} data-id="${esc(l.id)}" role="button" tabindex="0">
     <span class="ini${apo ? ' apo' : ''}" style="--c:${corCat(l)}">${apo ? ic('wallet') : esc((l.descricao || '?').slice(0, 1).toUpperCase())}</span>
-    <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
+    <span class="lanc-t"><b>${esc(l.descricao)}</b><span>${esc([quando, op.semCat ? '' : nomeCat, conta, ...extras].filter(Boolean).join(' · '))}</span></span>
     <span class="lanc-d"><b class="${rec ? 'ent' : 'sai'}">${rec ? '+' : '−'} ${brl(+l.valor || 0)}</b>${estado}</span>${marca}
   </div>`;
 }
@@ -7187,6 +7236,9 @@ document.addEventListener('click', ev => {
     case 'cx-modo': S.ui.cxModo = v; S.ui.cxSel = null; salvarUI(); render(); break;
     case 'cx-mes': S.ui.cxMes = +v === 0 ? null : addYm(mesCaixa(), +v); S.ui.faturaAberta = null; S.ui.cxSel = null; render(); break;
     case 'cx-filtro': S.ui.cxFiltro = v; salvarUI(); render(); break;
+    case 'cx-agrupar': store.set('agrupar', { ...store.get('agrupar', {}), caixa: v }); render(); break;
+    case 'agrupar-dobra': { const f = store.get('agrupar-fechado', {}); f[v] = !f[v]; store.set('agrupar-fechado', f); render(); break; }
+    case 'cx-grupo': { const f = new Set(store.get('cx-grupos', [])); f.has(v) ? f.delete(v) : f.add(v); store.set('cx-grupos', [...f]); render(); break; }
     case 'cx-periodo': if (v === 'outro') abrirPeriodo(); else { S.ui.cxPeriodo = v; salvarUI(); render(); } break;
     case 'cx-per-pre': aplicarPeriodo(...v.split(',')); break;
     case 'cx-per-ok': aplicarPeriodo($('#per-atras').value, $('#per-frente').value); break;

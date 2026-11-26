@@ -149,6 +149,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.91.1 (o dono, no ResolvIA: "Escolher fotos abre, escolho a foto, mas nada acontece"; "veja se esse bug tem em outros apps"): `haAndroid()` (o app do Home Assistant no Android perde o que se escolhe com `multiple`); o `escolherVarios` (o Escolher fotos da Conversa) só pede várias fora dele. O Tirar foto já é a câmera do app (`CAM`). Teste: `test_anexar_foto_e_arquivo`.
 
+1.92.0 (o dono: "do mesmo jeito que criamos esse agrupar por… [nos Consumíveis do InventarIA]… a gente precisa adicionar ele em outros locais… se tiver alguma já fora do padrão, deixa nesse padrão"): `agruparHtml(chave, opcoes, atual, attrs)` (o bloco: o título `.agrupar-l`, `agrupar-dobra`, `gerencia.agrupar-fechado` no aparelho; fechado, a `.agrupar-val`; o `.seg.agrupar-seg`). **Caixa › Lançamentos**: `CX_AGRUPAR`, `cxAgrupar()` (`gerencia.agrupar`.caixa), `cxAgruparHtml()` (fora do Selecionar) e `gruposCaixa(entradas, como, hj)` (Categoria, Conta, Situação; `.cx-grupo`, `.cx-grupo-h` com `cx-grupo` e `gerencia.cx-grupos`); por Categoria, as compras do cartão saem da fatura (`linhaLanc(l, 'cartao')`: com a conta e a data da compra, sem a baixa) e entram no Selecionar; nos grupos, a data vai na linha (`linhaLanc(l, false, {data: true})`). **Investimentos › Divisão**: o `gAgrup` pelo `agruparHtml('divisao', …)`. Teste: `TestAgruparPor` no `tests/test_tela_caixa.py`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

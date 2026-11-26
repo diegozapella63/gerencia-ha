@@ -1,5 +1,14 @@
 # Mudanças
 
+## 1.92.0
+
+- **Caixa › Lançamentos › Agrupar por**, no mesmo jeito dos outros apps da família.
+  - **Data** (os dias, como sempre), **Categoria**, **Conta** ou **Situação** (Atrasados, A pagar e receber, Pagos e recebidos), numa barra só, do mesmo tamanho.
+  - Cada grupo mostra o ícone, o nome, quantos lançamentos e a soma, e fecha num toque no título.
+  - Por **Categoria**, as compras do cartão saem da fatura e vão cada uma para a sua categoria (a baixa continua sendo a da fatura); por **Conta**, a fatura fica inteira, na conta do cartão.
+  - O título **Agrupar por** fecha e abre o bloco; fechado, mostra ao lado o que está escolhido. O aparelho lembra.
+- **Investimentos › Divisão**: a escolha entre Banco, De quem, Tipo e Liquidez também virou o **Agrupar por**, no mesmo padrão.
+
 ## 1.91.1
 
 - No app do Home Assistant no Android, o **Escolher fotos** da Conversa pega uma foto de cada vez: escolhendo várias, o app do Android não entregava nenhuma.

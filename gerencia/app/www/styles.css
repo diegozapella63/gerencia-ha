@@ -1725,3 +1725,38 @@ input[readonly] { opacity: .8; }
   margin-top: 12px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
 .selbar .btn { justify-content: center; min-width: 0; }
 @media (min-width: 1000px) { .selbar { bottom: 16px; } }
+
+/* 1.92.0: Agrupar por, no padrão da família (o dos Consumíveis do InventarIA): o título pequeno que fecha o bloco (fechado, o
+   escolhido ao lado), as escolhas numa barra só, do mesmo tamanho; os grupos com o ícone, o nome, quantos e a soma */
+.agrupar { display: grid; gap: 8px; margin: 0 0 14px; }
+.agrupar.fechado { gap: 0; }
+.agrupar-l { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; padding: 0 2px; color: var(--muted); font: 500 14px var(--font); text-align: left; -webkit-tap-highlight-color: transparent; }
+.agrupar-l::after {
+  content: ""; flex: none; width: 18px; height: 18px; margin-left: auto; background: var(--muted); transition: transform .2s;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 18px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+.agrupar.fechado > .agrupar-l::after { transform: rotate(-90deg); }
+.agrupar-l .agrupar-val { color: var(--text); font-weight: 600; }
+.seg.agrupar-seg { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); margin: 0; }
+.seg.agrupar-seg button { min-height: 42px; padding: 8px 6px; }
+.seg.agrupar-seg button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 440px) { .seg.agrupar-seg[style*="--n:4"] button .ic-s { display: none; } }
+@media (max-width: 380px) { .seg.agrupar-seg button .ic-s { display: none; } }
+.cx-grupo { margin: 0 0 6px; }
+.cx-grupo-h { display: flex; align-items: center; gap: 12px; width: 100%; margin: 14px 0 8px; padding: 0 2px; text-align: left; -webkit-tap-highlight-color: transparent; }
+.cx-grupo:first-of-type .cx-grupo-h { margin-top: 4px; }
+.cx-grupo-h .ini { width: 36px; height: 36px; border-radius: 11px; }
+.cx-grupo-h .ini .ic { width: 19px; height: 19px; }
+.cx-grupo-t { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.cx-grupo-t b { font: 600 20px/1.15 var(--font-d); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-grupo-t span { font-size: 13px; color: var(--muted); }
+.cx-grupo-v { flex: none; font: 600 16px var(--font-d); }
+.cx-grupo-v.ent { color: var(--entra); }
+.cx-grupo-v.sai { color: var(--sai); }
+.cx-grupo-h::after {
+  content: ""; flex: none; width: 20px; height: 20px; background: var(--muted); transition: transform .2s;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 20px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 20px no-repeat;
+}
+.cx-grupo.fechado .cx-grupo-h::after { transform: rotate(-90deg); }

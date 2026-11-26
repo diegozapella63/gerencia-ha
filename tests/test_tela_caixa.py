@@ -1391,3 +1391,72 @@ class TestSelecionar(Caixa):
         self.clicar('[data-a="lsel-alterar"]')
         self.clicar('.folha [data-a="lt-ok"]')
         self.assertIsNone(self.folha())
+
+
+GAS = desp("l-gas", "Gás", 60, "2026-11-01", False, conta="k-verde", categoria="c-contas")
+
+
+class TestAgruparPor(Caixa):
+    """1.92.0: Caixa › Lançamentos › Agrupar por, no padrão da família (o dos Consumíveis do InventarIA): Data (os dias, como
+    sempre), Categoria, Conta e Situação; cada grupo com o ícone, o nome, quantos e a soma, que fecha pelo título; o título
+    Agrupar por fecha o bloco, com o escolhido ao lado; o aparelho lembra."""
+
+    def test_categoria_conta_situacao_e_o_que_fecha(self):
+        self.caixa(lancamentos=[PADARIA, MERC, NET, FREELA, FARM, GAS], recorrencias=[LUZ])
+        self.assertEqual(self.textos('.agrupar-seg button'), ["Data", "Categoria", "Conta", "Situação"])
+        self.assertEqual(self.texto('.agrupar-seg .on'), "Data")
+        self.assertGreater(self.conta('.dia-cab'), 0, "Data: os dias, como sempre")
+        self.assertEqual(self.conta('.cx-grupo'), 0)
+        # Categoria: as compras do cartão saem da fatura, cada uma na sua categoria; a maior soma primeiro
+        self.clicar('[data-a="cx-agrupar"][data-v="categoria"]')
+        self.assertEqual(self.conta('.dia-cab'), 0)
+        nomes = self.textos('.cx-grupo-t b')
+        self.assertEqual(nomes[0], self.js("T.catDe('c-salario').nome"), "a maior soma primeiro (o Freela)")
+        self.assertIn(self.js("T.catDe('c-saude').nome"), nomes, "a farmácia do cartão na categoria dela")
+        self.assertEqual(self.conta('.lanc.fatura'), 0, "sem a fatura")
+        farm = '.lanc[data-id="l-farm"]'
+        self.assertIn("Banco Azul · Ana · cartão", self.texto(farm), "a compra solta diz o cartão")
+        self.assertEqual(self.conta(farm + ' .visto'), 0, "a baixa é a da fatura")
+        self.assertEqual(self.conta('.lanc.sub'), 0)
+        contas = self.js("T.catDe('c-contas').nome")
+        g = self.js(f"[...document.querySelectorAll('.cx-grupo')].findIndex(s => s.querySelector('.cx-grupo-t b').textContent === {contas!r})")
+        self.assertEqual(self.textos('.cx-grupo')[g].split("\n")[1:3], ["3 lançamentos", "− R$ 310"], "quantos e a soma")
+        self.assertIn("20/11", self.texto('.lanc[data-id="l-net"]'), "a data na linha, sem o dia em cima")
+        # Conta
+        self.clicar('[data-a="cx-agrupar"][data-v="conta"]')
+        self.assertEqual(self.textos('.cx-grupo-t b'), ["Banco Azul · Ana", "Banco Verde · Ana", "Sem conta"])
+        self.assertEqual(self.conta('.lanc.fatura'), 1, "a fatura inteira, na conta do cartão")
+        # Situação
+        self.clicar('[data-a="cx-agrupar"][data-v="situacao"]')
+        self.assertEqual(self.textos('.cx-grupo-t b'), ["Atrasados", "A pagar e receber", "Pagos e recebidos"])
+        self.assertEqual(self.conta('.cx-grupo:first-of-type .lanc'), 1, "o Gás de ontem")
+        # um grupo fecha pelo título
+        self.clicar('.cx-grupo-h[data-v="situacao:pago"]')
+        self.assertEqual(self.conta('.lanc[data-id="l1"]'), 0)
+        self.assertEqual(self.js("document.querySelector('.cx-grupo-h[data-v=\"situacao:pago\"]').getAttribute('aria-expanded')"), "false")
+        # o bloco fecha pelo título, com o escolhido ao lado; o aparelho lembra
+        self.clicar('[data-a="agrupar-dobra"][data-v="caixa"]')
+        self.assertEqual(self.conta('.agrupar-seg'), 0)
+        self.assertEqual(self.texto('.agrupar-val'), "· Situação")
+        self.assertEqual(self.js("[JSON.parse(localStorage.getItem('gerencia.agrupar')).caixa, JSON.parse(localStorage.getItem('gerencia.agrupar-fechado')).caixa, JSON.parse(localStorage.getItem('gerencia.cx-grupos'))]"),
+                         ["situacao", True, ["situacao:pago"]])
+        self.clicar('[data-a="agrupar-dobra"][data-v="caixa"]')
+        self.clicar('.cx-grupo-h[data-v="situacao:pago"]')
+        self.assertEqual(self.conta('.lanc[data-id="l1"]'), 1)
+        # selecionando, o bloco sai; nos grupos, o toque marca
+        self.clicar('[data-a="lsel-comecar"]')
+        self.assertEqual(self.conta('.agrupar'), 0)
+        self.clicar('.lanc[data-id="l1"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "1 selecionado")
+        self.clicar('[data-a="lsel-fim"]')
+        # de volta à Data
+        self.clicar('[data-a="cx-agrupar"][data-v="data"]')
+        self.assertGreater(self.conta('.dia-cab'), 0)
+        self.assertEqual(self.conta('.cx-grupo'), 0)
+
+    def test_por_categoria_a_selecao_vale_nas_compras_do_cartao(self):
+        self.caixa(lancamentos=[FARM, MERC])
+        self.clicar('[data-a="cx-agrupar"][data-v="categoria"]')
+        self.clicar('[data-a="lsel-comecar"]')
+        self.clicar('[data-a="lsel-todos"]')
+        self.assertEqual(self.texto('.lsum .sel-n'), "2 selecionados", "a compra do cartão também")
