@@ -1020,13 +1020,13 @@ class TestFormulario(_TelaInvest):
         self.assertEqual(self.js("T.F.bancosNovos.length"), 0)
         self.clicar('.folha [data-a="f-nb"]')
         self.preencher('.folha [data-f="nb-nome"]', "Banco Roxo")
-        self.clicar('.folha [data-a="f-nbcor"][data-v="#B79BFF"]')
+        self.clicar('.folha [data-a="f-nbcor"][data-v="#B99BFF"]')
         self.clicar('.folha [data-a="f-nbok"]')
         self.assertEqual(self.texto('.folha [data-a="f-banco"].on'), "Banco Roxo")
         self.digitar("#f-valor", "100000")
         self.clicar(SALVAR)
         roxo = next(b for b in self.dados()["bancos"] if b["nome"] == "Banco Roxo")
-        self.assertEqual((roxo["cor"], self.salvo()["banco"]), ("#B79BFF", roxo["id"]))
+        self.assertEqual((roxo["cor"], self.salvo()["banco"]), ("#B99BFF", roxo["id"]))
 
     def test_salvar_e_adicionar_outro(self):
         self.novo()

@@ -145,6 +145,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.90.1 (o dono: "revisar as 20 perguntas padrões da IA, tem algumas muito específicas"): as **perguntas prontas** da Conversa (as 6 à vista e as 20 do Mais perguntas) são gerais e valem em qualquer casa: nada de itens, valores, compromissos, cômodos ou nomes inventados («Adiciona leite na lista», «Marca dentista sexta às 15h», «Onde está o liquidificador?»); o pedido com o detalhe é o que a pessoa escreve. Vale em todos os apps da família.
 
+1.91.0 (a revisão dos padrões da família, `PADROES.md`: uma paleta só, de 12 cores): as cores das categorias e dos bancos são as do `CORES_APP` (`PALETA`, `nomeCor` no `aria-label`; `CORES_BANCO` na mesma paleta, aqui e no `ferramentas.py`, e o `CORES_CATEGORIA` com as 11 sem o Grafite); uma cor de antes fica guardada e aparece marcada na mais próxima (`corNaPaleta`). As `CATEGORIAS_PADRAO` (no `calc.py` e no app.js) e os exemplos com as cores da paleta.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

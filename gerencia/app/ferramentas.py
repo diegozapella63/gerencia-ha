@@ -26,7 +26,7 @@ TIPOS_INV = {  # tipo: (nome, indexador, taxa, liquidez) — os padrões do app 
 }
 INDEXADORES = {"cdi_pct": "% do CDI", "cdi_mais": "CDI + taxa ao ano", "pre": "prefixado (taxa ao ano)", "ipca_mais": "IPCA + taxa ao ano",
                "selic_mais": "Selic + taxa ao ano", "poupanca": "poupança", "estimado": "estimado (taxa ao ano)", "parado": "sem rendimento"}
-CORES_BANCO = ["#56AEFF", "#B79BFF", "#4CD3A5", "#FFA23A", "#FF77A8", "#F2C14E", "#FF8A65", "#E04B8A", "#FF5A4E", "#B8B0B0"]
+CORES_BANCO = ["#62B5FF", "#B99BFF", "#4ED3A6", "#FFA23E", "#FF77A9", "#F2C14E", "#FF8A65", "#3CCBDA", "#FF5A4F", "#8F9BFF", "#8BD45F", "#B5B9C2"]  # 1.91.0: a paleta da família
 
 INSTRUCOES = ("GerencIA: as finanças da casa (caixa, contas a pagar, cartões e faturas, investimentos e patrimônio). Valores em "
               "reais e datas no formato AAAA-MM-DD. Comece por gerencia_resumo; os ids que ele mostra servem nas outras "
@@ -896,7 +896,7 @@ def _atualizar_milhas(d, a, hoje):
     return f"Saldo de {b.get('nome')}{' · ' + b['pessoa'] if b.get('pessoa') else ''}: {calc.fmt_num(saldo, 0)} milhas (antes, {calc.fmt_num(antes, 0)})."
 
 
-CORES_CATEGORIA = ["#FF5A4E", "#FF8A65", "#FFA23A", "#F2C14E", "#8BD45F", "#4CD3A5", "#3CCBDA", "#62B5FF", "#8F9BFF", "#B79BFF", "#FF77A8"]
+CORES_CATEGORIA = ["#FF5A4F", "#FF8A65", "#FFA23E", "#F2C14E", "#8BD45F", "#4ED3A6", "#3CCBDA", "#62B5FF", "#8F9BFF", "#B99BFF", "#FF77A9"]
 
 
 def _nova_categoria(d, a, hoje):

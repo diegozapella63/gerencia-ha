@@ -4,17 +4,25 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.90.2';
+const VERSAO = '1.91.0';
 
-const PALETA = ['#FF5A4E', '#FF8A65', '#FF77A8', '#E04B8A', '#FFA23A', '#F2C14E', '#B79BFF', '#56AEFF', '#4CD3A5', '#B8B0B0'];
 // ordem para sugerir cor a um banco novo
-const CORES_BANCO = ['#56AEFF', '#B79BFF', '#4CD3A5', '#FFA23A', '#FF77A8', '#F2C14E', '#FF8A65', '#E04B8A', '#FF5A4E', '#B8B0B0'];
+const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
 // cores do app com nome, em forma de etiqueta: a paleta da família (igual em todos os apps; a do CronologIA)
 const CORES_APP = [
   ['Vermelho', '#FF5A4F'], ['Coral', '#FF8A65'], ['Laranja', '#FFA23E'], ['Ouro', '#F2C14E'], ['Verde', '#8BD45F'], ['Menta', '#4ED3A6'],
   ['Turquesa', '#3CCBDA'], ['Azul', '#62B5FF'], ['Índigo', '#8F9BFF'], ['Lilás', '#B99BFF'], ['Rosa', '#FF77A9'], ['Grafite', '#B5B9C2'],
 ];
 const rgbHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+// 1.91.0 (o padrão da família: uma paleta só, de 12 cores): as cores das categorias e dos bancos são as da Aparência; uma
+// cor de antes, fora dela, fica guardada e aparece marcada na mais próxima
+const PALETA = CORES_APP.map(([, h]) => h);
+const nomeCor = h => (CORES_APP.find(([, x]) => x === h) || [h])[0];
+const corNaPaleta = h => {
+  if (!/^#[0-9a-f]{6}$/i.test(String(h || ''))) return '';
+  const c = rgbHex(h), d = x => rgbHex(x).reduce((s, v, i) => s + (v - c[i]) ** 2, 0);
+  return PALETA.reduce((m, x) => (d(x) < d(m) ? x : m), PALETA[0]);
+};
 // Cor do dia (Mais › Configurações › Aparência, ligada por padrão): as cores do app em ordem, uma por dia, sem as neutras (Grafite).
 // O dia é a data daqui contada desde 01/01/1970: a mesma cor o dia todo, em todo aparelho (igual ao calc.cor_do_dia).
 const neutra = h => { const c = rgbHex(h); return Math.max(...c) - Math.min(...c) < 40; };
@@ -487,8 +495,8 @@ function gerarExemplo() {
   const futuro = (m, dd = 15) => { const x = addMeses(h, m); x.setDate(dd); return iso(x); };
   const b = (id, nome, cor) => ({ id, nome, cor, obs: '' });
   const bancos = [
-    b('b-lua', 'Banco Lua', '#B79BFF'), b('b-sol', 'Banco Sol', '#FFA23A'), b('b-coral', 'Banco Coral', '#FF8A65'),
-    b('b-norte', 'Corretora Norte', '#B8B0B0'), b('b-azul', 'Banco Azul', '#56AEFF'), b('b-verde', 'Banco Verde', '#4CD3A5'),
+    b('b-lua', 'Banco Lua', '#B99BFF'), b('b-sol', 'Banco Sol', '#FFA23E'), b('b-coral', 'Banco Coral', '#FF8A65'),
+    b('b-norte', 'Corretora Norte', '#B5B9C2'), b('b-azul', 'Banco Azul', '#62B5FF'), b('b-verde', 'Banco Verde', '#4ED3A6'),
   ];
   const inv = (o) => Object.assign({ id: uid(), obs: '', vencimento: null, terceiro: '', titular: 'meu', criado_em: dia(200) }, o);
   const investimentos = [
@@ -1519,16 +1527,16 @@ function grafVencimentos(lista) {
 
 /* ------------------------------------------------------------------ caixa: base */
 const CATEGORIAS_PADRAO = [
-  ['c-moradia', 'Moradia', 'despesa', '#56AEFF'], ['c-mercado', 'Mercado', 'despesa', '#4CD3A5'],
-  ['c-restaurantes', 'Restaurantes', 'despesa', '#FFA23A'], ['c-transporte', 'Transporte', 'despesa', '#B79BFF'],
-  ['c-contas', 'Contas da casa', 'despesa', '#F2C14E'], ['c-saude', 'Saúde', 'despesa', '#FF77A8'],
-  ['c-educacao', 'Educação', 'despesa', '#FF8A65'], ['c-lazer', 'Lazer', 'despesa', '#E04B8A'],
-  ['c-assinaturas', 'Assinaturas', 'despesa', '#FF5A4E'], ['c-compras', 'Compras', 'despesa', '#B8B0B0'],
-  ['c-pets', 'Pets', 'despesa', '#4CD3A5'], ['c-impostos', 'Impostos e taxas', 'despesa', '#FFA23A'],
-  ['c-outros-gastos', 'Outros gastos', 'despesa', '#B8B0B0'], ['c-investimentos', 'Investimentos', 'despesa', '#2A78D6'],
-  ['c-salario', 'Salário', 'receita', '#4CD3A5'], ['c-freelance', 'Freelance', 'receita', '#56AEFF'],
-  ['c-rendimentos', 'Rendimentos', 'receita', '#B79BFF'], ['c-vendas', 'Vendas', 'receita', '#FFA23A'],
-  ['c-reembolso', 'Reembolso', 'receita', '#F2C14E'], ['c-outros-receb', 'Outros recebimentos', 'receita', '#B8B0B0'],
+  ['c-moradia', 'Moradia', 'despesa', '#62B5FF'], ['c-mercado', 'Mercado', 'despesa', '#4ED3A6'],
+  ['c-restaurantes', 'Restaurantes', 'despesa', '#FFA23E'], ['c-transporte', 'Transporte', 'despesa', '#B99BFF'],
+  ['c-contas', 'Contas da casa', 'despesa', '#F2C14E'], ['c-saude', 'Saúde', 'despesa', '#FF77A9'],
+  ['c-educacao', 'Educação', 'despesa', '#FF8A65'], ['c-lazer', 'Lazer', 'despesa', '#3CCBDA'],
+  ['c-assinaturas', 'Assinaturas', 'despesa', '#FF5A4F'], ['c-compras', 'Compras', 'despesa', '#B5B9C2'],
+  ['c-pets', 'Pets', 'despesa', '#8BD45F'], ['c-impostos', 'Impostos e taxas', 'despesa', '#FFA23E'],
+  ['c-outros-gastos', 'Outros gastos', 'despesa', '#B5B9C2'], ['c-investimentos', 'Investimentos', 'despesa', '#8F9BFF'],
+  ['c-salario', 'Salário', 'receita', '#4ED3A6'], ['c-freelance', 'Freelance', 'receita', '#62B5FF'],
+  ['c-rendimentos', 'Rendimentos', 'receita', '#B99BFF'], ['c-vendas', 'Vendas', 'receita', '#FFA23E'],
+  ['c-reembolso', 'Reembolso', 'receita', '#F2C14E'], ['c-outros-receb', 'Outros recebimentos', 'receita', '#B5B9C2'],
 ].map(([id, nome, tipo, cor]) => ({ id, nome, tipo, cor }));
 const MESES_LONGOS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -1561,7 +1569,7 @@ const nomeConta = c => c ? c.bancoNome + (c.pessoa ? ' · ' + c.pessoa : '') : '
 const ehRec = l => l.tipo === 'receita';
 const sinal = l => ehRec(l) ? 1 : -1;
 const catDe = id => S.d.categorias.find(c => c.id === id);
-const corCat = l => l.ajuste ? '#B8B0B0' : (corOk(catDe(l.categoria)?.cor) || '#B8B0B0');
+const corCat = l => l.ajuste ? '#B5B9C2' : (corOk(catDe(l.categoria)?.cor) || '#B5B9C2');
 
 function dataCaixa(l) {
   if (l.vinculo && l.tipo !== 'receita') { const dv = dataVinculo(l); if (dv) return dv; }
@@ -1990,7 +1998,7 @@ function lselAlterar() {
     const chip = (k, val, rot, extra = '') => `<button class="chip${LT[k] === val ? ' on' : ''}" data-a="lt-set" data-k="${k}" data-v="${esc(val)}"${extra}>${rot}</button>`;
     const cats = S.d.categorias.filter(c => c.tipo === LT.tipo && c.id !== 'c-investimentos');
     let c = `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${chip('cat', LT_MANTER, 'Manter')}${cats.map(k =>
-      chip('cat', k.id, `<span class="bol"></span>${esc(k.nome)}`, ` style="--c:${corOk(k.cor) || '#B8B0B0'}"`)).join('')}</div></div>`;
+      chip('cat', k.id, `<span class="bol"></span>${esc(k.nome)}`, ` style="--c:${corOk(k.cor) || '#B5B9C2'}"`)).join('')}</div></div>`;
     // no cartão, quem paga é a fatura
     if (!LT.cartao) c += `<div class="campo"><div class="lbl">Situação</div><div class="chips c3" style="margin:0">${chip('sit', LT_MANTER, 'Manter')}${chip('sit', 'pago', rec ? 'Recebido' : 'Pago')}${chip('sit', 'aberto', rec ? 'A receber' : 'A pagar')}</div></div>`;
     return { titulo: `Alterar ${n}`, icone: 'edit', corpo: c,
@@ -2077,7 +2085,7 @@ function linhaFatura(f) {
   const atras = !f.pago && f.dc < iso(hoje());
   const itens = f.itens.slice().sort((a, b) => a.data < b.data ? -1 : 1);
   return `<div class="lanc fatura${aberta ? ' aberta' : ''}${f.pago ? ' feito' : ''}" data-a="fatura-abrir" data-v="${esc(f.k)}" role="button" tabindex="0" aria-expanded="${aberta}">
-    <span class="ini" style="--c:${corOk(bancoDe(c?.banco)?.cor) || '#B8B0B0'}">${ic('card', 'ic-s')}</span>
+    <span class="ini" style="--c:${corOk(bancoDe(c?.banco)?.cor) || '#B5B9C2'}">${ic('card', 'ic-s')}</span>
     <span class="lanc-t"><b>Fatura ${esc(nomeConta(c))}</b><span>${plural(f.itens.length, 'compra', 'compras')} · vence ${fDataC(pData(f.dc))} · ${aberta ? 'toque para fechar' : 'toque para ver'}</span></span>
     <span class="lanc-d"><b class="sai">− ${brl(f.total)}</b>${f.pago ? '' : `<span class="tag ${atras ? 'alerta' : 'pend'}">${atras ? 'Atrasada' : 'Aberta'}</span>`}</span>
     ${S.lsel ? '' : f.pago ? `<span class="visto on" role="img" aria-label="Paga" title="Paga">${ic('check')}</span>` : `<button class="visto${atras ? ' atras' : ''}" data-a="fatura-pagar" data-v="${esc(f.k)}" aria-label="Paguei a fatura ${esc(nomeConta(c))}" title="Paguei">${ic('check')}</button>`}
@@ -2462,11 +2470,11 @@ function montarFormLanc() {
     <datalist id="dl-desc">${sugest.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>`;
   if (!f.ajuste && !apo) {
     c += `<div class="campo"><div class="lbl">Categoria</div><div class="chips" style="margin:0">${cats.map(k =>
-      `<button class="chip${f.categoria === k.id ? ' on' : ''}" data-a="lf-set" data-k="categoria" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(k.nome)}</button>`).join('')}
+      `<button class="chip${f.categoria === k.id ? ' on' : ''}" data-a="lf-set" data-k="categoria" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(k.nome)}</button>`).join('')}
       <button class="chip add" data-a="lf-cat-nova">${ic('plus', 'ic-s')}Categoria</button></div>`;
     if (f.novaCat) {
       c += `<div class="mini-form"><input class="inp" data-lf="novaCat" value="${esc(f.novaCat.nome)}" placeholder="Nome da categoria" autocomplete="off">
-        <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${f.novaCat.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="lf-cat-cor" data-v="${cr}" aria-label="Cor ${cr}"></button>`).join('')}</div>
+        <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${corNaPaleta(f.novaCat.cor) === cr ? ' on' : ''}" style="--c:${cr}" data-a="lf-cat-cor" data-v="${cr}" aria-label="Cor ${nomeCor(cr)}"></button>`).join('')}</div>
         <button class="btn out peq" data-a="lf-cat-ok">${ic('check', 'ic-s')}Usar esta categoria</button></div>`;
     }
     c += `</div>`;
@@ -2485,7 +2493,7 @@ function montarFormLanc() {
   if (!vinc) {
   c += `<div class="campo"><div class="lbl">${rec ? 'Onde entrou' : apo ? 'De onde sai' : 'Como pagou'}</div><div class="chips" style="margin:0">
     <button class="chip${!f.conta ? ' on' : ''}" data-a="lf-conta" data-v="">${ic('x', 'ic-s')}Sem conta</button>
-    ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
+    ${contas().map(k => `<button class="chip${f.conta === k.id ? ' on' : ''}" data-a="lf-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>`;
   if (!rec && !apo && conta?.cartao) {
     c += `<div class="seg mini" style="margin:10px 0 0"><button class="${!f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="">${ic('wallet', 'ic-s')}${semCartao(conta)}</button>
       <button class="${f.cartao ? 'on' : ''}" data-a="lf-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>`;
@@ -2763,7 +2771,7 @@ function abrirCategoria(id, tipo) {
       cab: FC.id ? `<button class="icbtn" data-a="cat-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `${FC.id ? '' : `<div class="seg"><button class="${FC.tipo === 'despesa' ? 'on' : ''}" data-a="cat-tipo" data-v="despesa">${ic('minus')}Gasto</button><button class="${FC.tipo === 'receita' ? 'on' : ''}" data-a="cat-tipo" data-v="receita">${ic('plus')}Recebimento</button></div>`}
         <div class="campo"><label for="cat-nome">Nome</label><textarea id="cat-nome" rows="1" class="inp grow${FC.erro ? ' erro' : ''}" data-fc="nome" placeholder="${FC.tipo === 'despesa' ? 'Ex.: Farmácia, Viagens' : 'Ex.: Aluguel recebido'}" autocomplete="off">${esc(FC.nome)}</textarea>${FC.erro ? `<div class="msg-erro">${FC.erro}</div>` : ''}</div>
-        <div class="campo dobra-c" data-dobra="cat-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FC.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(cr => `<button class="cor${FC.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${cr}">${FC.cor === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
+        <div class="campo dobra-c" data-dobra="cat-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FC.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(cr => `<button class="cor${corNaPaleta(FC.cor) === cr ? ' on' : ''}" style="--c:${cr}" data-a="cat-cor" data-v="${cr}" aria-label="Cor ${nomeCor(cr)}">${corNaPaleta(FC.cor) === cr ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         ${n ? `<p style="color:var(--muted);margin:0">${plural(n, 'lançamento usa', 'lançamentos usam')} esta categoria.</p>` : ''}`,
       pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="cat-salvar">${ic('check')}Salvar</button>`,
     };
@@ -3699,7 +3707,7 @@ function revisaoCaixa() {
   const todasCartao = desp.length && desp.every(iaNoCartao), nenhumaCartao = desp.every(i => !iaNoCartao(i));
   return `<div class="campo"><div class="lbl">Lançar todos em</div><div class="chips" style="margin:0">
       <button class="chip${uma === '' ? ' on' : ''}" data-a="iac-conta" data-v="">${ic('x', 'ic-s')}Sem conta</button>
-      ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}
+      ${contas().map(k => `<button class="chip${uma === k.id ? ' on' : ''}" data-a="iac-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}
       <button class="chip add" data-a="iac-banco-novo">${ic('plus', 'ic-s')}${esc(s.bancoNovo || 'Banco')}</button></div>
       ${s.bancoNovo ? `<div class="ajuda">${esc(s.bancoNovo)} não está nos seus bancos.</div>` : ''}
       ${conta?.cartao && desp.length ? `<div class="seg mini" style="margin:10px 0 0"><button class="${nenhumaCartao ? 'on' : ''}" data-a="iac-cartao" data-v="">${ic('wallet', 'ic-s')}${semCartao(conta)}</button><button class="${todasCartao ? 'on' : ''}" data-a="iac-cartao" data-v="1">${ic('card', 'ic-s')}Cartão de crédito</button></div>` : ''}</div>
@@ -4283,7 +4291,7 @@ function blocoDescontos(l, ligados = []) {
 
 function cardCategorias() {
   const grupo = tipo => S.d.categorias.filter(c => c.tipo === tipo).map(c =>
-    `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
+    `<button class="chip" data-a="categoria" data-id="${esc(c.id)}" style="--c:${corOk(c.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(c.nome)}</button>`).join('');
   return `<section class="card" id="categorias">${maisCab('layers', 'Categorias')}
     ${maisLead('Toque numa categoria para mudar o nome ou a cor.')}
     <h3>Gastos</h3><div class="chips">${grupo('despesa')}<button class="chip add" data-a="categoria-nova" data-v="despesa">${ic('plus', 'ic-s')}Nova</button></div>
@@ -4814,7 +4822,7 @@ function abrirBanco(id, nome, sobre) {
       cab: FB.id ? `<button class="icbtn" data-a="b-excluir" aria-label="Apagar" style="color:var(--danger)">${ic('trash')}</button>` : '',
       corpo: `<div class="campo"><label for="b-nome">Nome</label><input id="b-nome" class="inp${FB.erro ? ' erro' : ''}" data-fb="nome" value="${esc(FB.nome)}" placeholder="Ex.: Nubank, XP, Sicredi" data-sug="dl-b" autocomplete="off">
           <datalist id="dl-b">${BANCOS_COMUNS.map(x => `<option value="${esc(x)}">`).join('')}</datalist>${FB.erro ? `<div class="msg-erro">${FB.erro}</div>` : ''}</div>
-        <div class="campo dobra-c" data-dobra="banco-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FB.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(c => `<button class="cor${FB.cor === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${c}">${FB.cor === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
+        <div class="campo dobra-c" data-dobra="banco-cor"><div class="lbl">Cor<span class="fl-val cor-val" style="--c:${FB.cor}" aria-hidden="true"></span></div><div class="cores p">${PALETA.map(c => `<button class="cor${corNaPaleta(FB.cor) === c ? ' on' : ''}" style="--c:${c}" data-a="b-cor" data-v="${c}" aria-label="Cor ${nomeCor(c)}">${corNaPaleta(FB.cor) === c ? ic('check', 'ic-s') : ''}</button>`).join('')}</div></div>
         <div class="campo"><div class="lbl">Quem tem conta neste banco</div>
           ${FB.contas.map((c, i) => `<div class="conta-ed">
             <div class="conta-l"><input class="inp" data-fbc="pessoa" data-i="${i}" value="${esc(c.pessoa || '')}" placeholder="Nome, ex.: Ana" data-sug="dl-pessoas" autocomplete="off" aria-label="Nome da pessoa">
@@ -5062,7 +5070,7 @@ function maisBancos() {
   for (const b of d.bancos) {
     const l = d.investimentos.filter(i => i.banco === b.id);
     const v = l.reduce((s, i) => s + valorHoje(i), 0);
-    h += `<button class="banco-row" data-a="banco" data-id="${b.id}"><span class="ini" style="--c:${corOk(b.cor) || '#B8B0B0'}">${esc((b.nome || '?').slice(0, 1).toUpperCase())}</span>
+    h += `<button class="banco-row" data-a="banco" data-id="${b.id}"><span class="ini" style="--c:${corOk(b.cor) || '#B5B9C2'}">${esc((b.nome || '?').slice(0, 1).toUpperCase())}</span>
       <div class="op-t"><b>${esc(b.nome)}</b><span>${esc(resumoContas(b))}${l.length ? ` · ${plural(l.length, 'investimento', 'investimentos')} · ${brl(v, 0)}` : ''}${(() => { const n = (b.contas || []).reduce((s, c) => s + nBeneficios('conta:' + c.id), 0); return n ? ' · ' + plural(n, 'benefício', 'benefícios') : ''; })()}</span></div>${ic('chev', 'chev')}</button>`;
   }
   h += `<button class="btn out larga" data-a="banco" style="margin-top:14px">${ic('plus')}Cadastrar banco</button>`;
@@ -5623,7 +5631,7 @@ function origensBeneficio(atual) {
 // De onde vem: botões na tela, como a escolha do banco (as contas com a cor do banco, os fixos e Nenhum)
 function chipsOrigem(atual, acao, so = null) {
   return `<div class="chips origem-ch" role="radiogroup" style="margin:0">${origensBeneficio(atual).filter(([v]) => !so || (v && v === atual) || so(v)).map(([v, t]) => {
-    const k = v.startsWith('conta:') ? contas().find(x => x.id === v.slice(6)) : null, cor = k ? corOk(k.cor) || '#B8B0B0' : '';
+    const k = v.startsWith('conta:') ? contas().find(x => x.id === v.slice(6)) : null, cor = k ? corOk(k.cor) || '#B5B9C2' : '';
     return `<button type="button" class="chip${v === (atual || '') ? ' on' : ''}" role="radio" aria-checked="${v === (atual || '')}" data-a="${acao}" data-v="${esc(v)}"${cor ? ` style="--c:${cor}"` : ''}>${cor ? '<span class="bol"></span>' : ic(v ? 'repeat' : 'x', 'ic-s')}${esc(t)}</button>`;
   }).join('')}</div>`;
 }
@@ -6527,7 +6535,7 @@ function montarAplicar() {
         ${pend.map(l => chip(l.id, `Baixa no ${esc(l.descricao.toLowerCase().startsWith('aporte') ? 'aporte' : l.descricao)} de ${MESES_LONGOS[+String(l.competencia || l.data).slice(5, 7) - 1]} (${brl(+l.valor || 0, 0)})`)).join('')}
         ${chip('novo', pend.length ? 'Lançar à parte' : 'Lançar como aporte')}${chip('nenhum', 'Não lançar')}</div>
         ${pl ? `<div class="ajuda">Sai de ${esc(nomeConta(contaDe(pl.conta)) || 'sem conta')}.</div>` : inv.titular === 'terceiros' && a.destino === 'nenhum' ? '<div class="ajuda">Dinheiro de terceiros não mexe no caixa.</div>' : ''}
-        ${a.destino === 'novo' ? `<div class="chips" style="margin:10px 0 0">${contas().map(k => `<button class="chip${a.conta === k.id ? ' on' : ''}" data-a="ap-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>` : ''}</div>`,
+        ${a.destino === 'novo' ? `<div class="chips" style="margin:10px 0 0">${contas().map(k => `<button class="chip${a.conta === k.id ? ' on' : ''}" data-a="ap-conta" data-v="${k.id}" style="--c:${corOk(k.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(nomeConta(k))}</button>`).join('')}</div>` : ''}</div>`,
     pe: `<button class="btn" data-a="fechar">${ic('x')}Cancelar</button><button class="btn pri" data-a="ap-ok">${ic('check')}Aplicar${a.valor ? ' ' + brl(a.valor, 0) : ''}</button>`,
   };
 }
@@ -6614,7 +6622,7 @@ function montarTransferir() {
         <div class="ajuda" id="tr-ajuda">${transferirAjuda()}</div></div>
       <div class="campo"><div class="lbl">Para qual investimento</div>
         <div class="chips tr-para${t.erro === 'para' ? ' erro' : ''}" style="margin:0">${outros.map(i => { const b = bancoDe(i.banco);
-          return `<button class="chip${t.para === i.id ? ' on' : ''}" data-a="tr-para" data-v="${esc(i.id)}" style="--c:${corOk(b?.cor) || '#B8B0B0'}"><span class="bol"></span><span>${esc(i.nome)}${dono(i) ? ` <small>· ${esc(dono(i))}</small>` : ''}</span></button>`; }).join('')}</div>
+          return `<button class="chip${t.para === i.id ? ' on' : ''}" data-a="tr-para" data-v="${esc(i.id)}" style="--c:${corOk(b?.cor) || '#B5B9C2'}"><span class="bol"></span><span>${esc(i.nome)}${dono(i) ? ` <small>· ${esc(dono(i))}</small>` : ''}</span></button>`; }).join('')}</div>
         ${t.erro === 'para' ? '<div class="msg-erro">Escolha para onde vai o dinheiro.</div>' : ''}
         ${para && (para.titular === 'terceiros') !== (de.titular === 'terceiros') ? `<div class="ajuda">${de.titular === 'terceiros' ? 'Sai de um dinheiro de terceiros e entra num seu.' : 'Sai de um dinheiro seu e entra num de terceiros.'} </div>` : ''}</div>
       ${tudo ? `<div class="campo"><div class="lbl">${esc(de.nome)} fica zerado</div><div class="chips c2" style="margin:0">
@@ -6685,13 +6693,13 @@ function montarFormInv() {
   c += `</div>
     <div class="campo"><label for="f-nome">Nome</label><textarea id="f-nome" rows="1" class="inp grow" data-f="nome" placeholder="${f.tipo === 'bens' ? 'Ex.: Carro da mãe' : especie ? 'Ex.: Dinheiro em casa' : 'Ex.: CDB Inter 2028'}" autocomplete="off">${esc(f.nome)}</textarea></div>
     <div class="campo dobra-c" data-dobra="inv-banco"${oculto}><div class="lbl">Banco${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null, o = opcoesBanco(bancos).find(o => f.banco === o.banco && (!o.conta || o.conta === atual)); return o ? `<span class="fl-val">· ${esc(o.nome)}</span>` : ''; })()}</div><div class="chips" style="margin:0">
-      ${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null; return opcoesBanco(bancos).map(o => `<button class="chip${f.banco === o.banco && (!o.conta || o.conta === atual) ? ' on' : ''}" data-a="f-banco" data-v="${o.banco}" data-conta="${o.conta}" style="--c:${corOk(o.cor) || '#B8B0B0'}"><span class="bol"></span>${esc(o.nome)}</button>`).join(''); })()}
+      ${(() => { const atual = f.banco ? contaDoInvest(f, bancos) : null; return opcoesBanco(bancos).map(o => `<button class="chip${f.banco === o.banco && (!o.conta || o.conta === atual) ? ' on' : ''}" data-a="f-banco" data-v="${o.banco}" data-conta="${o.conta}" style="--c:${corOk(o.cor) || '#B5B9C2'}"><span class="bol"></span>${esc(o.nome)}</button>`).join(''); })()}
       <button class="chip add" data-a="f-nb">${ic('plus', 'ic-s')}Banco</button></div>`;
   if (f.novoBanco) {
     c += `<div style="margin-top:12px;padding:14px;border:1px dashed var(--line-2);border-radius:16px">
       <input class="inp${err('nb')}" data-f="nb-nome" value="${esc(f.novoBanco.nome)}" placeholder="Nome do banco ou corretora" data-sug="dl-bancos" autocomplete="off">${msg('nb')}
       <datalist id="dl-bancos">${BANCOS_COMUNS.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-      <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${f.novoBanco.cor === cr ? ' on' : ''}" style="--c:${cr}" data-a="f-nbcor" data-v="${cr}" aria-label="Cor ${cr}"></button>`).join('')}</div>
+      <div class="cores p" style="margin:12px 0">${PALETA.map(cr => `<button class="cor${corNaPaleta(f.novoBanco.cor) === cr ? ' on' : ''}" style="--c:${cr}" data-a="f-nbcor" data-v="${cr}" aria-label="Cor ${nomeCor(cr)}"></button>`).join('')}</div>
       <button class="btn out" data-a="f-nbok">${ic('check')}Usar este banco</button></div>`;
   }
   c += `</div>

@@ -652,14 +652,14 @@ class TestMaisBancos(TelaMais):
         self.abrir_bancos()
         self.clicar('[data-a="banco"][data-id="b-verde"]')
         self.assertEqual(self.folha(), "Editar banco")
-        self.clicar('.folha [data-a="b-cor"][data-v="#FF77A8"]')
+        self.clicar('.folha [data-a="b-cor"][data-v="#FF77A9"]')
         self.clicar('.folha [data-a="bc-add"]')
         self.preencher('[data-fbc="pessoa"][data-i="1"]', "Carla")
         self.clicar('[data-a="b-salvar"]')
         verde = self.banco("b-verde")
-        self.assertEqual((verde["cor"], [c["pessoa"] for c in verde["contas"]]), ("#FF77A8", ["Ana", "Carla"]))
+        self.assertEqual((verde["cor"], [c["pessoa"] for c in verde["contas"]]), ("#FF77A9", ["Ana", "Carla"]))
         self.assertEqual(self.esperar_aviso("Banco"), "Banco salvo")
-        self.assertEqual(self.js("document.querySelector('[data-a=\"banco\"][data-id=\"b-verde\"] .ini').style.getPropertyValue('--c')"), "#FF77A8",
+        self.assertEqual(self.js("document.querySelector('[data-a=\"banco\"][data-id=\"b-verde\"] .ini').style.getPropertyValue('--c')"), "#FF77A9",
                          "a cor nova na lista")
 
     def test_excluir_banco_pede_confirmacao_e_solta_investimentos_e_lancamentos(self):
@@ -713,11 +713,11 @@ class TestMaisCaixa(TelaMais):
         self.assertEqual(self.folha(), "Nova categoria")
         self.assertEqual(self.texto('.folha [data-a="cat-tipo"].on'), "Gasto", "pelo botão de Gastos, já é de gasto")
         self.preencher("#cat-nome", "Viagens")
-        self.clicar('.folha [data-a="cat-cor"][data-v="#E04B8A"]')
+        self.clicar('.folha [data-a="cat-cor"][data-v="#3CCBDA"]')
         self.clicar('[data-a="cat-salvar"]')
         self.assertIsNone(self.folha())
         nova = self.dados()["categorias"][-1]
-        self.assertEqual((nova["nome"], nova["tipo"], nova["cor"]), ("Viagens", "despesa", "#E04B8A"))
+        self.assertEqual((nova["nome"], nova["tipo"], nova["cor"]), ("Viagens", "despesa", "#3CCBDA"))
         self.assertEqual(self.esperar_aviso("Categoria"), "Categoria criada")
         self.assertEqual(self.pg.locator('#categorias [data-a="categoria"]', has_text="Viagens").count(), 1)
 
