@@ -153,6 +153,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.93.0 (o dono: "cada tela tem tamanho de fonte diferente… documenta nos padrões.md e aplica ele em todos os apps"): o `.agrupar-l` no padrão do **O alto das listas** do `PADROES.md` (40 px, 15 px, peso 500, na cor do texto, o ícone de 18 px na cor do app, o `.agrupar-val` em cinza) e a `.lsum` com o Selecionar sem caixa, na cor do app, em 15 px. Teste: `TestAgruparPor` e `TestSelecionar`.
 
+1.93.1 (o dono, no CronologIA: "categoria fora do padrão das outras telas"): o `/api/integracao/contas` manda a `cor` de cada categoria (`integracao.py`), para os botões do Adicionar › Conta do CronologIA 1.117.2. Teste: `tests/test_integracao.py`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

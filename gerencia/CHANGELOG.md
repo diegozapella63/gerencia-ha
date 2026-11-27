@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.93.1
+
+- Com o CronologIA: as categorias vão com a cor delas, e o **Adicionar › Conta** de lá mostra cada uma num botão, na cor de cada uma.
+
 ## 1.93.0
 
 - **O alto das listas igual em todos os apps**: em **Caixa › Lançamentos** e em **Investimentos › Divisão**, o **Agrupar por** é a linha do mesmo tamanho dos outros apps, com o ícone na cor do app e, fechado, o escolhido em cinza; logo antes da lista, quantos lançamentos à esquerda e o **Selecionar** à direita, na cor do app.

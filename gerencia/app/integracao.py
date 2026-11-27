@@ -203,7 +203,8 @@ def listar(d, de, ate, hoje=None):
             c["atrasada"] = atrasada
             out.append(c)
     out.sort(key=lambda c: (c["vencimento"], c["descricao"]))
-    categorias = [{"id": c.get("id"), "nome": c.get("nome", "")} for c in d.get("categorias", [])
+    # 1.93.1: com a cor, para o Adicionar › Conta do CronologIA mostrar as categorias em botões, na cor de cada uma
+    categorias = [{"id": c.get("id"), "nome": c.get("nome", ""), **({"cor": c["cor"]} if c.get("cor") else {})} for c in d.get("categorias", [])
                   if c.get("tipo", "despesa") == "despesa"]
     return {"hoje": hoje.isoformat(), "contas": out, "categorias": categorias}
 

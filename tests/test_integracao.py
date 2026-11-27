@@ -14,7 +14,7 @@ HOJE = date(2026, 11, 15)
 
 def dados():
     return {
-        "categorias": [{"id": "c-casa", "nome": "Casa", "tipo": "despesa"}, {"id": "c-sal", "nome": "Salário", "tipo": "receita"}, {"id": "c-x", "nome": "Sem tipo"}],
+        "categorias": [{"id": "c-casa", "nome": "Casa", "tipo": "despesa", "cor": "#62B5FF"}, {"id": "c-sal", "nome": "Salário", "tipo": "receita"}, {"id": "c-x", "nome": "Sem tipo"}],
         "bancos": [{"id": "b1", "nome": "Banco Azul", "contas": [{"id": "cc", "pessoa": "Ana", "cartao": True, "fechamento": 5, "vencimento": 10}]}],
         "lancamentos": [
             {"id": "l-luz", "tipo": "despesa", "descricao": "Luz", "valor": 180.456, "data": "2026-11-20", "pago": False, "categoria": "c-casa"},
@@ -142,7 +142,7 @@ class TestListar(unittest.TestCase):
                                 ("v:r-net:2026-11", "fixo", "2026-11-25", "Casa", False)], "os fixos dos meses passados sem pagar entram como atrasados")
         self.assertTrue(por["Atrasada"]["atrasada"], "atrasada há menos de 62 dias aparece mesmo fora do período")
         self.assertEqual([c["vencimento"] for c in r["contas"]], sorted(c["vencimento"] for c in r["contas"]))
-        self.assertEqual(r["categorias"], [{"id": "c-casa", "nome": "Casa"}, {"id": "c-x", "nome": "Sem tipo"}])
+        self.assertEqual(r["categorias"], [{"id": "c-casa", "nome": "Casa", "cor": "#62B5FF"}, {"id": "c-x", "nome": "Sem tipo"}], "1.93.1: com a cor, quando tem")
 
     def test_fatura_junta_o_cartao(self):
         r = I.listar(dados(), date(2026, 12, 1), date(2026, 12, 31), HOJE)
