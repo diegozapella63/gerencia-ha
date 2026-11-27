@@ -1095,7 +1095,7 @@ class TestEditar(_TelaInvest):
         for k in chaves:
             self.clicar(f'.folha .dobra-c[data-dobra="{k}"] > .lbl')
         vals = self.js("[...document.querySelectorAll('.folha .dobra-c.shut > .lbl .fl-val')].map(e => e.textContent)")
-        self.assertEqual(vals, ["· Banco Azul · Ana", "· CDB", "· 110% do CDI", "· 15 mar 2028"], "sem imagens, nada ao lado")
+        self.assertEqual(vals, ["· Banco Azul · Ana", "· CDB", "· 110% do CDI", "· 15 mar 2028", "· Nenhuma"], "1.93.2: sem imagens, «Nenhuma» ao lado")
         self.assertEqual(self.conta('.folha [data-a="f-banco"]:visible') + self.conta('.folha [data-a="f-tipo"]:visible') + self.conta('.folha [data-a="f-idx"]:visible'), 0)
         self.assertEqual(self.conta('.folha [data-f="taxa"]:visible') + self.conta('.folha [data-dc="f-venc"] .dc-ch:visible') + self.conta('.folha [data-a="f-foto-add"]:visible'), 0)
         self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.campos'))")), sorted(chaves), "o aparelho lembra")

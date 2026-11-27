@@ -391,6 +391,8 @@ class TestMaisBancos(TelaMais):
         self.assertTrue(self.js(f"document.querySelector('{sit}').classList.contains('shut')"))
         self.assertEqual(self.conta(sit + ' .seg:visible'), 0, "fechado, as opções somem")
         self.assertRegex(self.texto(sit + ' .fl-auto'), r"^· (Pago|A pagar)$", "fechado, o escolhido ao lado do título")
+        # 1.93.2: sem nada escolhido, Nenhum (Sem categoria, Ninguém, Nenhuma), como nos outros apps
+        self.assertEqual(self.js("[T.vazioDe('Categoria'), T.vazioDe('Quem paga'), T.vazioDe('Conta'), T.vazioDe('Banco')]"), ["Sem categoria", "Ninguém", "Nenhuma", "Nenhum"])
         data = '.folha .dobra-c[data-dobra="c:Data da compra"], .folha .dobra-c[data-dobra="c:Data"]'
         self.assertEqual(self.conta(data), 1, "a data também fecha")
         self.assertEqual(sorted(self.js("JSON.parse(localStorage.getItem('gerencia.campos'))")), ["c:Situação"], "o aparelho lembra")

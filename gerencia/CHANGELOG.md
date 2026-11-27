@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.93.2
+
+- Nas janelas, um campo de escolha fechado **sem nada escolhido** diz ao lado **Nenhum** (ou **Nenhuma**, **Ninguém**, **Sem categoria**), como nos outros apps.
+
 ## 1.93.1
 
 - Com o CronologIA: as categorias vão com a cor delas, e o **Adicionar › Conta** de lá mostra cada uma num botão, na cor de cada uma.

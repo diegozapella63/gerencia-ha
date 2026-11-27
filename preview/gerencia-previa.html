@@ -2338,7 +2338,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.93.1';
+const VERSAO = '1.93.2';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -9392,6 +9392,13 @@ function valorCampo(c) {
     .map(b => textoBotao(b) || b.getAttribute('title') || b.getAttribute('aria-label') || '').filter(Boolean);
   return [...new Set(v)].join(', ');
 }
+// sem nada escolhido: «Sem categoria», «Ninguém» (Quem…), «Nenhuma» (uma palavra feminina) ou «Nenhum», como nos outros apps
+function vazioDe(titulo) {
+  const t = String(titulo || '').trim();
+  if (/^categoria/i.test(t)) return 'Sem categoria';
+  if (/^quem\b/i.test(t)) return 'Ninguém';
+  return /^(notas?|observaç|lista|cor\b|fotos?|imagens?|descriç|data|hora|frequência|conta|pessoa|forma|parcela|situaç|moeda)/i.test(t) ? 'Nenhuma' : 'Nenhum';
+}
 function camposDeEscolha(raiz) {
   for (const c of raiz.querySelectorAll('.folha .campo:not(.dobra-c)')) {
     const t = c.querySelector(':scope > .lbl');
@@ -9404,8 +9411,9 @@ function camposDeEscolha(raiz) {
   for (const c of raiz.querySelectorAll('.dobra-c')) {
     const t = c.querySelector(':scope > .lbl');
     if (!t || t.querySelector(':scope > .fl-val:not(.fl-auto)')) continue;
-    const v = valorCampo(c), span = t.querySelector(':scope > .fl-auto');
-    if (!v) { if (span) span.remove(); continue; }
+    // 1.93.2 (o dono: "quando retraído sem selecionar nada deve estar como nenhum… em todos os apps")
+    const nome = [...t.childNodes].filter(n => n.nodeType === 3 || (n.nodeType === 1 && !n.matches('.fl-val') && n.tagName !== 'svg')).map(n => n.textContent).join('').trim();
+    const v = valorCampo(c) || vazioDe(nome), span = t.querySelector(':scope > .fl-auto');
     if (span) span.textContent = '· ' + v;
     else t.insertAdjacentHTML('beforeend', `<span class="fl-val fl-auto">· ${esc(v)}</span>`);
   }
