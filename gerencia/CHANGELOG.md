@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.94.0
+
+- **Pelo CorrerIA** (WhatsApp, Claude, Gemini e a Conversa de lá): agora dá para **mudar a categoria ou a situação de vários lançamentos de uma vez** ("põe esses três em Casa e marca como pagos"), como o Alterar do Caixa › Lançamentos › Selecionar. Um recebimento fixo marcado como recebido leva junto as despesas vinculadas a ele, como na tela.
+
 ## 1.93.2
 
 - Nas janelas, um campo de escolha fechado **sem nada escolhido** diz ao lado **Nenhum** (ou **Nenhuma**, **Ninguém**, **Sem categoria**), como nos outros apps.

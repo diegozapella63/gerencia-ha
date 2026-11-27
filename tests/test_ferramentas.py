@@ -42,7 +42,7 @@ class TestLista(unittest.TestCase):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
         self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "lancar",
-                                 "editar_lancamento", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
+                                 "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
                                  "usar_beneficio", "atualizar_milhas", "nova_categoria", "novo_banco", "novo_fixo"])
         for f in fs:
@@ -562,3 +562,48 @@ class TestNovas190(unittest.TestCase):
         self.assertIn("pedem o Usar IA ligado", t)
         self.assertTrue(t.endswith("O Tesouro Direto ainda não foi lido."))
         self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-2:], ["beneficios", "oportunidades"])
+
+
+class TestAlterarLancamentos(unittest.TestCase):
+    """1.94.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode colocar todas"): o Alterar do Caixa › Selecionar."""
+
+    def setUp(self):
+        self.d = dados()
+
+    def gravar(self, **a):
+        t, mudou = chamar("alterar_lancamentos", a, self.d)
+        self.assertTrue(mudou)
+        return t
+
+    def lanc(self, lid):
+        return next(x for x in self.d["lancamentos"] if x["id"] == lid)
+
+    def test_categoria_e_situacao_de_varios_e_o_fixo_do_mes(self):
+        t = self.gravar(ids=["l-luz", "l-agua", "v:r-net:2026-11"], categoria="Casa", pago=True)
+        self.assertEqual(t, "3 lançamentos alterados (categoria Casa e pago).")
+        self.assertEqual((self.lanc("l-luz")["pago"], self.lanc("l-agua")["categoria"]), (True, "c-casa"))
+        fixo = next(x for x in self.d["lancamentos"] if x.get("recorrencia") == "r-net" and x.get("competencia") == "2026-11")
+        self.assertEqual((fixo["pago"], fixo["categoria"]), (True, "c-casa"), "o fixo do mês vira lançamento, só ele")
+        self.assertIn("já estavam assim", self.gravar(ids=["l-luz", "l-velha"], pago=True))
+        self.assertEqual(self.gravar(ids=["l-luz"], pago=True), "Nada mudou: os 1 já estavam assim.")
+        self.assertIn("(a receber)", self.gravar(ids=["l-sal"], pago=False))
+
+    def test_a_receita_fixa_leva_as_vinculadas(self):
+        self.d["recorrencias"].append({"id": "r-plano", "tipo": "despesa", "descricao": "Plano", "valor": 80, "dia": 5, "inicio": "2026-01", "vinculo": "r-sal"})
+        self.d["lancamentos"].append({"id": "l-avulsa", "tipo": "despesa", "descricao": "Avulsa", "valor": 10, "data": "2026-11-02", "vinculo": "r-sal"})
+        self.gravar(ids=["v:r-sal:2026-11"], pago=True)
+        plano = next(x for x in self.d["lancamentos"] if x.get("recorrencia") == "r-plano")
+        self.assertEqual((plano["pago"], plano["cartao"], plano["competencia"]), (True, False, "2026-11"))
+        self.assertTrue(self.lanc("l-avulsa")["pago"])
+        self.gravar(ids=["v:r-sal:2026-11"], pago=False)
+        self.assertFalse(plano["pago"])
+        self.assertFalse(self.lanc("l-avulsa")["pago"])
+
+    def test_o_que_vale(self):
+        for args, erro in (({"ids": ["l-luz"]}, "Diga o que muda"), ({"ids": []}, "ids"), ({"ids": ["l-luz"], "pago": "sim"}, "true ou false"),
+                           ({"ids": ["l-luz", "l-sal"], "pago": True}, "um tipo só"), ({"ids": ["k2"], "pago": True}, "Compras no cartão"),
+                           ({"ids": ["l-aj"], "pago": True}, "não mudam assim"), ({"ids": ["l-vin"], "pago": True}, "não mudam assim"),
+                           ({"ids": ["l-luz"], "categoria": "Viagem"}, "Categoria não encontrada"), ({"ids": ["nada"], "pago": True}, "Não encontrei")):
+            with self.subTest(args=args), self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("alterar_lancamentos", args, self.d)
+        self.assertIn("1 lançamento alterado", self.gravar(ids=["k2"], categoria="Casa"), "no cartão, só a categoria")

@@ -117,6 +117,13 @@ FERRAMENTAS = [
      "entrada": _obj({"id": _ID, "descricao": {"type": "string"}, "valor": {"type": "number", "exclusiveMinimum": 0}, "data": _DATA,
                       "categoria": {"type": "string"}, "conta": {"type": "string", "description": "Id ou nome; vazio tira a conta."},
                       "cartao": {"type": "boolean"}, "pago": {"type": "boolean"}, "obs": {"type": "string"}}, ["id"])},
+    # 1.94.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode colocar todas"): o Alterar do Caixa › Selecionar
+    {"nome": "alterar_lancamentos", "titulo": "Alterar vários lançamentos", "grava": True,
+     "descricao": "Muda de uma vez a categoria e/ou a situação (pago ou a pagar; numa receita, recebido ou a receber) de vários "
+                  "lançamentos, como o Alterar do Caixa › Lançamentos › Selecionar: todos do mesmo tipo (só despesas ou só receitas); "
+                  "num fixo, só o daquele mês. Uma compra no cartão não muda a situação (quem paga é a fatura).",
+     "entrada": _obj({"ids": {"type": "array", "minItems": 1, "maxItems": 200, "items": _ID}, "categoria": {"type": "string"},
+                      "pago": {"type": "boolean"}}, ["ids"])},
     {"nome": "apagar_lancamento", "titulo": "Apagar lançamento", "grava": True, "apaga": True,
      "descricao": "Apaga um lançamento. Num fixo, apaga só o daquele mês (o fixo continua nos outros). Numa compra parcelada, "
                   "só aquela parcela.",
@@ -608,6 +615,74 @@ def _editar(d, a, hoje):
     if x.get("aporte"):
         x["cartao"] = False
     return f"Alterado: {_descrever(d, x, contas)}. Antes: {antes}. id: {x['id']}"
+
+
+def _baixa_vinculados(d, rec):
+    """baixaVinculados do app.js: a receita fixa recebida (ou desfeita) leva junto as despesas fixas e avulsas vinculadas a ela
+    no mesmo mês (o mesmo dia, a mesma conta, fora do cartão)."""
+    if not rec or not rec.get("recorrencia") or rec.get("tipo") != "receita":
+        return
+    ym = rec.get("competencia") or str(rec.get("data") or "")[:7]
+    pago = bool(rec.get("pago"))
+    for r in d.get("recorrencias", []):
+        if r.get("tipo") == "receita" or r.get("vinculo") != rec["recorrencia"] or not calc.ativa_em(r, ym):
+            continue
+        x = next((y for y in d["lancamentos"] if y.get("recorrencia") == r.get("id") and y.get("competencia") == ym), None)
+        if x:
+            if not x.get("pulado"):
+                x.update(pago=pago, data=rec.get("data"), conta=rec.get("conta") or x.get("conta", ""), cartao=False)
+        elif pago:
+            d["lancamentos"].append(integracao._materializar(dict(r, data=rec.get("data"), recorrencia=r["id"], competencia=ym),
+                                                             pago=True, conta=rec.get("conta") or r.get("conta", ""), cartao=False))
+    for x in d["lancamentos"]:
+        if x.get("tipo") != "receita" and not x.get("recorrencia") and x.get("vinculo") == rec["recorrencia"] and str(x.get("data") or "")[:7] == ym:
+            x.update(pago=pago, data=rec.get("data"), conta=rec.get("conta") or x.get("conta", ""), cartao=False)
+
+
+def _alterar_lote(d, a, hoje):
+    """O Alterar do Caixa › Selecionar (lselAlterar e mutLote do app.js): a categoria e a situação de vários, de um tipo só."""
+    ids = a.get("ids")
+    if not isinstance(ids, list) or not ids:
+        raise ErroFerramenta("ids: a lista dos ids (de gerencia_lancamentos).")
+    if "categoria" not in a and "pago" not in a:
+        raise ErroFerramenta("Diga o que muda: categoria e/ou pago.")
+    if "pago" in a and not isinstance(a["pago"], bool):
+        raise ErroFerramenta("pago é true ou false.")
+    ls = [_achar_lanc(d, i) for i in dict.fromkeys(str(x) for x in ids)]
+    nao = [l for l in ls if str(l.get("id")).startswith("d:") or l.get("desconto") or (l.get("vinculo") and l.get("tipo") != "receita")
+           or l.get("ajuste") or l.get("aporte") or l.get("pulado")]
+    if nao:
+        raise ErroFerramenta("Estes não mudam assim (desconto, despesa vinculada a um recebimento, ajuste, aporte ou apagado do mês): "
+                             + "; ".join(_descrever(d, l) for l in nao) + ".")
+    tipos = {l.get("tipo", "despesa") for l in ls}
+    if len(tipos) > 1:
+        raise ErroFerramenta("Uma seleção é de um tipo só: mande só despesas ou só receitas.")
+    tipo = tipos.pop()
+    if "pago" in a and any(l.get("cartao") for l in ls):
+        raise ErroFerramenta("Compras no cartão não mudam a situação (quem paga é a fatura): tire-as do pedido ou mude só a categoria.")
+    cat = _categoria(d, a["categoria"], tipo) if "categoria" in a else None
+    n = 0
+    for l in ls:
+        muda = {}
+        if cat is not None and (l.get("categoria") or "") != cat:
+            muda["categoria"] = cat
+        if "pago" in a and bool(l.get("pago")) != a["pago"]:
+            muda["pago"] = a["pago"]
+        if not muda:
+            continue
+        x = integracao._materializar(l, **muda) if l.get("virtual") else l
+        if l.get("virtual"):
+            d["lancamentos"].append(x)
+        else:
+            x.update(muda)
+        if "pago" in muda:
+            _baixa_vinculados(d, x)
+        n += 1
+    if not n:
+        return f"Nada mudou: os {len(ls)} já estavam assim."
+    o_que = " e ".join(([f"categoria {next((c.get('nome') for c in d['categorias'] if c.get('id') == cat), cat) or 'sem categoria'}"] if cat is not None else [])
+                       + ([("recebido" if a["pago"] else "a receber") if tipo == "receita" else ("pago" if a["pago"] else "a pagar")] if "pago" in a else []))
+    return f"{n} {'lançamento alterado' if n == 1 else 'lançamentos alterados'} ({o_que})" + (f"; {len(ls) - n} já estavam assim." if n < len(ls) else ".")
 
 
 def _apagar(d, a, hoje):
@@ -1218,7 +1293,7 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return texto_beneficios(d, hoje), False
     if nome.endswith("_email") or nome == "oportunidades":  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
-    faz = {"lancar": _lancar, "editar_lancamento": _editar, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
+    faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
            "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco}[nome]

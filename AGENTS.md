@@ -157,6 +157,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.93.2 (o dono: "quando retraído sem selecionar nada deve estar como nenhum… em todos os apps"): o `camposDeEscolha` sem nada marcado põe o `vazioDe(titulo)` («Sem categoria», «Ninguém», «Nenhuma» ou «Nenhum»; a mesma regra do `campovalor.js` dos apps em Lit). Teste: `test_tela_mais`.
 
+1.94.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode colocar todas"): a ferramenta `alterar_lancamentos` (`ids`, `categoria`, `pago`): o Alterar do Caixa › Selecionar (`lselAlterar` e `mutLote` do app.js) no `_alterar_lote` do ferramentas.py, com as regras do `podeSel` (fora os `d:`, os descontos, as despesas com `vinculo`, os ajustes, os aportes e os pulados), um tipo só e sem a situação numa compra no cartão; o fixo do mês virtual vira lançamento (`integracao._materializar`) e a situação passa pelo `_baixa_vinculados` (o `baixaVinculados` do app.js). Testes: `TestAlterarLancamentos` no `tests/test_ferramentas.py`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.
