@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.102.0"
+VERSAO = "1.102.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1896,8 +1896,16 @@ def _energia_ler():
         return {}
 
 
+_kwh_publicado = {"v": None}  # o preço do kWh que está no correria.json
+
+
 def _energia_gravar(c):
     gravar_arquivo(ENERGIA_ARQ, json.dumps(c, ensure_ascii=False))
+    if (c.get("preco") or None) != _kwh_publicado["v"]:  # o preço mudou: o CorrerIA fica sabendo
+        try:
+            publicar_correria()
+        except Exception as e:  # noqa: BLE001 (o preço guardado não depende do arquivo do CorrerIA)
+            log("Energia: não publiquei o preço do kWh:", e)
 
 
 def _energia_mock():
@@ -3675,6 +3683,12 @@ def correria_estado(d):
 def publicar_correria(d=None):
     d = d or ler()
     extra = {"ferramentas": "/api/integracao/ferramentas"}
+    # 1.102.1 (o dono: "Pq o preço kWh tá aqui [no CorrerIA]? Tem que estar no gerencia"): o preço do kWh da Conta de luz vai no
+    # arquivo, e o CorrerIA conta a energia em reais com ele (lá não há mais onde escrever o preço)
+    preco = _energia_ler().get("preco")
+    if isinstance(preco, (int, float)) and not isinstance(preco, bool) and preco > 0:
+        extra["kwh_preco"] = preco
+    _kwh_publicado["v"] = extra.get("kwh_preco")
     if correria_conversa(d):
         extra.update(rota="/api/integracao/conversa", anexos=sorted(EXT_ANEXO))
     CORRERIA.publicar(correria_ligada(d), extra)

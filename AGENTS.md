@@ -178,6 +178,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.102.0 (o dono, nas Vendas do InventarIA: "Ao marcar como vendido solicitar se quer adicionar este recebido"): o `integracao.nova` aceita `tipo: "receita"`, `pago: true` (o lançamento avulso já recebido) e `obs` (até 200 letras); o `share/gerencia/integracao.json` leva `recebimentos: "/api/integracao/nova"` (o `publicar_integracao`), que é como o InventarIA 1.115.0 sabe que pode lançar ali. Testes: `test_1_102_nova_recebimento_ja_recebido` no `tests/test_integracao.py` e o `test_a_depreciacao_dos_bens_para_o_inventaria`.
 
+1.102.1 (o dono, com o print do Preço do kWh no CorrerIA: "Pq o preço kWh tá aqui? Tem que estar no gerencia"): o preço do kWh é escrito só aqui (a Conta de luz); o `publicar_correria` leva `kwh_preco` no `share/gerencia/correria.json` (sem preço, não vai) e o `_energia_gravar` publica de novo quando o preço muda (`_kwh_publicado`). O CorrerIA 1.46.0 lê dali. Teste: `test_1_102_1_o_preco_do_kwh_vai_para_o_correria`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

@@ -174,6 +174,29 @@ class Servidor(Base):
             e = S.energia_mudar({"buscar_preco": True, "onde": "Cidade Exemplo"})
         self.assertEqual((e["preco"], e["ultimo"]["atual"]), (0.98, 141.12), "ligado: a conta já sai com o preço novo")
 
+    def test_1_102_1_o_preco_do_kwh_vai_para_o_correria(self):
+        """1.102.1: o preço do kWh é escrito só aqui; com a opção CorrerIA ligada, vai no correria.json, e o CorrerIA usa."""
+        d = S.ler()
+        d.setdefault("ajustes", {})["correria"] = True
+        S.salvar(d, versao=False)
+        self.addCleanup(lambda: S.CORRERIA.publicar(False))
+        S.publicar_correria()
+        ler = lambda: json.load(open(S.CORRERIA.arq_share, encoding="utf-8"))  # noqa: E731
+        self.assertNotIn("kwh_preco", ler(), "sem o preço, nada")
+        S.energia_mudar({"preco": "0,95"})
+        self.assertEqual(ler()["kwh_preco"], 0.95)
+        S.energia_mudar({"extra": "10"})
+        self.assertEqual(ler()["kwh_preco"], 0.95)
+        S.energia_mudar({"preco": "1,10"})
+        self.assertEqual(ler()["kwh_preco"], 1.1)
+        S.energia_mudar({"preco": ""})
+        self.assertNotIn("kwh_preco", ler())
+        # o arquivo do CorrerIA que não dá para gravar não impede de guardar o preço
+        with mock.patch.object(S, "publicar_correria", side_effect=OSError("sem a pasta")), mock.patch.object(S, "log") as log:
+            S.energia_mudar({"preco": "0,80"})
+        self.assertEqual(S.energia_estado()["preco"], 0.8)
+        self.assertIn("kWh", str(log.call_args[0][0]))
+
     def test_ferramenta_e_rotas(self):
         t = S.usar_ferramenta({"nome": "conta_de_luz", "argumentos": {}})["texto"]
         self.assertIn("está desligada", t)

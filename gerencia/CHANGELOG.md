@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.102.1
+
+- **Preço do kWh num lugar só**: o preço da **Conta de luz** (Configurações › Integrações) vale também para o CorrerIA contar a energia em reais. Lá não há mais onde escrever o preço.
+
 ## 1.102.0
 
 - **Vendas do InventarIA**: ao marcar um item como vendido no InventarIA (1.115.0), dá para lançar o valor aqui como recebimento, já recebido, na data da venda. Vale com a ligação com os outros apps ligada em **Configurações › Integrações**.
