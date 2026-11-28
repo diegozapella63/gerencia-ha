@@ -82,6 +82,10 @@ FERRAMENTAS = [
      "descricao": "Quanto a casa deve gastar neste mês, sem IA: o que já saiu, o que já está marcado até o fim do mês (fixos, parcelas "
                   "e contas lançadas) e o dia a dia que ainda deve vir, pela média dos últimos meses; com a média deles para comparar.",
      "entrada": _obj({})},
+    {"nome": "conta_de_luz", "titulo": "Conta de luz pelo consumo", "grava": False,
+     "descricao": "Quanto a conta de luz deste mês já deu até hoje e a projeção do mês inteiro, pelo medidor de energia do Home "
+                  "Assistant ligado a um fixo (Mais › Configurações › Integrações › Conta de luz). Só lê.",
+     "entrada": _obj({})},
     {"nome": "cambio", "titulo": "Câmbio do Banco Central", "grava": False,
      "descricao": "A cotação de hoje do dólar, do euro e da libra (a PTAX de venda do Banco Central). Com valor e moeda, "
                   "converte para reais; com moeda BRL e para (USD, EUR ou GBP), de reais para a moeda. É a taxa de referência: "
@@ -744,6 +748,25 @@ def _em_reais(a, moedas):
     nota = f"{_fmt_moeda(v, cod)} a R$ {calc.fmt_num(c['valor'], 4)} (Banco Central, {_dm(c['data'])[:5]})"
     obs = _texto(a.get("obs"), 400)
     return {**{k: x for k, x in a.items() if k != "moeda"}, "valor": round(v * c["valor"], 2), "obs": (obs + " · " if obs else "") + nota}
+
+
+def texto_conta_de_luz(e, d):
+    """O atual e o projetado da conta de luz do mês (a ferramenta conta_de_luz; quem lê o medidor é o server.py)."""
+    if not e.get("ligado"):
+        return "A conta de luz pelo consumo está desligada: liga em Mais › Configurações › Integrações › Conta de luz (o fixo, o medidor e o preço do kWh)."
+    u = e.get("ultimo")
+    if not u:
+        return e.get("erro") or "Ainda não há consumo lido neste mês."
+    fixo = next((r.get("descricao") for r in d.get("recorrencias", []) if r.get("id") == e.get("fixo")), "") or "o fixo"
+    k = lambda v: calc.fmt_num(v, 1)  # noqa: E731
+    out = [f"{fixo}, pelo consumo de energia deste mês:",
+           f"- Até hoje (dia {u['dia']} de {u['dias']}): {k(u['kwh'])} kWh, {_brl(u['atual'])}",
+           f"- Projeção do mês: {k(u['kwh_projetado'])} kWh, {_brl(u['projetado'])}",
+           f"Conta: kWh × R$ {calc.fmt_num(e.get('preco') or 0, 4)}" + (f" + {calc.fmt_num(e.get('extra') or 0, 0)}%" if e.get("extra") else "") + "."]
+    out.append("O fixo deste mês já está pago: o valor dele não muda." if u.get("pago") else "O fixo deste mês fica com a projeção até ser pago.")
+    if e.get("erro"):
+        out.append(e["erro"])
+    return "\n".join(out)
 
 
 def texto_cambio(moedas, a):
@@ -1734,7 +1757,7 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras="", moedas=None):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,

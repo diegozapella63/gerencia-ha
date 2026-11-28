@@ -42,8 +42,9 @@ import milhas  # noqa: E402
 import promocoes  # noqa: E402
 import cotacoes  # noqa: E402
 import cambio  # noqa: E402
+import energia  # noqa: E402
 
-VERSAO = "1.100.0"
+VERSAO = "1.101.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1875,6 +1876,209 @@ def cotacoes_na_hora(agora=None):
     return agora.weekday() < 5 and agora - ult > timedelta(hours=COTACOES_HORAS)
 
 
+# 1.101.0 (o dono: "vincular uma conta fixa no gerencia com o consumo de energia… de forma automática… configurar isso na tela
+# de config… um percentual fixo a mais na conta, exemplo: 20%"; "tem que mostrar os dois, o atual e o projetado"; "se a IA
+# sabe o valor, faz ela baixar, sem ia ligada deixa o campo para livre digitação"): a conta de luz pelo consumo. A escolha
+# fica em /data/energia.json (o fixo, o medidor do Home Assistant, o preço do kWh, o percentual a mais e a última conta).
+ENERGIA_ARQ = os.path.join(DATA_DIR, "energia.json")
+ENERGIA_HORAS = 6
+ENERGIA_MOCK = os.environ.get("GERENCIA_ENERGIA_MOCK")  # só para testes: {"medidores": [...], "kwh": 120}
+SENSOR_RE = re.compile(r"^sensor\.[a-z0-9_]{1,80}$")
+_energia_trava = threading.Lock()
+
+
+def _energia_ler():
+    try:
+        with open(ENERGIA_ARQ, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _energia_gravar(c):
+    gravar_arquivo(ENERGIA_ARQ, json.dumps(c, ensure_ascii=False))
+
+
+def _energia_mock():
+    try:
+        m = json.loads(ENERGIA_MOCK) if ENERGIA_MOCK else None
+    except ValueError:
+        m = None
+    return m if isinstance(m, dict) else None
+
+
+def energia_medidores():
+    m = _energia_mock()
+    if m is not None:
+        return [x for x in m.get("medidores") or [] if isinstance(x, dict)]
+    try:
+        return energia.medidores(ha_request("GET", "/states"))
+    except Exception as e:  # noqa: BLE001
+        log("Energia: os medidores:", e)
+        return []
+
+
+def energia_kwh(sensor, agora):
+    """Quanto o medidor andou do dia 1 até agora (kWh), pelas estatísticas do Home Assistant; None sem nada."""
+    m = _energia_mock()
+    if m is not None:
+        return m.get("kwh")
+    return energia.kwh_da_resposta(voz._ws_comando(HA_WS, TOKEN, energia.pedido(sensor, agora)), sensor)
+
+
+def energia_estado(d=None, medidores=True):
+    c = _energia_ler()
+    d = d if d is not None else ler()
+    fixos = [{"id": r["id"], "nome": r.get("descricao") or "Fixo"} for r in d.get("recorrencias", []) if r.get("id") and r.get("tipo") != "receita" and not r.get("fim")]
+    return {"ligado": c.get("ligado") is True, "fixo": c.get("fixo") or "", "sensor": c.get("sensor") or "", "preco": c.get("preco") or 0,
+            "extra": c.get("extra") or 0, "onde": c.get("onde") or "", "tarifa": c.get("tarifa") or None, "ultimo": c.get("ultimo") or None,
+            "erro": c.get("erro") or "", "fixos": fixos, "medidores": energia_medidores() if medidores else [],
+            "disponivel": bool(TOKEN) or _energia_mock() is not None, "ia": ia_ligada(d)}
+
+
+PEDIDO_TARIFA = (
+    "Busque na internet o preço atual da energia elétrica residencial (grupo B1, tarifa convencional) da distribuidora que "
+    "atende {onde}, no Brasil. Quero o preço FINAL por kWh que a pessoa paga na conta: a tarifa homologada pela ANEEL (TE + TUSD) "
+    "com o ICMS, o PIS e a COFINS e a bandeira tarifária deste mês. Se a fonte só traz a tarifa sem impostos, calcule o final e "
+    "diga como. Responda só com JSON: {{\"preco_kwh\": número em reais com os impostos, \"sem_impostos\": número ou null, "
+    "\"distribuidora\": \"nome\", \"bandeira\": \"verde, amarela ou vermelha\", \"como\": \"uma frase com a conta\", \"fonte\": \"endereço da página\"}}. "
+    "Sem achar um valor de confiança, responda {{\"erro\": \"sem_tarifa\"}}.")
+
+
+def energia_buscar_preco(onde):
+    """Com a IA ligada: a IA de pesquisar na internet acha o preço do kWh com os impostos (a pessoa confere e pode mudar)."""
+    d = ler()
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada: escreva o preço do kWh da sua conta de luz.")
+    onde = " ".join(str(onde or "").split())[:80]
+    if len(onde) < 3:
+        raise ValueError("Diga a cidade (ou a distribuidora), como Joinville, SC.")
+    if IA_MOCK:
+        registrar_uso("energia", "ai_task.simulada", 400, 200, 0, 0.5, "ok")
+        dados = {"preco_kwh": 0.98, "sem_impostos": 0.76, "distribuidora": "Distribuidora Exemplo", "bandeira": "verde",
+                 "como": "0,76 com os impostos de exemplo", "fonte": "https://exemplo.invalid/tarifas"}
+    else:
+        payload = {"task_name": "GerencIA: preço do kWh", "instructions": PEDIDO_TARIFA.format(onde=onde)}
+        if ia_ent(d, "pesquisa"):
+            payload["entity_id"] = ia_ent(d, "pesquisa")
+        try:
+            dados = extrair_json(((ia_chamar("energia", payload, 0) or {}).get("service_response") or {}).get("data"))
+        except ErroHA as e:
+            raise ValueError(str(e)) from None
+        except ValueError:
+            dados = None
+    p = energia.numero((dados or {}).get("preco_kwh"), 0.05, 10) if isinstance(dados, dict) else None
+    if not p:
+        raise ValueError("A IA não achou o preço do kWh com confiança: escreva o da sua conta de luz (o total dividido pelos kWh).")
+    fonte = str(dados.get("fonte") or "")[:300]
+    c = _energia_ler()
+    c.update(onde=onde, preco=round(p, 4), tarifa={"distribuidora": str(dados.get("distribuidora") or "")[:60], "bandeira": str(dados.get("bandeira") or "")[:20],
+                                                  "sem_impostos": energia.numero(dados.get("sem_impostos"), 0.05, 10), "como": str(dados.get("como") or "")[:200],
+                                                  "fonte": fonte if fonte.startswith("https://") else "", "em": agora_iso()})
+    _energia_gravar(c)
+    return atualizar_energia() if c.get("ligado") else energia_estado()
+
+
+def atualizar_energia(agora=None):
+    """Lê o consumo do mês e põe a projeção no fixo do mês (se ainda não foi pago); guarda o atual e o projetado."""
+    with _energia_trava:
+        c = _energia_ler()
+        if c.get("ligado") is not True:
+            return energia_estado()
+        agora = agora or energia.agora_local()
+        ym = f"{agora.year:04d}-{agora.month:02d}"
+        erro, conta, pago = "", None, False
+        try:
+            kwh = energia_kwh(c.get("sensor") or "", agora)
+        except Exception as e:  # noqa: BLE001
+            log("Energia:", e)
+            kwh, erro = None, "Não consegui ler o medidor no Home Assistant agora."
+        if kwh is None:
+            erro = erro or "O medidor ainda não tem consumo guardado neste mês."
+        else:
+            conta = energia.conta(float(kwh), float(c.get("preco") or 0), float(c.get("extra") or 0), agora)
+            with TRAVA:
+                d = ler()
+                r = next((x for x in d.get("recorrencias", []) if x.get("id") == c.get("fixo")), None)
+                if not r or not calc.ativa_em(r, ym):
+                    erro = "O fixo escolhido não existe mais (ou não vale neste mês)."
+                else:
+                    x = next((y for y in d["lancamentos"] if y.get("recorrencia") == r["id"] and y.get("competencia") == ym), None)
+                    pago = bool(x and (x.get("pago") or x.get("pulado")))
+                    if not pago:
+                        if not x:
+                            o = next(o for o in calc.ocorrencias_mes(d, ym) if o.get("recorrencia") == r["id"] and o.get("competencia") == ym)
+                            x = integracao._materializar(o, pago=False)
+                            d["lancamentos"].append(x)
+                        resto = re.sub(r"(?:^| · )?Energia: .*$", "", str(x.get("obs") or "")).strip(" ·")
+                        novo_obs = (resto + " · " if resto else "") + energia.obs(conta)
+                        if x.get("valor") != conta["projetado"] or x.get("obs") != novo_obs:
+                            x.update(valor=conta["projetado"], obs=novo_obs)
+                            d["rev"] = d["rev"] + 1  # a tela aberta vê o valor novo pelo /api/rev
+                            salvar(d, versao=False)
+        if conta:
+            c["ultimo"] = dict(conta, mes=ym, pago=pago)
+        c.update(em=agora_iso(), erro=erro)
+        _energia_gravar(c)
+        return energia_estado()
+
+
+def energia_mudar(corpo):
+    """{atualizar: true} | {buscar_preco: true, onde} | os campos (ligado, fixo, sensor, preco, extra, onde): confere e guarda."""
+    if corpo.get("atualizar") is True:
+        return atualizar_energia()
+    if corpo.get("buscar_preco") is True:
+        return energia_buscar_preco(corpo.get("onde"))
+    c = _energia_ler()
+    d = ler()
+    if "fixo" in corpo:
+        if corpo["fixo"] and not any(r.get("id") == corpo["fixo"] and r.get("tipo") != "receita" for r in d.get("recorrencias", [])):
+            raise ValueError("Escolha um fixo que exista (a conta de luz).")
+        c["fixo"] = str(corpo["fixo"] or "")
+    if "sensor" in corpo:
+        if corpo["sensor"] and not SENSOR_RE.match(str(corpo["sensor"])):
+            raise ValueError("Escolha um medidor de energia do Home Assistant.")
+        c["sensor"] = str(corpo["sensor"] or "")
+    if "preco" in corpo:
+        p = 0 if corpo["preco"] in ("", None, 0) else energia.numero(corpo["preco"], 0.01, 10)
+        if p is None:
+            raise ValueError("O preço do kWh fica entre R$ 0,01 e R$ 10,00.")
+        c["preco"] = round(p, 4)
+    if "extra" in corpo:
+        e = 0 if corpo["extra"] in ("", None) else energia.numero(corpo["extra"], 0, 200)
+        if e is None:
+            raise ValueError("O percentual a mais vai de 0 a 200.")
+        c["extra"] = round(e, 2)
+    if "onde" in corpo:
+        c["onde"] = " ".join(str(corpo["onde"] or "").split())[:80]
+    if "ligado" in corpo:
+        if corpo["ligado"] is True and not (c.get("fixo") and c.get("sensor") and c.get("preco")):
+            raise ValueError("Antes de ligar, escolha o fixo, o medidor e o preço do kWh.")
+        c["ligado"] = corpo["ligado"] is True
+    if not (c.get("fixo") and c.get("sensor") and c.get("preco")):
+        c["ligado"] = False
+    _energia_gravar(c)
+    return atualizar_energia() if c.get("ligado") else energia_estado(d)
+
+
+def energia_na_hora(agora=None):
+    c = _energia_ler()
+    if c.get("ligado") is not True:
+        return False
+    try:
+        return (agora or datetime.now()) - datetime.fromisoformat(str(c.get("em") or "")) > timedelta(hours=ENERGIA_HORAS)
+    except ValueError:
+        return True
+
+
+def energia_sem_erro():
+    try:
+        atualizar_energia()
+    except Exception as e:  # noqa: BLE001
+        log("Energia:", e)
+
+
 SENHAS_ARQ = os.path.join(DATA_DIR, "senhas_pdf.json")  # fora do gerencia.json: não vai nas exportações nem para a tela
 _trava_senhas = threading.Lock()
 
@@ -3492,6 +3696,10 @@ def usar_ferramenta(corpo):
         est = dicas_estado(d, disparar=False)
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
         return {"texto": ferramentas.texto_dicas(dicas_que_valem(d, est) if not est.get("desligadas") else [], est.get("assinaturas") or [], bool(est.get("desligadas")))}
+    if nome == "conta_de_luz":  # 1.101.0: o consumo de energia do mês em reais (o atual e o projetado)
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        e = atualizar_energia() if _energia_ler().get("ligado") is True else energia_estado(medidores=False)
+        return {"texto": ferramentas.texto_conta_de_luz(e, ler())}
     if nome == "cambio":  # 1.100.0: a PTAX do Banco Central (e a conversão)
         a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
@@ -3790,6 +3998,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, resumo_uso())
             if p == "/api/voz/status":
                 return self.enviar(200, voz_status())
+            if p == "/api/energia":  # 1.101.0: a conta de luz pelo consumo
+                return self.enviar(200, energia_estado())
             if p == "/api/cambio":  # 1.100.0: a PTAX do dia (dólar, euro e libra)
                 return self.enviar(200, cambio_estado())
             if p == "/api/cotacoes":  # 1.99.0: as cotações da B3 (a chave da brapi, só o fim)
@@ -3915,6 +4125,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, email_simular(self.corpo_json()))
             if p == "/api/cotacoes":
                 return self.enviar(200, cotacoes_mudar(self.corpo_json()))
+            if p == "/api/energia":
+                return self.enviar(200, energia_mudar(self.corpo_json()))
             if p == "/api/senhas/apagar":
                 return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
@@ -4544,6 +4756,8 @@ def rotina():
                 or datetime.now() - datetime.fromisoformat(ind["atualizado_em"]) > timedelta(hours=12))
             if precisa:
                 d = atualizar_indices()
+            if energia_na_hora():  # 1.101.0: a conta de luz pelo consumo
+                energia_sem_erro()
             if cotacoes_na_hora():  # 1.99.0: as cotações da B3
                 atualizar_cotacoes()
                 d = ler()

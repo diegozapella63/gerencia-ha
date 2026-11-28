@@ -1768,6 +1768,12 @@ input[readonly] { opacity: .8; }
 }
 .cx-grupo.fechado .cx-grupo-h::after { transform: rotate(-90deg); }
 /* 1.99.0: o código na bolsa e a quantidade, lado a lado, no investimento em ações */
+.en-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.en-conta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.en-conta > div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.en-conta span, .en-conta small { color: var(--muted); font-size: 13px; }
+.en-conta b { font-size: 20px; overflow-wrap: anywhere; }
+#energia .btn.out { width: 100%; }
 .papel-2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: end; }
 .papel-2 label { display: block; }
 #f-ticker { text-transform: uppercase; }

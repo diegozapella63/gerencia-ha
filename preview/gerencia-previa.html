@@ -1774,6 +1774,12 @@ input[readonly] { opacity: .8; }
 }
 .cx-grupo.fechado .cx-grupo-h::after { transform: rotate(-90deg); }
 /* 1.99.0: o código na bolsa e a quantidade, lado a lado, no investimento em ações */
+.en-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.en-conta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.en-conta > div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.en-conta span, .en-conta small { color: var(--muted); font-size: 13px; }
+.en-conta b { font-size: 20px; overflow-wrap: anywhere; }
+#energia .btn.out { width: 100%; }
 .papel-2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: end; }
 .papel-2 label { display: block; }
 #f-ticker { text-transform: uppercase; }
@@ -2342,7 +2348,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.100.0';
+const VERSAO = '1.101.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -2876,6 +2882,8 @@ const apiServidor = {
   state: () => fetch('api/state', { cache: 'no-store' }).then(jsonOk),
   previsao: () => fetch('api/previsao', { cache: 'no-store' }).then(jsonOk),
   cambio: () => fetch('api/cambio', { cache: 'no-store' }).then(jsonOk),
+  energia: () => fetch('api/energia', { cache: 'no-store' }).then(jsonOk),
+  energiaMudar: c => fetch('api/energia', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then(jsonOk),
   cotacoes: () => fetch('api/cotacoes', { cache: 'no-store' }).then(jsonOk),
   cotacoesMudar: c => fetch('api/cotacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then(jsonOk),
   async save(corpo) {
@@ -2932,6 +2940,26 @@ function apiDemo() {
   return {
     async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
     async previsao() { return null; },
+    // a conta de luz pelo consumo: na prévia, um medidor e um consumo de exemplo (a conta é a do energia.py)
+    async energia() {
+      const e = this._en = this._en || { ligado: false, fixo: '', sensor: '', preco: 0, extra: 0, onde: '', tarifa: null, ultimo: null, erro: '' };
+      return Object.assign({}, e, { fixos: (d ? d.recorrencias : []).filter(r => r.tipo !== 'receita' && !r.fim).map(r => ({ id: r.id, nome: r.descricao })),
+        medidores: [{ id: 'sensor.energia_da_casa', nome: 'Energia da casa' }], disponivel: true, ia: !d || d.ajustes.ia !== false });
+    },
+    async energiaMudar(c) {
+      const e = (await this.energia(), this._en), num = v => Number(String(v).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+      if (c.buscar_preco) { if (String(c.onde || '').trim().length < 3) throw new Error('Diga a cidade (ou a distribuidora), como Joinville, SC.'); Object.assign(e, { onde: c.onde.trim(), preco: 0.98, tarifa: { distribuidora: 'Distribuidora Exemplo', bandeira: 'verde', como: '0,76 com os impostos de exemplo', fonte: '' } }); }
+      for (const k of ['fixo', 'sensor', 'onde']) if (k in c) e[k] = c[k];
+      if ('preco' in c) { const p = num(c.preco); if (c.preco !== '' && !(p >= 0.01 && p <= 10)) throw new Error('O preço do kWh fica entre R$ 0,01 e R$ 10,00.'); e.preco = p; }
+      if ('extra' in c) { const x = num(c.extra); if (!(x >= 0 && x <= 200)) throw new Error('O percentual a mais vai de 0 a 200.'); e.extra = x; }
+      if ('ligado' in c) { if (c.ligado && !(e.fixo && e.sensor && e.preco)) throw new Error('Antes de ligar, escolha o fixo, o medidor e o preço do kWh.'); e.ligado = !!c.ligado; }
+      if (e.ligado) {
+        const h = new Date(), dias = new Date(h.getFullYear(), h.getMonth() + 1, 0).getDate(), passou = Math.max(1, h.getDate() - 1 + (h.getHours() * 60 + h.getMinutes()) / 1440), kwh = 120;
+        const atual = kwh * e.preco * (1 + e.extra / 100);
+        e.ultimo = { kwh, atual: Math.round(atual * 100) / 100, projetado: Math.round(atual * dias / passou * 100) / 100, dia: h.getDate(), dias, kwh_projetado: Math.round(kwh * dias / passou * 10) / 10, pago: false };
+      }
+      return this.energia();
+    },
     // o câmbio: na prévia, cotações de exemplo, sem buscar nada
     async cambio() { const data = new Date().toISOString().slice(0, 10); return { moedas: { USD: { valor: 5.04, data }, EUR: { valor: 5.52, data }, GBP: { valor: 6.41, data } }, buscado_em: data }; },
     // as cotações da B3: na prévia, a chave fica na memória da página e nada é buscado
@@ -7081,6 +7109,45 @@ function emailDeAdicionar() {
 /* Senhas dos PDFs: as faturas com senha (ex.: os dígitos do CPF) abrem sozinhas na leitura por IA. As senhas ficam
    no servidor, fora das exportações; a tela só vê o nome e o fim (••••45). */
 // 1.99.0: Cotações da B3 (a brapi): a chave da casa (só o fim volta para a tela), quando atualizou e o Atualizar agora
+// 1.101.0 (o dono: "vincular uma conta fixa… com o consumo de energia… configurar isso na tela de config… um percentual fixo a
+// mais"; "tem que mostrar os dois, o atual e o projetado"; "se a IA sabe o valor, faz ela baixar"): Conta de luz pelo consumo
+function cardEnergia() {
+  if (S.energia === undefined) carregarEnergia();
+  const E = S.energia;
+  let corpo;
+  if (!E) corpo = `<div class="status manual">Carregando…</div>`;
+  else if (!E.disponivel) corpo = `<div class="status manual">Só dentro do Home Assistant.</div>`;
+  else {
+    const op = (lista, v, vazio) => `<option value=""${v ? '' : ' selected'}>${vazio}</option>` + lista.map(x => `<option value="${esc(x.id)}"${x.id === v ? ' selected' : ''}>${esc(x.nome)}</option>`).join('');
+    const u = E.ultimo, k = v => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const T = E.tarifa, R = S.enRasc || {};  // o que está sendo escrito e ainda não foi guardado não some num redesenho
+    corpo = `<div class="linha-sw"><div>${tituloLinha('zap', 'Atualizar o fixo pelo consumo')}<span>${E.ligado ? 'Ligado: o fixo do mês fica com a projeção até ser pago.' : 'Desligado.'}</span></div>
+        <button class="sw${E.ligado ? ' on' : ''}" data-a="en-ligar" role="switch" aria-checked="${!!E.ligado}" aria-label="Atualizar o fixo pelo consumo"></button></div>
+      ${subOpcoes(`<div class="campo">${tituloLinha('repeat', 'Fixo (a conta de luz)')}<select class="inp" id="en-fixo" data-en="fixo" aria-label="Fixo da conta de luz" style="margin-top:8px">${op(E.fixos || [], E.fixo, 'Escolha')}</select></div>
+        <div class="campo">${tituloLinha('zap', 'Medidor de energia')}<select class="inp" id="en-sensor" data-en="sensor" aria-label="Medidor de energia" style="margin-top:8px">${op(E.medidores || [], E.sensor, (E.medidores || []).length ? 'Escolha' : 'Nenhum medidor no Home Assistant')}</select></div>
+        <div class="en-2"><div class="campo">${tituloLinha('wallet', 'Preço do kWh')}<input class="inp" id="en-preco" data-en="preco" inputmode="decimal" autocomplete="off" placeholder="Ex.: 0,95" value="${esc(R.preco != null ? R.preco : E.preco ? String(E.preco).replace('.', ',') : '')}" aria-label="Preço do kWh" style="margin-top:8px"></div>
+          <div class="campo">${tituloLinha('percent', 'A mais (%)')}<input class="inp" id="en-extra" data-en="extra" inputmode="decimal" autocomplete="off" placeholder="Ex.: 20" value="${esc(R.extra != null ? R.extra : E.extra ? String(E.extra).replace('.', ',') : '')}" aria-label="Percentual a mais" style="margin-top:8px"></div></div>
+        ${iaOn() ? `<div class="campo">${tituloLinha('home', 'Cidade ou distribuidora')}<input class="inp" id="en-onde" autocomplete="off" placeholder="Ex.: Joinville, SC" value="${esc(R.onde != null ? R.onde : E.onde || '')}" aria-label="Cidade ou distribuidora" style="margin-top:8px"></div>
+          <button class="btn out" data-a="en-buscar"${S.enBuscando ? ' disabled' : ''}>${ic('ia')}${S.enBuscando ? 'Buscando…' : 'Buscar o preço com IA'}</button>
+          ${T ? `<p class="nota" id="en-tarifa">${esc([T.distribuidora, T.bandeira ? 'bandeira ' + T.bandeira : '', T.como].filter(Boolean).join(' · '))}${T.fonte ? ' · ' + site(T.fonte, 'fonte') : ''}. Confira com a sua conta.</p>` : ''}`
+        : `<p class="nota">Da conta de luz: o total dividido pelos kWh.</p>`}`)}
+      ${u ? `<div class="en-conta" id="en-conta"><div><span>Até hoje (dia ${u.dia})</span><b id="en-atual">${brl(u.atual)}</b><small>${k(u.kwh)} kWh</small></div>
+        <div><span>Projeção do mês</span><b id="en-proj">${brl(u.projetado)}</b><small>${k(u.kwh_projetado)} kWh</small></div></div>${u.pago ? `<p class="nota">O fixo deste mês já está pago: o valor dele não muda.</p>` : ''}` : ''}
+      ${E.erro ? `<div class="status manual" id="en-erro">${esc(E.erro)}</div>` : ''}
+      ${E.ligado ? `<button class="btn out" data-a="en-atualizar" style="margin-top:12px">${ic('refresh')}Atualizar agora</button>` : ''}`;
+  }
+  return `<section class="card" id="energia">${maisCab('zap', 'Conta de luz')}
+    ${maisLead('O consumo do mês de um medidor do Home Assistant vira o valor da conta de luz: o que já deu e a projeção.')}
+    ${corpo}</section>`;
+}
+function carregarEnergia() {
+  if (S.energiaPedido) return;
+  S.energiaPedido = api.energia().then(r => r, () => null).then(r => { S.energia = r || { disponivel: false }; S.energiaPedido = null; if (S.ui.maisTela === 'config') render(); });
+}
+function energiaAcao(corpo, ok) {
+  return api.energiaMudar(corpo).then(r => { S.energia = r; for (const k of Object.keys(corpo)) delete (S.enRasc || {})[k === 'buscar_preco' ? 'preco' : k]; if (ok) toast(r.erro || ok); if (!DEMO) return api.state().then(d => { S.d = normalizar(d); }); })
+    .catch(e => { toast(e.message || 'Não deu certo.'); }).then(() => { S.enBuscando = false; render(); });
+}
 function cardCotacoes() {
   if (S.cotacoes === undefined) carregarCotacoes();
   const C = S.cotacoes;
@@ -8583,7 +8650,7 @@ function maisIntegracoes() {
     ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
   ];
   // a ordem da família: os outros apps › CorrerIA › IA › Falar › Uso da IA › (as faturas por e-mail) › Sensores
-  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardMemoria() + cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + cardCotacoes() + `
+  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardMemoria() + cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + cardEnergia() + cardCotacoes() + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para usar em painéis e automações do Home Assistant.')}
       ${linhaChave('sensores', sens, 'Criar sensores', sens ? 'Ligado.' : 'Desligado: nenhum sensor no Home Assistant.')}
@@ -9779,6 +9846,10 @@ document.addEventListener('click', ev => {
     case 'cot-salvar': cotacoesAcao({ token: ($('#brapi-token') || {}).value || '' }, 'Chave guardada'); break;
     case 'cot-atualizar': toast('Buscando as cotações…'); cotacoesAcao({ atualizar: true }, 'Cotações atualizadas'); break;
     case 'cot-apagar': cotacoesAcao({ apagar: true }, 'Chave tirada'); break;
+    case 'en-ligar': { const v = id => ($(id) || {}).value, on = !!(S.energia && S.energia.ligado);  // o que está escrito vai junto: o campo pode ainda não ter sido guardado
+      energiaAcao(on ? { ligado: false } : { fixo: v('#en-fixo') || '', sensor: v('#en-sensor') || '', preco: v('#en-preco') || '', extra: v('#en-extra') || '', ligado: true }, on ? 'Desligado' : 'Ligado'); break; }
+    case 'en-atualizar': toast('Lendo o medidor…'); energiaAcao({ atualizar: true }, 'Conta de luz atualizada'); break;
+    case 'en-buscar': { const onde = ($('#en-onde') || {}).value || ''; if (S.energia) S.energia.onde = onde; S.enBuscando = true; render(); energiaAcao({ buscar_preco: true, onde }, 'Preço do kWh preenchido'); break; }
     case 'lf-set': LF[el.dataset.k] = v; if (el.dataset.k === 'categoria') LF.catAuto = false; pintarFolha(); break;
     case 'lf-pago': LF.pago = !!v; LF.pagoMexido = true; pintarFolha(); break;
     case 'lf-conta': LF.conta = v; if (!contaDe(v)?.cartao) LF.cartao = false; LF.pagoMexido = LF.id ? LF.pagoMexido : false; pintarFolha(); break;
@@ -10108,6 +10179,7 @@ document.addEventListener('click', ev => {
 
 document.addEventListener('input', ev => {
   const el = ev.target;
+  if (el.id === 'en-preco' || el.id === 'en-extra' || el.id === 'en-onde') { (S.enRasc = S.enRasc || {})[el.id.slice(3)] = el.value; return; }
   if (el.dataset.ch === 'texto' && CH) {
     CH.texto = el.value;
     ajustarAlturaChat(el);
@@ -10365,6 +10437,8 @@ document.addEventListener('keydown', ev => {
 });
 document.addEventListener('change', ev => {
   const el = ev.target;
+  // um instante depois: o toque que tirou o foco do campo (o Ligar, o Buscar) acontece antes de a tela ser redesenhada
+  if (el.dataset.en) { const k = el.dataset.en, v = el.value; setTimeout(() => energiaAcao({ [k]: v }, 'Guardado'), 250); return; }
   if (el.dataset.bensTaxa) {
     // a % vai com o Perde ou Valoriza escolhido ao lado; digitar um número negativo também vira Valoriza
     const k = el.dataset.bensTaxa, n = Number(String(el.value).replace(',', '.').replace('−', '-')) || 0;

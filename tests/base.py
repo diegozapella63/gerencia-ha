@@ -204,6 +204,7 @@ def importar_servidor():
     os.environ.setdefault("GERENCIA_TESOURO_DADOS", "http://127.0.0.1:9/dados.csv")
     os.environ.setdefault("GERENCIA_PROMOS_BASE", "http://127.0.0.1:9/promo/")
     os.environ.setdefault("GERENCIA_PTAX", "http://127.0.0.1:9/ptax")  # 1.100.0: e o câmbio
+    os.environ.pop("GERENCIA_ENERGIA_MOCK", None)
     os.environ.setdefault("GERENCIA_BRAPI", "http://127.0.0.1:9/brapi")  # 1.99.0: as cotações da B3 também  # 1.64.0: as páginas das assinaturas também
     for k in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN"):
         os.environ.pop(k, None)

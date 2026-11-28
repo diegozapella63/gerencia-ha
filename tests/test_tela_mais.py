@@ -867,6 +867,49 @@ class TestIntegracoes(TelaMais):
         self.clicar('#folhas [data-a="senha-salvar"]')
         self.janela_fechada()
 
+    def test_1_101_conta_de_luz_pelo_consumo(self):
+        """1.101.0: o cartão Conta de luz: o fixo, o medidor, o preço do kWh (pela IA ou escrito) e o percentual a mais; ligado,
+        mostra os dois, o que já deu até hoje e a projeção do mês."""
+        fixo = {"id": "r-luz", "tipo": "despesa", "descricao": "Conta de luz", "valor": 200, "dia": 10, "inicio": "2026-01"}
+        self.abrir(base(bancos=BANCOS, recorrencias=[fixo]), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.pg.wait_for_selector("#energia #en-fixo")
+        self.assertEqual(self.texto("#energia h2"), "Conta de luz")
+        self.assertEqual(self.pg.locator("#energia .sw").get_attribute("aria-checked"), "false")
+        self.clicar('#energia [data-a="en-ligar"]')
+        self.pg.wait_for_function("document.body.innerText.includes('Antes de ligar, escolha o fixo')")
+        self.pg.select_option("#en-fixo", "r-luz")
+        self.pg.wait_for_function("document.querySelector('#en-fixo').value === 'r-luz'")
+        self.pg.select_option("#en-sensor", "sensor.energia_da_casa")
+        self.pg.wait_for_function("document.querySelector('#en-sensor').value === 'sensor.energia_da_casa'")
+        self.assertEqual(self.conta("#en-conta"), 0)
+        # com a IA, o preço vem da busca (e continua um campo que se pode mudar)
+        self.clicar('#energia [data-a="en-buscar"]')
+        self.pg.wait_for_function("document.body.innerText.includes('Diga a cidade')")
+        self.pg.fill("#en-onde", "Cidade Exemplo, EX")
+        self.clicar('#energia [data-a="en-buscar"]')
+        self.pg.wait_for_function("document.querySelector('#en-preco').value === '0,98'")
+        self.assertIn("Distribuidora Exemplo · bandeira verde", self.texto("#en-tarifa"))
+        self.pg.fill("#en-extra", "20")
+        self.pg.dispatch_event("#en-extra", "change")
+        self.clicar('#energia [data-a="en-ligar"]')  # o que está escrito vai junto, mesmo antes de ser guardado
+        self.pg.wait_for_selector("#en-conta")
+        self.assertEqual(self.pg.locator("#energia .sw").get_attribute("aria-checked"), "true")
+        rotulos = self.js("[...document.querySelectorAll('#en-conta span')].map(x => x.textContent.replace(/ \\(dia \\d+\\)/, ''))")
+        self.assertEqual(rotulos, ["Até hoje", "Projeção do mês"], "os dois à vista")
+        self.assertEqual(self.texto("#en-atual").replace("\xa0", " "), "R$ 141,12")
+        self.assertRegex(self.texto("#en-proj").replace("\xa0", " "), r"^R\$ [\d.]+,\d\d$")
+        caixas = [self.pg.locator(f"#en-conta > div:nth-child({i})").bounding_box() for i in (1, 2)]
+        self.assertEqual(round(caixas[0]["width"]), round(caixas[1]["width"]))
+        self.assertEqual(round(self.pg.locator('#energia [data-a="en-atualizar"]').bounding_box()["height"]), 50)
+        self.assertFalse(self.pg.evaluate("document.documentElement.scrollWidth > innerWidth"))
+        # sem a IA: sem a busca, o campo livre
+        self.abrir(base(bancos=BANCOS, recorrencias=[fixo], ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.pg.wait_for_selector("#energia #en-preco")
+        self.assertEqual((self.conta('#energia [data-a="en-buscar"]'), self.conta("#en-onde")), (0, 0))
+        self.pg.fill("#en-preco", "1,05")
+        self.pg.dispatch_event("#en-preco", "change")
+        self.pg.wait_for_function("document.body.innerText.includes('Guardado')")
+
     def test_1_99_cotacoes_da_b3(self):
         """1.99.0: o cartão Cotações da B3: a chave da brapi (só o fim volta), o Atualizar agora e o Tirar a chave; vale sem a IA."""
         papel = dict(INV_CDB, id="p1", tipo="acoes", ticker="BOLA3", qtd=10)
@@ -1648,7 +1691,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "memoria-ia", "falar", "uso-ia", "email", "senhas-pdf", "cotacoes", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "memoria-ia", "falar", "uso-ia", "email", "senhas-pdf", "energia", "cotacoes", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):

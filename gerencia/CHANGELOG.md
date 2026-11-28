@@ -1,5 +1,11 @@
 # Mudanças
 
+## 1.101.0
+
+- **Conta de luz pelo consumo**: em **Mais › Configurações › Integrações › Conta de luz**, escolha o fixo (a conta de luz), o medidor de energia do Home Assistant, o preço do kWh e, se quiser, um percentual a mais (por exemplo, 20%). O cartão mostra os dois valores: o que a conta já deu **até hoje** e a **projeção do mês**. O fixo do mês fica com a projeção, atualizada sozinha, até você marcar como pago.
+- **Preço do kWh pela IA**: com a IA ligada, diga a cidade e toque em **Buscar o preço com IA**; ela procura a tarifa com os impostos e preenche o campo, que você confere e pode mudar. Sem a IA, o campo é de livre digitação.
+- Pelo CorrerIA: "quanto está dando a conta de luz este mês?".
+
 ## 1.100.0
 
 - **Câmbio do Banco Central**: na conta com cartão global, embaixo da Moeda, aparece a cotação de hoje do dólar, do euro ou da libra (a de venda do Banco Central).

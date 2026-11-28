@@ -415,6 +415,14 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
 | POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
 
+## Conta de luz pelo consumo
+
+Em **Mais › Configurações › Integrações › Conta de luz** o app liga um fixo (a sua conta de luz) a um medidor de energia do Home Assistant (um sensor que soma o consumo, em kWh, como o do painel Energia). Escolha o fixo, o medidor, o **Preço do kWh** e, se quiser, o **A mais (%)**, para o que o medidor não vê (iluminação pública, outras cobranças, uma parte da casa sem medição). A conta é: kWh do mês × preço × (1 + o percentual).
+
+O cartão mostra os dois valores: **Até hoje** (o que já foi consumido neste mês) e a **Projeção do mês** (o mesmo ritmo até o último dia). O fixo deste mês fica com a projeção, atualizada algumas vezes por dia, e a observação do lançamento guarda os dois; depois de pago, o valor não muda mais. Os outros meses do fixo continuam com o valor de sempre.
+
+O preço do kWh: com a IA ligada, escreva a cidade (ou a distribuidora) e toque em **Buscar o preço com IA**: a IA de pesquisar na internet procura a tarifa residencial com os impostos e a bandeira do mês e preenche o campo. Confira com a sua conta (o total dividido pelos kWh) e mude se precisar. Sem a IA, é só escrever o preço.
+
 ## Câmbio do Banco Central
 
 Na conta de um banco com **cartão de débito ou crédito global**, embaixo da Moeda aparece a cotação de hoje (dólar, euro ou libra): é a cotação de venda que o Banco Central publica, sem chave nem cadastro. Pelo CorrerIA dá para perguntar a cotação, converter um valor e lançar um gasto dito em outra moeda: ele entra em reais pela cotação de hoje e a observação guarda o valor na moeda. No cartão o valor da fatura sai um pouco diferente (a cotação do banco e o IOF): confira quando a fatura chegar.
