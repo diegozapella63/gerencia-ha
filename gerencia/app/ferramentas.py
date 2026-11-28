@@ -145,6 +145,15 @@ FERRAMENTAS = [
                   "um crédito, um vale, um cupom ou os benefícios de um cartão ou plano. Depois, proponha a mudança com gerencia_lancar, "
                   "gerencia_novo_beneficio ou a que couber.",
      "entrada": _obj({"o_que": {"type": "string", "enum": ["lancamentos", "beneficios"]}})},
+    {"nome": "conferir_agora", "titulo": "Conferir agora", "grava": True,
+     "descricao": "Manda o app conferir de novo, agora, em segundo plano (os botões Conferir e Atualizar da tela): o_que dicas (os preços "
+                  "das assinaturas), oportunidades (as taxas e as ofertas de investimento), promocoes (as assinaturas em promoção), cotacoes "
+                  "(os papéis da bolsa) ou faturas (procurar faturas no e-mail). O resultado aparece depois, na ferramenta de leitura de cada um.",
+     "entrada": _obj({"o_que": {"type": "string", "enum": ["dicas", "oportunidades", "promocoes", "cotacoes", "faturas"]}}, ["o_que"])},
+    {"nome": "fazer_backup", "titulo": "Fazer backup", "grava": True,
+     "descricao": "Salva um backup dos dados do GerencIA na pasta share do Home Assistant (o Backup de Mais › Configurações › Dados). "
+                  "Restaurar, importar e começar do zero, só pela tela.",
+     "entrada": _obj({})},
     {"nome": "lancar", "titulo": "Lançar gasto ou recebimento", "grava": True,
      "descricao": "Lança um gasto (despesa) ou um recebimento (receita). Compra parcelada: valor de cada parcela, parcelas e "
                   "parcela_atual (as próximas entram nos meses seguintes). Sem pago, fica pago se a data já passou (no cartão de "
@@ -192,6 +201,18 @@ FERRAMENTAS = [
                       "resgate": {"type": "number", "exclusiveMinimum": 0},
                       "quantidade": {"type": "number", "exclusiveMinimum": 0, "description": "Num papel da bolsa (com código): quantas ações ou cotas a "
                                                                                            "pessoa tem agora. O valor é a quantidade vezes a cotação."}}, ["id"])},
+    # 1.104.0 (a auditoria da tela contra as ferramentas; o dono: "pode fazer o gerencia"): o Transferir e o Apagar da ficha
+    {"nome": "transferir_investimento", "titulo": "Transferir entre investimentos", "grava": True, "apaga": True,
+     "descricao": "Passa um valor de um investimento para outro (o Transferir da ficha): tira do de origem e soma no de destino, "
+                  "pelo valor de hoje. Com tudo true, passa tudo; e apagar_origem true tira o de origem da lista (só passando tudo).",
+     "entrada": _obj({"de": {"type": "string", "description": "O id do investimento de origem."},
+                      "para": {"type": "string", "description": "O id do investimento de destino."},
+                      "valor": {"type": "number", "exclusiveMinimum": 0}, "tudo": {"type": "boolean"},
+                      "apagar_origem": {"type": "boolean"}}, ["de", "para"])},
+    {"nome": "apagar_investimento", "titulo": "Apagar investimento", "grava": True, "apaga": True,
+     "descricao": "Apaga um investimento (sai da lista e dos gráficos; uma cópia fica em Versões anteriores). Para um resgate, use "
+                  "gerencia_atualizar_investimento.",
+     "entrada": _obj({"id": {"type": "string", "description": "O id do investimento."}}, ["id"])},
     {"nome": "novo_investimento", "titulo": "Novo investimento", "grava": True,
      "descricao": "Cadastra um investimento. Sem rendimento, o padrão do tipo (CDB: 100% do CDI). de_quem vazio: da própria "
                   "pessoa; com um nome, de outra pessoa (fica fora do patrimônio dela).",
@@ -261,6 +282,28 @@ FERRAMENTAS = [
                       "renova": {"type": "string", "enum": ["mes", "ano", "nunca"]},
                       "validade": {"type": "string", "description": "AAAA-MM-DD; vazio tira."}, "observacao": {"type": "string"},
                       "apagar": {"type": "boolean"}}, ["beneficio"])},
+    {"nome": "nova_meta", "titulo": "Nova oportunidade de benefício", "grava": True,
+     "descricao": "Cadastra uma oportunidade em Mais › Benefícios: o que a pessoa ganha se chegar a um valor. tipo investido (ter "
+                  "tanto investido numa conta), gasto (gastar tanto no cartão por mês ou por ano) ou plano (uma assinatura em que o "
+                  "plano acima custa tanto). O app mostra quanto falta.",
+     "entrada": _obj({"tipo": {"type": "string", "enum": ["investido", "gasto", "plano"]},
+                      "origem": {"type": "string", "description": "O nome do banco (investido e gasto) ou do fixo (plano)."},
+                      "valor": {"type": "number", "exclusiveMinimum": 0}, "ganha": {"type": "string", "description": "O que ganha, como «Sala VIP ilimitada»."},
+                      "periodo": {"type": "string", "enum": ["mes", "ano"], "description": "No gasto e no plano; padrão mes."},
+                      "plano": {"type": "string", "description": "No tipo plano: o nome do plano acima."}}, ["tipo", "origem", "valor", "ganha"])},
+    {"nome": "editar_meta", "titulo": "Mudar ou apagar uma oportunidade", "grava": True, "apaga": True,
+     "descricao": "Muda o valor, o que ganha ou o período de uma oportunidade de Mais › Benefícios, ou apaga (apagar true). As de agora "
+                  "estão em gerencia_beneficios.",
+     "entrada": _obj({"meta": {"type": "string", "description": "O id, ou o que ganha."}, "valor": {"type": "number", "exclusiveMinimum": 0},
+                      "ganha": {"type": "string"}, "periodo": {"type": "string", "enum": ["mes", "ano"]}, "apagar": {"type": "boolean"}}, ["meta"])},
+    {"nome": "novo_programa_milhas", "titulo": "Novo programa de milhas", "grava": True,
+     "descricao": "Cadastra um programa de milhas ou pontos de uma pessoa em Mais › Benefícios, com o saldo de hoje. Depois, o saldo muda "
+                  "pelo gerencia_atualizar_milhas e os resgates pelo gerencia_usar_beneficio.",
+     "entrada": _obj({"nome": {"type": "string", "description": "O programa, como «Milhas Azul»."}, "pessoa": {"type": "string"},
+                      "saldo": {"type": "integer", "minimum": 0}, "nivel": {"type": "string", "description": "O nível de agora, se tiver."},
+                      "vencem": {"type": "array", "maxItems": 6, "description": "As milhas que vencem.",
+                                 "items": _obj({"quantidade": {"type": "integer", "minimum": 1}, "data": {"type": "string", "description": "AAAA-MM-DD"}}, ["quantidade", "data"])},
+                      "observacao": {"type": "string"}}, ["nome", "saldo"])},
     {"nome": "atualizar_milhas", "titulo": "Atualizar o saldo de milhas", "grava": True,
      "descricao": "Põe o saldo de hoje de um programa de milhas (o que a pessoa vê no app do programa).",
      "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do programa de milhas."},
@@ -1106,6 +1149,49 @@ def _atualizar_inv(d, a, hoje):
     return f"Atualizado: {inv.get('nome', '')}: {_brl(antes)} → {_brl(novo)} ({obs})."
 
 
+def _inv(d, v, campo="id"):
+    iid = str(v or "").strip()
+    inv = next((i for i in d.get("investimentos", []) if i.get("id") == iid), None)
+    if not inv:
+        raise ErroFerramenta(f"Investimento não encontrado ({campo}): {iid}. Veja os ids em gerencia_investimentos.")
+    return inv
+
+
+def _transferir_inv(d, a, hoje):
+    """O confirmarTransferir do app.js: o valor sai de um e entra no outro, pelo valor de hoje; passando tudo, a origem pode sair."""
+    de, para = _inv(d, a.get("de"), "de"), _inv(d, a.get("para"), "para")
+    if de is para:
+        raise ErroFerramenta("A origem e o destino são o mesmo investimento.")
+    ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
+    atual = round(calc.valor_hoje(de, ind, corrigir, hoje), 2)
+    if a.get("tudo") is True and a.get("valor") is None:
+        v = atual
+    elif a.get("valor") is None:
+        raise ErroFerramenta("Diga o valor, ou tudo true.")
+    else:
+        v = _valor(a.get("valor"))
+    if not v > 0 or v > atual + 0.005:
+        raise ErroFerramenta(f"O valor passa do que há em {de.get('nome', '')} hoje ({_brl(atual)}).")
+    tudo = abs(v - atual) < 0.005
+    if a.get("apagar_origem") is True and not tudo:
+        raise ErroFerramenta("apagar_origem só vale passando tudo.")
+    _definir_valor(para, round(calc.valor_hoje(para, ind, corrigir, hoje) + v, 2), hoje, ind, corrigir, hoje)
+    if tudo and a.get("apagar_origem") is True:
+        d["investimentos"] = [i for i in d["investimentos"] if i is not de]
+        fim = f"; {de.get('nome', '')} saiu da lista"
+    else:
+        _definir_valor(de, 0 if tudo else round(atual - v, 2), hoje, ind, corrigir, hoje)
+        fim = ""
+    return f"Transferido {_brl(v)} de {de.get('nome', '')} para {para.get('nome', '')}{fim}."
+
+
+def _apagar_inv(d, a, hoje):
+    inv = _inv(d, a.get("id"))
+    valor = round(calc.valor_hoje(inv, d.get("indices", {}), calc.corrige_valores(d), hoje), 2)
+    d["investimentos"] = [i for i in d["investimentos"] if i is not inv]
+    return f"Investimento apagado: {inv.get('nome', '')} ({_brl(valor)})."
+
+
 def _ajustar_saldo(d, a, hoje):
     """O Ajustar saldo da tela (confirmarAjuste no app.js): a diferença para o saldo dito vira um lançamento de ajuste, pago hoje."""
     v = a.get("saldo")
@@ -1446,6 +1532,114 @@ def texto_arquivo_lido(o_que, r):
         return ("Não há gastos, recebimentos nem investimentos no arquivo. Se for um saldo, um crédito, um vale ou um benefício, leia de novo "
                 "com o_que beneficios ou cadastre com gerencia_novo_beneficio pelo que a pessoa disse.")
     return "Lido do arquivo (nada foi lançado; para lançar, gerencia_lancar):\n" + "\n".join(out)
+
+
+MAX_METAS = 100
+
+
+def _meta(d, v):
+    v = str(v or "").strip()
+    ms = [m for m in d.get("metas", []) if isinstance(m, dict)]
+    m = next((x for x in ms if x.get("id") == v), None)
+    if not m:
+        achadas = [x for x in ms if _norm(v) and _norm(x.get("ganha")) == _norm(v)] or [x for x in ms if _norm(v) and _norm(v) in _norm(x.get("ganha"))]
+        m = achadas[0] if len(achadas) == 1 else None
+    if not m:
+        nomes = ", ".join(f"{x.get('ganha')} ({x.get('id')})" for x in ms) or "nenhuma cadastrada"
+        raise ErroFerramenta(f"Oportunidade não encontrada: {v}. As de Mais › Benefícios: {nomes}.")
+    return m
+
+
+def _texto_meta(m):
+    quanto = _brl(m["valor"]) + {"investido": " investidos", "gasto": " gastos no cartão", "plano": " no plano" + (f" {m['plano']}" if m.get("plano") else "")}[m["tipo"]]
+    por = {"mes": " por mês", "ano": " por ano"}.get(m.get("periodo"), "")
+    return f"{m['ganha']}: com {quanto}{por}"
+
+
+def _nova_meta(d, a, hoje):
+    """O salvarMeta do app.js: o que se ganha chegando a um valor (investido na conta, gasto no cartão, o plano acima do fixo)."""
+    tipo = a.get("tipo")
+    if tipo not in ("investido", "gasto", "plano"):
+        raise ErroFerramenta("tipo: investido, gasto ou plano.")
+    ganha = _texto(a.get("ganha"), 60)
+    if not ganha:
+        raise ErroFerramenta("Diga o que ganha.")
+    valor = _valor(a.get("valor"))
+    origem = _origem_beneficio(d, a.get("origem"))
+    quer = "fixo:" if tipo == "plano" else "conta:"
+    if not origem.startswith(quer):
+        raise ErroFerramenta("origem: o nome de um fixo cadastrado (a assinatura)." if tipo == "plano" else "origem: o nome de um banco cadastrado em Bancos.")
+    if tipo == "gasto" and not next((c for c in calc.mapa_contas(d).values() if c.get("id") == origem[6:] and c.get("cartao")), None):
+        raise ErroFerramenta("Essa conta não tem cartão de crédito: o tipo gasto é o gasto no cartão.")
+    ms = d.setdefault("metas", [])
+    if len(ms) >= MAX_METAS:
+        raise ErroFerramenta(f"Já há {MAX_METAS} oportunidades cadastradas.")
+    m = {"id": "mt-" + integracao.uid(), "tipo": tipo, "origem": origem, "valor": valor, "ganha": ganha}
+    if tipo != "investido":
+        if a.get("periodo") not in (None, "mes", "ano"):
+            raise ErroFerramenta("periodo: mes ou ano.")
+        m["periodo"] = "ano" if a.get("periodo") == "ano" else "mes"
+    if tipo == "plano" and _texto(a.get("plano"), 40):
+        m["plano"] = _texto(a.get("plano"), 40)
+    ms.append(m)
+    return f"Oportunidade cadastrada em Mais › Benefícios: {_texto_meta(m)}."
+
+
+def _editar_meta(d, a, hoje):
+    m = _meta(d, a.get("meta"))
+    if a.get("apagar") is True:
+        d["metas"] = [x for x in d.get("metas", []) if x is not m]
+        return f"Oportunidade apagada: {m.get('ganha')}."
+    if not any(k in a for k in ("valor", "ganha", "periodo")):
+        raise ErroFerramenta("Nada a mudar: mande valor, ganha ou periodo (ou apagar true).")
+    if "valor" in a:
+        m["valor"] = _valor(a.get("valor"))
+    if "ganha" in a:
+        ganha = _texto(a.get("ganha"), 60)
+        if not ganha:
+            raise ErroFerramenta("O que ganha não pode ficar vazio.")
+        m["ganha"] = ganha
+    if "periodo" in a:
+        if m.get("tipo") == "investido":
+            raise ErroFerramenta("Uma oportunidade do tipo investido não tem período.")
+        if a.get("periodo") not in ("mes", "ano"):
+            raise ErroFerramenta("periodo: mes ou ano.")
+        m["periodo"] = a["periodo"]
+    return f"Oportunidade mudada: {_texto_meta(m)}."
+
+
+def _novo_programa_milhas(d, a, hoje):
+    """O salvarMilhas do app.js, num programa novo: o nome, de quem é, o saldo de hoje, o nível e o que vence."""
+    nome = _texto(a.get("nome"), 40)
+    if not nome:
+        raise ErroFerramenta("Diga o programa.")
+    saldo = calc.num(a.get("saldo"), -1)
+    if isinstance(a.get("saldo"), bool) or saldo < 0:
+        raise ErroFerramenta("saldo: as milhas de hoje, 0 ou mais.")
+    pessoa = _texto(a.get("pessoa"), 40)
+    bs = d.setdefault("beneficios", [])
+    if len(bs) >= MAX_BENEFICIOS:
+        raise ErroFerramenta(f"Já há {MAX_BENEFICIOS} benefícios cadastrados.")
+    if any(isinstance(x, dict) and x.get("tipo") == "milhas" and _norm(x.get("nome")) == _norm(nome) and _norm(x.get("pessoa")) == _norm(pessoa) for x in bs):
+        raise ErroFerramenta(f"Já há o programa «{nome}»{' de ' + pessoa if pessoa else ''}. Para o saldo, use gerencia_atualizar_milhas.")
+    b = {"id": "bn-" + integracao.uid(), "tipo": "milhas", "nome": nome, "origem": "", "saldo": int(round(saldo)), "saldo_em": hoje.isoformat(), "usos": []}
+    if pessoa:
+        b["pessoa"] = pessoa
+    if _texto(a.get("nivel"), 40):
+        b["nivel"] = _texto(a.get("nivel"), 40)
+    if _texto(a.get("observacao"), 80):
+        b["obs"] = _texto(a.get("observacao"), 80)
+    lotes = []
+    for l in a.get("vencem") if isinstance(a.get("vencem"), list) else []:
+        q = calc.num((l or {}).get("quantidade"), 0) if isinstance(l, dict) else 0
+        if not q > 0:
+            raise ErroFerramenta("vencem: cada um com quantidade (maior que zero) e data.")
+        lotes.append({"qtd": int(round(q)), "data": _data(l.get("data"), hoje, "data", padrao=False).isoformat()})
+    if lotes:
+        b["vencem"] = sorted(lotes, key=lambda x: x["data"])[:6]
+    bs.append(b)
+    return (f"Programa de milhas cadastrado: {nome}{' · ' + pessoa if pessoa else ''}, {calc.fmt_num(b['saldo'], 0)} milhas"
+            + (f"; {len(b.get('vencem', []))} lote(s) com data para vencer" if lotes else "") + ".")
 
 
 def _atualizar_milhas(d, a, hoje):
@@ -1916,12 +2110,14 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras="", moedas=None):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz", "ler_arquivo"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz", "ler_arquivo", "conferir_agora", "fazer_backup"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
            "novo_beneficio": _novo_beneficio, "editar_beneficio": _editar_beneficio,
+           "transferir_investimento": _transferir_inv, "apagar_investimento": _apagar_inv, "nova_meta": _nova_meta, "editar_meta": _editar_meta,
+           "novo_programa_milhas": _novo_programa_milhas,
            "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco,
            "editar_categoria": _editar_categoria, "editar_banco": _editar_banco}[nome]
     return faz(d, a, hoje), True

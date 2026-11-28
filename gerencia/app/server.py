@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.103.0"
+VERSAO = "1.104.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3694,6 +3694,44 @@ def publicar_correria(d=None):
     CORRERIA.publicar(correria_ligada(d), extra)
 
 
+def fazer_backup():
+    """O Backup na pasta share (Mais › Configurações › Dados): o .zip de agora em share/gerencia."""
+    os.makedirs(SHARE_DIR, exist_ok=True)
+    nome = nome_arquivo("zip")
+    with open(os.path.join(SHARE_DIR, nome), "wb") as f:
+        f.write(gerar_zip(ler()))
+    return {"arquivo": nome, "pasta": "share/gerencia"}
+
+
+def conferir_agora(o_que):
+    """1.104.0: os botões Conferir e Atualizar da tela, pelo CorrerIA: começa em segundo plano e diz o que começou."""
+    d = ler()
+    if o_que == "cotacoes":
+        if not _brapi_ler().get("token"):
+            raise ValueError("As cotações da bolsa não estão ligadas: ponha a chave em Mais › Configurações › Integrações › Cotações da B3.")
+        if not cotacoes.papeis(d):
+            raise ValueError("Nenhum investimento tem código da bolsa.")
+        threading.Thread(target=cotacoes_sem_erro, daemon=True).start()
+        return "Buscando as cotações agora. Em instantes, veja em gerencia_investimentos."
+    if o_que == "faturas":
+        email_procurar()
+        return "Procurando faturas no e-mail agora. Em instantes, veja em gerencia_faturas_do_email."
+    if not ia_ligada(d):
+        raise ValueError("A IA está desligada no GerencIA (Mais › Configurações › Integrações): sem ela, o app não confere.")
+    if o_que == "dicas":
+        ok = iniciar_conferencia(forcar=True, manual=True)
+        return ("Conferindo os preços das assinaturas agora." if ok is not False else "Já está conferindo as dicas.") + " Depois, veja em gerencia_dicas."
+    if o_que == "oportunidades":
+        ok = iniciar_oport(forcar=True, manual=True)
+        return ("Conferindo as taxas e as ofertas agora." if ok is not False else "Já está conferindo as oportunidades.") + " Depois, veja em gerencia_oportunidades."
+    if o_que == "promocoes":
+        if not promos_on(d):
+            raise ValueError("As assinaturas em promoção estão desligadas no GerencIA.")
+        ok = iniciar_promos(forcar=True)
+        return ("Conferindo as promoções das assinaturas agora." if ok is not False else "Já está conferindo as promoções.") + " Depois, veja em gerencia_oportunidades."
+    raise ValueError("o_que: dicas, oportunidades, promocoes, cotacoes ou faturas.")
+
+
 def usar_ferramenta(corpo):
     """Uma ferramenta chamada pelo CorrerIA: as de leitura só leem; as de gravar mudam os dados (com a revisão nova, a
     versão automática e a tela atualizada como no Paguei do CronologIA)."""
@@ -3733,6 +3771,17 @@ def usar_ferramenta(corpo):
             raise ValueError("Esse PDF tem senha, e nenhuma das senhas cadastradas abre. Cadastre a senha no GerencIA (Mais › Configurações › "
                              "Integrações › Senhas dos PDFs).") from None
         return {"texto": ferramentas.texto_arquivo_lido(o_que, r)}
+    if nome == "conferir_agora":  # 1.104.0
+        a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
+        texto = conferir_agora(a.get("o_que"))
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        log("CorrerIA:", cliente, nome, a.get("o_que"))
+        return {"texto": texto}
+    if nome == "fazer_backup":
+        r = fazer_backup()
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        log("CorrerIA:", cliente, nome, r["arquivo"])
+        return {"texto": f"Backup salvo em {r['pasta']}/{r['arquivo']}."}
     if nome == "dicas":  # 1.95.0: o que a tela das Dicas mostra, sem conferir nada agora
         d = ler()
         est = dicas_estado(d, disparar=False)
@@ -4284,12 +4333,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.enviar(200, d)
 
     def post_backup(self):
-        os.makedirs(SHARE_DIR, exist_ok=True)
-        nome = nome_arquivo("zip")
-        caminho = os.path.join(SHARE_DIR, nome)
-        with open(caminho, "wb") as f:
-            f.write(gerar_zip(ler()))
-        return self.enviar(200, {"arquivo": nome, "pasta": "share/gerencia"})
+        return self.enviar(200, fazer_backup())
 
     def restaurar(self, nome):
         if not re.fullmatch(r"gerencia-[\w\-]+\.json", nome or ""):

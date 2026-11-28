@@ -41,10 +41,11 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "previsao_mes", "conta_de_luz", "cambio", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "ler_arquivo", "lancar",
-                                 "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "previsao_mes", "conta_de_luz", "cambio", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "ler_arquivo", "conferir_agora", "fazer_backup", "lancar",
+                                 "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento",
+                                 "transferir_investimento", "apagar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
-                                 "usar_beneficio", "novo_beneficio", "editar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
+                                 "usar_beneficio", "novo_beneficio", "editar_beneficio", "nova_meta", "editar_meta", "novo_programa_milhas", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -52,7 +53,8 @@ class TestLista(unittest.TestCase):
             self.assertTrue(set(f["entrada"]["required"]) <= set(f["entrada"]["properties"]), f["nome"])
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
-        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_beneficio", "editar_categoria"])
+        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "transferir_investimento", "apagar_investimento", "encerrar_fixo", "editar_beneficio",
+                                                                 "editar_meta", "editar_categoria"])
         self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:16])
         json.dumps(fs)  # vai como JSON
 
@@ -428,6 +430,96 @@ class TestBordas(unittest.TestCase):
         chamar("novo_fixo", dict(base, descricao="Aplicação mensal", categoria="c-investimentos", cartao=True, conta="cc"), d)
         r = d["recorrencias"][-1]
         self.assertEqual((r["aporte"], r["cartao"]), (True, False), "aporte: sem cartão, como na tela")
+
+
+class TestNovas1104(unittest.TestCase):
+    """1.104.0, a auditoria da tela contra as ferramentas: transferir e apagar investimento, as oportunidades dos benefícios
+    e o programa de milhas, com as regras da tela."""
+
+    def setUp(self):
+        self.d = dados()
+        self.d["recorrencias"] = [{"id": "r9", "descricao": "Filmes Mais", "valor": 30, "tipo": "despesa"}]
+
+    def erro(self, nome, args, parte):
+        with self.assertRaises(F.ErroFerramenta) as cm:
+            chamar(nome, args, self.d)
+        self.assertIn(parte, str(cm.exception))
+
+    def test_transferir(self):
+        t, mudou = chamar("transferir_investimento", {"de": "i1", "para": "i2", "valor": 1000}, self.d)
+        self.assertEqual((t, mudou), ("Transferido R$ 1.000,00 de CDB Azul para Poupança do Beto.", True))
+        v = {i["id"]: round(calc.valor_hoje(i, self.d["indices"], calc.corrige_valores(self.d), HOJE), 2) for i in self.d["investimentos"]}
+        self.assertEqual(v, {"i1": 9000.0, "i2": 1800.0})
+        self.erro("transferir_investimento", {"de": "i1", "para": "i1", "valor": 5}, "mesmo investimento")
+        self.erro("transferir_investimento", {"de": "i1", "para": "i2"}, "Diga o valor")
+        self.erro("transferir_investimento", {"de": "i1", "para": "i2", "valor": 9000.5}, "passa do que há em CDB Azul hoje (R$ 9.000,00)")
+        self.erro("transferir_investimento", {"de": "i1", "para": "i2", "valor": 10, "apagar_origem": True}, "só vale passando tudo")
+        self.erro("transferir_investimento", {"de": "zz", "para": "i2", "valor": 10}, "não encontrado (de): zz")
+        t = chamar("transferir_investimento", {"de": "i1", "para": "i2", "tudo": True}, self.d)[0]
+        self.assertEqual(t, "Transferido R$ 9.000,00 de CDB Azul para Poupança do Beto.")
+        self.assertEqual([(i["id"], i["valor"]) for i in self.d["investimentos"]], [("i1", 0), ("i2", 10800.0)], "sem apagar, a origem fica zerada")
+        t = chamar("transferir_investimento", {"de": "i2", "para": "i1", "tudo": True, "apagar_origem": True}, self.d)[0]
+        self.assertTrue(t.endswith("; Poupança do Beto saiu da lista."), t)
+        self.assertEqual([i["id"] for i in self.d["investimentos"]], ["i1"])
+
+    def test_apagar_investimento(self):
+        self.assertEqual(chamar("apagar_investimento", {"id": "i2"}, self.d), ("Investimento apagado: Poupança do Beto (R$ 800,00).", True))
+        self.assertEqual([i["id"] for i in self.d["investimentos"]], ["i1"])
+        self.erro("apagar_investimento", {"id": "i2"}, "Veja os ids em gerencia_investimentos")
+
+    def test_oportunidades_dos_beneficios(self):
+        t = chamar("nova_meta", {"tipo": "investido", "origem": "Banco Azul", "valor": 50000, "ganha": " Sala VIP  ilimitada "}, self.d)[0]
+        self.assertEqual(t, "Oportunidade cadastrada em Mais › Benefícios: Sala VIP ilimitada: com R$ 50.000,00 investidos.")
+        m = self.d["metas"][0]
+        self.assertEqual({k: v for k, v in m.items() if k != "id"}, {"tipo": "investido", "origem": "conta:cc", "valor": 50000.0, "ganha": "Sala VIP ilimitada"})
+        self.assertTrue(m["id"].startswith("mt-"))
+        t = chamar("nova_meta", {"tipo": "gasto", "origem": "Banco Azul", "valor": 4000, "ganha": "Anuidade grátis"}, self.d)[0]
+        self.assertTrue(t.endswith("com R$ 4.000,00 gastos no cartão por mês."), t)
+        t = chamar("nova_meta", {"tipo": "plano", "origem": "Filmes Mais", "valor": 45, "ganha": "4 telas", "plano": "Família", "periodo": "ano"}, self.d)[0]
+        self.assertTrue(t.endswith("4 telas: com R$ 45,00 no plano Família por ano."), t)
+        self.assertEqual(self.d["metas"][2]["origem"], "fixo:r9")
+        self.assertIn("Sala VIP ilimitada", chamar("beneficios", {}, self.d)[0], "aparece no que a IA lê")
+        self.erro("nova_meta", {"tipo": "plano", "origem": "Banco Azul", "valor": 45, "ganha": "x"}, "o nome de um fixo")
+        self.erro("nova_meta", {"tipo": "investido", "origem": "Banco Roxo", "valor": 45, "ganha": "x"}, "o nome de um banco")
+        self.erro("nova_meta", {"tipo": "outro", "origem": "Banco Azul", "valor": 45, "ganha": "x"}, "investido, gasto ou plano")
+        self.erro("nova_meta", {"tipo": "investido", "origem": "Banco Azul", "valor": 45, "ganha": " "}, "Diga o que ganha")
+        self.erro("nova_meta", {"tipo": "gasto", "origem": "Banco Azul", "valor": 45, "ganha": "x", "periodo": "dia"}, "mes ou ano")
+        self.d["bancos"][0]["contas"][0]["cartao"] = False
+        self.erro("nova_meta", {"tipo": "gasto", "origem": "Banco Azul", "valor": 45, "ganha": "x"}, "não tem cartão")
+        t = chamar("editar_meta", {"meta": "anuidade", "valor": 5000, "periodo": "ano", "ganha": "Anuidade zero"}, self.d)[0]
+        self.assertEqual(t, "Oportunidade mudada: Anuidade zero: com R$ 5.000,00 gastos no cartão por ano.")
+        self.erro("editar_meta", {"meta": m["id"], "periodo": "ano"}, "não tem período")
+        self.erro("editar_meta", {"meta": m["id"]}, "Nada a mudar")
+        self.erro("editar_meta", {"meta": m["id"], "ganha": ""}, "não pode ficar vazio")
+        self.erro("editar_meta", {"meta": "4 telas", "periodo": "semana"}, "mes ou ano")
+        self.erro("editar_meta", {"meta": "nada disso", "apagar": True}, "Sala VIP ilimitada (" + m["id"] + ")")
+        self.assertEqual(chamar("editar_meta", {"meta": m["id"], "apagar": True}, self.d)[0], "Oportunidade apagada: Sala VIP ilimitada.")
+        self.assertEqual([x["ganha"] for x in self.d["metas"]], ["Anuidade zero", "4 telas"])
+        self.d["metas"] = [{"id": f"m{i}", "tipo": "investido", "origem": "conta:cc", "valor": 1, "ganha": f"g{i}"} for i in range(F.MAX_METAS)]
+        self.erro("nova_meta", {"tipo": "investido", "origem": "Banco Azul", "valor": 45, "ganha": "x"}, "Já há 100")
+
+    def test_programa_de_milhas(self):
+        t, mudou = chamar("novo_programa_milhas", {"nome": "Milhas Céu", "pessoa": "Ana", "saldo": 12500, "nivel": "Prata", "observacao": "pelo cartão",
+                                                  "vencem": [{"quantidade": 800, "data": "2027-03-10"}, {"quantidade": 300, "data": "2026-12-20"}]}, self.d)
+        self.assertEqual((t, mudou), ("Programa de milhas cadastrado: Milhas Céu · Ana, 12.500 milhas; 2 lote(s) com data para vencer.", True))
+        b = self.d["beneficios"][0]
+        self.assertEqual({k: v for k, v in b.items() if k != "id"}, {
+            "tipo": "milhas", "nome": "Milhas Céu", "origem": "", "saldo": 12500, "saldo_em": HOJE.isoformat(), "usos": [], "pessoa": "Ana", "nivel": "Prata",
+            "obs": "pelo cartão", "vencem": [{"qtd": 300, "data": "2026-12-20"}, {"qtd": 800, "data": "2027-03-10"}]})
+        self.assertIn("Milhas Céu", chamar("beneficios", {}, self.d)[0])
+        self.assertIn("13.000", chamar("atualizar_milhas", {"beneficio": "Milhas Céu", "saldo": 13000}, self.d)[0], "o saldo segue pela de sempre")
+        self.erro("novo_programa_milhas", {"nome": "milhas ceu", "pessoa": "ana", "saldo": 1}, "Já há o programa «milhas ceu» de ana")
+        self.assertIn("Milhas Céu · Beto, 0 milhas.", chamar("novo_programa_milhas", {"nome": "Milhas Céu", "pessoa": "Beto", "saldo": 0}, self.d)[0])
+        self.erro("novo_programa_milhas", {"nome": " ", "saldo": 1}, "Diga o programa")
+        self.erro("novo_programa_milhas", {"nome": "Pontos Sol", "saldo": -1}, "0 ou mais")
+        self.erro("novo_programa_milhas", {"nome": "Pontos Sol", "saldo": 5, "vencem": [{"quantidade": 0, "data": "2027-01-01"}]}, "maior que zero")
+        self.d["beneficios"] = [{"id": f"b{i}", "nome": f"n{i}", "tipo": "vantagem"} for i in range(F.MAX_BENEFICIOS)]
+        self.erro("novo_programa_milhas", {"nome": "Pontos Sol", "saldo": 5}, "Já há 200")
+
+    def test_as_do_servidor_nao_sao_daqui(self):
+        for nome in ("conferir_agora", "fazer_backup"):
+            with self.assertRaises(LookupError):
+                chamar(nome, {}, self.d)
 
 
 if __name__ == "__main__":

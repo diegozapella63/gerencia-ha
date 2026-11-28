@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.104.0
+
+- **Mais coisas da tela pela IA do CorrerIA** (no WhatsApp, no Claude, no Gemini e na Conversa de lá): **transferir** de um investimento para outro e **apagar** um investimento; **cadastrar um programa de milhas** (com o saldo, o nível e o que vence); cadastrar, mudar e apagar as **oportunidades dos benefícios** ("com 50 mil investidos ganho a sala VIP"); **conferir agora** as dicas, as oportunidades, as promoções, as cotações da bolsa e as faturas do e-mail; e **fazer um backup**. Ex.: "passa 2 mil do CDB para o Tesouro", "cadastra minhas milhas, tenho 12 mil", "procura faturas no e-mail agora".
+
 ## 1.103.0
 
 - **Benefícios pela IA do CorrerIA**: agora dá para pedir "adiciona esse saldo de 27 reais da loja nos benefícios", "guarda esse vale" ou "tenho um crédito de 50 dólares". O benefício entra em Mais › Benefícios (saldo, quantidade de usos ou vantagem), só depois do seu sim. Também dá para mudar e apagar um benefício.

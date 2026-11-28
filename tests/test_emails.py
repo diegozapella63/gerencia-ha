@@ -931,6 +931,46 @@ class TestFerramentasDoEmail(ComServidor):
 class TestOportunidadesPeloCorrerIA(ComServidor):
     """1.90.0: a ferramenta oportunidades lê o que a tela Oportunidades mostra (as taxas do Tesouro já lidas e as promoções)."""
 
+    def test_1_104_conferir_agora_e_backup(self):
+        usar = lambda nome, **a: S.usar_ferramenta({"nome": nome, "argumentos": a, "cliente": "CorrerIA"})["texto"]  # noqa: E731
+        t = usar("fazer_backup")
+        self.assertRegex(t, r"^Backup salvo em share/gerencia/gerencia-[\w\-]+\.zip\.$")
+        self.assertTrue(os.path.isfile(os.path.join(S.SHARE_DIR, t.split("/")[-1][:-1])))
+        self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "fazer_backup")
+        for o_que, parte in (("tudo", "o_que: dicas"), ("cotacoes", "não estão ligadas")):
+            with self.assertRaises(ValueError) as cm:
+                usar("conferir_agora", o_que=o_que)
+            self.assertIn(parte, str(cm.exception))
+        chamadas = []
+        with mock.patch.object(S, "ia_ligada", return_value=True), mock.patch.object(S, "promos_on", return_value=True), \
+                mock.patch.object(S, "iniciar_conferencia", side_effect=lambda **k: chamadas.append(("dicas", k))), \
+                mock.patch.object(S, "iniciar_oport", side_effect=lambda **k: chamadas.append(("oport", k)) or False), \
+                mock.patch.object(S, "iniciar_promos", side_effect=lambda **k: chamadas.append(("promos", k))):
+            self.assertEqual(usar("conferir_agora", o_que="dicas"), "Conferindo os preços das assinaturas agora. Depois, veja em gerencia_dicas.")
+            self.assertEqual(usar("conferir_agora", o_que="oportunidades"), "Já está conferindo as oportunidades. Depois, veja em gerencia_oportunidades.")
+            self.assertIn("Conferindo as promoções", usar("conferir_agora", o_que="promocoes"))
+        self.assertEqual(chamadas, [("dicas", {"forcar": True, "manual": True}), ("oport", {"forcar": True, "manual": True}), ("promos", {"forcar": True})])
+        self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "conferir_agora")
+        with mock.patch.object(S, "ia_ligada", return_value=False):
+            with self.assertRaises(ValueError) as cm:
+                usar("conferir_agora", o_que="dicas")
+            self.assertIn("A IA está desligada", str(cm.exception))
+        with mock.patch.object(S, "ia_ligada", return_value=True), mock.patch.object(S, "promos_on", return_value=False):
+            with self.assertRaises(ValueError) as cm:
+                usar("conferir_agora", o_que="promocoes")
+            self.assertIn("estão desligadas", str(cm.exception))
+        with mock.patch.object(S, "_brapi_ler", return_value={"token": "abc"}):
+            with self.assertRaises(ValueError) as cm:
+                usar("conferir_agora", o_que="cotacoes")
+            self.assertIn("Nenhum investimento tem código", str(cm.exception))
+            feito = threading.Event()
+            with mock.patch.object(S.cotacoes, "papeis", return_value=["ABCD3"]), mock.patch.object(S, "cotacoes_sem_erro", side_effect=feito.set):
+                self.assertIn("Buscando as cotações agora", usar("conferir_agora", o_que="cotacoes"))
+                self.assertTrue(feito.wait(5))
+        with mock.patch.object(S, "email_procurar", return_value={}) as ep:
+            self.assertIn("Procurando faturas no e-mail agora", usar("conferir_agora", o_que="faturas"))
+            ep.assert_called_once()
+
     def test_o_tesouro_lido_e_sem_ler(self):
         S.oport_gravar({})
         t = S.usar_ferramenta({"nome": "oportunidades", "argumentos": {}, "cliente": "CorrerIA"})["texto"]
