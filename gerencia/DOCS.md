@@ -413,7 +413,7 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | GET | `/api/integracao/contas?de=AAAA-MM-DD&ate=AAAA-MM-DD` | Contas do período e as atrasadas dos últimos 2 meses: `{id, tipo: conta\|fixo\|fatura, descricao, valor, vencimento, pago, atrasada, categoria, conta}` e as categorias de gasto. |
 | POST | `/api/integracao/pagar` | `{id, valor?}`: dá baixa. |
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
-| POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
+| POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. Com `tipo: receita` e `pago: true`, um recebimento já recebido (a venda de um item do InventarIA). |
 
 ## Conta de luz pelo consumo
 

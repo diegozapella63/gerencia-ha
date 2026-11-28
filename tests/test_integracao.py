@@ -355,6 +355,16 @@ class TestBordasDoContrato(unittest.TestCase):
             with self.subTest(corpo=corpo), self.assertRaisesRegex(ValueError, msg):
                 I.nova(d, corpo)
 
+    def test_1_102_nova_recebimento_ja_recebido(self):
+        """1.102.0: o recebimento de uma venda (do InventarIA): tipo receita, pago e com a observação."""
+        d = self.base()
+        cid = I.nova(d, {"descricao": "Venda: Bicicleta azul", "valor": 800, "vencimento": "2026-11-28", "tipo": "receita", "pago": True, "obs": "  Pelo   InventarIA "})
+        l = next(x for x in d["lancamentos"] if x["id"] == cid)
+        self.assertEqual((l["tipo"], l["pago"], l["valor"], l["data"], l["obs"]), ("receita", True, 800, "2026-11-28", "Pelo InventarIA"))
+        cid = I.nova(d, {"descricao": "Conta", "valor": 10, "vencimento": "2026-11-28", "tipo": "outra", "pago": "sim"})
+        l = next(x for x in d["lancamentos"] if x["id"] == cid)
+        self.assertEqual((l["tipo"], l["pago"], l["obs"]), ("despesa", False, ""), "o que não é receita nem true fica como antes")
+
     def test_nova_mensal_aparece_com_o_id_do_fixo(self):
         d = self.base()
         cid = I.nova(d, {"descricao": "Faxina", "valor": 200, "vencimento": "2026-11-28", "categoria": "c-casa", "repete": "mensal"})

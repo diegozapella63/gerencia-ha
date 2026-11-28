@@ -408,14 +408,17 @@ def nova(d, corpo):
     if cat and not any(c.get("id") == cat for c in d.get("categorias", [])):
         cat = ""
     repete = corpo.get("repete") or "nao"
-    base = {"tipo": "despesa", "descricao": desc, "valor": valor, "categoria": cat, "conta": "", "cartao": False, "obs": ""}
+    # 1.102.0: um recebimento (a venda de um item do InventarIA): tipo receita, já recebido (pago) e com a observação
+    tipo = "receita" if corpo.get("tipo") == "receita" else "despesa"
+    obs = " ".join(str(corpo.get("obs") or "").split())[:200]
+    base = {"tipo": tipo, "descricao": desc, "valor": valor, "categoria": cat, "conta": "", "cartao": False, "obs": obs}
     if repete in ("mensal", "anual"):
         r = dict(base, id="r-" + uid(), dia=venc.day, inicio=venc.isoformat()[:7], fim=None)
         if repete == "anual":
             r["freq"] = "anual"
         d["recorrencias"].append(r)
         return f"v:{r['id']}:{venc.isoformat()[:7]}"
-    l = dict(base, id=uid(), data=venc.isoformat(), pago=False)
+    l = dict(base, id=uid(), data=venc.isoformat(), pago=corpo.get("pago") is True)
     d["lancamentos"].append(l)
     return l["id"]
 

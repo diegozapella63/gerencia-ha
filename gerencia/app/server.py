@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.101.1"
+VERSAO = "1.102.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3652,7 +3652,8 @@ def depreciacao(d):
 def publicar_integracao(d=None):
     d = d or ler()
     dep = depreciacao(d)
-    CONEXAO.publicar(integracao_ligada(d), {"depreciacao": dep} if dep is not None else None)
+    # 1.102.0: recebimentos: o InventarIA lança ali o que recebeu numa venda (tipo receita, pago)
+    CONEXAO.publicar(integracao_ligada(d), dict({"recebimentos": "/api/integracao/nova"}, **({"depreciacao": dep} if dep is not None else {})))
 
 
 def correria_ligada(d=None):

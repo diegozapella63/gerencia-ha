@@ -356,6 +356,7 @@ class TestConexaoComOCronologIA(unittest.TestCase):
             d["ajustes"]["bens"] = False
             self.s.put("/api/state", d)
             self.assertNotIn("depreciacao", ler(), "sem Bens da casa, nada")
+            self.assertEqual(ler()["recebimentos"], "/api/integracao/nova", "1.102.0: onde o InventarIA lança o que recebeu numa venda")
         finally:
             _, _, d = self.s.get("/api/state")
             d["ajustes"].update(bens=True, bens_taxas={})

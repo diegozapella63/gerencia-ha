@@ -176,6 +176,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.101.1: o `energia_mudar` lê, confere e grava dentro da `_trava_energia` (dois pedidos seguidos, um campo e o Ligar, liam o mesmo arquivo); no GitHub, o `test_1_101_conta_de_luz_pelo_consumo` tocava no Ligar enquanto a tela era redesenhada pelo campo guardado 250 ms antes: o teste espera o campo ser guardado.
 
+1.102.0 (o dono, nas Vendas do InventarIA: "Ao marcar como vendido solicitar se quer adicionar este recebido"): o `integracao.nova` aceita `tipo: "receita"`, `pago: true` (o lançamento avulso já recebido) e `obs` (até 200 letras); o `share/gerencia/integracao.json` leva `recebimentos: "/api/integracao/nova"` (o `publicar_integracao`), que é como o InventarIA 1.115.0 sabe que pode lançar ali. Testes: `test_1_102_nova_recebimento_ja_recebido` no `tests/test_integracao.py` e o `test_a_depreciacao_dos_bens_para_o_inventaria`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

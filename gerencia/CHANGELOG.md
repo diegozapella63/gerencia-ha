@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.102.0
+
+- **Vendas do InventarIA**: ao marcar um item como vendido no InventarIA (1.115.0), dá para lançar o valor aqui como recebimento, já recebido, na data da venda. Vale com a ligação com os outros apps ligada em **Configurações › Integrações**.
+
 ## 1.101.1
 
 - **Conta de luz**: mudar um campo e tocar em Ligar logo em seguida não deixa mais um pedido passar por cima do outro.
