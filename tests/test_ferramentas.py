@@ -41,7 +41,7 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
                                  "usar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
@@ -53,7 +53,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_categoria"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:11])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:12])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
@@ -656,6 +656,54 @@ class TestCompararMeses(unittest.TestCase):
                            ({"mes": "2026-12"}, "ainda não chegou")):
             with self.assertRaisesRegex(F.ErroFerramenta, erro):
                 chamar("comparar_meses", args, self.d)
+
+
+class TestForaDoPadrao(unittest.TestCase):
+    """1.97.0 (o dono, ao «Algo estranho»: "pode fazer todos"): o que foge do costume nos gastos do mês, sem a IA."""
+
+    def base(self):
+        ls = []
+        for i, (m, luz) in enumerate((("08", 100), ("09", 110), ("10", 90))):
+            ls += [{"id": f"l{i}", "tipo": "despesa", "descricao": f"Luz de {['agosto', 'setembro', 'outubro'][i]}", "valor": luz, "data": f"2026-{m}-10"},
+                   {"id": f"m{i}", "tipo": "despesa", "descricao": "Mercado", "valor": 80, "data": f"2026-{m}-05"},
+                   {"id": f"n{i}", "tipo": "despesa", "descricao": "Mercado", "valor": 60, "data": f"2026-{m}-20"}]
+        return {"lancamentos": ls, "recorrencias": [], "categorias": [], "bancos": [], "investimentos": []}
+
+    def test_nada_fora_do_padrao(self):
+        d = self.base()
+        d["lancamentos"].append({"id": "a", "tipo": "despesa", "descricao": "Luz de novembro", "valor": 105, "data": "2026-11-10"})
+        t, mudou = chamar("fora_do_padrao", {}, d)
+        self.assertFalse(mudou)
+        self.assertEqual(t, "Nada fora do padrão nos gastos de novembro de 2026 (até o dia 15).")
+
+    def test_mais_caro_repetido_e_compra_grande(self):
+        d = self.base()
+        d["lancamentos"] += [
+            {"id": "a", "tipo": "despesa", "descricao": "Luz de novembro", "valor": 150, "data": "2026-11-10"},
+            {"id": "b", "tipo": "despesa", "descricao": "Padaria Pão Bom", "valor": 18.5, "data": "2026-11-12"},
+            {"id": "c", "tipo": "despesa", "descricao": "Padaria Pão Bom", "valor": 18.5, "data": "2026-11-12"},
+            {"id": "d", "tipo": "despesa", "descricao": "Geladeira nova 1/10", "valor": 900, "data": "2026-11-03"},
+            {"id": "e", "tipo": "despesa", "descricao": "Bala", "valor": 2, "data": "2026-11-04"},
+            {"id": "f", "tipo": "despesa", "descricao": "Bala", "valor": 2, "data": "2026-11-04"},
+            {"id": "g", "tipo": "despesa", "descricao": "Mercado", "valor": 500, "data": "2026-11-20"},
+            {"id": "h", "tipo": "receita", "descricao": "Salário extra", "valor": 5000, "data": "2026-11-05"},
+            {"id": "i", "tipo": "despesa", "descricao": "Acerto", "valor": 5000, "data": "2026-11-05", "ajuste": True}]
+        t = chamar("fora_do_padrao", {}, d)[0].split("\n")
+        self.assertEqual(t, ["Fora do padrão nos gastos de novembro de 2026 (até o dia 15): 3.",
+                             "Mais caro que o costume (1):",
+                             "- Luz de novembro: R$ 150,00 (a média de 3 meses é R$ 100,00; +R$ 50,00, +50%)",
+                             "Parece repetido (1):",
+                             "- Padaria Pão Bom: 2 vezes de R$ 18,50 em 12/11",
+                             "Compra grande, fora do costume (1):",
+                             "- Geladeira nova 1/10: R$ 900,00 em 03/11 (uma compra de costume fica perto de R$ 80,00)"])
+
+    def test_pouco_para_comparar(self):
+        d = {"lancamentos": [{"id": "a", "tipo": "despesa", "descricao": "Sofá", "valor": 3000, "data": "2026-11-03"},
+                             {"id": "b", "tipo": "despesa", "descricao": "Luz", "valor": 300, "data": "2026-11-03"},
+                             {"id": "c", "tipo": "despesa", "descricao": "Luz", "valor": 100, "data": "2026-10-03"},
+                             {"id": "x", "tipo": "despesa", "descricao": "2026", "valor": 9, "data": "2026-11-03"}], "recorrencias": [], "categorias": []}
+        self.assertTrue(chamar("fora_do_padrao", {}, d)[0].startswith("Nada fora do padrão"), "um mês só de histórico e menos de 5 compras: não acusa")
+        self.assertEqual(F._chave_gasto("Luz de Outubro 2026 (3/10)"), "luz")
 
 
 class TestNovas196(unittest.TestCase):

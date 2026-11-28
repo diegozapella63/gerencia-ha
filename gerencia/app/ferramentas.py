@@ -70,6 +70,12 @@ FERRAMENTAS = [
                   "primeiro. No mês atual, os dois vão só até o dia de hoje, para a comparação ser justa.",
      "entrada": _obj({"mes": {"type": "string", "description": "AAAA-MM. Padrão: o mês atual."},
                       "com": {"type": "string", "description": "AAAA-MM. Padrão: o mês anterior ao primeiro."}})},
+    # 1.97.0 (o dono, ao «Algo estranho»: "pode fazer todos")
+    {"nome": "fora_do_padrao", "titulo": "Gastos fora do padrão", "grava": False,
+     "descricao": "O que foge do costume nos gastos deste mês, sem IA: o que veio mais caro que a média dos 3 meses anteriores, o "
+                  "lançamento que parece repetido (mesma descrição, valor e dia) e a compra grande que não é de costume. A primeira "
+                  "linha diz quantos.",
+     "entrada": _obj({})},
     {"nome": "projecao", "titulo": "Projeção dos investimentos", "grava": False,
      "descricao": "Quanto os seus investimentos viram daqui a tantos meses, com a taxa de hoje de cada um, antes do IR (a projeção "
                   "da tela); com aporte_mensal, soma o que você põe todo mês, rendendo pela taxa média. Sem os bens e sem o dinheiro "
@@ -503,6 +509,86 @@ def _comparar_meses(d, a, hoje):
     if caiu:
         linhas.append(f"Caíram ({len(caiu)}):")
         linhas += [f"- {c}: {_brl(g1.get(c, 0))} (antes {_brl(g2.get(c, 0))}; −{_brl(-v)})" for v, c in caiu[:10]]
+    return "\n".join(linhas)
+
+
+MAIS_CARO, MAIS_CARO_MIN = 1.3, 20.0     # 30% acima da média e pelo menos R$ 20 a mais
+GRANDE, GRANDE_MIN, GRANDE_BASE = 3.0, 200.0, 5   # 3 vezes a mediana das compras, pelo menos R$ 200, com 5 compras para comparar
+_MES_RE = re.compile(r"\b(?:de |do |da )?(?:" + "|".join(_m for _m in ("janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto",
+                                                                      "setembro", "outubro", "novembro", "dezembro")) + r")\b")
+
+
+def _br_data(dt):
+    return f"{dt[8:10]}/{dt[5:7]}"
+
+
+def _chave_gasto(texto):
+    """A descrição sem o que muda de um mês para outro: o mês, os números (a parcela 3/10, o ano) e a pontuação."""
+    t = _MES_RE.sub(" ", _norm(texto))
+    return " ".join(re.sub(r"[^a-z ]+", " ", t).split())
+
+
+def _despesas_do_mes(d, ym, ate_dia):
+    """As despesas de um mês até um dia, uma a uma (as mesmas do _gastos_do_mes): [(chave, descrição, valor, data, fixo)]."""
+    out = []
+    for l in calc.ocorrencias_mes(d, ym):
+        dt = str(l.get("data") or "")[:10]
+        if dt[:7] != ym or int(dt[8:10] or 0) > ate_dia or l.get("tipo") == "receita" or l.get("ajuste") or l.get("aporte") or l.get("vinculo") or l.get("pulado"):
+            continue
+        desc = " ".join(str(l.get("descricao") or "").split())
+        k, v = _chave_gasto(desc), calc.num(l.get("valor"))
+        if k and v > 0:
+            out.append((k, desc, v, dt, bool(l.get("recorrencia"))))
+    return out
+
+
+def _fora_do_padrao(d, hoje):
+    """1.97.0: o que foge do costume nos gastos do mês, só com a conta (sem a IA): mais caro que a média dos 3 meses anteriores,
+    repetido (descrição, valor e dia iguais) e a compra grande que não é de costume."""
+    ym = hoje.isoformat()[:7]
+    agora = _despesas_do_mes(d, ym, hoje.day)
+    antes = [_despesas_do_mes(d, integracao.add_ym(ym, -i), 31) for i in (1, 2, 3)]
+    por_mes = []
+    for m in antes:
+        t = {}
+        for k, _, v, _, _ in m:
+            t[k] = t.get(k, 0.0) + v
+        por_mes.append(t)
+    soma, nome = {}, {}
+    for k, desc, v, _, _ in agora:
+        soma[k] = soma.get(k, 0.0) + v
+        nome.setdefault(k, desc)
+    caro = []
+    for k, v in soma.items():
+        vs = [t[k] for t in por_mes if k in t]
+        if len(vs) < 2:
+            continue
+        media = sum(vs) / len(vs)
+        if v >= media * MAIS_CARO and v - media >= MAIS_CARO_MIN:
+            caro.append((v - media, f"- {nome[k]}: {_brl(v)} (a média de {len(vs)} meses é {_brl(media)}; +{_brl(v - media)}, +{round((v - media) / media * 100)}%)"))
+    vistos, rep = {}, []
+    for k, desc, v, dt, _ in agora:
+        vistos.setdefault((k, round(v, 2), dt), []).append(desc)
+    for (k, v, dt), ls in vistos.items():
+        if len(ls) > 1 and v >= 5:
+            rep.append((dt, f"- {ls[0]}: {len(ls)} vezes de {_brl(v)} em {_br_data(dt)}"))
+    base = sorted(v for m in antes for _, _, v, _, _ in m)
+    grande = []
+    if len(base) >= GRANDE_BASE:
+        mediana = base[len(base) // 2] if len(base) % 2 else (base[len(base) // 2 - 1] + base[len(base) // 2]) / 2
+        conhecidas = set().union(*por_mes) if por_mes else set()
+        for k, desc, v, dt, fixo in agora:
+            if not fixo and k not in conhecidas and v >= GRANDE_MIN and v >= mediana * GRANDE:
+                grande.append((-v, f"- {desc}: {_brl(v)} em {_br_data(dt)} (uma compra de costume fica perto de {_brl(mediana)})"))
+    n = len(caro) + len(rep) + len(grande)
+    mes = f"{MESES_NOME[hoje.month - 1]} de {hoje.year} (até o dia {hoje.day})"
+    if not n:
+        return f"Nada fora do padrão nos gastos de {mes}."
+    linhas = [f"Fora do padrão nos gastos de {mes}: {n}."]
+    for titulo, ls in (("Mais caro que o costume", sorted(caro, key=lambda x: -x[0])), ("Parece repetido", sorted(rep)), ("Compra grande, fora do costume", sorted(grande))):
+        if ls:
+            linhas.append(f"{titulo} ({len(ls)}):")
+            linhas += [t for _, t in ls[:10]]
     return "\n".join(linhas)
 
 
@@ -1517,6 +1603,8 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _contas_a_pagar(d, a, hoje), False
     if nome == "comparar_meses":
         return _comparar_meses(d, a, hoje), False
+    if nome == "fora_do_padrao":
+        return _fora_do_padrao(d, hoje), False
     if nome == "projecao":
         return _projecao(d, a, hoje), False
     if nome == "investimentos":

@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.97.0
+
+- **Gastos fora do padrão**: pelo CorrerIA (WhatsApp, Claude, Gemini e a Conversa dele), dá para perguntar "tem algo estranho nos gastos?". O app aponta, sem gastar a IA, o que veio mais caro que a média dos 3 meses anteriores, o lançamento que parece repetido (mesma descrição, valor e dia) e a compra grande que não é de costume.
+
 ## 1.96.0
 
 - **Pelo CorrerIA**: dá para perguntar o que mais subiu ("gastei mais este mês?"): os gastos por categoria de um mês contra outro, o que mais subiu primeiro. No mês atual, a comparação vai só até o dia de hoje nos dois meses.
