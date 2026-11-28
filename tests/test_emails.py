@@ -940,6 +940,26 @@ class TestOportunidadesPeloCorrerIA(ComServidor):
         self.assertIn("Tesouro Prefixado 2031: 14,20% ao ano", t)
         self.assertNotIn("ainda não foi lido", t)
         self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "oportunidades")
+        # 1.103.0: a foto da conversa lida pela IA daqui (simulada), sem gravar: os lançamentos ou os benefícios
+        foto = {"tipo": "image/png", "nome": "print.png", "b64": base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 64).decode()}
+        rev = S.ler()["rev"]
+        t = S.usar_ferramenta({"nome": "ler_arquivo", "argumentos": {"o_que": "beneficios"}, "anexo": foto, "cliente": "CorrerIA"})["texto"]
+        self.assertIn("Benefícios lidos do arquivo (nada foi cadastrado", t)
+        self.assertIn("[tipo ", t)
+        t = S.usar_ferramenta({"nome": "ler_arquivo", "argumentos": {}, "anexo": foto, "cliente": "CorrerIA"})["texto"]
+        self.assertTrue(t.startswith("Lido do arquivo") or t.startswith("Não há gastos"), t)
+        self.assertEqual((S.ler()["rev"], S.CORRERIA_USO["ultimo"]["nome"]), (rev, "ler_arquivo"), "nada gravado")
+        for corpo, parte in (({"argumentos": {}}, "Não veio arquivo"), ({"argumentos": {"o_que": "tudo"}, "anexo": foto}, "o_que"),
+                             ({"argumentos": {}, "anexo": {"b64": "@@"}}, "inválido")):
+            with self.assertRaises(ValueError) as cm:
+                S.usar_ferramenta(dict(corpo, nome="ler_arquivo", cliente="CorrerIA"))
+            self.assertIn(parte, str(cm.exception))
+        with mock.patch.object(S, "beneficios_ler", side_effect=ValueError("A IA não achou benefícios nem oportunidades aqui.")):
+            self.assertEqual(S.usar_ferramenta({"nome": "ler_arquivo", "argumentos": {"o_que": "beneficios"}, "anexo": foto})["texto"], "A IA não achou benefícios no arquivo.")
+        with mock.patch.object(S, "beneficios_ler", side_effect=ValueError("A IA está desligada.")), self.assertRaisesRegex(ValueError, "desligada"):
+            S.usar_ferramenta({"nome": "ler_arquivo", "argumentos": {"o_que": "beneficios"}, "anexo": foto})
+        with mock.patch.object(S, "ia_ler", side_effect=S.ErroSenhaPdf("x")), self.assertRaisesRegex(ValueError, "tem senha"):
+            S.usar_ferramenta({"nome": "ler_arquivo", "argumentos": {}, "anexo": foto})
         # 1.95.0: as dicas de economia, sem conferir nada agora
         with mock.patch.object(S, "iniciar_conferencia", side_effect=AssertionError("não confere")):
             t = S.usar_ferramenta({"nome": "dicas", "argumentos": {}, "cliente": "CorrerIA"})["texto"]

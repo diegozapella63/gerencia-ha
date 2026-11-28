@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.102.1"
+VERSAO = "1.103.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3710,6 +3710,29 @@ def usar_ferramenta(corpo):
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
         return {"texto": ferramentas.texto_oportunidades(av, promos_estado(d, disparar=False).get("promocoes") or [] if promos_on(d) else [],
                                                          a.get("so_as_que_passam") is True, ia_ligada(d), aviso)}
+    if nome == "ler_arquivo":  # 1.103.0: a foto ou o PDF da conversa, lido pela IA daqui, sem gravar
+        a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
+        anexo = corpo.get("anexo") if isinstance(corpo.get("anexo"), dict) else {}
+        if not anexo.get("b64"):
+            raise ValueError("Não veio arquivo nenhum: peça para a pessoa mandar a foto ou o PDF de novo.")
+        o_que = a.get("o_que") or "lancamentos"
+        if o_que not in ("lancamentos", "beneficios"):
+            raise ValueError("o_que: lancamentos ou beneficios.")
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        try:
+            if o_que == "beneficios":
+                try:
+                    r = beneficios_ler({"anexo": {"b64": anexo["b64"]}})
+                except ValueError as e:
+                    if "não achou" not in str(e) and "ignorou" not in str(e):
+                        raise
+                    r = {}
+            else:
+                r = ia_ler({"modo": "auto", "dica": "caixa", "nome_arquivo": str(anexo.get("nome") or "")[:120], "anexo": {"b64": anexo["b64"]}})
+        except ErroSenhaPdf:
+            raise ValueError("Esse PDF tem senha, e nenhuma das senhas cadastradas abre. Cadastre a senha no GerencIA (Mais › Configurações › "
+                             "Integrações › Senhas dos PDFs).") from None
+        return {"texto": ferramentas.texto_arquivo_lido(o_que, r)}
     if nome == "dicas":  # 1.95.0: o que a tela das Dicas mostra, sem conferir nada agora
         d = ler()
         est = dicas_estado(d, disparar=False)

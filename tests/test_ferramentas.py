@@ -41,10 +41,10 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "previsao_mes", "conta_de_luz", "cambio", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "previsao_mes", "conta_de_luz", "cambio", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "ler_arquivo", "lancar",
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
-                                 "usar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
+                                 "usar_beneficio", "novo_beneficio", "editar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -52,8 +52,8 @@ class TestLista(unittest.TestCase):
             self.assertTrue(set(f["entrada"]["required"]) <= set(f["entrada"]["properties"]), f["nome"])
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
-        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_categoria"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:15])
+        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_beneficio", "editar_categoria"])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:16])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
@@ -561,7 +561,7 @@ class TestNovas190(unittest.TestCase):
         self.assertIn("Nenhum investimento passa do que a casa quer agora.", t)
         self.assertIn("pedem o Usar IA ligado", t)
         self.assertTrue(t.endswith("O Tesouro Direto ainda não foi lido."))
-        self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-3:], ["beneficios", "oportunidades", "dicas"])
+        self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-4:], ["beneficios", "oportunidades", "dicas", "ler_arquivo"])
 
 
 class TestAlterarLancamentos(unittest.TestCase):
@@ -757,6 +757,102 @@ class TestLote2(unittest.TestCase):
         its = F.linhas_email(d, {"lancamentos": [{"descricao": "MERCADO BOM", "valor": 9, "tipo": "despesa", "categoria": "c-outros-gastos"},
                                                  {"descricao": "Mercado Bom", "valor": 9, "tipo": "despesa", "categoria": "c-saude"}]}, hoje=HOJE)
         self.assertEqual([i["categoria"] for i in its][:2], ["c-mercado", "c-saude"])
+
+
+class TestBeneficios1103(unittest.TestCase):
+    """1.103.0: cadastrar, mudar e apagar um benefício pela IA («adiciona esse saldo de 27 reais da loja nos benefícios»),
+    com as regras do salvarBeneficio da tela."""
+
+    def setUp(self):
+        self.d = dados()
+        self.d["beneficios"] = []
+
+    def test_novo_saldo(self):
+        t, mudou = chamar("novo_beneficio", {"nome": "  Crédito na  Loja Azul ", "tipo": "saldo", "total": 27}, self.d)
+        self.assertEqual((t, mudou), ("Benefício cadastrado em Mais › Benefícios: Crédito na Loja Azul: R$ 27,00.", True))
+        b = self.d["beneficios"][0]
+        self.assertTrue(b["id"].startswith("bn-"))
+        self.assertEqual({k: v for k, v in b.items() if k != "id"}, {"nome": "Crédito na Loja Azul", "origem": "", "tipo": "saldo", "renova": "nunca",
+                                                                      "desde": HOJE.isoformat(), "usos": [], "total": 27.0, "moeda": "BRL"})
+        self.assertIn("Crédito na Loja Azul", chamar("beneficios", {}, self.d)[0], "aparece no que a IA lê")
+        self.assertIn("Restam R$ 20,00", chamar("usar_beneficio", {"beneficio": "Crédito na Loja Azul", "quantidade": 7}, self.d)[0])
+
+    def test_contagem_vantagem_e_origem(self):
+        t = chamar("novo_beneficio", {"nome": "Sala VIP", "tipo": "contagem", "total": 6, "renova": "ano", "validade": "31/12/2027", "origem": "Banco Azul",
+                                       "observacao": "Com 1 acompanhante", "descricao": "Acesso às salas dos aeroportos."}, self.d)[0]
+        self.assertEqual(t, "Benefício cadastrado em Mais › Benefícios: Sala VIP: 6 usos, renova todo ano, vale até 31/12/2027.")
+        b = self.d["beneficios"][0]
+        self.assertEqual((b["total"], b["renova"], b["validade"], b["obs"], b["descricao"], "moeda" in b), (6.0, "ano", "2027-12-31", "Com 1 acompanhante", "Acesso às salas dos aeroportos.", False))
+        self.assertTrue(b["origem"] == "" or b["origem"].startswith("conta:"))
+        t = chamar("novo_beneficio", {"nome": "Seguro viagem", "tipo": "vantagem", "total": 5, "renova": "mes"}, self.d)[0]
+        self.assertEqual(t, "Benefício cadastrado em Mais › Benefícios: Seguro viagem: vantagem.")
+        self.assertEqual(("total" in self.d["beneficios"][1], self.d["beneficios"][1]["renova"]), (False, "nunca"))
+        t = chamar("novo_beneficio", {"nome": "Crédito em dólar", "tipo": "saldo", "total": 100, "moeda": "USD", "renova": "mes", "origem": "fixo:r-1"}, self.d)[0]
+        self.assertIn("US$ 100,00, renova todo mês", t)
+        self.assertEqual(self.d["beneficios"][2]["origem"], "fixo:r-1")
+        self.assertEqual(F._origem_beneficio(self.d, "não existe"), "")
+
+    def test_erros(self):
+        base = {"nome": "Vale", "tipo": "saldo", "total": 10}
+        for args, parte in ((dict(base, nome=" "), "Falta o nome"), (dict(base, tipo="cupom"), "tipo: saldo"), ({"nome": "Vale", "tipo": "saldo"}, "Falta o total: o valor"),
+                            ({"nome": "Vale", "tipo": "contagem"}, "quantos usos"), (dict(base, moeda="EUR"), "moeda"), (dict(base, renova="semana"), "renova"),
+                            (dict(base, validade="31/02/2027"), "inválida"), (dict(base, total=0), "inválido")):
+            with self.assertRaises(F.ErroFerramenta) as cm:
+                chamar("novo_beneficio", args, self.d)
+            self.assertIn(parte, str(cm.exception), args)
+        self.assertEqual(self.d["beneficios"], [])
+        chamar("novo_beneficio", base, self.d)
+        with self.assertRaisesRegex(F.ErroFerramenta, "Já há um benefício «vale»"):
+            chamar("novo_beneficio", dict(base, nome="vale"), self.d)
+        self.d["beneficios"] = [{"id": f"bn-{i}", "nome": f"B{i}", "tipo": "vantagem"} for i in range(200)]
+        with self.assertRaisesRegex(F.ErroFerramenta, "Já há 200"):
+            chamar("novo_beneficio", dict(base, nome="Mais um"), self.d)
+
+    def test_editar_e_apagar(self):
+        chamar("novo_beneficio", {"nome": "Vale", "tipo": "saldo", "total": 10, "validade": "2027-01-10", "observacao": "x"}, self.d)
+        t, mudou = chamar("editar_beneficio", {"beneficio": "Vale", "nome": "Vale presente", "total": 50, "moeda": "USD", "renova": "ano", "validade": "", "observacao": ""}, self.d)
+        self.assertEqual((t, mudou), ("Benefício mudado: Vale presente: US$ 50,00, renova todo ano.", True))
+        b = self.d["beneficios"][0]
+        self.assertEqual(("validade" in b, "obs" in b, b["total"]), (False, False, 50.0))
+        for args, parte in (({"beneficio": "Vale presente"}, "Nada a mudar"), ({"beneficio": "Vale presente", "nome": ""}, "não pode ficar vazio"), ({"beneficio": "Outro", "total": 1}, "não encontrado")):
+            with self.assertRaises(F.ErroFerramenta) as cm:
+                chamar("editar_beneficio", args, self.d)
+            self.assertIn(parte, str(cm.exception))
+        self.d["beneficios"].append({"id": "bn-m", "tipo": "milhas", "nome": "Milhas Azul", "saldo": 10})
+        with self.assertRaisesRegex(F.ErroFerramenta, "programa de milhas"):
+            chamar("editar_beneficio", {"beneficio": "Milhas Azul", "total": 5}, self.d)
+        self.assertEqual(chamar("editar_beneficio", {"beneficio": "Vale presente", "apagar": True}, self.d)[0], "Benefício apagado: Vale presente.")
+        self.assertEqual([x["id"] for x in self.d["beneficios"]], ["bn-m"])
+        f = next(x for x in F.lista() if x["nome"] == "editar_beneficio")
+        self.assertTrue(f["grava"] and f["apaga"])
+
+
+class TestArquivoLido(unittest.TestCase):
+    """1.103.0: o texto do que a IA daqui leu de uma foto ou PDF (a ferramenta ler_arquivo, que fica com o server.py)."""
+
+    def test_so_pelo_servidor(self):
+        with self.assertRaises(LookupError):
+            chamar("ler_arquivo", {}, dados())
+        f = next(x for x in F.lista() if x["nome"] == "ler_arquivo")
+        self.assertEqual((f["grava"], f["anexo"]), (False, ["image/jpeg", "image/png", "application/pdf"]))
+
+    def test_beneficios(self):
+        t = F.texto_arquivo_lido("beneficios", {"beneficios": [{"nome": "Crédito na Loja Azul", "tipo": "saldo", "total": 27, "moeda": "BRL", "renova": "nunca"},
+                                                                 {"nome": "Créditos de uso", "tipo": "saldo", "total": 100, "moeda": "USD", "renova": "mes"},
+                                                                 {"nome": "Sala VIP", "tipo": "contagem", "total": 6, "renova": "ano"}, {"nome": "Seguro viagem", "tipo": "vantagem"}]})
+        self.assertEqual(t.split("\n"), ["Benefícios lidos do arquivo (nada foi cadastrado; para cadastrar, gerencia_novo_beneficio):",
+                                         "- Crédito na Loja Azul: R$ 27,00 [tipo saldo]", "- Créditos de uso: US$ 100,00, renova todo mês [tipo saldo]",
+                                         "- Sala VIP: 6 (contagem), renova todo ano [tipo contagem]", "- Seguro viagem: vantagem [tipo vantagem]"])
+        self.assertEqual(F.texto_arquivo_lido("beneficios", {}), "A IA não achou benefícios no arquivo.")
+
+    def test_lancamentos(self):
+        lanc = [{"descricao": "Padaria", "valor": 25, "tipo": "despesa", "data": "2026-11-10"}, {"descricao": "", "valor": 100, "tipo": "receita"},
+                {"descricao": "Sofá", "valor": 300, "tipo": "despesa", "parcela_atual": 2, "parcelas_total": 10}]
+        t = F.texto_arquivo_lido("lancamentos", {"lancamentos": lanc, "investimentos": [{"nome": "CDB Azul", "aporte": 500}]})
+        self.assertEqual(t.split("\n"), ["Lido do arquivo (nada foi lançado; para lançar, gerencia_lancar):", "- Padaria: R$ 25,00 (gasto, 10/11/2026)",
+                                         "- Sem descrição: R$ 100,00 (recebimento)", "- Sofá: R$ 300,00 (gasto, parcela 2/10)", "- investimento CDB Azul: R$ 500,00"])
+        self.assertIn("- e mais 5", F.texto_arquivo_lido("lancamentos", {"lancamentos": lanc[:1] * 25}))
+        self.assertIn("leia de novo com o_que beneficios", F.texto_arquivo_lido("lancamentos", {}))
 
 
 class TestNovas196(unittest.TestCase):

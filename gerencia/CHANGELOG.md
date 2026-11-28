@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.103.0
+
+- **Benefícios pela IA do CorrerIA**: agora dá para pedir "adiciona esse saldo de 27 reais da loja nos benefícios", "guarda esse vale" ou "tenho um crédito de 50 dólares". O benefício entra em Mais › Benefícios (saldo, quantidade de usos ou vantagem), só depois do seu sim. Também dá para mudar e apagar um benefício.
+- **Foto ou PDF com um pedido**: a IA do CorrerIA passa a ler a foto pelo GerencIA quando precisa (os gastos de uma nota ou o saldo de um print) antes de propor a mudança.
+
 ## 1.102.1
 
 - **Preço do kWh num lugar só**: o preço da **Conta de luz** (Configurações › Integrações) vale também para o CorrerIA contar a energia em reais. Lá não há mais onde escrever o preço.

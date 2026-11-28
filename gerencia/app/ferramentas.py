@@ -138,6 +138,13 @@ FERRAMENTAS = [
                   "pagando o plano anual, com o preço conferido na página oficial, e as assinaturas que ele acompanha. Só lê o que "
                   "já foi conferido. Use para \"onde dá para economizar?\".",
      "entrada": _obj({})},
+    # 1.103.0: a foto ou o PDF da conversa, lido pela IA daqui (o CorrerIA manda o arquivo em anexo, fora dos argumentos)
+    {"nome": "ler_arquivo", "titulo": "Ler a foto ou o PDF", "grava": False, "anexo": ["image/jpeg", "image/png", "application/pdf"],
+     "descricao": "Lê a foto, o print ou o PDF que a pessoa mandou e devolve o que achou, sem gravar nada. o_que lancamentos (padrão): "
+                  "os gastos, os recebimentos e os investimentos de uma nota, um comprovante ou uma fatura. o_que beneficios: um saldo, "
+                  "um crédito, um vale, um cupom ou os benefícios de um cartão ou plano. Depois, proponha a mudança com gerencia_lancar, "
+                  "gerencia_novo_beneficio ou a que couber.",
+     "entrada": _obj({"o_que": {"type": "string", "enum": ["lancamentos", "beneficios"]}})},
     {"nome": "lancar", "titulo": "Lançar gasto ou recebimento", "grava": True,
      "descricao": "Lança um gasto (despesa) ou um recebimento (receita). Compra parcelada: valor de cada parcela, parcelas e "
                   "parcela_atual (as próximas entram nos meses seguintes). Sem pago, fica pago se a data já passou (no cartão de "
@@ -233,6 +240,27 @@ FERRAMENTAS = [
      "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do benefício (ou do programa de milhas)."},
                       "quantidade": {"type": "number", "exclusiveMinimum": 0, "description": "Contagem: padrão 1. Saldo: o valor usado. Milhas: as resgatadas."},
                       "data": _DATA}, ["beneficio"])},
+    {"nome": "novo_beneficio", "titulo": "Novo benefício", "grava": True,
+     "descricao": "Cadastra um benefício em Mais › Benefícios, para usar depois: um saldo ou crédito (um vale, um cupom, o crédito de "
+                  "uma loja: tipo saldo, com o valor em total), uma quantidade de usos (acessos à sala VIP, diárias: tipo contagem, com "
+                  "quantos em total) ou uma vantagem sem conta (seguro, frete grátis: tipo vantagem). É o que a pessoa pede com "
+                  "«adiciona esse saldo», «guarda esse crédito», «tenho um vale de…». Não é um lançamento do caixa.",
+     "entrada": _obj({"nome": {"type": "string", "description": "O nome do benefício, como «Crédito na Google Store»."},
+                      "tipo": {"type": "string", "enum": ["saldo", "contagem", "vantagem"]},
+                      "total": {"type": "number", "exclusiveMinimum": 0, "description": "Saldo: o valor. Contagem: quantos. Vantagem: não tem."},
+                      "moeda": {"type": "string", "enum": ["BRL", "USD"], "description": "Só num saldo; padrão BRL."},
+                      "renova": {"type": "string", "enum": ["mes", "ano", "nunca"], "description": "De quanto em quanto tempo volta ao total; padrão nunca."},
+                      "validade": {"type": "string", "description": "AAAA-MM-DD: até quando vale (se tiver)."},
+                      "origem": {"type": "string", "description": "De onde vem, se vier de um banco ou de um fixo cadastrado: o nome dele."},
+                      "observacao": {"type": "string"}, "descricao": {"type": "string", "description": "O que é, em poucas palavras."}}, ["nome", "tipo"])},
+    {"nome": "editar_beneficio", "titulo": "Mudar ou apagar um benefício", "grava": True, "apaga": True,
+     "descricao": "Muda um benefício de Mais › Benefícios (o nome, o total, a moeda, quando renova, a validade, a observação) ou apaga "
+                  "(apagar true). Para anotar um uso, é o gerencia_usar_beneficio.",
+     "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do benefício."}, "nome": {"type": "string"},
+                      "total": {"type": "number", "exclusiveMinimum": 0}, "moeda": {"type": "string", "enum": ["BRL", "USD"]},
+                      "renova": {"type": "string", "enum": ["mes", "ano", "nunca"]},
+                      "validade": {"type": "string", "description": "AAAA-MM-DD; vazio tira."}, "observacao": {"type": "string"},
+                      "apagar": {"type": "boolean"}}, ["beneficio"])},
     {"nome": "atualizar_milhas", "titulo": "Atualizar o saldo de milhas", "grava": True,
      "descricao": "Põe o saldo de hoje de um programa de milhas (o que a pessoa vê no app do programa).",
      "entrada": _obj({"beneficio": {"type": "string", "description": "O id ou o nome do programa de milhas."},
@@ -1289,6 +1317,137 @@ def _usar_beneficio(d, a, hoje):
     return f"Uso anotado em {b.get('nome')} ({_dm(data.isoformat())}). Restam {resto} neste período."
 
 
+# 1.103.0 (o dono, com a foto de um crédito e «adiciona esse saldo… na parte de benefícios pendentes para usar», que a IA não
+# sabia fazer): cadastrar, mudar e apagar um benefício, com as regras do salvarBeneficio da tela
+MAX_BENEFICIOS = 200
+
+
+def _origem_beneficio(d, v):
+    """«fixo:<id>» ou «conta:<id>» pelo nome de um fixo ou de um banco cadastrado; vazio fica sem origem."""
+    v = _texto(v, 80)
+    if not v:
+        return ""
+    if re.fullmatch(r"(fixo|conta):[A-Za-z0-9_-]+", v):
+        return v
+    n = _norm(v)
+    fixos = [r for r in d.get("recorrencias", []) if isinstance(r, dict) and _norm(r.get("descricao")) == n]
+    if len(fixos) == 1:
+        return "fixo:" + fixos[0]["id"]
+    b = _banco_por_nome(d, v)
+    contas = [c for c in (b.get("contas") or []) if isinstance(c, dict) and c.get("id")] if b else []
+    if contas:
+        return "conta:" + contas[0]["id"]
+    return ""
+
+
+def _campos_beneficio(b, a, hoje):
+    conta = b["tipo"] != "vantagem"
+    if "total" in a and conta:
+        b["total"] = _valor(a.get("total"), "total")
+    if conta and not (b.get("total") or 0) > 0:
+        raise ErroFerramenta("Falta o total: " + ("o valor do saldo." if b["tipo"] == "saldo" else "quantos usos."))
+    if not conta:
+        b.pop("total", None)
+    if b["tipo"] == "saldo":
+        if "moeda" in a and a.get("moeda") not in ("BRL", "USD"):
+            raise ErroFerramenta("moeda: BRL ou USD.")
+        b["moeda"] = a.get("moeda") or b.get("moeda") or "BRL"
+    else:
+        b.pop("moeda", None)
+    if "renova" in a and a.get("renova") not in ("mes", "ano", "nunca"):
+        raise ErroFerramenta("renova: mes, ano ou nunca.")
+    b["renova"] = (a.get("renova") or b.get("renova") or "nunca") if conta else "nunca"
+    if "validade" in a:
+        if _texto(a.get("validade")):
+            b["validade"] = _data(a.get("validade"), hoje, "validade", padrao=False).isoformat()
+        else:
+            b.pop("validade", None)
+    if "observacao" in a:
+        if _texto(a.get("observacao"), 80):
+            b["obs"] = _texto(a.get("observacao"), 80)
+        else:
+            b.pop("obs", None)
+    if _texto(a.get("descricao"), 200):
+        b["descricao"] = _texto(a.get("descricao"), 200)
+
+
+def _texto_beneficio(b):
+    if b["tipo"] == "vantagem":
+        quanto = "vantagem"
+    elif b["tipo"] == "saldo":
+        quanto = ("US$ " + calc.fmt_num(b["total"], 2)) if b.get("moeda") == "USD" else _brl(b["total"])
+    else:
+        quanto = calc.fmt_num(b["total"], 0) + (" uso" if b["total"] == 1 else " usos")
+    renova = {"mes": ", renova todo mês", "ano": ", renova todo ano"}.get(b.get("renova"), "")
+    return f"{b['nome']}: {quanto}{renova}{', vale até ' + _dm(b['validade']) if b.get('validade') else ''}"
+
+
+def _novo_beneficio(d, a, hoje):
+    nome = _texto(a.get("nome"), 60)
+    if not nome:
+        raise ErroFerramenta("Falta o nome do benefício.")
+    if a.get("tipo") not in ("saldo", "contagem", "vantagem"):
+        raise ErroFerramenta("tipo: saldo (um valor para gastar), contagem (uma quantidade de usos) ou vantagem.")
+    bs = d.setdefault("beneficios", [])
+    if len(bs) >= MAX_BENEFICIOS:
+        raise ErroFerramenta(f"Já há {MAX_BENEFICIOS} benefícios cadastrados.")
+    if any(isinstance(x, dict) and x.get("tipo") != "milhas" and _norm(x.get("nome")) == _norm(nome) for x in bs):
+        raise ErroFerramenta(f"Já há um benefício «{nome}». Para mudar, use gerencia_editar_beneficio.")
+    b = {"id": "bn-" + integracao.uid(), "nome": nome, "origem": _origem_beneficio(d, a.get("origem")), "tipo": a["tipo"],
+         "renova": "nunca", "desde": hoje.isoformat(), "usos": []}
+    _campos_beneficio(b, a, hoje)
+    bs.append(b)
+    return f"Benefício cadastrado em Mais › Benefícios: {_texto_beneficio(b)}."
+
+
+def _editar_beneficio(d, a, hoje):
+    b = _beneficio(d, a.get("beneficio"))
+    if a.get("apagar") is True:
+        d["beneficios"] = [x for x in d.get("beneficios", []) if x is not b]
+        return f"Benefício apagado: {b.get('nome')}."
+    if b.get("tipo") == "milhas":
+        raise ErroFerramenta(f"{b.get('nome')} é um programa de milhas: o saldo muda pelo gerencia_atualizar_milhas.")
+    if not any(k in a for k in ("nome", "total", "moeda", "renova", "validade", "observacao")):
+        raise ErroFerramenta("Nada a mudar: mande nome, total, moeda, renova, validade ou observacao (ou apagar true).")
+    if "nome" in a:
+        nome = _texto(a.get("nome"), 60)
+        if not nome:
+            raise ErroFerramenta("O nome não pode ficar vazio.")
+        b["nome"] = nome
+    b.setdefault("tipo", "contagem")
+    _campos_beneficio(b, a, hoje)
+    return f"Benefício mudado: {_texto_beneficio(b)}."
+
+
+def texto_arquivo_lido(o_que, r):
+    """O que a IA daqui leu do arquivo, em texto, para a IA do CorrerIA propor a mudança (nada foi gravado)."""
+    if o_que == "beneficios":
+        out = []
+        for b in (r.get("beneficios") or [])[:12]:
+            if b.get("tipo") == "vantagem":
+                quanto = "vantagem"
+            elif b.get("tipo") == "saldo":
+                quanto = ("US$ " + calc.fmt_num(b.get("total") or 0, 2)) if b.get("moeda") == "USD" else _brl(b.get("total") or 0)
+            else:
+                quanto = calc.fmt_num(b.get("total") or 0, 0) + " (contagem)"
+            renova = {"mes": ", renova todo mês", "ano": ", renova todo ano"}.get(b.get("renova"), "")
+            out.append(f"- {b.get('nome')}: {quanto}{renova} [tipo {b.get('tipo')}]")
+        if not out:
+            return "A IA não achou benefícios no arquivo."
+        return "Benefícios lidos do arquivo (nada foi cadastrado; para cadastrar, gerencia_novo_beneficio):\n" + "\n".join(out)
+    lanc, invs = r.get("lancamentos") or [], r.get("investimentos") or []
+    out = [f"- {x.get('descricao') or 'Sem descrição'}: {_brl(float(x.get('valor') or 0))} ({'recebimento' if x.get('tipo') == 'receita' else 'gasto'}"
+           + (f", {_dm(x['data'])}" if x.get("data") else "") + (f", parcela {x['parcela_atual']}/{x['parcelas_total']}" if x.get("parcelas_total") else "") + ")"
+           for x in lanc[:20]]
+    out += [f"- investimento {x.get('nome') or ''}: {_brl(float(x.get('valor') or x.get('aporte') or 0))}" for x in invs[:5]]
+    if len(lanc) > 20:
+        out.append(f"- e mais {len(lanc) - 20}")
+    if not out:
+        return ("Não há gastos, recebimentos nem investimentos no arquivo. Se for um saldo, um crédito, um vale ou um benefício, leia de novo "
+                "com o_que beneficios ou cadastre com gerencia_novo_beneficio pelo que a pessoa disse.")
+    return "Lido do arquivo (nada foi lançado; para lançar, gerencia_lancar):\n" + "\n".join(out)
+
+
 def _atualizar_milhas(d, a, hoje):
     b = _beneficio(d, a.get("beneficio"))
     if b.get("tipo") != "milhas":
@@ -1757,11 +1916,12 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras="", moedas=None):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz", "ler_arquivo"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
+           "novo_beneficio": _novo_beneficio, "editar_beneficio": _editar_beneficio,
            "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco,
            "editar_categoria": _editar_categoria, "editar_banco": _editar_banco}[nome]
     return faz(d, a, hoje), True
