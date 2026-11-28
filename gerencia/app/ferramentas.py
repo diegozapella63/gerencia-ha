@@ -76,6 +76,10 @@ FERRAMENTAS = [
                   "lançamento que parece repetido (mesma descrição, valor e dia) e a compra grande que não é de costume. A primeira "
                   "linha diz quantos.",
      "entrada": _obj({})},
+    {"nome": "previsao_mes", "titulo": "Previsão de gastos do mês", "grava": False,
+     "descricao": "Quanto a casa deve gastar neste mês, sem IA: o que já saiu, o que já está marcado até o fim do mês (fixos, parcelas "
+                  "e contas lançadas) e o dia a dia que ainda deve vir, pela média dos últimos meses; com a média deles para comparar.",
+     "entrada": _obj({})},
     {"nome": "projecao", "titulo": "Projeção dos investimentos", "grava": False,
      "descricao": "Quanto os seus investimentos viram daqui a tantos meses, com a taxa de hoje de cada um, antes do IR (a projeção "
                   "da tela); com aporte_mensal, soma o que você põe todo mês, rendendo pela taxa média. Sem os bens e sem o dinheiro "
@@ -514,8 +518,6 @@ def _comparar_meses(d, a, hoje):
 
 MAIS_CARO, MAIS_CARO_MIN = 1.3, 20.0     # 30% acima da média e pelo menos R$ 20 a mais
 GRANDE, GRANDE_MIN, GRANDE_BASE = 3.0, 200.0, 5   # 3 vezes a mediana das compras, pelo menos R$ 200, com 5 compras para comparar
-_MES_RE = re.compile(r"\b(?:de |do |da )?(?:" + "|".join(_m for _m in ("janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto",
-                                                                      "setembro", "outubro", "novembro", "dezembro")) + r")\b")
 
 
 def _br_data(dt):
@@ -524,8 +526,7 @@ def _br_data(dt):
 
 def _chave_gasto(texto):
     """A descrição sem o que muda de um mês para outro: o mês, os números (a parcela 3/10, o ano) e a pontuação."""
-    t = _MES_RE.sub(" ", _norm(texto))
-    return " ".join(re.sub(r"[^a-z ]+", " ", t).split())
+    return calc.chave_descricao(texto)
 
 
 def _despesas_do_mes(d, ym, ate_dia):
@@ -589,6 +590,26 @@ def _fora_do_padrao(d, hoje):
         if ls:
             linhas.append(f"{titulo} ({len(ls)}):")
             linhas += [t for _, t in ls[:10]]
+    return "\n".join(linhas)
+
+
+def _previsao_mes(d, hoje):
+    """1.98.0: a previsão de gastos do mês, pela conta do calc.previsao_mes (a mesma do cartão do Agora)."""
+    p = calc.previsao_mes(d, hoje)
+    mes = f"{MESES_NOME[hoje.month - 1]} de {hoje.year}"
+    falta = p["dias_mes"] - p["dia"]
+    linhas = [f"Previsão de gastos de {mes}: {_brl(p['previsto'])}.",
+              f"- Até hoje (dia {p['dia']}): {_brl(p['ate_hoje'])}",
+              f"- Já marcado até o fim do mês (fixos, parcelas e contas lançadas): {_brl(p['marcado'])}"]
+    if p["meses_base"] and falta:
+        linhas.append(f"- Dia a dia que ainda deve vir ({_brl(p['por_dia'])} por dia, a média de {p['meses_base']} "
+                      f"{'mês' if p['meses_base'] == 1 else 'meses'}, em {falta} {'dia' if falta == 1 else 'dias'}): {_brl(p['dia_a_dia'])}")
+    if p["meses_base"]:
+        dif = p["previsto"] - p["media"]
+        pct = f", {abs(round(dif / p['media'] * 100))}% {'acima' if dif >= 0 else 'abaixo'}" if p["media"] else ""
+        linhas.append((f"A média dos últimos {p['meses_base']} meses foi" if p["meses_base"] > 1 else "O mês anterior com gastos somou") + f" {_brl(p['media'])}{pct}.")
+    else:
+        linhas.append("Sem meses anteriores para comparar: a previsão é só o que já saiu e o que está marcado.")
     return "\n".join(linhas)
 
 
@@ -691,7 +712,9 @@ def _lancar(d, a, hoje):
         raise ErroFerramenta("Falta a descrição.")
     valor = _valor(a.get("valor"))
     data = _data(a.get("data"), hoje)
-    cat = _categoria(d, a.get("categoria"), tipo)
+    # 1.98.0: sem categoria no pedido, a que a casa costuma dar a essa descrição (aprendida do que já foi lançado e corrigido)
+    sem_cat = a.get("categoria") is None or str(a.get("categoria")).strip() == ""
+    cat = (calc.categoria_aprendida(d, tipo, desc) if sem_cat else "") or _categoria(d, a.get("categoria"), tipo)
     conta = _conta(d, a.get("conta"))
     contas = calc.mapa_contas(d)
     cartao = tipo == "despesa" and a.get("cartao") is True
@@ -1391,6 +1414,8 @@ def linhas_email(d, resultado, fixo="", hoje=None):
         it["conta"] = ci or ("" if it["banco"] and not bi else conta) or ""
         tem = bool((contas.get(it["conta"]) or {}).get("cartao"))
         it["no_cartao"] = it["tipo"] == "despesa" and tem and (it["cartao"] is True if ci else no_cartao_todas and it["cartao"] is not False)
+        if not it["categoria"] or it["categoria"] in ("c-outros-receb", "c-outros-gastos"):  # 1.98.0: a IA não soube: o costume da casa
+            it["categoria"] = calc.categoria_aprendida(d, it["tipo"], it.get("descricao")) or it["categoria"]
         if not it["categoria"]:
             it["categoria"] = "c-outros-receb" if it["tipo"] == "receita" else "c-outros-gastos"
         if it["categoria"] not in cats:
@@ -1603,6 +1628,8 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _contas_a_pagar(d, a, hoje), False
     if nome == "comparar_meses":
         return _comparar_meses(d, a, hoje), False
+    if nome == "previsao_mes":
+        return _previsao_mes(d, hoje), False
     if nome == "fora_do_padrao":
         return _fora_do_padrao(d, hoje), False
     if nome == "projecao":

@@ -225,6 +225,37 @@ class TestNovoLancamento(Caixa):
         self.assertEqual(self.marcados('[data-a="lf-conta"]'), ["Banco Azul · Beto"], "a conta da última Padaria Sol")
         self.assertEqual(self.marcados('[data-a="lf-cartao"]'), ["Cartão de crédito"], "no cartão, como da outra vez")
 
+    def test_1_98_categoria_aprendida_com_o_uso(self):
+        """1.98.0: a categoria que a casa costuma dar à descrição (a mais usada; sem a igual, a da mesma primeira palavra), até a
+        pessoa escolher; a conta da tela e a do calc.py são a mesma."""
+        import calc
+        ls = [desp("a1", "Padaria Sol", 10, "2026-08-01", True, categoria="c-lazer"),
+              desp("a2", "Padaria Sol 2/3", 10, "2026-09-01", True, categoria="c-mercado"),
+              desp("a3", "Padaria Sol de outubro", 10, "2026-10-01", True, categoria="c-mercado"),
+              desp("b1", "Farmácia Sol", 30, "2026-09-02", True, categoria="c-saude"),
+              desp("b2", "Farmácia Lua", 30, "2026-09-12", True, categoria="c-saude"),
+              desp("b3", "Farmácia Mar", 30, "2026-10-02", True, categoria="c-saude"),
+              desp("c1", "Feira", 30, "2026-10-03", True, categoria="c-outros-gastos"),
+              desp("d1", "Acerto", 30, "2026-10-04", True, categoria="c-lazer", ajuste=True)]
+        self.caixa(lancamentos=ls)
+        d = self.dados()
+        for desc in ("padaria sol", "Padaria Sol 3/3", "Farmácia Nova", "Feira", "Acerto", "Bar", "", "2026", "Farm"):
+            with self.subTest(desc=desc):
+                self.assertEqual(self.js("T.categoriaAprendida('despesa', a)", desc), calc.categoria_aprendida(d, "despesa", desc))
+        self.assertEqual([calc.categoria_aprendida(d, "despesa", x) for x in ("Padaria Sol 3/3", "Farmácia Nova", "Feira", "Acerto")], ["c-mercado", "c-saude", "", ""])
+        self.assertEqual(self.js("T.chaveDescricao(a)", "Luz de Março 2026 (3/10)"), calc.chave_descricao("Luz de Março 2026 (3/10)"))
+        self.nova()
+        self.preencher('#lf-desc', 'Farmácia Nova')
+        self.redesenhar()
+        self.assertEqual(self.marcados('[data-a="lf-set"][data-k="categoria"]'), ["Saúde"])
+        self.preencher('#lf-desc', 'Padaria Sol')
+        self.redesenhar()
+        self.assertEqual(self.marcados('[data-a="lf-set"][data-k="categoria"]'), ["Mercado"], "a descrição mudou e ninguém escolheu: a categoria acompanha")
+        self.clicar('.folha [data-a="lf-set"][data-k="categoria"][data-v="c-lazer"]')
+        self.preencher('#lf-desc', 'Farmácia Nova')
+        self.redesenhar()
+        self.assertEqual(self.marcados('[data-a="lf-set"][data-k="categoria"]'), ["Lazer"], "a pessoa escolheu: fica a dela")
+
     def test_1_57_sem_cartao_de_debito_e_pix(self):
         bancos = [dict(BANCOS[0], contas=[dict(BANCOS[0]["contas"][0], debito=False), BANCOS[0]["contas"][1]]), BANCOS[1]]
         self.abrir(base(bancos=bancos), ui={"tab": "caixa"})

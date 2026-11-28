@@ -191,6 +191,19 @@ class TestInicio(TelaMais):
         self.assertEqual(self.rotulo_placar(), "Saldo em caixa de R$ 3.800")
         self.assertEqual(self.pares(".placar-cols > div"), [["Entrou", "R$ 5.000"], ["Saiu", "R$ 1.200"], ["Sobrou", "R$ 3.800"]])
 
+    def test_1_98_gasto_previsto_no_mes(self):
+        """1.98.0: no cartão do Caixa do Agora, a previsão de gastos do mês (a conta vem do servidor) contra a média."""
+        inv = {"id": "i1", "nome": "CDB Azul", "banco": BANCOS[0]["id"], "tipo": "cdb", "valor": 1000, "data_valor": "2026-11-02", "indexador": "cdi_pct", "taxa": 100, "liquidez": "diaria"}
+        self.abrir(base(bancos=BANCOS, lancamentos=LANC, investimentos=[inv]))
+        self.assertEqual(self.conta("#cx-previsao"), 0, "na prévia e sem a conta do servidor, sem a linha")
+        self.js("(T.S.previsaoRev = T.S.d.rev, T.S.previsao = a, T.render())", {"mes": "2026-11", "previsto": 2300.4, "media": 2000})
+        self.assertEqual(self.texto("#cx-previsao"), "Gasto previsto no mês R$ 2.300 · 15% acima da média")
+        self.js("(T.S.previsao = a, T.render())", {"mes": "2026-11", "previsto": 900, "media": 0})
+        self.assertEqual(self.texto("#cx-previsao"), "Gasto previsto no mês R$ 900")
+        self.js("(T.S.previsao = a, T.render())", {"mes": "2026-11", "previsto": 900, "media": 1000})
+        self.assertEqual(self.texto("#cx-previsao"), "Gasto previsto no mês R$ 900 · 10% abaixo da média")
+        self.assertFalse(self.pg.evaluate("document.documentElement.scrollWidth > innerWidth"))
+
     def test_aviso_de_conta_atrasada_com_o_valor(self):
         self.abrir(base(bancos=BANCOS, lancamentos=LANC))
         self.assertEqual(self.linha("#app .op", "atrasada"), "Uma conta atrasada Luz R$ 150")

@@ -41,7 +41,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.97.0"
+VERSAO = "1.98.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3645,6 +3645,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, resumo_uso())
             if p == "/api/voz/status":
                 return self.enviar(200, voz_status())
+            if p == "/api/previsao":  # 1.98.0: a previsão de gastos do mês (o cartão do Agora)
+                return self.enviar(200, calc.previsao_mes(ler()))
             if p == "/api/memoria-ia":  # 1.84.0: a Memória da IA, de todos os apps
                 return self.enviar(200, memoria_estado())
             if p == "/api/chat":

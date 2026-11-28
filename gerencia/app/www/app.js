@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.97.0';
+const VERSAO = '1.98.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -536,6 +536,7 @@ async function jsonOk(r) {
 }
 const apiServidor = {
   state: () => fetch('api/state', { cache: 'no-store' }).then(jsonOk),
+  previsao: () => fetch('api/previsao', { cache: 'no-store' }).then(jsonOk),
   async save(corpo) {
     const r = await fetch('api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
     if (r.status === 409) { const e = new Error('conflito'); e.conflito = true; e.d = await r.json(); throw e; }
@@ -589,6 +590,7 @@ function apiDemo() {
   const espera = ms => new Promise(r => setTimeout(r, ms));
   return {
     async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
+    async previsao() { return null; },  // a conta é do servidor: na prévia, o cartão fica sem a linha
     async save(c) {
       if (c.rev !== d.rev) { const e = new Error('conflito'); e.conflito = true; e.d = clone(d); throw e; }
       for (const k of ['bancos', 'investimentos', 'ajustes', 'exemplo', 'lancamentos', 'recorrencias', 'categorias', 'beneficios', 'metas']) if (k in c) d[k] = c[k];
@@ -1088,9 +1090,22 @@ function avisoIndices(I, h) {
   return `<button class="op" data-a="tab" data-v="mais" data-ancora="indices"><div class="op-ic alerta">${ic('trend')}</div>
     <div class="op-t"><b>Índices sem atualizar</b><span>${I.erro ? 'O Banco Central não responde' : 'Sem os do Banco Central'} desde ${fDataC(em)}</span></div>${ic('chev', 'chev')}</button>`;
 }
+// 1.98.0: a previsão de gastos do mês (a conta é do servidor, calc.previsao_mes; pedida de novo quando os dados mudam)
+function pedirPrevisao() {
+  if (S.previsaoRev === S.d.rev) return;
+  S.previsaoRev = S.d.rev;
+  api.previsao().then(p => { S.previsao = p && p.mes === ymHoje() ? p : null; if (S.ui.tab === 'inicio' && !FOLHA) render(); }).catch(() => { S.previsao = null; });
+}
+function linhaPrevisao() {
+  const p = S.previsao;
+  if (!p || !(p.previsto > 0)) return '';
+  const dif = p.media > 0 ? Math.round((p.previsto - p.media) / p.media * 100) : null;
+  return `<div class="cx-card-pe cx-prev" id="cx-previsao"><span>Gasto previsto no mês <b>${brl(p.previsto, 0)}</b>${dif == null ? '' : ` · ${Math.abs(dif)}% ${dif >= 0 ? 'acima' : 'abaixo'} da média`}</span></div>`;
+}
 function cardCaixaInicio() {
   const ym = ymHoje();
-  return `<div class="card cx-card"><div class="rot">${rotIc('fluxo')}<span class="rot-t">Caixa de ${MESES_LONGOS[+ym.slice(5) - 1]}</span></div>${resumoCaixaHTML(ym)}
+  pedirPrevisao();
+  return `<div class="card cx-card"><div class="rot">${rotIc('fluxo')}<span class="rot-t">Caixa de ${MESES_LONGOS[+ym.slice(5) - 1]}</span></div>${resumoCaixaHTML(ym)}${linhaPrevisao()}
     <button class="cx-card-pe" data-a="tab" data-v="caixa"><span>Saldo hoje <b>${brl(saldoCaixa(), 0)}</b> · fim do mês <b>${brl(saldoPrevisto(ym), 0)}</b></span>${ic('chev', 'chev')}</button></div>`;
 }
 function avisosCaixa(h) {
@@ -1582,6 +1597,32 @@ function dataCaixa(l) {
   let m = d.getMonth() + (d.getDate() >= fech ? 1 : 0);
   if (venc <= fech) m += 1;
   return dataNoMes(iso(new Date(d.getFullYear(), m, 1)).slice(0, 7), venc);
+}
+
+// 1.98.0: o que o app aprende com o uso, sem a IA (as mesmas contas do calc.py: chave_descricao e categoria_aprendida)
+const MES_DESC_RE = /\b(?:de |do |da )?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/g;
+const chaveDescricao = t => semAcento(t).replace(MES_DESC_RE, ' ').replace(/[^a-z ]+/g, ' ').split(' ').filter(Boolean).join(' ');
+function maisComum(cats) {
+  const conta = new Map();
+  cats.forEach((c, i) => conta.set(c, [(conta.get(c) || [0])[0] + 1, i]));
+  let melhor = null;
+  for (const [c, v] of conta) if (!melhor || v[0] > melhor[1][0] || (v[0] === melhor[1][0] && v[1] > melhor[1][1])) melhor = [c, v];
+  return [melhor[0], melhor[1][0]];
+}
+function categoriaAprendida(tipo, descricao) {
+  const k = chaveDescricao(descricao);
+  if (!k) return '';
+  const padrao = tipo === 'receita' ? 'c-outros-receb' : 'c-outros-gastos';
+  const cats = new Set(S.d.categorias.filter(c => (c.tipo || 'despesa') === tipo).map(c => c.id));
+  const usados = S.d.lancamentos.filter(l => (l.tipo || 'despesa') === tipo && !l.ajuste && cats.has(l.categoria) && l.categoria !== padrao)
+    .map(l => [chaveDescricao(l.descricao), l.categoria]);
+  const iguais = usados.filter(u => u[0] === k).map(u => u[1]).slice(-12);
+  if (iguais.length) return maisComum(iguais)[0];
+  const p = k.split(' ')[0];
+  if (p.length < 4) return '';
+  const parecidos = usados.filter(u => u[0].split(' ')[0] === p).map(u => u[1]).slice(-12);
+  if (parecidos.length >= 3) { const [c, n] = maisComum(parecidos); if (n / parecidos.length >= 0.8) return c; }
+  return '';
 }
 
 function ocorrencia(r, ym) {
@@ -3695,6 +3736,7 @@ function prepararRevisaoCaixa() {
     const ci = bi && contaDoBanco(bi, it.cartao);
     it.conta = (ci || (it.banco && !bi ? null : conta))?.id || '';
     it.noCartao = it.tipo === 'despesa' && !!contaDe(it.conta)?.cartao && (ci ? it.cartao === true : s.cartao && it.cartao !== false);
+    if (!it.categoria || it.categoria === 'c-outros-receb' || it.categoria === 'c-outros-gastos') it.categoria = categoriaAprendida(it.tipo, it.descricao) || it.categoria;  // 1.98.0
     if (!it.categoria) it.categoria = it.tipo === 'receita' ? 'c-outros-receb' : 'c-outros-gastos';
     if (!S.d.categorias.some(c => c.id === it.categoria)) it.categoria = S.d.categorias.find(c => c.tipo === it.tipo)?.id || '';
     const dup = S.d.lancamentos.some(l => l.tipo === it.tipo && Math.abs((+l.valor || 0) - it.valor) < 0.01 &&
@@ -7321,7 +7363,7 @@ document.addEventListener('click', ev => {
       if (tipo === 'receita' || apo) { LF.cartao = false; LF.vinculo = ''; }
       pintarFolha(); break;
     }
-    case 'lf-set': LF[el.dataset.k] = v; pintarFolha(); break;
+    case 'lf-set': LF[el.dataset.k] = v; if (el.dataset.k === 'categoria') LF.catAuto = false; pintarFolha(); break;
     case 'lf-pago': LF.pago = !!v; LF.pagoMexido = true; pintarFolha(); break;
     case 'lf-conta': LF.conta = v; if (!contaDe(v)?.cartao) LF.cartao = false; LF.pagoMexido = LF.id ? LF.pagoMexido : false; pintarFolha(); break;
     case 'lf-cartao': LF.cartao = !!v; if (!LF.id) LF.pagoMexido = false; pintarFolha(); break;
@@ -7837,9 +7879,14 @@ document.addEventListener('input', ev => {
     else if (k === 'novaCat') LF.novaCat.nome = el.value;
     else if (k === 'descricao') {
       LF.descricao = el.value;
-      if (!LF.id && !LF.categoria) {
+      // 1.98.0: enquanto a pessoa não escolhe, a categoria segue o que a casa costuma dar a essa descrição (catAuto); a conta, a do igual
+      if (!LF.id && !LF.aporte && (!LF.categoria || LF.catAuto)) {
         const igual = S.d.lancamentos.filter(l => l.tipo === LF.tipo && semAcento(l.descricao) === semAcento(el.value)).pop();
-        if (igual) { LF.categoria = igual.categoria; LF.conta = igual.conta; LF.cartao = !!igual.cartao; pintarFolhaDepois(); }
+        const cat = categoriaAprendida(LF.tipo, el.value) || (igual ? igual.categoria : '');
+        const mudou = cat !== (LF.categoria || '') || (igual && !LF.contaAuto);
+        if (cat || LF.catAuto) { LF.categoria = cat; LF.catAuto = !!cat; }
+        if (igual && !LF.contaAuto) { LF.conta = igual.conta; LF.cartao = !!igual.cartao; LF.contaAuto = true; }
+        if (mudou) pintarFolhaDepois();
       }
     } else if (k === 'data') { LF.data = el.value; if (!LF.id || !LF.pagoMexido) LF.pagoMexido = false; pintarFolhaDepois(); }
     else LF[k] = el.value;

@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.98.0
+
+- **Categoria sozinha**: ao escrever a descrição de uma despesa ou recebimento, a categoria já vem com a que a casa costuma dar a ela ("Padaria Sol" → Mercado), aprendida do que você lançou e corrigiu, sem gastar a IA. Vale também para parecidas (a mesma primeira palavra), para o que chega pelo CorrerIA sem categoria e para as faturas lidas pela IA quando ela não soube. Se você escolher outra, fica a sua.
+- **Gasto previsto no mês**: no Agora, o cartão do Caixa diz quanto a casa deve gastar no mês (o que já saiu, o que está marcado e o dia a dia que ainda deve vir) e quanto isso fica acima ou abaixo da média dos últimos meses. Pelo CorrerIA: "quanto vou gastar este mês?".
+
 ## 1.97.0
 
 - **Gastos fora do padrão**: pelo CorrerIA (WhatsApp, Claude, Gemini e a Conversa dele), dá para perguntar "tem algo estranho nos gastos?". O app aponta, sem gastar a IA, o que veio mais caro que a média dos 3 meses anteriores, o lançamento que parece repetido (mesma descrição, valor e dia) e a compra grande que não é de costume.

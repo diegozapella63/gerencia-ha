@@ -52,6 +52,12 @@ class TestHTTP(unittest.TestCase):
         st, _, r = self.s.post("/api/memoria-ia", {"acao": "apagar", "id": r["lista"][0]["id"]})
         self.assertEqual((st, r["lista"]), (200, []))
 
+    def test_previsao_do_mes(self):
+        """1.98.0: a conta do cartão do Agora (calc.previsao_mes)."""
+        st, _, r = self.s.get("/api/previsao")
+        self.assertEqual(st, 200)
+        self.assertEqual(sorted(r), ["ate_hoje", "dia", "dia_a_dia", "dias_mes", "marcado", "media", "mes", "meses_base", "por_dia", "previsto"])
+
     # ---- páginas
     def test_paginas_e_arquivos(self):
         st, cab, corpo = self.s.get("/")

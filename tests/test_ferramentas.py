@@ -41,7 +41,7 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "fora_do_padrao", "previsao_mes", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
                                  "usar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
@@ -53,7 +53,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_categoria"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:12])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:13])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
@@ -704,6 +704,59 @@ class TestForaDoPadrao(unittest.TestCase):
                              {"id": "x", "tipo": "despesa", "descricao": "2026", "valor": 9, "data": "2026-11-03"}], "recorrencias": [], "categorias": []}
         self.assertTrue(chamar("fora_do_padrao", {}, d)[0].startswith("Nada fora do padrão"), "um mês só de histórico e menos de 5 compras: não acusa")
         self.assertEqual(F._chave_gasto("Luz de Outubro 2026 (3/10)"), "luz")
+
+
+class TestLote2(unittest.TestCase):
+    """1.98.0 (o dono, às ideias com a IA: "pode seguir no lote 2"): a categoria aprendida com o uso e a previsão do mês, sem a IA."""
+
+    def casa(self):
+        ls = []
+        for m in ("08", "09", "10"):
+            ls += [{"id": f"m{m}", "tipo": "despesa", "descricao": "Mercado Bom", "valor": 300, "data": f"2026-{m}-10", "categoria": "c-mercado"},
+                   {"id": f"p{m}", "tipo": "despesa", "descricao": "Sofá 1/3", "valor": 200, "data": f"2026-{m}-12", "grupo": "g1"},
+                   {"id": f"f{m}", "tipo": "despesa", "descricao": "Internet", "valor": 100, "data": f"2026-{m}-05", "recorrencia": "r1", "competencia": f"2026-{m}"},
+                   {"id": f"s{m}", "tipo": "receita", "descricao": "Salário", "valor": 5000, "data": f"2026-{m}-05"}]
+        ls += [{"id": "n1", "tipo": "despesa", "descricao": "Mercado Bom", "valor": 150, "data": "2026-11-10", "categoria": "c-mercado"},
+               {"id": "n2", "tipo": "despesa", "descricao": "Dentista", "valor": 250, "data": "2026-11-25"},
+               {"id": "n3", "tipo": "despesa", "descricao": "Acerto", "valor": 999, "data": "2026-11-03", "ajuste": True}]
+        return {"lancamentos": ls, "categorias": calc.categorias_padrao(), "bancos": [], "investimentos": [],
+                "recorrencias": [{"id": "r1", "tipo": "despesa", "descricao": "Internet", "valor": 100, "dia": 20, "inicio": "2026-08", "freq": "mensal"}]}
+
+    def test_previsao_do_mes(self):
+        d = self.casa()
+        p = calc.previsao_mes(d, HOJE)
+        # até o dia 15: o mercado (150); marcado: o dentista (250) e a internet do dia 20 (100); o dia a dia: 300 por mês de mercado
+        self.assertEqual((p["ate_hoje"], p["marcado"], p["meses_base"], p["media"]), (150.0, 350.0, 3, 600.0))
+        por_dia = (300 / 31 + 300 / 30 + 300 / 31) / 3
+        self.assertAlmostEqual(p["dia_a_dia"], round(por_dia * 15, 2), places=2)
+        self.assertAlmostEqual(p["previsto"], round(500 + por_dia * 15, 2), places=2)
+        t, mudou = chamar("previsao_mes", {}, d)
+        self.assertFalse(mudou)
+        linhas = t.split("\n")
+        self.assertEqual(linhas[0], "Previsão de gastos de novembro de 2026: R$ 646,77.")
+        self.assertEqual(linhas[1:3], ["- Até hoje (dia 15): R$ 150,00", "- Já marcado até o fim do mês (fixos, parcelas e contas lançadas): R$ 350,00"])
+        self.assertEqual(linhas[3], "- Dia a dia que ainda deve vir (R$ 9,78 por dia, a média de 3 meses, em 15 dias): R$ 146,77")
+        self.assertEqual(linhas[4], "A média dos últimos 3 meses foi R$ 600,00, 8% acima.")
+        vazio = {"lancamentos": [{"id": "x", "tipo": "despesa", "descricao": "Pão", "valor": 10, "data": "2026-11-02"}], "recorrencias": [], "categorias": []}
+        self.assertEqual(chamar("previsao_mes", {}, vazio)[0].split("\n")[-1], "Sem meses anteriores para comparar: a previsão é só o que já saiu e o que está marcado.")
+        jan = calc.previsao_mes(d, date(2027, 1, 31))
+        self.assertEqual((jan["mes"], jan["meses_base"], jan["dia_a_dia"]), ("2027-01", 3, 0.0), "janeiro olha dezembro (a internet fixa), novembro e outubro; no último dia, nada por vir")
+        um = dict(vazio, lancamentos=vazio["lancamentos"] + [{"id": "y", "tipo": "despesa", "descricao": "Pão", "valor": 310, "data": "2026-10-02"}])
+        self.assertIn("a média de 1 mês, em 15 dias", chamar("previsao_mes", {}, um)[0])
+        self.assertIn("O mês anterior com gastos somou R$ 310,00, 48% abaixo.", chamar("previsao_mes", {}, um)[0])
+
+    def test_lancar_sem_categoria_usa_a_que_a_casa_costuma_dar(self):
+        d = self.casa()
+        chamar("lancar", {"tipo": "despesa", "descricao": "Mercado Bom 12/11", "valor": 20}, d)
+        self.assertEqual(d["lancamentos"][-1]["categoria"], "c-mercado")
+        chamar("lancar", {"tipo": "despesa", "descricao": "Cinema", "valor": 20}, d)
+        self.assertEqual(d["lancamentos"][-1]["categoria"], "c-outros-gastos", "sem costume: Outros, como antes")
+        chamar("lancar", {"tipo": "despesa", "descricao": "Mercado Bom", "valor": 20, "categoria": "Lazer"}, d)
+        self.assertEqual(d["lancamentos"][-1]["categoria"], "c-lazer", "a que a pessoa disse vale")
+        self.assertEqual(calc.categoria_aprendida(d, "receita", "Mercado Bom"), "")
+        its = F.linhas_email(d, {"lancamentos": [{"descricao": "MERCADO BOM", "valor": 9, "tipo": "despesa", "categoria": "c-outros-gastos"},
+                                                 {"descricao": "Mercado Bom", "valor": 9, "tipo": "despesa", "categoria": "c-saude"}]}, hoje=HOJE)
+        self.assertEqual([i["categoria"] for i in its][:2], ["c-mercado", "c-saude"])
 
 
 class TestNovas196(unittest.TestCase):

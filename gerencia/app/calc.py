@@ -592,6 +592,96 @@ def ocorrencias_mes(data, ym):
     return vivos + [d for l in vivos for d in descontos_de(l)]
 
 
+# 1.98.0 (o dono, às ideias com a IA: "pode seguir no lote 2"): o que o app aprende com o uso, sem a IA.
+_MES_DESC_RE = re.compile(r"\b(?:de |do |da )?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b")
+APRENDE_ULTIMOS, APRENDE_MIN, APRENDE_PARTE = 12, 3, 0.8
+
+
+def chave_descricao(texto):
+    """A descrição sem o que muda de um mês para outro: os acentos, o mês, os números (a parcela 3/10, o ano) e a pontuação.
+    A mesma conta do chaveDescricao do app.js."""
+    t = "".join(c for c in unicodedata.normalize("NFD", str(texto or "")) if unicodedata.category(c) != "Mn").lower().strip()
+    return " ".join(re.sub(r"[^a-z ]+", " ", _MES_DESC_RE.sub(" ", t)).split())
+
+
+def _mais_comum(cats):
+    conta = {}
+    for i, c in enumerate(cats):
+        n, _ = conta.get(c, (0, 0))
+        conta[c] = (n + 1, i)
+    c = max(conta, key=lambda k: conta[k])  # a mais usada; no empate, a usada por último
+    return c, conta[c][0]
+
+
+def categoria_aprendida(data, tipo, descricao):
+    """A categoria que a casa costuma dar a um lançamento com esta descrição ("" sem costume): a mais usada nos 12 últimos
+    com a mesma chave; sem nenhum, a dos que começam pela mesma palavra (4 letras ou mais), se pelo menos 3 e 80% deles
+    concordam. Os Outros (o padrão de quem não escolheu) e os ajustes não ensinam nada. Igual ao categoriaAprendida do app.js."""
+    k = chave_descricao(descricao)
+    if not k:
+        return ""
+    padrao = "c-outros-receb" if tipo == "receita" else "c-outros-gastos"
+    cats = {c.get("id") for c in data.get("categorias", []) if c.get("tipo", "despesa") == tipo}
+    usados = [(chave_descricao(l.get("descricao")), l.get("categoria")) for l in data.get("lancamentos", [])
+              if l.get("tipo", "despesa") == tipo and not l.get("ajuste") and l.get("categoria") in cats and l.get("categoria") != padrao]
+    iguais = [c for ch, c in usados if ch == k][-APRENDE_ULTIMOS:]
+    if iguais:
+        return _mais_comum(iguais)[0]
+    p = k.split()[0]
+    if len(p) < 4:
+        return ""
+    parecidos = [c for ch, c in usados if ch.split()[:1] == [p]][-APRENDE_ULTIMOS:]
+    if len(parecidos) >= APRENDE_MIN:
+        c, n = _mais_comum(parecidos)
+        if n / len(parecidos) >= APRENDE_PARTE:
+            return c
+    return ""
+
+
+def _conta_no_gasto(l):
+    return not (l.get("tipo") == "receita" or l.get("ajuste") or l.get("aporte") or l.get("vinculo") or l.get("pulado"))
+
+
+def previsao_mes(data, hoje=None):
+    """Quanto a casa deve gastar no mês: o que já saiu até hoje, o que já está marcado até o fim do mês (fixos, parcelas e
+    contas lançadas) e o dia a dia que ainda deve vir (a média por dia dos gastos soltos, sem fixos nem parcelas, dos últimos
+    3 meses com gasto, vezes os dias que faltam). Sem os ajustes, os aportes, o pagamento de fatura e os pulados."""
+    hoje = hoje or date.today()
+    ym = hoje.isoformat()[:7]
+    dias_mes = calendar.monthrange(hoje.year, hoje.month)[1]
+    ate, marcado = 0.0, 0.0
+    for l in ocorrencias_mes(data, ym):
+        dt = str(l.get("data") or "")[:10]
+        if dt[:7] != ym or not _conta_no_gasto(l):
+            continue
+        if int(dt[8:10] or 0) <= hoje.day:
+            ate += num(l.get("valor"))
+        else:
+            marcado += num(l.get("valor"))
+    totais, por_dia = [], []
+    a, m = hoje.year, hoje.month
+    for _ in range(3):
+        m -= 1
+        if m == 0:
+            a, m = a - 1, 12
+        y = f"{a:04d}-{m:02d}"
+        tot = solto = 0.0
+        for l in ocorrencias_mes(data, y):
+            if str(l.get("data") or "")[:7] != y or not _conta_no_gasto(l):
+                continue
+            v = num(l.get("valor"))
+            tot += v
+            if not l.get("recorrencia") and not l.get("grupo"):
+                solto += v
+        if tot > 0:
+            totais.append(tot)
+            por_dia.append(solto / calendar.monthrange(a, m)[1])
+    dia_a_dia = (sum(por_dia) / len(por_dia)) * (dias_mes - hoje.day) if por_dia else 0.0
+    return {"mes": ym, "dia": hoje.day, "dias_mes": dias_mes, "ate_hoje": _r2(ate), "marcado": _r2(marcado), "dia_a_dia": _r2(dia_a_dia),
+            "por_dia": _r2(sum(por_dia) / len(por_dia)) if por_dia else 0.0, "previsto": _r2(ate + marcado + dia_a_dia),
+            "meses_base": len(totais), "media": _r2(sum(totais) / len(totais)) if totais else 0.0}
+
+
 def caixa(data, hoje=None):
     """Saldo em caixa (pagos até hoje, pela data do caixa) e o movimento do mês atual. Ajustes só entram no saldo."""
     hoje = hoje or date.today()
