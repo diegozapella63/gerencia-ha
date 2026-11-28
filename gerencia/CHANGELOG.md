@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.100.0
+
+- **Câmbio do Banco Central**: na conta com cartão global, embaixo da Moeda, aparece a cotação de hoje do dólar, do euro ou da libra (a de venda do Banco Central).
+- Pelo CorrerIA: "quanto está o dólar?", "quanto dá 50 libras em reais?" e "gastei 20 dólares num livro" (o lançamento entra em reais pela cotação de hoje, com o valor na moeda guardado na observação). É a taxa de referência: no cartão o valor sai um pouco diferente (a cotação do banco e o IOF).
+
 ## 1.99.0
 
 - **Cotações da B3**: um investimento do tipo Ações/FII agora tem o **Código na bolsa** (PETR4, MXRF11) e a **Quantidade**. Com os dois, o valor fica sendo a quantidade vezes a cotação do dia, atualizada sozinha de 6 em 6 horas nos dias de semana. As cotações vêm da brapi: crie a chave grátis no site dela e cole em **Mais › Configurações › Integrações › Cotações da B3** (a chave fica só no seu Home Assistant e não entra nas exportações). Dali também dá para **Atualizar agora**.

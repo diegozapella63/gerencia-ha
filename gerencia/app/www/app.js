@@ -4,7 +4,7 @@
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.99.0';
+const VERSAO = '1.100.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -537,6 +537,7 @@ async function jsonOk(r) {
 const apiServidor = {
   state: () => fetch('api/state', { cache: 'no-store' }).then(jsonOk),
   previsao: () => fetch('api/previsao', { cache: 'no-store' }).then(jsonOk),
+  cambio: () => fetch('api/cambio', { cache: 'no-store' }).then(jsonOk),
   cotacoes: () => fetch('api/cotacoes', { cache: 'no-store' }).then(jsonOk),
   cotacoesMudar: c => fetch('api/cotacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then(jsonOk),
   async save(corpo) {
@@ -593,6 +594,8 @@ function apiDemo() {
   return {
     async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
     async previsao() { return null; },
+    // o câmbio: na prévia, cotações de exemplo, sem buscar nada
+    async cambio() { const data = new Date().toISOString().slice(0, 10); return { moedas: { USD: { valor: 5.04, data }, EUR: { valor: 5.52, data }, GBP: { valor: 6.41, data } }, buscado_em: data }; },
     // as cotações da B3: na prévia, a chave fica na memória da página e nada é buscado
     async cotacoes() { const t = this._brapi || ''; return { tem: !!t, fim: t ? '••••' + t.slice(-4) : '', atualizado_em: this._brapiEm || '', erro: '', papeis: (d ? d.investimentos : []).filter(i => i.ticker && +i.qtd > 0).length }; },
     async cotacoesMudar(c) {
@@ -4819,11 +4822,25 @@ function abasConta(c, i) {
 // 1.77.0: cada cartão num grupo (o quadro com o fundo), com a chave no alto e, ligada, o que é só dele embaixo: no
 // global, a moeda e o adicional (o do débito também, com para quem é)
 const grupoCartao = (g, cab, corpo) => `<div class="bc-grupo" data-grupo="${g}">${cab}${corpo ? `<div class="bc-op">${corpo}</div>` : ''}</div>`;
+// 1.100.0: a cotação de hoje da moeda do cartão global (a PTAX de venda do Banco Central), embaixo da Moeda
+function carregarCambio() {
+  if (S.cambioPedido) return;
+  S.cambioPedido = api.cambio().then(r => r, () => null).then(r => { S.cambio = r || { moedas: {} };
+    document.querySelectorAll('.bc-moeda-c').forEach(c => { const on = c.querySelector('.bc-moeda .on'); if (on && !c.querySelector('.bc-cambio')) c.insertAdjacentHTML('beforeend', linhaCambio(on.dataset.v)); });
+  });
+}
+function linhaCambio(cod) {
+  if (S.cambio === undefined) carregarCambio();
+  const m = S.cambio && S.cambio.moedas && S.cambio.moedas[cod];
+  if (!m || !m.valor) return '';
+  const d = String(m.data || '');
+  return `<p class="nota bc-cambio" data-moeda="${cod}">${esc((MOEDAS_GLOBAL.find(([v]) => v === cod) || [])[1] || cod)} hoje: ${Number(m.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4 })} · Banco Central${d.length >= 10 ? ', ' + d.slice(8, 10) + '/' + d.slice(5, 7) : ''}</p>`;
+}
 function campoGlobal(c, i, k, rotulo) {
   const on = !!c[k], nome = k === 'debito_global' ? 'débito' : 'crédito', ak = k + '_adicional', pk = k + '_para';
   return grupoCartao(k, `<div class="linha-sw"><div>${tituloLinha('plane', rotulo)}</div><button class="sw${on ? ' on' : ''}" data-a="bc-global" data-k="${k}" data-i="${i}" aria-label="${rotulo.replace('?', '')}"></button></div>`,
     on ? `<div class="campo bc-moeda-c"><div class="lbl bc-moeda-l">Moeda</div><div class="seg mini bc-moeda" role="radiogroup" aria-label="Moeda do ${nome} global">${MOEDAS_GLOBAL.map(([v, t]) =>
-      `<button type="button" class="${c[k] === v ? 'on' : ''}" role="radio" aria-checked="${c[k] === v}" data-a="bc-moeda" data-k="${k}" data-i="${i}" data-v="${v}">${ic('wallet', 'ic-s')}${t}</button>`).join('')}</div></div>
+      `<button type="button" class="${c[k] === v ? 'on' : ''}" role="radio" aria-checked="${c[k] === v}" data-a="bc-moeda" data-k="${k}" data-i="${i}" data-v="${v}">${ic('wallet', 'ic-s')}${t}</button>`).join('')}</div>${linhaCambio(c[k])}</div>
       <div class="linha-sw"><div>${tituloLinha('users', 'Tem cartão adicional?')}</div><button class="sw${c[ak] ? ' on' : ''}" data-a="bc-global-adic" data-k="${ak}" data-i="${i}" aria-label="Tem cartão adicional do ${nome} global"></button></div>
       ${c[ak] ? `<div class="campo bc-para"><div class="lbl">Para quem</div><input class="inp" data-fbc="${pk}" data-i="${i}" value="${esc(c[pk] || '')}" placeholder="Nome, ex.: Beto" data-sug="dl-pessoas" autocomplete="off" aria-label="Para quem é o adicional do ${nome} global"></div>` : ''}` : '');
 }

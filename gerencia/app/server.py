@@ -41,8 +41,9 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 import cotacoes  # noqa: E402
+import cambio  # noqa: E402
 
-VERSAO = "1.99.0"
+VERSAO = "1.100.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1746,6 +1747,35 @@ def pdf_texto(raw):
 BRAPI_ARQ = os.path.join(DATA_DIR, "brapi.json")
 COTACOES_HORAS = 6
 _cotacoes_trava = threading.Lock()
+
+
+# 1.100.0 (o dono: "Câmbio do Banco Central (dólar, euro, libra) no GerencIA… Pode fazer"): a PTAX de venda do dia fica em
+# /data/cambio.json; é buscada só quando alguém pede (a tela, uma ferramenta), no máximo uma vez a cada CAMBIO_HORAS
+CAMBIO_ARQ = os.path.join(DATA_DIR, "cambio.json")
+CAMBIO_HORAS = 4
+_cambio_trava = threading.Lock()
+
+
+def cambio_estado(buscar=True):
+    """{moedas: {USD: {valor, data}, ...}, buscado_em}: a PTAX guardada, buscada de novo quando ficou velha."""
+    with _cambio_trava:
+        try:
+            with open(CAMBIO_ARQ, encoding="utf-8") as f:
+                c = json.load(f)
+        except (OSError, ValueError):
+            c = {}
+        c = c if isinstance(c, dict) else {}
+        moedas = {k: v for k, v in (c.get("moedas") or {}).items() if k in cambio.MOEDAS and isinstance(v, dict) and v.get("valor")}
+        velho = True
+        try:
+            velho = datetime.now() - datetime.fromisoformat(c.get("buscado_em") or "") > timedelta(hours=CAMBIO_HORAS)
+        except ValueError:
+            pass
+        if buscar and velho:
+            moedas.update(cambio.todas())
+            c = {"moedas": moedas, "buscado_em": agora_iso()[:19]}
+            gravar_arquivo(CAMBIO_ARQ, json.dumps(c, ensure_ascii=False))
+        return {"moedas": moedas, "buscado_em": c.get("buscado_em") or ""}
 
 
 def _brapi_ler():
@@ -3462,6 +3492,10 @@ def usar_ferramenta(corpo):
         est = dicas_estado(d, disparar=False)
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
         return {"texto": ferramentas.texto_dicas(dicas_que_valem(d, est) if not est.get("desligadas") else [], est.get("assinaturas") or [], bool(est.get("desligadas")))}
+    if nome == "cambio":  # 1.100.0: a PTAX do Banco Central (e a conversão)
+        a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        return {"texto": ferramentas.texto_cambio(cambio_estado()["moedas"], a)}
     if nome in EMAIL_FERRAMENTAS:
         texto, mudou = ferramenta_email(nome, corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {})
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
@@ -3470,8 +3504,11 @@ def usar_ferramenta(corpo):
         return {"texto": texto}
     with TRAVA:
         d = ler()
-        texto, mudou = ferramentas.chamar(nome, corpo.get("argumentos"), d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None,
-                                          extras=chat_extras(d) if nome == "resumo" else "")
+        args = corpo.get("argumentos")
+        em_moeda = nome == "lancar" and isinstance(args, dict) and cambio.moeda(args.get("moeda")) in cambio.MOEDAS
+        texto, mudou = ferramentas.chamar(nome, args, d, bens=bens_estado(d) if nome in ("resumo", "investimentos") else None,
+                                          extras=chat_extras(d) if nome == "resumo" else "",
+                                          moedas=cambio_estado()["moedas"] if em_moeda else None)
         if mudou:
             d["rev"] = d["rev"] + 1
             salvar(d)
@@ -3753,6 +3790,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, resumo_uso())
             if p == "/api/voz/status":
                 return self.enviar(200, voz_status())
+            if p == "/api/cambio":  # 1.100.0: a PTAX do dia (dólar, euro e libra)
+                return self.enviar(200, cambio_estado())
             if p == "/api/cotacoes":  # 1.99.0: as cotações da B3 (a chave da brapi, só o fim)
                 return self.enviar(200, cotacoes_estado())
             if p == "/api/previsao":  # 1.98.0: a previsão de gastos do mês (o cartão do Agora)

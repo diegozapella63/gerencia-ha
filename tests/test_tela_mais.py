@@ -471,7 +471,12 @@ class TestMaisBancos(TelaMais):
         self.assertEqual(rotulos(), ["Tem cartão de débito global?", "Tem cartão adicional?", "Tem cartão de crédito global?", "Tem cartão adicional?"])
         self.assertEqual(self.js("[...document.querySelectorAll('.folha .bc-grupo')].map(g => [g.dataset.grupo, g.querySelectorAll('.bc-op .bc-moeda').length, g.querySelectorAll('.bc-op [data-a=\"bc-global-adic\"]').length])"),
                          [["debito_global", 1, 1], ["credito_global", 1, 1]], "a moeda e o adicional dentro do grupo de cada cartão")
+        # 1.100.0: embaixo da Moeda, a cotação de hoje do Banco Central
+        self.pg.wait_for_selector(".folha .bc-cambio")
+        self.assertRegex(self.textos(".folha .bc-cambio")[0], r"^Dólar hoje: R\$\s5,0400 · Banco Central, \d\d/\d\d$")
         self.clicar('.folha [data-a="bc-moeda"][data-k="credito_global"][data-v="EUR"]')
+        self.assertEqual([t.split(":")[0] for t in self.textos(".folha .bc-cambio")], ["Dólar hoje", "Euro hoje"])
+        self.assertFalse(self.pg.evaluate("document.documentElement.scrollWidth > innerWidth"))
         self.clicar('.folha [data-a="bc-global-adic"][data-k="credito_global_adicional"]')
         # 1.74.2: ligado, pede para quem é (logo abaixo, no grupo do crédito global)
         self.assertEqual(self.conta('.folha [data-grupo="credito_global"] .bc-op [data-fbc="credito_global_para"]'), 1, "Para quem, logo abaixo")

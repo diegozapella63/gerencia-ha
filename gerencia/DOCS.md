@@ -415,6 +415,10 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
 | POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
 
+## Câmbio do Banco Central
+
+Na conta de um banco com **cartão de débito ou crédito global**, embaixo da Moeda aparece a cotação de hoje (dólar, euro ou libra): é a cotação de venda que o Banco Central publica, sem chave nem cadastro. Pelo CorrerIA dá para perguntar a cotação, converter um valor e lançar um gasto dito em outra moeda: ele entra em reais pela cotação de hoje e a observação guarda o valor na moeda. No cartão o valor da fatura sai um pouco diferente (a cotação do banco e o IOF): confira quando a fatura chegar.
+
 ## Cotações da B3
 
 Para ações, fundos imobiliários, ETFs e BDRs. No investimento do tipo **Ações/FII**, preencha o **Código na bolsa** (como PETR4 ou MXRF11) e a **Quantidade**: o valor passa a ser a quantidade vezes a cotação, e você não precisa mais atualizar à mão. Cada papel é um investimento.

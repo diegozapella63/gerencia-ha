@@ -10,6 +10,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 
 import calc
+import cambio
 import chat
 import cotacoes
 import integracao
@@ -81,6 +82,13 @@ FERRAMENTAS = [
      "descricao": "Quanto a casa deve gastar neste mês, sem IA: o que já saiu, o que já está marcado até o fim do mês (fixos, parcelas "
                   "e contas lançadas) e o dia a dia que ainda deve vir, pela média dos últimos meses; com a média deles para comparar.",
      "entrada": _obj({})},
+    {"nome": "cambio", "titulo": "Câmbio do Banco Central", "grava": False,
+     "descricao": "A cotação de hoje do dólar, do euro e da libra (a PTAX de venda do Banco Central). Com valor e moeda, "
+                  "converte para reais; com moeda BRL e para (USD, EUR ou GBP), de reais para a moeda. É a taxa de referência: "
+                  "no cartão ou na conta global sai um pouco diferente (a cotação do banco e o IOF).",
+     "entrada": _obj({"valor": {"type": "number", "exclusiveMinimum": 0},
+                      "moeda": {"type": "string", "enum": ["USD", "EUR", "GBP", "BRL"], "description": "A moeda do valor."},
+                      "para": {"type": "string", "enum": ["USD", "EUR", "GBP"], "description": "Só com moeda BRL: para qual converter."}})},
     {"nome": "projecao", "titulo": "Projeção dos investimentos", "grava": False,
      "descricao": "Quanto os seus investimentos viram daqui a tantos meses, com a taxa de hoje de cada um, antes do IR (a projeção "
                   "da tela); com aporte_mensal, soma o que você põe todo mês, rendendo pela taxa média. Sem os bens e sem o dinheiro "
@@ -133,6 +141,8 @@ FERRAMENTAS = [
      "entrada": _obj({"tipo": {"type": "string", "enum": ["despesa", "receita"]},
                       "descricao": {"type": "string", "description": "Curta, como a pessoa escreveria."},
                       "valor": {"type": "number", "exclusiveMinimum": 0, "description": "Em reais; em parcelas, o valor de cada uma."},
+                      "moeda": {"type": "string", "enum": ["USD", "EUR", "GBP"],
+                                "description": "Só quando o valor está em dólar, euro ou libra: vira reais pela cotação de hoje do Banco Central."},
                       "data": {"type": "string", "description": "AAAA-MM-DD; sem data, hoje. Em parcelas, a data da parcela atual."},
                       "categoria": {"type": "string", "description": "Id ou nome da categoria (do mesmo tipo)."},
                       "conta": {"type": "string", "description": "Id ou nome do banco/conta."},
@@ -712,6 +722,54 @@ def _cadastros(d):
 
 
 # ---------------------------------------------------------------- gravação
+
+def _fmt_moeda(v, cod):
+    return f"{cambio.MOEDAS[cod][1]} {calc.fmt_num(v, 2)}"
+
+
+def _cotacao_de(moedas, cod):
+    c = (moedas or {}).get(cod) or {}
+    if not c.get("valor"):
+        raise ErroFerramenta(f"Sem a cotação do {cambio.MOEDAS[cod][0].lower()} do Banco Central agora: diga o valor em reais.")
+    return c
+
+
+def _em_reais(a, moedas):
+    """1.100.0: o lançamento dito em dólar, euro ou libra vira reais pela PTAX de hoje; a obs guarda o valor na moeda."""
+    cod = cambio.moeda(a.get("moeda"))
+    if cod not in cambio.MOEDAS:
+        raise ErroFerramenta("moeda: USD, EUR ou GBP (em reais, não mande a moeda).")
+    c = _cotacao_de(moedas, cod)
+    v = _valor(a.get("valor"))
+    nota = f"{_fmt_moeda(v, cod)} a R$ {calc.fmt_num(c['valor'], 4)} (Banco Central, {_dm(c['data'])[:5]})"
+    obs = _texto(a.get("obs"), 400)
+    return {**{k: x for k, x in a.items() if k != "moeda"}, "valor": round(v * c["valor"], 2), "obs": (obs + " · " if obs else "") + nota}
+
+
+def texto_cambio(moedas, a):
+    """As cotações de hoje e, com valor, a conversão (a ferramenta cambio; quem busca a PTAX é o server.py)."""
+    if not moedas:
+        raise ErroFerramenta("O Banco Central não respondeu agora: tente daqui a pouco.")
+    linhas = [f"- {cambio.MOEDAS[k][0]}: R$ {calc.fmt_num(moedas[k]['valor'], 4)} ({_dm(moedas[k]['data'])})" for k in cambio.MOEDAS if k in moedas]
+    out = []
+    if a.get("valor") is not None:
+        v = _valor(a.get("valor"))
+        cod = cambio.moeda(a.get("moeda") or "USD")
+        if cod == "BRL":
+            para = cambio.moeda(a.get("para") or "USD")
+            if para not in cambio.MOEDAS:
+                raise ErroFerramenta("para: USD, EUR ou GBP.")
+            c = _cotacao_de(moedas, para)
+            out.append(f"{_brl(v)} são {_fmt_moeda(v / c['valor'], para)} pela cotação de {_dm(c['data'])}.")
+        elif cod in cambio.MOEDAS:
+            c = _cotacao_de(moedas, cod)
+            out.append(f"{_fmt_moeda(v, cod)} são {_brl(v * c['valor'])} pela cotação de {_dm(c['data'])}.")
+        else:
+            raise ErroFerramenta("moeda: USD, EUR, GBP ou BRL.")
+    out += ["Cotação de venda do Banco Central (PTAX):"] + linhas
+    out.append("No cartão ou na conta global o valor sai um pouco diferente (a cotação do banco e o IOF).")
+    return "\n".join(out)
+
 
 def _lancar(d, a, hoje):
     tipo = a.get("tipo")
@@ -1644,7 +1702,7 @@ def texto_oportunidades(avaliadas, promos, so_passam=False, ia=True, avisos=""):
     return "\n".join(L)
 
 
-def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
+def chamar(nome, argumentos, d, hoje=None, bens=None, extras="", moedas=None):
     """Roda a ferramenta nos dados d (as de gravar mudam d). Devolve (texto para a IA, mudou). bens (1.78.0): os bens
     da casa do InventarIA, como a tela (o bens_estado do server.py), para o patrimônio ser o mesmo da tela."""
     hoje = hoje or date.today()
@@ -1654,6 +1712,8 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     a = argumentos if isinstance(argumentos, dict) else {}
     for k in ("lancamentos", "recorrencias", "investimentos", "bancos", "categorias"):
         d.setdefault(k, [])
+    if nome == "lancar" and a.get("moeda") not in (None, "", "BRL"):
+        a = _em_reais(a, moedas)
     if nome == "resumo":
         return chat.resumo(d, hoje, bens, extras), False
     if nome == "lancamentos":
@@ -1674,7 +1734,7 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome in ("oportunidades", "dicas"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
