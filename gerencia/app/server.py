@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.101.0"
+VERSAO = "1.101.1"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -2024,41 +2024,45 @@ def atualizar_energia(agora=None):
         return energia_estado()
 
 
+_trava_energia = threading.Lock()
+
+
 def energia_mudar(corpo):
     """{atualizar: true} | {buscar_preco: true, onde} | os campos (ligado, fixo, sensor, preco, extra, onde): confere e guarda."""
     if corpo.get("atualizar") is True:
         return atualizar_energia()
     if corpo.get("buscar_preco") is True:
         return energia_buscar_preco(corpo.get("onde"))
-    c = _energia_ler()
     d = ler()
-    if "fixo" in corpo:
-        if corpo["fixo"] and not any(r.get("id") == corpo["fixo"] and r.get("tipo") != "receita" for r in d.get("recorrencias", [])):
-            raise ValueError("Escolha um fixo que exista (a conta de luz).")
-        c["fixo"] = str(corpo["fixo"] or "")
-    if "sensor" in corpo:
-        if corpo["sensor"] and not SENSOR_RE.match(str(corpo["sensor"])):
-            raise ValueError("Escolha um medidor de energia do Home Assistant.")
-        c["sensor"] = str(corpo["sensor"] or "")
-    if "preco" in corpo:
-        p = 0 if corpo["preco"] in ("", None, 0) else energia.numero(corpo["preco"], 0.01, 10)
-        if p is None:
-            raise ValueError("O preço do kWh fica entre R$ 0,01 e R$ 10,00.")
-        c["preco"] = round(p, 4)
-    if "extra" in corpo:
-        e = 0 if corpo["extra"] in ("", None) else energia.numero(corpo["extra"], 0, 200)
-        if e is None:
-            raise ValueError("O percentual a mais vai de 0 a 200.")
-        c["extra"] = round(e, 2)
-    if "onde" in corpo:
-        c["onde"] = " ".join(str(corpo["onde"] or "").split())[:80]
-    if "ligado" in corpo:
-        if corpo["ligado"] is True and not (c.get("fixo") and c.get("sensor") and c.get("preco")):
-            raise ValueError("Antes de ligar, escolha o fixo, o medidor e o preço do kWh.")
-        c["ligado"] = corpo["ligado"] is True
-    if not (c.get("fixo") and c.get("sensor") and c.get("preco")):
-        c["ligado"] = False
-    _energia_gravar(c)
+    with _trava_energia:  # dois pedidos seguidos (um campo e o Ligar) não se atropelam
+        c = _energia_ler()
+        if "fixo" in corpo:
+            if corpo["fixo"] and not any(r.get("id") == corpo["fixo"] and r.get("tipo") != "receita" for r in d.get("recorrencias", [])):
+                raise ValueError("Escolha um fixo que exista (a conta de luz).")
+            c["fixo"] = str(corpo["fixo"] or "")
+        if "sensor" in corpo:
+            if corpo["sensor"] and not SENSOR_RE.match(str(corpo["sensor"])):
+                raise ValueError("Escolha um medidor de energia do Home Assistant.")
+            c["sensor"] = str(corpo["sensor"] or "")
+        if "preco" in corpo:
+            p = 0 if corpo["preco"] in ("", None, 0) else energia.numero(corpo["preco"], 0.01, 10)
+            if p is None:
+                raise ValueError("O preço do kWh fica entre R$ 0,01 e R$ 10,00.")
+            c["preco"] = round(p, 4)
+        if "extra" in corpo:
+            e = 0 if corpo["extra"] in ("", None) else energia.numero(corpo["extra"], 0, 200)
+            if e is None:
+                raise ValueError("O percentual a mais vai de 0 a 200.")
+            c["extra"] = round(e, 2)
+        if "onde" in corpo:
+            c["onde"] = " ".join(str(corpo["onde"] or "").split())[:80]
+        if "ligado" in corpo:
+            if corpo["ligado"] is True and not (c.get("fixo") and c.get("sensor") and c.get("preco")):
+                raise ValueError("Antes de ligar, escolha o fixo, o medidor e o preço do kWh.")
+            c["ligado"] = corpo["ligado"] is True
+        if not (c.get("fixo") and c.get("sensor") and c.get("preco")):
+            c["ligado"] = False
+        _energia_gravar(c)
     return atualizar_energia() if c.get("ligado") else energia_estado(d)
 
 

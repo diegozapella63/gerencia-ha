@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.101.1
+
+- **Conta de luz**: mudar um campo e tocar em Ligar logo em seguida não deixa mais um pedido passar por cima do outro.
+
 ## 1.101.0
 
 - **Conta de luz pelo consumo**: em **Mais › Configurações › Integrações › Conta de luz**, escolha o fixo (a conta de luz), o medidor de energia do Home Assistant, o preço do kWh e, se quiser, um percentual a mais (por exemplo, 20%). O cartão mostra os dois valores: o que a conta já deu **até hoje** e a **projeção do mês**. O fixo do mês fica com a projeção, atualizada sozinha, até você marcar como pago.

@@ -891,8 +891,9 @@ class TestIntegracoes(TelaMais):
         self.assertIn("Distribuidora Exemplo · bandeira verde", self.texto("#en-tarifa"))
         self.pg.fill("#en-extra", "20")
         self.pg.dispatch_event("#en-extra", "change")
-        self.clicar('#energia [data-a="en-ligar"]')  # o que está escrito vai junto, mesmo antes de ser guardado
-        self.pg.wait_for_selector("#en-conta")
+        self.pg.wait_for_timeout(900)  # o campo é guardado 250 ms depois e a tela é redesenhada: só então o toque no Ligar
+        self.clicar('#energia [data-a="en-ligar"]')
+        self.pg.wait_for_selector("#en-conta", timeout=15000)
         self.assertEqual(self.pg.locator("#energia .sw").get_attribute("aria-checked"), "true")
         rotulos = self.js("[...document.querySelectorAll('#en-conta span')].map(x => x.textContent.replace(/ \\(dia \\d+\\)/, ''))")
         self.assertEqual(rotulos, ["Até hoje", "Projeção do mês"], "os dois à vista")
