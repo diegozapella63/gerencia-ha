@@ -45,7 +45,7 @@ class TestLista(unittest.TestCase):
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento",
                                  "transferir_investimento", "apagar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
-                                 "usar_beneficio", "novo_beneficio", "editar_beneficio", "nova_meta", "editar_meta", "novo_programa_milhas", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
+                                 "usar_beneficio", "novo_beneficio", "editar_beneficio", "nova_meta", "editar_meta", "novo_programa_milhas", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "depreciacao", "regra_remetente", "dispensar_dica", "novo_banco", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -54,7 +54,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "transferir_investimento", "apagar_investimento", "encerrar_fixo", "editar_beneficio",
-                                                                 "editar_meta", "editar_categoria"])
+                                                                 "editar_meta", "editar_categoria", "regra_remetente"])
         self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:16])
         json.dumps(fs)  # vai como JSON
 
@@ -516,8 +516,61 @@ class TestNovas1104(unittest.TestCase):
         self.d["beneficios"] = [{"id": f"b{i}", "nome": f"n{i}", "tipo": "vantagem"} for i in range(F.MAX_BENEFICIOS)]
         self.erro("novo_programa_milhas", {"nome": "Pontos Sol", "saldo": 5}, "Já há 200")
 
+    def test_1_105_adicionais_e_cartao_global(self):
+        t = chamar("editar_banco", {"banco": "Banco Azul", "adicionais": [{"pessoa": "Beto", "limite": 1500}, {"pessoa": " Caio ", "mesmo_limite": True}],
+                                    "credito_global": "USD", "credito_global_adicional_para": "Beto", "debito_global": "EUR"}, self.d)[0]
+        self.assertEqual(t, "Banco Azul: adicionais: Beto (R$ 1.500,00), Caio com o mesmo limite, cartão de débito global em euro, "
+                            "cartão de crédito global em dólar, adicional do crédito global para Beto.")
+        c = self.d["bancos"][0]["contas"][0]
+        self.assertEqual([{k: v for k, v in x.items() if k != "id"} for x in c["adicionais"]], [{"pessoa": "Beto", "limite": 1500.0}, {"pessoa": "Caio", "mesmo_limite": True}])
+        self.assertEqual((c["debito_global"], c["credito_global"], c["credito_global_adicional"], c["credito_global_para"]), ("EUR", "USD", True, "Beto"))
+        beto = c["adicionais"][0]["id"]
+        chamar("editar_banco", {"banco": "Banco Azul", "adicionais": [{"pessoa": "beto"}]}, self.d)
+        self.assertEqual(c["adicionais"], [{"id": beto, "pessoa": "beto"}], "o mesmo adicional continua com o id")
+        t = chamar("editar_banco", {"banco": "Banco Azul", "adicionais": [], "credito_global_adicional_para": "", "debito_global": "nenhum"}, self.d)[0]
+        self.assertEqual(t, "Banco Azul: sem cartões adicionais, sem cartão de débito global, sem adicional do crédito global.")
+        self.assertEqual(("adicionais" in c, "debito_global" in c, "credito_global_adicional" in c, c["credito_global"]), (False, False, False, "USD"))
+        self.erro("editar_banco", {"banco": "Banco Azul", "debito_global_adicional_para": "Ana"}, "não tem cartão de débito global")
+        self.erro("editar_banco", {"banco": "Banco Azul", "credito_global": "BRL"}, "USD, EUR, GBP ou nenhum")
+        self.erro("editar_banco", {"banco": "Banco Azul", "adicionais": [{"pessoa": " "}]}, "cada um com a pessoa")
+        self.erro("editar_banco", {"banco": "Banco Azul", "adicionais": [{"pessoa": "Ana"}, {"pessoa": "ana"}]}, "duas vezes")
+        self.erro("editar_banco", {"banco": "Banco Azul", "adicionais": "Ana"}, "uma lista")
+        c["cartao"] = False
+        self.erro("editar_banco", {"banco": "Banco Azul", "adicionais": [{"pessoa": "Ana"}]}, "não tem cartão de crédito")
+
+    def test_1_105_depreciacao(self):
+        self.d["investimentos"] += [
+            {"id": "b1", "nome": "Carro", "tipo": "bens", "valor": 50000, "data_valor": "2026-11-15", "indexador": "deprecia", "taxa": 15, "categoria_bem": "veiculos"},
+            {"id": "b2", "nome": "Sala", "tipo": "bens", "valor": 3000, "data_valor": "2026-11-15", "indexador": "deprecia", "taxa": 12.5, "categoria_bem": "varias",
+             "partes": [{"categoria": "moveis", "valor": 1000, "taxa": 10}, {"categoria": "veiculos", "valor": 2000, "taxa": 15}]}]
+        self.assertEqual(chamar("depreciacao", {"categoria": "veículos", "taxa": 12}, self.d), ("Veículos: perde 12% por ano.", True))
+        inv = {i["id"]: i for i in self.d["investimentos"]}
+        self.assertEqual((self.d["ajustes"]["bens_taxas"], inv["b1"]["taxa"], inv["b2"]["taxa"], inv["b2"]["partes"][1]["taxa"]), ({"veiculos": 12.0}, 12.0, 11.33, 12.0))
+        self.assertEqual(chamar("depreciacao", {"categoria": "imoveis", "taxa": -4.5}, self.d)[0], "Imóveis: valoriza 4,5% por ano.")
+        self.assertEqual(chamar("depreciacao", {"categoria": "Plantas", "taxa": 0}, self.d)[0], "Plantas: mantém o valor.")
+        self.erro("depreciacao", {"categoria": "Barcos", "taxa": 5}, "Veículos (12% ao ano)")
+        self.erro("depreciacao", {"categoria": "Veículos", "taxa": 150}, "de -50 a 100")
+        self.erro("depreciacao", {"categoria": "Veículos", "taxa": True}, "de -50 a 100")
+
+    def test_1_105_regra_de_remetente(self):
+        self.assertEqual(chamar("regra_remetente", {}, self.d), ("Nenhuma regra de remetente.", False))
+        self.assertEqual(chamar("regra_remetente", {"de": "Cobranca@FilmesMais.com.br", "acao": "fixo", "fixo": "Filmes Mais"}, self.d),
+                         ("Os e-mails de cobranca@filmesmais.com.br vão para Filmes Mais.", True))
+        self.assertEqual(chamar("regra_remetente", {"de": "@propaganda.com", "acao": "nunca"}, self.d)[0], "Os e-mails de propaganda.com não entram mais.")
+        self.assertEqual(self.d["ajustes"]["email_remetentes"], [{"de": "cobranca@filmesmais.com.br", "acao": "fixo", "fixo": "r9"}, {"de": "propaganda.com", "acao": "nunca"}])
+        self.assertEqual(chamar("regra_remetente", {}, self.d)[0], "As regras: cobranca@filmesmais.com.br: sempre no fixo Filmes Mais; propaganda.com: nunca entra.")
+        chamar("regra_remetente", {"de": "propaganda.com", "acao": "fixo", "fixo": "r9"}, self.d)
+        self.assertEqual(len(self.d["ajustes"]["email_remetentes"]), 2, "a regra nova do mesmo remetente troca a de antes")
+        self.assertEqual(chamar("regra_remetente", {"de": "propaganda.com", "acao": "tirar"}, self.d)[0], "Regra tirada: propaganda.com.")
+        self.erro("regra_remetente", {"de": "propaganda.com", "acao": "tirar"}, "Não há regra para propaganda.com")
+        self.erro("regra_remetente", {"de": "loja", "acao": "nunca"}, "depois do @")
+        self.erro("regra_remetente", {"de": "loja.com", "acao": "sempre"}, "fixo, nunca ou tirar")
+        self.erro("regra_remetente", {"de": "loja.com", "acao": "fixo", "fixo": "Nada"}, "Fixo não encontrado")
+        self.d["ajustes"]["email_remetentes"] = [{"de": f"l{i}.com", "acao": "nunca"} for i in range(50)]
+        self.erro("regra_remetente", {"de": "loja.com", "acao": "nunca"}, "Já há 50")
+
     def test_as_do_servidor_nao_sao_daqui(self):
-        for nome in ("conferir_agora", "fazer_backup"):
+        for nome in ("conferir_agora", "fazer_backup", "dispensar_dica"):
             with self.assertRaises(LookupError):
                 chamar(nome, {}, self.d)
 

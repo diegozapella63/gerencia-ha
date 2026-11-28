@@ -13,6 +13,8 @@ import calc
 import cambio
 import chat
 import cotacoes
+import bens as bens_mod
+import emails
 import integracao
 
 MAX_PERIODO = 400   # dias de uma busca de lançamentos
@@ -318,14 +320,36 @@ FERRAMENTAS = [
                       "nome": {"type": "string", "description": "O nome novo."}, "cor": {"type": "string", "enum": [n for n, _ in calc.CORES_APP]},
                       "apagar": {"type": "boolean"}}, ["categoria"])},
     {"nome": "editar_banco", "titulo": "Mudar banco ou conta", "grava": True,
-     "descricao": "Muda o nome, a cor ou a observação de um banco e, numa conta dele, de quem é, os dias da fatura do cartão e o "
-                  "limite. Apagar um banco ou uma conta, só pela tela (Mais › Bancos).",
+     "descricao": "Muda o nome, a cor ou a observação de um banco e, numa conta dele, de quem é, os dias da fatura do cartão, o "
+                  "limite, os cartões adicionais (a lista inteira de agora; vazia tira todos) e o cartão global de débito ou de "
+                  "crédito (a moeda, ou nenhum; e para quem é o adicional dele). Apagar um banco ou uma conta, só pela tela (Mais › Bancos).",
      "entrada": _obj({"banco": {"type": "string", "description": "O id ou o nome do banco."}, "nome": {"type": "string", "description": "O nome novo do banco."},
                       "cor": {"type": "string", "enum": [n for n, _ in calc.CORES_APP]}, "obs": {"type": "string"},
                       "conta": {"type": "string", "description": "O id da conta ou de quem é (só para mudar a conta; com uma conta só, não precisa)."},
                       "pessoa": {"type": "string", "description": "De quem a conta passa a ser."},
                       "cartao_de_credito": {"type": "boolean"}, "fecha_dia": {"type": "integer", "minimum": 1, "maximum": 31},
-                      "vence_dia": {"type": "integer", "minimum": 1, "maximum": 31}, "limite": {"type": "number", "exclusiveMinimum": 0}}, ["banco"])},
+                      "vence_dia": {"type": "integer", "minimum": 1, "maximum": 31}, "limite": {"type": "number", "exclusiveMinimum": 0},
+                      "adicionais": {"type": "array", "maxItems": 8, "description": "Os cartões adicionais do cartão de crédito.",
+                                     "items": _obj({"pessoa": {"type": "string"}, "limite": {"type": "number", "exclusiveMinimum": 0},
+                                                    "mesmo_limite": {"type": "boolean", "description": "Divide o limite do cartão principal."}}, ["pessoa"])},
+                      "debito_global": {"type": "string", "enum": ["USD", "EUR", "GBP", "nenhum"]},
+                      "credito_global": {"type": "string", "enum": ["USD", "EUR", "GBP", "nenhum"]},
+                      "debito_global_adicional_para": {"type": "string", "description": "Para quem é o adicional do débito global; vazio tira."},
+                      "credito_global_adicional_para": {"type": "string", "description": "Para quem é o adicional do crédito global; vazio tira."}}, ["banco"])},
+    {"nome": "depreciacao", "titulo": "Taxa de um tipo de bem", "grava": True,
+     "descricao": "Muda quanto um tipo de bem perde por ano (Mais › Invest › Bens): a taxa em % ao ano, de -50 a 100; negativa valoriza, "
+                  "como um imóvel. Vale para os bens da casa (do InventarIA) e os cadastrados aqui.",
+     "entrada": _obj({"categoria": {"type": "string", "description": "O tipo de bem, como Veículos, Eletrônicos ou Imóveis."},
+                      "taxa": {"type": "number", "minimum": -50, "maximum": 100}}, ["categoria", "taxa"])},
+    {"nome": "regra_remetente", "titulo": "Regra de um remetente de e-mail", "grava": True, "apaga": True,
+     "descricao": "As regras das Faturas por e-mail: os e-mails de um remetente (o endereço, ou a parte depois do @) vão sempre para um "
+                  "fixo (acao fixo, com o nome do fixo), nunca entram (acao nunca) ou a regra sai (acao tirar). Sem acao, só lista as regras.",
+     "entrada": _obj({"de": {"type": "string", "description": "O endereço ou o domínio, como loja.com.br."},
+                      "acao": {"type": "string", "enum": ["fixo", "nunca", "tirar"]}, "fixo": {"type": "string", "description": "O id ou o nome do fixo."}})},
+    {"nome": "dispensar_dica", "titulo": "Dispensar uma dica de economia", "grava": True,
+     "descricao": "Dispensa uma dica de economia (ela não aparece mais), pelo nome da assinatura como está em gerencia_dicas; ou, com "
+                  "voltar_todas true, traz de volta as dispensadas.",
+     "entrada": _obj({"assinatura": {"type": "string"}, "voltar_todas": {"type": "boolean"}})},
     {"nome": "novo_banco", "titulo": "Cadastrar banco ou conta", "grava": True,
      "descricao": "Cadastra um banco com a conta de uma pessoa, ou acrescenta a conta de outra pessoa num banco que já existe; com o "
                   "cartão de crédito (o dia em que a fatura fecha e o dia em que vence), se houver.",
@@ -1720,6 +1744,141 @@ def _editar_categoria(d, a, hoje):
     return f"Categoria mudada ({c.get('nome')}): " + ", ".join(mudou) + "."
 
 
+DA_CONTA_1105 = ("adicionais", "debito_global", "credito_global", "debito_global_adicional_para", "credito_global_adicional_para")
+MOEDAS_GLOBAL = {"USD": "dólar", "EUR": "euro", "GBP": "libra"}
+
+
+def _cartoes_da_conta(c, a):
+    """1.105.0: os cartões adicionais e o cartão global de uma conta, como o salvarBanco do app.js."""
+    mudou = []
+    if a.get("adicionais") is not None:
+        if not isinstance(a["adicionais"], list):
+            raise ErroFerramenta("adicionais: uma lista de {pessoa, limite ou mesmo_limite}; vazia tira todos.")
+        if a["adicionais"] and not c.get("cartao"):
+            raise ErroFerramenta("Essa conta não tem cartão de crédito: mande cartao_de_credito true junto.")
+        antes = {_norm(x.get("pessoa")): x.get("id") for x in c.get("adicionais") or [] if isinstance(x, dict)}
+        novos = []
+        for x in a["adicionais"][:8]:
+            pessoa = _texto((x or {}).get("pessoa"), 40) if isinstance(x, dict) else ""
+            if not pessoa:
+                raise ErroFerramenta("adicionais: cada um com a pessoa.")
+            if any(_norm(n["pessoa"]) == _norm(pessoa) for n in novos):
+                raise ErroFerramenta(f"adicionais: {pessoa} aparece duas vezes.")
+            n = {"id": antes.get(_norm(pessoa)) or "a-" + integracao.uid(), "pessoa": pessoa}
+            if x.get("mesmo_limite") is True:
+                n["mesmo_limite"] = True
+            elif x.get("limite") is not None:
+                n["limite"] = _valor(x.get("limite"), "limite")
+            novos.append(n)
+        if novos:
+            c["adicionais"] = novos
+            mudou.append("adicionais: " + ", ".join(n["pessoa"] + (" com o mesmo limite" if n.get("mesmo_limite") else f" ({_brl(n['limite'])})" if n.get("limite") else "") for n in novos))
+        else:
+            c.pop("adicionais", None)
+            mudou.append("sem cartões adicionais")
+    for g, rot in (("debito_global", "débito global"), ("credito_global", "crédito global")):
+        if a.get(g) is not None:
+            if a[g] == "nenhum":
+                for k in (g, g + "_adicional", g + "_para"):
+                    c.pop(k, None)
+                mudou.append(f"sem cartão de {rot}")
+            elif a[g] in MOEDAS_GLOBAL:
+                c[g] = a[g]
+                mudou.append(f"cartão de {rot} em {MOEDAS_GLOBAL[a[g]]}")
+            else:
+                raise ErroFerramenta(f"{g}: USD, EUR, GBP ou nenhum.")
+        k = g + "_adicional_para"
+        if a.get(k) is not None:
+            para = _texto(a.get(k), 30)
+            if para and not c.get(g):
+                raise ErroFerramenta(f"Essa conta não tem cartão de {rot}: mande {g} com a moeda junto.")
+            if para:
+                c[g + "_adicional"], c[g + "_para"] = True, para
+                mudou.append(f"adicional do {rot} para {para}")
+            elif c.get(g + "_adicional"):
+                c.pop(g + "_adicional", None)
+                c.pop(g + "_para", None)
+                mudou.append(f"sem adicional do {rot}")
+    return mudou
+
+
+def _depreciacao(d, a, hoje):
+    """O salvarTaxaBem do app.js: a % por ano de um tipo de bem, que vale também nos bens cadastrados aqui."""
+    aj = d.setdefault("ajustes", {})
+    taxas = bens_mod.taxas(aj)
+    nomes = dict(bens_mod.NOMES_PADRAO)
+    for i in d.get("investimentos", []):
+        if i.get("tipo") == "bens":
+            for k in [i.get("categoria_bem")] + [p.get("categoria") for p in i.get("partes") or [] if isinstance(p, dict)]:
+                if isinstance(k, str) and k and k != "varias":
+                    nomes.setdefault(k, k)
+    for k in taxas:
+        nomes.setdefault(k, k)
+    v = str(a.get("categoria") or "").strip()
+    k = v if v in nomes else next((x for x, n in nomes.items() if _norm(n) == _norm(v)), None) \
+        or next((x for x, n in nomes.items() if _norm(v) and _norm(v) in _norm(n)), None)
+    if not k:
+        raise ErroFerramenta(f"Tipo de bem não encontrado: {v or '(vazio)'}. Os de agora: " + "; ".join(f"{n} ({calc.fmt_num(taxas.get(x, 0), 2).rstrip('0').rstrip(',')}% ao ano)" for x, n in nomes.items()) + ".")
+    t = a.get("taxa")
+    if isinstance(t, bool) or not isinstance(t, (int, float)) or not -50 <= t <= 100:
+        raise ErroFerramenta("taxa: a % ao ano, de -50 a 100 (negativa valoriza).")
+    t = round(float(t), 2)
+    aj["bens_taxas"] = dict(aj.get("bens_taxas") or {}, **{k: t})
+    for i in d.get("investimentos", []):
+        if i.get("tipo") != "bens":
+            continue
+        partes = [p for p in i.get("partes") or [] if isinstance(p, dict)]
+        if partes:
+            if any(p.get("categoria") == k for p in partes):
+                for p in partes:
+                    if p.get("categoria") == k:
+                        p["taxa"] = t
+                tot = sum(calc.num(p.get("valor")) for p in partes)
+                i["taxa"] = round(sum(calc.num(p.get("valor")) * calc.num(p.get("taxa")) for p in partes) / tot, 2) if tot else 0
+        elif (i.get("categoria_bem") or "outros") == k:
+            i["taxa"] = t
+    pct = calc.fmt_num(abs(t), 2).rstrip("0").rstrip(",")
+    return f"{nomes[k]}: " + (f"valoriza {pct}% por ano." if t < 0 else f"perde {pct}% por ano." if t > 0 else "mantém o valor.")
+
+
+def _regra_remetente(d, a, hoje):
+    """As regras por remetente das Faturas por e-mail (o salvarRemetente e o Tirar da tela): Sempre é um fixo ou Nunca considerar."""
+    aj = d.setdefault("ajustes", {})
+    regras = [r for r in aj.get("email_remetentes") or [] if isinstance(r, dict) and r.get("de")]
+    fixos = {r.get("id"): r.get("descricao", "") for r in d.get("recorrencias", []) if isinstance(r, dict)}
+
+    def lista():
+        if not regras:
+            return "Nenhuma regra de remetente."
+        return "As regras: " + "; ".join(f"{r['de']}: " + (f"sempre no fixo {fixos.get(r.get('fixo')) or r.get('fixo')}" if r.get("acao") == "fixo" else "nunca entra") for r in regras) + "."
+    acao = a.get("acao")
+    if acao is None and not a.get("de"):
+        return lista()
+    de = emails.limpar_remetente(a.get("de"))
+    if not de or "." not in de:
+        raise ErroFerramenta("de: o endereço do remetente ou a parte depois do @ (como loja.com.br).")
+    if acao not in ("fixo", "nunca", "tirar"):
+        raise ErroFerramenta("acao: fixo, nunca ou tirar.")
+    tinha = any(r["de"] == de for r in regras)
+    regras = [r for r in regras if r["de"] != de]
+    if acao == "tirar":
+        if not tinha:
+            raise ErroFerramenta(f"Não há regra para {de}. " + lista())
+        aj["email_remetentes"] = regras
+        return f"Regra tirada: {de}."
+    if len(regras) >= 50:
+        raise ErroFerramenta("Já há 50 regras de remetente.")
+    if acao == "fixo":
+        fx = _fixo(d, a.get("fixo"))
+        regras.append({"de": de, "acao": "fixo", "fixo": fx["id"]})
+        txt = f"Os e-mails de {de} vão para {fx.get('descricao', '')}."
+    else:
+        regras.append({"de": de, "acao": "nunca"})
+        txt = f"Os e-mails de {de} não entram mais."
+    aj["email_remetentes"] = regras
+    return txt
+
+
 def _editar_banco(d, a, hoje):
     """1.96.0: o banco (nome, cor, observação) e uma conta dele (de quem é, o cartão e os dias da fatura, o limite), como Mais › Bancos."""
     b = next((x for x in d.get("bancos", []) if x.get("id") == a.get("banco")), None) or _banco_por_nome(d, a.get("banco"))
@@ -1740,7 +1899,7 @@ def _editar_banco(d, a, hoje):
     if a.get("obs") is not None:
         b["obs"] = _texto(a.get("obs"), 200)
         mudou.append("observação")
-    da_conta = [k for k in ("pessoa", "cartao_de_credito", "fecha_dia", "vence_dia", "limite") if a.get(k) is not None]
+    da_conta = [k for k in ("pessoa", "cartao_de_credito", "fecha_dia", "vence_dia", "limite") + DA_CONTA_1105 if a.get(k) is not None]
     if da_conta or a.get("conta"):
         contas = [c for c in b.get("contas") or [] if isinstance(c, dict)]
         v = str(a.get("conta") or "").strip()
@@ -1749,7 +1908,7 @@ def _editar_banco(d, a, hoje):
         if not c:
             raise ErroFerramenta(f"Diga a conta de {b.get('nome')}: " + "; ".join(f"{x.get('pessoa') or 'sem pessoa'} ({x.get('id')})" for x in contas) + ".")
         if not da_conta:
-            raise ErroFerramenta("Diga o que muda na conta: pessoa, cartao_de_credito, fecha_dia, vence_dia ou limite.")
+            raise ErroFerramenta("Diga o que muda na conta: pessoa, cartao_de_credito, fecha_dia, vence_dia, limite, adicionais ou o cartão global.")
         if a.get("pessoa") is not None:
             pessoa = _texto(a.get("pessoa"), 40)
             if any(x is not c and _norm(x.get("pessoa")) == _norm(pessoa) for x in contas):
@@ -1768,6 +1927,7 @@ def _editar_banco(d, a, hoje):
             mudou.append(f"limite {_brl(c['limite'])}")
         if any(a.get(k) is not None for k in ("fecha_dia", "vence_dia", "limite")) and not c.get("cartao"):
             raise ErroFerramenta("Essa conta não tem cartão de crédito: mande cartao_de_credito true junto.")
+        mudou += _cartoes_da_conta(c, a)
     if not mudou:
         raise ErroFerramenta("Diga o que muda: nome, cor, obs ou, na conta, pessoa, cartao_de_credito, fecha_dia, vence_dia ou limite.")
     return f"{b.get('nome')}: " + ", ".join(mudou) + "."
@@ -2110,12 +2270,15 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras="", moedas=None):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz", "ler_arquivo", "conferir_agora", "fazer_backup"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas", "cambio", "conta_de_luz", "ler_arquivo", "conferir_agora", "fazer_backup", "dispensar_dica"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
+    if nome == "regra_remetente" and a.get("acao") is None and not a.get("de"):
+        return _regra_remetente(d, a, hoje), False  # só lista as regras
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
            "novo_beneficio": _novo_beneficio, "editar_beneficio": _editar_beneficio,
+           "depreciacao": _depreciacao, "regra_remetente": _regra_remetente,
            "transferir_investimento": _transferir_inv, "apagar_investimento": _apagar_inv, "nova_meta": _nova_meta, "editar_meta": _editar_meta,
            "novo_programa_milhas": _novo_programa_milhas,
            "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco,

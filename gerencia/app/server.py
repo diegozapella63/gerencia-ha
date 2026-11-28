@@ -44,7 +44,7 @@ import cotacoes  # noqa: E402
 import cambio  # noqa: E402
 import energia  # noqa: E402
 
-VERSAO = "1.104.0"
+VERSAO = "1.105.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3771,6 +3771,31 @@ def usar_ferramenta(corpo):
             raise ValueError("Esse PDF tem senha, e nenhuma das senhas cadastradas abre. Cadastre a senha no GerencIA (Mais › Configurações › "
                              "Integrações › Senhas dos PDFs).") from None
         return {"texto": ferramentas.texto_arquivo_lido(o_que, r)}
+    if nome == "dispensar_dica":  # 1.105.0: o Dispensar de cada dica e o Trazer de volta da tela
+        a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
+        with TRAVA:
+            d = ler()
+            fora = [x for x in d["ajustes"].get("dicas_fora") or [] if isinstance(x, str)]
+            if a.get("voltar_todas") is True:
+                if not fora:
+                    raise ValueError("Nenhuma dica foi dispensada.")
+                d["ajustes"]["dicas_fora"] = []
+                texto = f"{len(fora)} {'dica voltou' if len(fora) == 1 else 'dicas voltaram'}."
+            else:
+                quer = ferramentas._norm(a.get("assinatura"))
+                valem = dicas_que_valem(d)
+                achadas = [x for x in valem if quer and ferramentas._norm(x.get("nome")) == quer] or \
+                          [x for x in valem if quer and quer in ferramentas._norm(x.get("nome"))]
+                if len(achadas) != 1:
+                    nomes = ", ".join(x["nome"] for x in valem) or "nenhuma agora"
+                    raise ValueError(("Diga a assinatura da dica" if not quer else f"Dica não encontrada: {a.get('assinatura')}") + f". As dicas: {nomes}.")
+                d["ajustes"]["dicas_fora"] = list(dict.fromkeys(fora + [achadas[0]["id"]]))[-200:]
+                texto = f"Dica dispensada: {achadas[0]['nome']}."
+            d["rev"] = d["rev"] + 1
+            salvar(d)
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        log("CorrerIA:", cliente, nome, "→", texto)
+        return {"texto": texto}
     if nome == "conferir_agora":  # 1.104.0
         a = corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {}
         texto = conferir_agora(a.get("o_que"))

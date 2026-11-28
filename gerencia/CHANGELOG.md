@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.105.0
+
+- **O que ainda faltava pela IA do CorrerIA**: os **cartões adicionais** e o **cartão global** de uma conta ("o Beto tem um adicional com limite de 1.500"), **quanto um tipo de bem perde por ano** ("os veículos perdem 12% ao ano"), **dispensar uma dica** de economia ou trazer as dispensadas de volta, e as **regras de remetente** das faturas por e-mail ("os e-mails dessa loja nunca entram").
+
 ## 1.104.0
 
 - **Mais coisas da tela pela IA do CorrerIA** (no WhatsApp, no Claude, no Gemini e na Conversa de lá): **transferir** de um investimento para outro e **apagar** um investimento; **cadastrar um programa de milhas** (com o saldo, o nível e o que vence); cadastrar, mudar e apagar as **oportunidades dos benefícios** ("com 50 mil investidos ganho a sala VIP"); **conferir agora** as dicas, as oportunidades, as promoções, as cotações da bolsa e as faturas do e-mail; e **fazer um backup**. Ex.: "passa 2 mil do CDB para o Tesouro", "cadastra minhas milhas, tenho 12 mil", "procura faturas no e-mail agora".

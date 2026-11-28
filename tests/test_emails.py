@@ -931,6 +931,23 @@ class TestFerramentasDoEmail(ComServidor):
 class TestOportunidadesPeloCorrerIA(ComServidor):
     """1.90.0: a ferramenta oportunidades lê o que a tela Oportunidades mostra (as taxas do Tesouro já lidas e as promoções)."""
 
+    def test_1_105_dispensar_dica(self):
+        usar = lambda **a: S.usar_ferramenta({"nome": "dispensar_dica", "argumentos": a, "cliente": "CorrerIA"})["texto"]  # noqa: E731
+        valem = [{"id": "anual:filmes", "nome": "Filmes Mais", "real": 50}, {"id": "anual:musica", "nome": "Música Já", "real": 30}]
+        with mock.patch.object(S, "dicas_que_valem", return_value=valem):
+            for args, parte in (({}, "Diga a assinatura da dica. As dicas: Filmes Mais, Música Já."), ({"assinatura": "Jogos"}, "Dica não encontrada: Jogos"),
+                                ({"voltar_todas": True}, "Nenhuma dica foi dispensada")):
+                with self.assertRaises(ValueError) as cm:
+                    usar(**args)
+                self.assertIn(parte, str(cm.exception))
+            rev = S.ler()["rev"]
+            self.assertEqual(usar(assinatura="filmes"), "Dica dispensada: Filmes Mais.")
+            self.assertEqual(usar(assinatura="Música Já"), "Dica dispensada: Música Já.")
+        d = S.ler()
+        self.assertEqual((d["ajustes"]["dicas_fora"], d["rev"]), (["anual:filmes", "anual:musica"], rev + 2))
+        self.assertEqual(usar(voltar_todas=True), "2 dicas voltaram.")
+        self.assertEqual((S.ler()["ajustes"]["dicas_fora"], S.CORRERIA_USO["ultimo"]["nome"]), ([], "dispensar_dica"))
+
     def test_1_104_conferir_agora_e_backup(self):
         usar = lambda nome, **a: S.usar_ferramenta({"nome": nome, "argumentos": a, "cliente": "CorrerIA"})["texto"]  # noqa: E731
         t = usar("fazer_backup")
