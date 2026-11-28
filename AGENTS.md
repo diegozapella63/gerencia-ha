@@ -159,6 +159,8 @@ Pela pasta `/share` do Home Assistant. Mudar um formato aqui exige mudar o outro
 
 1.94.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode colocar todas"): a ferramenta `alterar_lancamentos` (`ids`, `categoria`, `pago`): o Alterar do Caixa › Selecionar (`lselAlterar` e `mutLote` do app.js) no `_alterar_lote` do ferramentas.py, com as regras do `podeSel` (fora os `d:`, os descontos, as despesas com `vinculo`, os ajustes, os aportes e os pulados), um tipo só e sem a situação numa compra no cartão; o fixo do mês virtual vira lançamento (`integracao._materializar`) e a situação passa pelo `_baixa_vinculados` (o `baixaVinculados` do app.js). Testes: `TestAlterarLancamentos` no `tests/test_ferramentas.py`.
 
+1.95.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode seguir neles"): a ferramenta `dicas` (leitura): como a `oportunidades`, fica com o server.py (`usar_ferramenta`: o `dicas_estado(d, disparar=False)` e o `dicas_que_valem`, sem conferir nada na hora) e o texto é o `ferramentas.texto_dicas` (as que valem, com o que sobra por ano e quando o preço foi conferido, e as outras assinaturas); no `ferramentas.chamar`, um `LookupError`. Para a etapa Dicas de economia das rondas do CorrerIA 1.40.0. Testes: `TestDicas` no `tests/test_ferramentas.py` e o `TestOportunidadesPeloCorrerIA` no `tests/test_emails.py`.
+
 ## Conversa com o dono
 
 Respostas curtas, em português. Ao terminar uma mudança: o que mudou, a versão e se está publicado. Ele usa o app do Home Assistant no Android: pense no Voltar do celular, no teclado e na câmera.

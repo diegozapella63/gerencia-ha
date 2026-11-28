@@ -41,7 +41,7 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
                                  "usar_beneficio", "atualizar_milhas", "nova_categoria", "novo_banco", "novo_fixo"])
@@ -53,7 +53,7 @@ class TestLista(unittest.TestCase):
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
         self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:8])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:9])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
@@ -561,7 +561,7 @@ class TestNovas190(unittest.TestCase):
         self.assertIn("Nenhum investimento passa do que a casa quer agora.", t)
         self.assertIn("pedem o Usar IA ligado", t)
         self.assertTrue(t.endswith("O Tesouro Direto ainda não foi lido."))
-        self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-2:], ["beneficios", "oportunidades"])
+        self.assertEqual([f["nome"] for f in F.lista() if not f["grava"]][-3:], ["beneficios", "oportunidades", "dicas"])
 
 
 class TestAlterarLancamentos(unittest.TestCase):
@@ -607,3 +607,20 @@ class TestAlterarLancamentos(unittest.TestCase):
             with self.subTest(args=args), self.assertRaisesRegex(F.ErroFerramenta, erro):
                 chamar("alterar_lancamentos", args, self.d)
         self.assertIn("1 lançamento alterado", self.gravar(ids=["k2"], categoria="Casa"), "no cartão, só a categoria")
+
+
+class TestDicas(unittest.TestCase):
+    """1.95.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode seguir neles"): o texto das dicas de economia."""
+
+    def test_as_que_valem_e_as_outras(self):
+        subs = [{"chave": "r:a", "nome": "Som Livre Exemplo", "valor": 21.9}, {"chave": "r:b", "nome": "Vídeo Exemplo", "valor": 39.9}]
+        vale = [dict(subs[0], preco_anual=219.0, real=38.5, conferido="2026-11-10T08:00:00")]
+        t = F.texto_dicas(vale, subs)
+        self.assertEqual(t.split("\n"), ["1 dica de economia (pagar o plano anual; o que sobra por ano, já com o que o dinheiro renderia):",
+                                         "- Som Livre Exemplo: paga R$ 21,90 por mês; o anual custa R$ 219,00 e sobram uns R$ 38,50 por ano (preço conferido em 10/11/2026)",
+                                         "As outras assinaturas que o app acompanha: Vídeo Exemplo (R$ 39,90)."])
+        self.assertTrue(F.texto_dicas([], subs).startswith("Nenhuma dica de economia agora."))
+        self.assertIn("não achou assinaturas", F.texto_dicas([], []))
+        self.assertIn("estão desligadas", F.texto_dicas([], subs, True))
+        with self.assertRaises(LookupError):
+            chamar("dicas", {}, dados())

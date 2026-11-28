@@ -41,7 +41,7 @@ import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
 
-VERSAO = "1.94.0"
+VERSAO = "1.95.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -3351,6 +3351,11 @@ def usar_ferramenta(corpo):
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
         return {"texto": ferramentas.texto_oportunidades(av, promos_estado(d, disparar=False).get("promocoes") or [] if promos_on(d) else [],
                                                          a.get("so_as_que_passam") is True, ia_ligada(d), aviso)}
+    if nome == "dicas":  # 1.95.0: o que a tela das Dicas mostra, sem conferir nada agora
+        d = ler()
+        est = dicas_estado(d, disparar=False)
+        CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+        return {"texto": ferramentas.texto_dicas(dicas_que_valem(d, est) if not est.get("desligadas") else [], est.get("assinaturas") or [], bool(est.get("desligadas")))}
     if nome in EMAIL_FERRAMENTAS:
         texto, mudou = ferramenta_email(nome, corpo.get("argumentos") if isinstance(corpo.get("argumentos"), dict) else {})
         CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}

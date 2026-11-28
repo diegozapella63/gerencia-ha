@@ -97,6 +97,12 @@ FERRAMENTAS = [
                   "assinaturas de vídeo, música e jogos em promoção nos aparelhos da casa. Use para \"tem algum investimento bom?\", "
                   "\"alguma assinatura em promoção?\".",
      "entrada": _obj({"so_as_que_passam": {"type": "boolean", "description": "Só as que passam do que a casa quer (sem as outras do Tesouro)."}})},
+    # 1.95.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode seguir neles"): as Dicas da tela
+    {"nome": "dicas", "titulo": "Dicas de economia", "grava": False,
+     "descricao": "As dicas de economia das assinaturas da casa (as que o app achou nos fixos e nas faturas): quanto sobra por ano "
+                  "pagando o plano anual, com o preço conferido na página oficial, e as assinaturas que ele acompanha. Só lê o que "
+                  "já foi conferido. Use para \"onde dá para economizar?\".",
+     "entrada": _obj({})},
     {"nome": "lancar", "titulo": "Lançar gasto ou recebimento", "grava": True,
      "descricao": "Lança um gasto (despesa) ou um recebimento (receita). Compra parcelada: valor de cada parcela, parcelas e "
                   "parcela_atual (as próximas entram nos meses seguintes). Sem pago, fica pago se a data já passou (no cartão de "
@@ -615,6 +621,25 @@ def _editar(d, a, hoje):
     if x.get("aporte"):
         x["cartao"] = False
     return f"Alterado: {_descrever(d, x, contas)}. Antes: {antes}. id: {x['id']}"
+
+
+def texto_dicas(valem, assinaturas, desligadas=False):
+    """1.95.0: as dicas de economia para a IA: as que valem (o plano anual, com o que sobra por ano) e as assinaturas achadas."""
+    if desligadas:
+        return "As dicas de economia estão desligadas no GerencIA (Mais › Configurações › Opções)."
+    if not assinaturas:
+        return "O GerencIA não achou assinaturas nos fixos nem nas faturas: sem dicas por enquanto."
+    L = []
+    if valem:
+        L.append(f"{len(valem)} {'dica' if len(valem) == 1 else 'dicas'} de economia (pagar o plano anual; o que sobra por ano, já com o que o dinheiro renderia):")
+        L += [f"- {x['nome']}: paga {_brl(x['valor'])} por mês; o anual custa {_brl(x['preco_anual'])} e sobram uns {_brl(x['real'])} por ano"
+              + (f" (preço conferido em {_dm(str(x['conferido'])[:10])})" if x.get("conferido") else "") for x in valem[:10]]
+    else:
+        L.append("Nenhuma dica de economia agora.")
+    resto = [a for a in assinaturas if not any(v.get("chave") == a.get("chave") for v in valem)]
+    if resto:
+        L.append("As outras assinaturas que o app acompanha: " + "; ".join(f"{a['nome']} ({_brl(a['valor'])})" for a in resto[:12]) + ".")
+    return "\n".join(L)
 
 
 def _baixa_vinculados(d, rec):
@@ -1291,7 +1316,7 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _cadastros(d), False
     if nome == "beneficios":
         return texto_beneficios(d, hoje), False
-    if nome.endswith("_email") or nome == "oportunidades":  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
+    if nome.endswith("_email") or nome in ("oportunidades", "dicas"):  # ficam com o server.py (as faturas do e-mail, as páginas lidas)
         raise LookupError(f"{nome}: só pelo servidor.")
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,

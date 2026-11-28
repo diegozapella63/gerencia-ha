@@ -1,5 +1,9 @@
 # Mudanças
 
+## 1.95.0
+
+- **Pelo CorrerIA** (WhatsApp, Claude, Gemini e a Conversa de lá): agora dá para perguntar pelas **dicas de economia** ("onde dá para economizar?"): as assinaturas em que o plano anual compensa, com quanto sobra por ano, e as outras que o app acompanha.
+
 ## 1.94.0
 
 - **Pelo CorrerIA** (WhatsApp, Claude, Gemini e a Conversa de lá): agora dá para **mudar a categoria ou a situação de vários lançamentos de uma vez** ("põe esses três em Casa e marca como pagos"), como o Alterar do Caixa › Lançamentos › Selecionar. Um recebimento fixo marcado como recebido leva junto as despesas vinculadas a ele, como na tela.

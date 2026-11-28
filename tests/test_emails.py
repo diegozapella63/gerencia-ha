@@ -940,3 +940,8 @@ class TestOportunidadesPeloCorrerIA(ComServidor):
         self.assertIn("Tesouro Prefixado 2031: 14,20% ao ano", t)
         self.assertNotIn("ainda não foi lido", t)
         self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "oportunidades")
+        # 1.95.0: as dicas de economia, sem conferir nada agora
+        with mock.patch.object(S, "iniciar_conferencia", side_effect=AssertionError("não confere")):
+            t = S.usar_ferramenta({"nome": "dicas", "argumentos": {}, "cliente": "CorrerIA"})["texto"]
+        self.assertTrue("não achou assinaturas" in t or "dica" in t, t)
+        self.assertEqual(S.CORRERIA_USO["ultimo"]["nome"], "dicas")
