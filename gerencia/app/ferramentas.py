@@ -64,6 +64,18 @@ FERRAMENTAS = [
                       "tipo": {"type": "string", "enum": ["despesa", "receita"]},
                       "conta": {"type": "string", "description": "Id ou nome do banco/conta."},
                       "limite": {"type": "integer", "minimum": 1, "maximum": MAX_LISTA, "description": "Padrão: 200."}})},
+    # 1.96.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode seguir em todas")
+    {"nome": "comparar_meses", "titulo": "Comparar meses", "grava": False,
+     "descricao": "Os gastos por categoria de um mês contra outro (sem mês, o atual contra o anterior), com o que mais subiu "
+                  "primeiro. No mês atual, os dois vão só até o dia de hoje, para a comparação ser justa.",
+     "entrada": _obj({"mes": {"type": "string", "description": "AAAA-MM. Padrão: o mês atual."},
+                      "com": {"type": "string", "description": "AAAA-MM. Padrão: o mês anterior ao primeiro."}})},
+    {"nome": "projecao", "titulo": "Projeção dos investimentos", "grava": False,
+     "descricao": "Quanto os seus investimentos viram daqui a tantos meses, com a taxa de hoje de cada um, antes do IR (a projeção "
+                  "da tela); com aporte_mensal, soma o que você põe todo mês, rendendo pela taxa média. Sem os bens e sem o dinheiro "
+                  "de outras pessoas.",
+     "entrada": _obj({"meses": {"type": "integer", "minimum": 1, "maximum": 480, "description": "Padrão: 12."},
+                      "aporte_mensal": {"type": "number", "minimum": 0, "description": "Quanto entra por mês (opcional)."}})},
     {"nome": "contas_a_pagar", "titulo": "Contas a pagar", "grava": False,
      "descricao": "Contas, fixos e faturas de cartão a pagar (e as já pagas) num período, com as atrasadas dos últimos 2 meses. "
                   "Sem período, de hoje a 45 dias. O id serve em gerencia_marcar_pago.",
@@ -198,6 +210,21 @@ FERRAMENTAS = [
     {"nome": "nova_categoria", "titulo": "Nova categoria", "grava": True,
      "descricao": "Cria uma categoria de gasto (despesa) ou de recebimento (receita), com uma cor da paleta.",
      "entrada": _obj({"nome": {"type": "string"}, "tipo": {"type": "string", "enum": ["despesa", "receita"]}}, ["nome", "tipo"])},
+    {"nome": "editar_categoria", "titulo": "Mudar ou apagar categoria", "grava": True, "apaga": True,
+     "descricao": "Muda o nome ou a cor de uma categoria, ou apaga (os lançamentos dela ficam sem categoria). As categorias de "
+                  "agora estão em gerencia_cadastros.",
+     "entrada": _obj({"categoria": {"type": "string", "description": "O id ou o nome."}, "tipo": {"type": "string", "enum": ["despesa", "receita"], "description": "Só se há duas com o mesmo nome."},
+                      "nome": {"type": "string", "description": "O nome novo."}, "cor": {"type": "string", "enum": [n for n, _ in calc.CORES_APP]},
+                      "apagar": {"type": "boolean"}}, ["categoria"])},
+    {"nome": "editar_banco", "titulo": "Mudar banco ou conta", "grava": True,
+     "descricao": "Muda o nome, a cor ou a observação de um banco e, numa conta dele, de quem é, os dias da fatura do cartão e o "
+                  "limite. Apagar um banco ou uma conta, só pela tela (Mais › Bancos).",
+     "entrada": _obj({"banco": {"type": "string", "description": "O id ou o nome do banco."}, "nome": {"type": "string", "description": "O nome novo do banco."},
+                      "cor": {"type": "string", "enum": [n for n, _ in calc.CORES_APP]}, "obs": {"type": "string"},
+                      "conta": {"type": "string", "description": "O id da conta ou de quem é (só para mudar a conta; com uma conta só, não precisa)."},
+                      "pessoa": {"type": "string", "description": "De quem a conta passa a ser."},
+                      "cartao_de_credito": {"type": "boolean"}, "fecha_dia": {"type": "integer", "minimum": 1, "maximum": 31},
+                      "vence_dia": {"type": "integer", "minimum": 1, "maximum": 31}, "limite": {"type": "number", "exclusiveMinimum": 0}}, ["banco"])},
     {"nome": "novo_banco", "titulo": "Cadastrar banco ou conta", "grava": True,
      "descricao": "Cadastra um banco com a conta de uma pessoa, ou acrescenta a conta de outra pessoa num banco que já existe; com o "
                   "cartão de crédito (o dia em que a fatura fecha e o dia em que vence), se houver.",
@@ -421,6 +448,62 @@ def _lancamentos(d, a, hoje):
                   "entradas": round(entradas, 2), "saidas": round(saidas, 2),
                   "gastos_por_categoria": {k: round(v, 2) for k, v in sorted(por_cat.items(), key=lambda x: -x[1])},
                   "lancamentos": itens})
+
+
+MESES_NOME = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+
+
+def _gastos_do_mes(d, ym, ate_dia):
+    """{categoria: total} das despesas de um mês até um dia (sem os ajustes de saldo, os aportes, o pagamento de fatura e os pulados)."""
+    out = {}
+    for l in calc.ocorrencias_mes(d, ym):
+        dt = str(l.get("data") or "")[:10]
+        if dt[:7] != ym or int(dt[8:10] or 0) > ate_dia or l.get("tipo") == "receita" or l.get("ajuste") or l.get("aporte") or l.get("vinculo") or l.get("pulado"):
+            continue
+        nome = _nome_cat(d, l.get("categoria")) or "Sem categoria"
+        out[nome] = out.get(nome, 0.0) + calc.num(l.get("valor"))
+    return out
+
+
+def _comparar_meses(d, a, hoje):
+    """1.96.0: os gastos por categoria de um mês contra outro, o que mais subiu primeiro."""
+    def ym_de(v, campo):
+        s = str(v or "").strip()
+        if not re.match(r"^\d{4}-(0[1-9]|1[0-2])$", s):
+            raise ErroFerramenta(f"{campo}: um mês, AAAA-MM.")
+        return s
+    agora = hoje.isoformat()[:7]
+    mes = ym_de(a["mes"], "mes") if a.get("mes") else agora
+    com = ym_de(a["com"], "com") if a.get("com") else integracao.add_ym(mes, -1)
+    if mes == com:
+        raise ErroFerramenta("Os dois meses são o mesmo.")
+    if max(mes, com) > agora:
+        raise ErroFerramenta("Um mês que ainda não chegou não tem gastos para comparar.")
+    parcial = agora in (mes, com)
+    dia = hoje.day if parcial else 31
+    g1, g2 = _gastos_do_mes(d, mes, dia), _gastos_do_mes(d, com, dia)
+    t1, t2 = sum(g1.values()), sum(g2.values())
+
+    def nome(ym):
+        return f"{MESES_NOME[int(ym[5:7]) - 1]} de {ym[:4]}" + (f" (até o dia {dia})" if parcial else "")
+
+    def pct(v, antes):
+        return f", {'+' if v >= antes else '−'}{abs(round((v - antes) / antes * 100))}%" if antes else ""
+    linhas = [f"Gastos de {nome(mes)}: {_brl(t1)}; de {nome(com)}: {_brl(t2)}{pct(t1, t2)}."]
+    if not g1 and not g2:
+        return linhas[0] + " Nenhum gasto nos dois."
+    dif = sorted(((g1.get(c, 0.0) - g2.get(c, 0.0), c) for c in set(g1) | set(g2)), key=lambda x: (-x[0], x[1]))
+    subiu = [(v, c) for v, c in dif if v >= 0.005]
+    caiu = [(v, c) for v, c in reversed(dif) if v <= -0.005]
+    if subiu:
+        linhas.append(f"Subiram ({len(subiu)}):")
+        linhas += [f"- {c}: {_brl(g1.get(c, 0))} (antes {_brl(g2.get(c, 0))}; +{_brl(v)}{pct(g1.get(c, 0), g2.get(c, 0))})" for v, c in subiu[:10]]
+    else:
+        linhas.append("Nenhuma categoria subiu.")
+    if caiu:
+        linhas.append(f"Caíram ({len(caiu)}):")
+        linhas += [f"- {c}: {_brl(g1.get(c, 0))} (antes {_brl(g2.get(c, 0))}; −{_brl(-v)})" for v, c in caiu[:10]]
+    return "\n".join(linhas)
 
 
 def _contas_a_pagar(d, a, hoje):
@@ -1017,6 +1100,128 @@ def _nova_categoria(d, a, hoje):
     return f"Categoria criada: {nome} ({'gasto' if tipo == 'despesa' else 'recebimento'}). id: {c['id']}"
 
 
+def _cor(v):
+    c = next((h for n, h in calc.CORES_APP if _norm(n) == _norm(v)), None)
+    if not c:
+        raise ErroFerramenta("cor: " + ", ".join(n for n, _ in calc.CORES_APP) + ".")
+    return c
+
+
+def _editar_categoria(d, a, hoje):
+    """1.96.0: o nome, a cor ou apagar uma categoria (Mais › Caixa › Categorias): apagada, os lançamentos e os fixos dela ficam sem."""
+    cats = d.setdefault("categorias", [])
+    v, n = str(a.get("categoria") or "").strip(), _norm(a.get("categoria"))
+    tipo = a.get("tipo") if a.get("tipo") in ("despesa", "receita") else None
+    achadas = [c for c in cats if c.get("id") == v] or [c for c in cats if _norm(c.get("nome")) == n and (not tipo or c.get("tipo", "despesa") == tipo)]
+    if not achadas:
+        raise ErroFerramenta(f"Categoria não encontrada: {v or '(vazio)'}. Veja as de agora em gerencia_cadastros.")
+    if len(achadas) > 1:
+        raise ErroFerramenta(f"Há duas categorias {achadas[0].get('nome')}: diga o tipo (despesa ou receita).")
+    c = achadas[0]
+    if a.get("apagar") is True:
+        usam = 0
+        for l in d.get("lancamentos", []) + d.get("recorrencias", []):
+            if l.get("categoria") == c.get("id"):
+                l["categoria"] = ""
+                usam += 1
+        cats.remove(c)
+        return f"Categoria apagada: {c.get('nome')}." + (f" {usam} {'lançamento ficou' if usam == 1 else 'lançamentos ficaram'} sem categoria." if usam else "")
+    mudou = []
+    if a.get("nome") is not None:
+        nome = _texto(a.get("nome"), 40)
+        if not nome:
+            raise ErroFerramenta("O nome novo está vazio.")
+        if any(x is not c and _norm(x.get("nome")) == _norm(nome) and x.get("tipo", "despesa") == c.get("tipo", "despesa") for x in cats):
+            raise ErroFerramenta(f"Já existe a categoria {nome}.")
+        mudou.append(f"{c.get('nome')} → {nome}")
+        c["nome"] = nome
+    if a.get("cor") is not None:
+        c["cor"] = _cor(a["cor"])
+        mudou.append("cor " + next(n for n, h in calc.CORES_APP if h == c["cor"]))
+    if not mudou:
+        raise ErroFerramenta("Diga o que muda: nome, cor ou apagar.")
+    return f"Categoria mudada ({c.get('nome')}): " + ", ".join(mudou) + "."
+
+
+def _editar_banco(d, a, hoje):
+    """1.96.0: o banco (nome, cor, observação) e uma conta dele (de quem é, o cartão e os dias da fatura, o limite), como Mais › Bancos."""
+    b = next((x for x in d.get("bancos", []) if x.get("id") == a.get("banco")), None) or _banco_por_nome(d, a.get("banco"))
+    if not b:
+        raise ErroFerramenta(f"Banco não encontrado: {a.get('banco') or '(vazio)'}. Veja os de agora em gerencia_cadastros.")
+    mudou = []
+    if a.get("nome") is not None:
+        nome = _texto(a.get("nome"), 40)
+        if not nome:
+            raise ErroFerramenta("O nome novo está vazio.")
+        if any(x is not b and _norm(x.get("nome")) == _norm(nome) for x in d.get("bancos", [])):
+            raise ErroFerramenta(f"Já existe o banco {nome}.")
+        mudou.append(f"nome {nome}")
+        b["nome"] = nome
+    if a.get("cor") is not None:
+        b["cor"] = _cor(a["cor"])
+        mudou.append("cor " + next(n for n, h in calc.CORES_APP if h == b["cor"]))
+    if a.get("obs") is not None:
+        b["obs"] = _texto(a.get("obs"), 200)
+        mudou.append("observação")
+    da_conta = [k for k in ("pessoa", "cartao_de_credito", "fecha_dia", "vence_dia", "limite") if a.get(k) is not None]
+    if da_conta or a.get("conta"):
+        contas = [c for c in b.get("contas") or [] if isinstance(c, dict)]
+        v = str(a.get("conta") or "").strip()
+        c = next((x for x in contas if x.get("id") == v), None) or next((x for x in contas if v and _norm(x.get("pessoa")) == _norm(v)), None) \
+            or (contas[0] if len(contas) == 1 and not v else None)
+        if not c:
+            raise ErroFerramenta(f"Diga a conta de {b.get('nome')}: " + "; ".join(f"{x.get('pessoa') or 'sem pessoa'} ({x.get('id')})" for x in contas) + ".")
+        if not da_conta:
+            raise ErroFerramenta("Diga o que muda na conta: pessoa, cartao_de_credito, fecha_dia, vence_dia ou limite.")
+        if a.get("pessoa") is not None:
+            pessoa = _texto(a.get("pessoa"), 40)
+            if any(x is not c and _norm(x.get("pessoa")) == _norm(pessoa) for x in contas):
+                raise ErroFerramenta(f"{b.get('nome')} já tem a conta {'de ' + pessoa if pessoa else 'sem pessoa'}.")
+            c["pessoa"] = pessoa
+            mudou.append(f"a conta é de {pessoa}" if pessoa else "a conta fica sem pessoa")
+        if a.get("cartao_de_credito") is not None:
+            c["cartao"] = a["cartao_de_credito"] is True
+            mudou.append("com cartão de crédito" if c["cartao"] else "sem cartão de crédito")
+        for k, campo, rot in (("fecha_dia", "fechamento", "fecha dia"), ("vence_dia", "vencimento", "vence dia")):
+            if a.get(k) is not None:
+                c[campo] = min(31, max(1, int(calc.num(a.get(k), 1) or 1)))
+                mudou.append(f"{rot} {c[campo]}")
+        if a.get("limite") is not None:
+            c["limite"] = _valor(a.get("limite"), "limite")
+            mudou.append(f"limite {_brl(c['limite'])}")
+        if any(a.get(k) is not None for k in ("fecha_dia", "vence_dia", "limite")) and not c.get("cartao"):
+            raise ErroFerramenta("Essa conta não tem cartão de crédito: mande cartao_de_credito true junto.")
+    if not mudou:
+        raise ErroFerramenta("Diga o que muda: nome, cor, obs ou, na conta, pessoa, cartao_de_credito, fecha_dia, vence_dia ou limite.")
+    return f"{b.get('nome')}: " + ", ".join(mudou) + "."
+
+
+def _projecao(d, a, hoje):
+    """1.96.0: os seus investimentos daqui a tantos meses (calc.valor_em, a projeção da tela), com o aporte de cada mês pela taxa média."""
+    meses = int(calc.num(a.get("meses"), 12) or 12)
+    if not 1 <= meses <= 480:
+        raise ErroFerramenta("meses: de 1 a 480.")
+    aporte = _valor(a.get("aporte_mensal"), "aporte_mensal", zero=True) if a.get("aporte_mensal") is not None else 0.0
+    ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
+    meus = [i for i in d.get("investimentos", []) if i.get("titular") != "terceiros" and i.get("tipo") != "bens"]
+    if not meus and not aporte:
+        return "Nenhum investimento seu cadastrado para projetar."
+    linhas, hoje_t, depois_t = [], 0.0, 0.0
+    for i in meus:
+        v0, v1 = calc.valor_hoje(i, ind, corrigir, hoje), calc.valor_em(i, ind, meses / 12, corrigir, hoje)
+        hoje_t, depois_t = hoje_t + v0, depois_t + v1
+        linhas.append((v1, f"- {i.get('nome', '')}: {_brl(v0)} → {_brl(v1)} ({calc.rotulo_taxa(i)})"))
+    taxa = (sum(calc.valor_hoje(i, ind, corrigir, hoje) * calc.taxa_anual(i, ind) for i in meus) / hoje_t) if hoje_t else calc.taxa_anual({"indexador": "cdi", "taxa": 100}, ind)
+    quando = f"{meses} {'mês' if meses == 1 else 'meses'}" + (f" ({meses // 12} {'ano' if meses == 12 else 'anos'})" if meses % 12 == 0 else "")
+    out = [f"Hoje: {_brl(hoje_t)}. Em {quando}, sem aportes: {_brl(depois_t)} (+{_brl(depois_t - hoje_t)}), antes do IR, com a taxa de hoje de cada um."]
+    if aporte:
+        m = (1 + taxa) ** (1 / 12) - 1
+        dos_aportes = aporte * (((1 + m) ** meses - 1) / m if m else meses)
+        out.append(f"Com {_brl(aporte)} por mês: {_brl(depois_t + dos_aportes)} ({_brl(aporte * meses)} de aportes e {_brl(dos_aportes - aporte * meses)} do que eles rendem, pela taxa média de {f'{taxa * 100:.1f}'.replace('.', ',')}% ao ano).")
+    out += [t for _, t in sorted(linhas, key=lambda x: -x[0])[:15]]
+    return "\n".join(out)
+
+
 def _novo_banco(d, a, hoje):
     nome = _texto(a.get("banco"), 40)
     if not nome:
@@ -1310,6 +1515,10 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
         return _lancamentos(d, a, hoje), False
     if nome == "contas_a_pagar":
         return _contas_a_pagar(d, a, hoje), False
+    if nome == "comparar_meses":
+        return _comparar_meses(d, a, hoje), False
+    if nome == "projecao":
+        return _projecao(d, a, hoje), False
     if nome == "investimentos":
         return _investimentos(d, hoje, bens), False
     if nome == "cadastros":
@@ -1321,5 +1530,6 @@ def chamar(nome, argumentos, d, hoje=None, bens=None, extras=""):
     faz = {"lancar": _lancar, "editar_lancamento": _editar, "alterar_lancamentos": _alterar_lote, "apagar_lancamento": _apagar, "marcar_pago": _marcar_pago,
            "atualizar_investimento": _atualizar_inv, "novo_investimento": _novo_inv, "novo_fixo": _novo_fixo,
            "ajustar_saldo": _ajustar_saldo, "editar_fixo": _editar_fixo, "encerrar_fixo": _encerrar_fixo, "usar_beneficio": _usar_beneficio,
-           "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco}[nome]
+           "atualizar_milhas": _atualizar_milhas, "nova_categoria": _nova_categoria, "novo_banco": _novo_banco,
+           "editar_categoria": _editar_categoria, "editar_banco": _editar_banco}[nome]
     return faz(d, a, hoje), True

@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.96.0
+
+- **Pelo CorrerIA**: dá para perguntar o que mais subiu ("gastei mais este mês?"): os gastos por categoria de um mês contra outro, o que mais subiu primeiro. No mês atual, a comparação vai só até o dia de hoje nos dois meses.
+- **Pelo CorrerIA**, também: a **projeção** dos investimentos ("quanto vou ter em 2 anos pondo 500 por mês?"), mudar o nome ou a cor de uma **categoria** (ou apagar) e mudar um **banco** ou a conta dele (o nome, a cor, de quem é, os dias da fatura e o limite). As mudanças só depois do Sim.
+
 ## 1.95.0
 
 - **Pelo CorrerIA** (WhatsApp, Claude, Gemini e a Conversa de lá): agora dá para perguntar pelas **dicas de economia** ("onde dá para economizar?"): as assinaturas em que o plano anual compensa, com quanto sobra por ano, e as outras que o app acompanha.

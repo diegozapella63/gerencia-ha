@@ -41,10 +41,10 @@ class TestLista(unittest.TestCase):
     def test_formato_do_contrato(self):
         fs = F.lista()
         nomes = [f["nome"] for f in fs]
-        self.assertEqual(nomes, ["resumo", "lancamentos", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
+        self.assertEqual(nomes, ["resumo", "lancamentos", "comparar_meses", "projecao", "contas_a_pagar", "investimentos", "cadastros", "faturas_do_email", "beneficios", "oportunidades", "dicas", "lancar",
                                  "editar_lancamento", "alterar_lancamentos", "apagar_lancamento", "marcar_pago", "atualizar_investimento", "novo_investimento",
                                  "ajustar_saldo", "lancar_fatura_do_email", "ignorar_fatura_do_email", "editar_fixo", "encerrar_fixo",
-                                 "usar_beneficio", "atualizar_milhas", "nova_categoria", "novo_banco", "novo_fixo"])
+                                 "usar_beneficio", "atualizar_milhas", "nova_categoria", "editar_categoria", "editar_banco", "novo_banco", "novo_fixo"])
         for f in fs:
             self.assertRegex(f["nome"], r"^[a-z0-9_]{1,40}$")
             self.assertTrue(f["titulo"] and f["descricao"])
@@ -52,8 +52,8 @@ class TestLista(unittest.TestCase):
             self.assertTrue(set(f["entrada"]["required"]) <= set(f["entrada"]["properties"]), f["nome"])
             self.assertIsInstance(f["grava"], bool)
             self.assertIsInstance(f["apaga"], bool)
-        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo"])
-        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:9])
+        self.assertEqual([f["nome"] for f in fs if f["apaga"]], ["apagar_lancamento", "encerrar_fixo", "editar_categoria"])
+        self.assertEqual([f["nome"] for f in fs if not f["grava"]], nomes[:11])
         json.dumps(fs)  # vai como JSON
 
     def test_desconhecida(self):
@@ -624,3 +624,88 @@ class TestDicas(unittest.TestCase):
         self.assertIn("estão desligadas", F.texto_dicas([], subs, True))
         with self.assertRaises(LookupError):
             chamar("dicas", {}, dados())
+
+
+class TestCompararMeses(unittest.TestCase):
+    """1.96.0 (o dono, às ferramentas que faltavam para o CorrerIA: "pode seguir em todas"): os gastos por categoria de um mês contra outro."""
+
+    def setUp(self):
+        self.d = dados()
+        self.d["lancamentos"] += [
+            {"id": "o1", "tipo": "despesa", "descricao": "Luz de outubro", "valor": 100, "data": "2026-10-10", "categoria": "c-casa"},
+            {"id": "o2", "tipo": "despesa", "descricao": "Fim do mês", "valor": 70, "data": "2026-10-28", "categoria": "c-casa"},
+            {"id": "o3", "tipo": "despesa", "descricao": "Feira", "valor": 300, "data": "2026-10-05"}]
+
+    def test_o_mes_atual_vai_ate_hoje_nos_dois(self):
+        t, mudou = chamar("comparar_meses", {}, self.d)
+        self.assertFalse(mudou)
+        self.assertEqual(t.split("\n"), ["Gastos de novembro de 2026 (até o dia 15): R$ 191,00; de outubro de 2026 (até o dia 15): R$ 451,00, −58%.",
+                                         "Nenhuma categoria subiu.", "Caíram (2):",
+                                         "- Sem categoria: R$ 191,00 (antes R$ 351,00; −R$ 160,00)", "- Casa: R$ 0,00 (antes R$ 100,00; −R$ 100,00)"])
+
+    def test_meses_inteiros_o_que_mais_subiu_primeiro(self):
+        t = chamar("comparar_meses", {"mes": "2026-10", "com": "2026-09"}, self.d)[0].split("\n")
+        self.assertEqual(t[:2], ["Gastos de outubro de 2026: R$ 641,00; de setembro de 2026: R$ 121,00, +430%.", "Subiram (2):"])
+        self.assertEqual(t[3], "- Casa: R$ 290,00 (antes R$ 120,00; +R$ 170,00, +142%)")
+        self.assertEqual(len(t), 4)
+        vazio = {"lancamentos": [], "recorrencias": [], "categorias": []}
+        self.assertTrue(chamar("comparar_meses", {"mes": "2026-10"}, vazio)[0].endswith("Nenhum gasto nos dois."))
+
+    def test_o_que_nao_vale(self):
+        for args, erro in (({"mes": "outubro"}, "mes: um mês"), ({"com": "2026-13"}, "com: um mês"), ({"mes": "2026-10", "com": "2026-10"}, "o mesmo"),
+                           ({"mes": "2026-12"}, "ainda não chegou")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("comparar_meses", args, self.d)
+
+
+class TestNovas196(unittest.TestCase):
+    """1.96.0: a projeção dos investimentos e mudar categoria e banco (o que a tela faz em Mais › Invest, Caixa e Bancos)."""
+
+    def setUp(self):
+        self.d = dados()
+
+    def test_projecao(self):
+        t, mudou = chamar("projecao", {}, self.d)
+        self.assertFalse(mudou)
+        self.assertEqual(t.split("\n"), ["Hoje: R$ 10.000,00. Em 12 meses (1 ano), sem aportes: R$ 11.065,00 (+R$ 1.065,00), antes do IR, com a taxa de hoje de cada um.",
+                                         "- CDB Azul: R$ 10.000,00 → R$ 11.065,00 (100% do CDI)"])
+        t = chamar("projecao", {"meses": 24, "aporte_mensal": 500}, self.d)[0].split("\n")
+        self.assertTrue(t[0].startswith("Hoje: R$ 10.000,00. Em 24 meses (2 anos), sem aportes: R$ 12.243,42"))
+        self.assertEqual(t[1], "Com R$ 500,00 por mês: R$ 25.488,09 (R$ 12.000,00 de aportes e R$ 1.244,67 do que eles rendem, pela taxa média de 10,7% ao ano).")
+        self.assertIn("Em 1 mês, sem", chamar("projecao", {"meses": 1}, self.d)[0])
+        self.assertEqual(chamar("projecao", {}, {"investimentos": []})[0], "Nenhum investimento seu cadastrado para projetar.")
+        self.assertIn("Com R$ 100,00 por mês", chamar("projecao", {"aporte_mensal": 100}, {"investimentos": []})[0])
+        with self.assertRaisesRegex(F.ErroFerramenta, "de 1 a 480"):
+            chamar("projecao", {"meses": 999}, self.d)
+
+    def test_editar_categoria(self):
+        self.assertEqual(chamar("editar_categoria", {"categoria": "Casa", "nome": "Lar", "cor": "verde"}, self.d), ("Categoria mudada (Lar): Casa → Lar, cor Verde.", True))
+        c = next(x for x in self.d["categorias"] if x["id"] == "c-casa")
+        self.assertEqual((c["nome"], c["cor"]), ("Lar", "#8BD45F"))
+        for args, erro in (({"categoria": "Nada"}, "não encontrada"), ({"categoria": "c-casa"}, "Diga o que muda"), ({"categoria": "c-casa", "nome": " "}, "vazio"),
+                           ({"categoria": "c-casa", "cor": "bege"}, "cor: Vermelho"), ({"categoria": "c-casa", "nome": "Mercado"}, "Já existe")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("editar_categoria", args, self.d)
+        self.d["categorias"].append({"id": "c-lar2", "nome": "Lar", "tipo": "receita"})
+        with self.assertRaisesRegex(F.ErroFerramenta, "diga o tipo"):
+            chamar("editar_categoria", {"categoria": "lar", "cor": "Azul"}, self.d)
+        self.assertEqual(chamar("editar_categoria", {"categoria": "lar", "tipo": "receita", "apagar": True}, self.d)[0], "Categoria apagada: Lar.")
+        self.assertEqual(chamar("editar_categoria", {"categoria": "c-casa", "apagar": True}, self.d)[0], "Categoria apagada: Lar. 2 lançamentos ficaram sem categoria.")
+        self.assertEqual(next(x for x in self.d["lancamentos"] if x["id"] == "l-luz")["categoria"], "")
+        self.assertTrue(next(f for f in F.lista() if f["nome"] == "editar_categoria")["apaga"])
+
+    def test_editar_banco(self):
+        t = chamar("editar_banco", {"banco": "banco azul", "nome": "Banco Anil", "cor": "Rosa", "obs": "o de sempre", "fecha_dia": 8, "vence_dia": 15, "limite": 3000}, self.d)[0]
+        self.assertEqual(t, "Banco Anil: nome Banco Anil, cor Rosa, observação, fecha dia 8, vence dia 15, limite R$ 3.000,00.")
+        b = self.d["bancos"][0]
+        self.assertEqual((b["cor"], b["contas"][0]["fechamento"], b["contas"][0]["vencimento"], b["contas"][0]["limite"]), ("#FF77A9", 8, 15, 3000.0))
+        self.assertEqual(chamar("editar_banco", {"banco": "b1", "conta": "Ana", "pessoa": "Beto", "cartao_de_credito": False}, self.d)[0], "Banco Anil: a conta é de Beto, sem cartão de crédito.")
+        b["contas"].append({"id": "k2", "pessoa": "Ana", "cartao": False})
+        self.assertEqual(chamar("editar_banco", {"banco": "b1", "conta": "k2", "pessoa": ""}, self.d)[0], "Banco Anil: a conta fica sem pessoa.")
+        self.d["bancos"].append({"id": "b2", "nome": "Banco Verde", "contas": []})
+        for args, erro in (({"banco": "Nada"}, "não encontrado"), ({"banco": "b1"}, "Diga o que muda"), ({"banco": "b1", "nome": ""}, "vazio"),
+                           ({"banco": "b1", "nome": "Banco Verde"}, "Já existe"), ({"banco": "b1", "limite": 10}, "Diga a conta de Banco Anil"),
+                           ({"banco": "b1", "conta": "k2"}, "o que muda na conta"), ({"banco": "b1", "conta": "k2", "pessoa": "Beto"}, "já tem a conta de Beto"),
+                           ({"banco": "b1", "conta": "k2", "limite": 10}, "não tem cartão")):
+            with self.assertRaisesRegex(F.ErroFerramenta, erro):
+                chamar("editar_banco", args, self.d)
