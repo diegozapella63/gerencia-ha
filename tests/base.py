@@ -202,7 +202,8 @@ def importar_servidor():
     # o Tesouro Direto (a tabela e os dados abertos) num endereço que não responde: nada sai para a internet
     os.environ.setdefault("GERENCIA_TESOURO", "http://127.0.0.1:9/tesouro.csv")
     os.environ.setdefault("GERENCIA_TESOURO_DADOS", "http://127.0.0.1:9/dados.csv")
-    os.environ.setdefault("GERENCIA_PROMOS_BASE", "http://127.0.0.1:9/promo/")  # 1.64.0: as páginas das assinaturas também
+    os.environ.setdefault("GERENCIA_PROMOS_BASE", "http://127.0.0.1:9/promo/")
+    os.environ.setdefault("GERENCIA_BRAPI", "http://127.0.0.1:9/brapi")  # 1.99.0: as cotações da B3 também  # 1.64.0: as páginas das assinaturas também
     for k in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN"):
         os.environ.pop(k, None)
     import server
@@ -234,7 +235,8 @@ class Servidor:
                   "GERENCIA_BCB": "http://127.0.0.1:9/serie/{s}",
                   # o Tesouro Direto também: os testes que precisam dele passam o endereço de um servidor de mentira
                   "GERENCIA_TESOURO": "http://127.0.0.1:9/tesouro.csv", "GERENCIA_TESOURO_DADOS": "http://127.0.0.1:9/dados.csv",
-                  "GERENCIA_PROMOS_BASE": "http://127.0.0.1:9/promo/"})  # 1.64.0: e as páginas das assinaturas
+                  "GERENCIA_PROMOS_BASE": "http://127.0.0.1:9/promo/",  # 1.64.0: e as páginas das assinaturas
+                  "GERENCIA_BRAPI": "http://127.0.0.1:9/brapi"})  # 1.99.0: e as cotações da B3
         e.update(env or {})
         self.log = open(os.path.join(self.raiz, "server.log"), "w")
         cmd = [sys.executable, "-u", os.path.join(APP, "server.py")]

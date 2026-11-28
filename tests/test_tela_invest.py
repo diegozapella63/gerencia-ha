@@ -870,6 +870,35 @@ class TestFormulario(_TelaInvest):
                 self.clicar(SALVAR)
                 self.assertEqual(self.salvo()["nome"], nome)
 
+    def test_1_99_papel_da_bolsa_com_codigo_e_quantidade(self):
+        """1.99.0: nas Ações/FII, o Código na bolsa e a Quantidade; com os dois, o valor pode ficar vazio (vem da cotação)."""
+        self.novo()
+        self.assertEqual(self.conta("#f-papel"), 0, "só nas ações")
+        self.clicar('.folha [data-a="f-tipo"][data-v="acoes"]')
+        self.assertEqual(self.texto("#aj-papel"), "Com o código e a quantidade, o valor se atualiza sozinho pela cotação.")
+        self.preencher("#f-ticker", "bo")
+        self.clicar(SALVAR)
+        self.assertIn("O código é como PETR4 ou MXRF11.", self.textos(".folha .msg-erro"))
+        self.preencher("#f-ticker", "bola3f")
+        self.clicar(SALVAR)
+        self.assertIn("Coloque a quantidade.", self.textos(".folha .msg-erro"))
+        self.preencher("#f-qtd", "12,5")
+        self.clicar(SALVAR)
+        inv = self.salvo()
+        self.assertEqual((inv["ticker"], inv["qtd"], inv["valor"], inv["tipo"]), ("BOLA3", 12.5, 0, "acoes"))
+        # editar: a cotação que o servidor guardou continua e a dica diz o preço; outro tipo tira o código
+        self.js("(T.S.d.investimentos[0].cotacao = { preco: 10.5, em: '2026-11-02' }, T.S.d.investimentos[0].valor = 131.25, T.render())")
+        self.editar(inv["id"])
+        self.assertEqual((self.pg.input_value("#f-ticker"), self.pg.input_value("#f-qtd")), ("BOLA3", "12,5"))
+        self.assertEqual(self.texto("#aj-papel"), "BOLA3 a R$ 10,50: o valor acompanha a cotação.")
+        self.clicar(SALVAR)
+        self.assertEqual(self.salvo()["cotacao"], {"preco": 10.5, "em": "2026-11-02"})
+        self.editar(inv["id"])
+        self.clicar('.folha [data-a="f-tipo"][data-v="cdb"]')
+        self.clicar(SALVAR)
+        self.assertNotIn("ticker", self.salvo())
+        self.assertFalse(self.pg.evaluate("document.documentElement.scrollWidth > innerWidth"))
+
     def test_sem_nome_usa_o_tipo_e_o_banco(self):
         self.novo()
         self.clicar('.folha [data-a="f-tipo"][data-v="lci"]')

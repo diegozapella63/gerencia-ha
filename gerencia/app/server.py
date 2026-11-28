@@ -40,8 +40,9 @@ import oportunidades  # noqa: E402
 import beneficios  # noqa: E402
 import milhas  # noqa: E402
 import promocoes  # noqa: E402
+import cotacoes  # noqa: E402
 
-VERSAO = "1.98.0"
+VERSAO = "1.99.0"
 PORTA = int(os.environ.get("GERENCIA_PORTA", "8099"))
 DATA_DIR = os.environ.get("GERENCIA_DATA", "/data")
 SHARE_DIR = os.environ.get("GERENCIA_SHARE", "/share/gerencia")
@@ -1739,6 +1740,111 @@ def pdf_texto(raw):
 
 # ---------------------------------------------------------------- senhas dos PDFs (faturas com senha)
 
+# 1.99.0 (o dono: "Cotações da B3 (brapi). Pode seguir neste"): a chave da brapi e a última atualização ficam em /data/brapi.json
+# (600; fora do gerencia.json: não vai nas exportações nem para a tela, que só vê o fim da chave). Os investimentos com código e
+# quantidade (ticker, qtd) ficam com o valor do dia: quantidade × preço, de 6 em 6 horas nos dias de semana.
+BRAPI_ARQ = os.path.join(DATA_DIR, "brapi.json")
+COTACOES_HORAS = 6
+_cotacoes_trava = threading.Lock()
+
+
+def _brapi_ler():
+    try:
+        with open(BRAPI_ARQ, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _brapi_gravar(d):
+    gravar_arquivo(BRAPI_ARQ, json.dumps(d, ensure_ascii=False))
+    try:
+        os.chmod(BRAPI_ARQ, 0o600)
+    except OSError:
+        pass
+
+
+def cotacoes_estado(d=None):
+    """Para a tela: se há chave (só o fim dela), quando foi a última atualização, o erro e quantos investimentos têm código."""
+    b = _brapi_ler()
+    tok = str(b.get("token") or "")
+    return {"tem": bool(tok), "fim": ("••••" + tok[-4:]) if len(tok) >= 8 else ("••••" if tok else ""),
+            "atualizado_em": b.get("em") or "", "erro": b.get("erro") or "", "papeis": len(cotacoes.papeis(d if d is not None else ler()))}
+
+
+def atualizar_cotacoes():
+    """Busca o preço de cada código e põe o valor do dia nos investimentos. Devolve o estado (com o erro, se houve)."""
+    with _cotacoes_trava:
+        b = _brapi_ler()
+        tok = str(b.get("token") or "")
+        if not tok:
+            raise ValueError("Ponha a chave da brapi primeiro.")
+        with TRAVA:
+            d = ler()
+        precos, erros = {}, []
+        for t in dict.fromkeys(t for _, t, _ in cotacoes.papeis(d)):
+            try:
+                precos[t] = cotacoes.cotacao(t, tok)
+            except cotacoes.Erro as e:
+                erros.append(str(e))
+                log("Cotações:", e)
+                if e.fatal:
+                    break
+        if precos:
+            with TRAVA:
+                d = ler()
+                if cotacoes.aplicar(d, precos, date.today().isoformat()):
+                    d["rev"] = d["rev"] + 1  # a tela aberta vê o valor novo pelo /api/rev
+                    salvar(d, versao=False)
+        b.update(em=agora_iso(), erro=erros[0] if erros else "")
+        _brapi_gravar(b)
+        return cotacoes_estado(d)
+
+
+def cotacoes_mudar(c):
+    """{token}: confere a chave (com um papel da casa, ou um qualquer) e guarda; {apagar: true}: tira; {atualizar: true}: busca agora."""
+    if c.get("apagar") is True:
+        _brapi_gravar({})
+        return cotacoes_estado()
+    if c.get("atualizar") is True:
+        return atualizar_cotacoes()
+    tok = str(c.get("token") or "").strip()
+    if not 8 <= len(tok) <= 200 or re.search(r"\s", tok):
+        raise ValueError("Cole a chave da brapi (o token do painel dela).")
+    with TRAVA:
+        d = ler()
+    # as ações de teste da brapi (PETR4, VALE3…) respondem sem chave: a conferência usa um papel da casa ou outro qualquer
+    teste = next((t for _, t, _ in cotacoes.papeis(d)), "BBAS3")
+    try:
+        cotacoes.cotacao(teste, tok)
+    except cotacoes.Erro as e:
+        if e.fatal:
+            raise ValueError(str(e) + " A chave não foi guardada.") from None
+    _brapi_gravar({"token": tok})
+    return atualizar_cotacoes() if cotacoes.papeis(d) else cotacoes_estado(d)
+
+
+def cotacoes_sem_erro():
+    try:
+        atualizar_cotacoes()
+    except Exception as e:  # noqa: BLE001
+        log("Cotações:", e)
+
+
+def cotacoes_na_hora(agora=None):
+    """Está na hora de atualizar sozinho? Com chave e papéis, de 6 em 6 horas; no fim de semana, só se nunca atualizou."""
+    agora = agora or datetime.now()
+    b = _brapi_ler()
+    if not b.get("token") or not cotacoes.papeis(ler()):
+        return False
+    try:
+        ult = datetime.fromisoformat(str(b.get("em") or "")).replace(tzinfo=None)
+    except ValueError:
+        return True
+    return agora.weekday() < 5 and agora - ult > timedelta(hours=COTACOES_HORAS)
+
+
 SENHAS_ARQ = os.path.join(DATA_DIR, "senhas_pdf.json")  # fora do gerencia.json: não vai nas exportações nem para a tela
 _trava_senhas = threading.Lock()
 
@@ -3370,6 +3476,8 @@ def usar_ferramenta(corpo):
             d["rev"] = d["rev"] + 1
             salvar(d)
     CORRERIA_USO["ultimo"] = {"app": cliente, "em": agora_iso(), "nome": nome}
+    if mudou and nome in ("novo_investimento", "atualizar_investimento") and _brapi_ler().get("token") and cotacoes.papeis(d):
+        threading.Thread(target=cotacoes_sem_erro, daemon=True).start()  # 1.99.0: o papel novo já fica com o valor do dia
     if mudou:
         quem = str(pessoa.get("nome") or "")[:40]
         log("CorrerIA:", cliente + (f" ({quem})" if quem else ""), nome, "→", texto.split("\n")[0][:160])
@@ -3645,6 +3753,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, resumo_uso())
             if p == "/api/voz/status":
                 return self.enviar(200, voz_status())
+            if p == "/api/cotacoes":  # 1.99.0: as cotações da B3 (a chave da brapi, só o fim)
+                return self.enviar(200, cotacoes_estado())
             if p == "/api/previsao":  # 1.98.0: a previsão de gastos do mês (o cartão do Agora)
                 return self.enviar(200, calc.previsao_mes(ler()))
             if p == "/api/memoria-ia":  # 1.84.0: a Memória da IA, de todos os apps
@@ -3764,6 +3874,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, email_procurar())
             if p == "/api/emails/simular":
                 return self.enviar(200, email_simular(self.corpo_json()))
+            if p == "/api/cotacoes":
+                return self.enviar(200, cotacoes_mudar(self.corpo_json()))
             if p == "/api/senhas/apagar":
                 return self.enviar(200, {"senhas": senha_apagar(str(self.corpo_json().get("id") or ""))})
             if p == "/api/avisos/testar":
@@ -4393,6 +4505,9 @@ def rotina():
                 or datetime.now() - datetime.fromisoformat(ind["atualizado_em"]) > timedelta(hours=12))
             if precisa:
                 d = atualizar_indices()
+            if cotacoes_na_hora():  # 1.99.0: as cotações da B3
+                atualizar_cotacoes()
+                d = ler()
             hoje = date.today().isoformat()
             if d.get("investimentos") and not any(h.get("d") == hoje for h in d.get("historico", [])):
                 with TRAVA:

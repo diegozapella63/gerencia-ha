@@ -1,5 +1,10 @@
 # Mudanças
 
+## 1.99.0
+
+- **Cotações da B3**: um investimento do tipo Ações/FII agora tem o **Código na bolsa** (PETR4, MXRF11) e a **Quantidade**. Com os dois, o valor fica sendo a quantidade vezes a cotação do dia, atualizada sozinha de 6 em 6 horas nos dias de semana. As cotações vêm da brapi: crie a chave grátis no site dela e cole em **Mais › Configurações › Integrações › Cotações da B3** (a chave fica só no seu Home Assistant e não entra nas exportações). Dali também dá para **Atualizar agora**.
+- Pelo CorrerIA: "comprei 50 cotas de MXRF11" cadastra o papel com o código e a quantidade, e "agora tenho 80" muda a quantidade.
+
 ## 1.98.0
 
 - **Categoria sozinha**: ao escrever a descrição de uma despesa ou recebimento, a categoria já vem com a que a casa costuma dar a ela ("Padaria Sol" → Mercado), aprendida do que você lançou e corrigiu, sem gastar a IA. Vale também para parecidas (a mesma primeira palavra), para o que chega pelo CorrerIA sem categoria e para as faturas lidas pela IA quando ela não soube. Se você escolher outra, fica a sua.

@@ -415,6 +415,12 @@ Rotas usadas pelo CronologIA (todas com `Authorization: Bearer <chave>`):
 | POST | `/api/integracao/desfazer` | `{id}`: volta para a pagar. |
 | POST | `/api/integracao/nova` | `{descricao, valor, vencimento, repete: nao\|mensal\|anual, categoria?}`. |
 
+## Cotações da B3
+
+Para ações, fundos imobiliários, ETFs e BDRs. No investimento do tipo **Ações/FII**, preencha o **Código na bolsa** (como PETR4 ou MXRF11) e a **Quantidade**: o valor passa a ser a quantidade vezes a cotação, e você não precisa mais atualizar à mão. Cada papel é um investimento.
+
+As cotações vêm da [brapi](https://brapi.dev). Crie uma conta grátis lá, copie a chave (o token do painel) e cole em **Mais › Configurações › Integrações › Cotações da B3 › Salvar e testar**. O app busca de 6 em 6 horas nos dias de semana (uma consulta por código, até 40 códigos; o plano grátis dá 15 mil consultas por mês) e o **Atualizar agora** busca na hora. A chave fica só no seu Home Assistant (a tela mostra só o fim dela) e não entra nas exportações nem nos backups da pasta share. As cotações do plano grátis têm atraso; servem para acompanhar o patrimônio, não para negociar. Sem a chave, o investimento continua como antes, com o valor que você informa.
+
 ## O que o app aprende com o uso
 
 Sem gastar a IA, só com o que já está lançado:

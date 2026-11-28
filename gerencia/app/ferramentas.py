@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 
 import calc
 import chat
+import cotacoes
 import integracao
 
 MAX_PERIODO = 400   # dias de uma busca de lançamentos
@@ -164,10 +165,12 @@ FERRAMENTAS = [
                       "valor": {"type": "number", "exclusiveMinimum": 0}}, ["id"])},
     {"nome": "atualizar_investimento", "titulo": "Atualizar investimento", "grava": True,
      "descricao": "Muda o valor de um investimento: o saldo de agora, ou um aporte (soma ao valor de hoje), ou um resgate "
-                  "(tira). Um dos três.",
+                  "(tira), ou, num papel da bolsa, a quantidade de agora. Um só.",
      "entrada": _obj({"id": {"type": "string", "description": "O id do investimento."},
                       "saldo": {"type": "number", "minimum": 0}, "aporte": {"type": "number", "exclusiveMinimum": 0},
-                      "resgate": {"type": "number", "exclusiveMinimum": 0}}, ["id"])},
+                      "resgate": {"type": "number", "exclusiveMinimum": 0},
+                      "quantidade": {"type": "number", "exclusiveMinimum": 0, "description": "Num papel da bolsa (com código): quantas ações ou cotas a "
+                                                                                           "pessoa tem agora. O valor é a quantidade vezes a cotação."}}, ["id"])},
     {"nome": "novo_investimento", "titulo": "Novo investimento", "grava": True,
      "descricao": "Cadastra um investimento. Sem rendimento, o padrão do tipo (CDB: 100% do CDI). de_quem vazio: da própria "
                   "pessoa; com um nome, de outra pessoa (fica fora do patrimônio dela).",
@@ -176,7 +179,10 @@ FERRAMENTAS = [
                       "indexador": {"type": "string", "enum": list(INDEXADORES)},
                       "taxa": {"type": "number", "description": "Pelo indexador: 110 (% do CDI), 6.5 (IPCA + 6,5% a.a.), 13 (prefixado)."},
                       "vencimento": _DATA, "liquidez": {"type": "string", "enum": ["diaria", "vencimento"]},
-                      "de_quem": {"type": "string"}}, ["nome", "valor", "tipo"])},
+                      "de_quem": {"type": "string"},
+                      "codigo": {"type": "string", "description": "Numa ação, fundo imobiliário, ETF ou BDR: o código na bolsa (PETR4, MXRF11). Com a "
+                                                                  "quantidade, o valor se atualiza sozinho pela cotação (com a chave da brapi posta no app)."},
+                      "quantidade": {"type": "number", "exclusiveMinimum": 0, "description": "Quantas ações ou cotas, junto com o codigo."}}, ["nome", "tipo"])},
     # 1.85.0 (o dono: "pode criar" as ferramentas que faltavam para as rondas do CorrerIA): o Ajustar saldo do Caixa da tela
     {"nome": "ajustar_saldo", "titulo": "Ajustar o saldo do caixa", "grava": True,
      "descricao": "Acerta o saldo do caixa com o que a pessoa diz que tem de verdade (o saldo de hoje está em gerencia_resumo). "
@@ -649,6 +655,10 @@ def _investimentos(d, hoje, bens=None):
             it["vencimento"] = i["vencimento"]
         if i.get("obs"):
             it["obs"] = i["obs"]
+        if cotacoes.limpar_ticker(i.get("ticker")):  # 1.99.0: um papel da bolsa
+            it.update(codigo=i["ticker"], quantidade=cotacoes.quantidade(i.get("qtd")))
+            if isinstance(i.get("cotacao"), dict) and i["cotacao"].get("preco"):
+                it["cotacao"] = i["cotacao"]["preco"]
         out.append(it)
     # 1.78.0: o patrimônio da tela (o placar do Agora): o seu, investido mais os bens (os do InventarIA, com o valor de
     # hoje); antes, a soma dos investimentos (com os de outras pessoas no total)
@@ -959,11 +969,23 @@ def _atualizar_inv(d, a, hoje):
     inv = next((i for i in d.get("investimentos", []) if i.get("id") == iid), None)
     if not inv:
         raise ErroFerramenta(f"Investimento não encontrado: {iid}. Veja os ids em gerencia_investimentos.")
-    dados = [k for k in ("saldo", "aporte", "resgate") if a.get(k) is not None]
+    dados = [k for k in ("saldo", "aporte", "resgate", "quantidade") if a.get(k) is not None]
     if len(dados) != 1:
-        raise ErroFerramenta("Mande um só: saldo (o de agora), aporte ou resgate.")
+        raise ErroFerramenta("Mande um só: saldo (o de agora), aporte, resgate ou, num papel da bolsa, quantidade.")
     ind, corrigir = d.get("indices", {}), calc.corrige_valores(d)
     antes = round(calc.valor_hoje(inv, ind, corrigir, hoje), 2)
+    if dados[0] == "quantidade":  # 1.99.0: um papel da bolsa: a quantidade de agora; o valor é ela vezes a última cotação
+        q = cotacoes.quantidade(a["quantidade"])
+        if not cotacoes.limpar_ticker(inv.get("ticker")):
+            raise ErroFerramenta("Esse investimento não tem código da bolsa: mande saldo, aporte ou resgate.")
+        if not q:
+            raise ErroFerramenta("quantidade: quantas ações ou cotas, um número maior que zero.")
+        inv["qtd"] = q
+        preco = (inv.get("cotacao") or {}).get("preco")
+        if preco:
+            _definir_valor(inv, round(q * preco, 2), hoje, ind, corrigir, hoje)
+            return f"Atualizado: {inv.get('nome', '')}: {q:g} de {inv['ticker']} a {_brl(preco)} = {_brl(round(q * preco, 2))} (antes {_brl(antes)})."
+        return f"Atualizado: {inv.get('nome', '')}: {q:g} de {inv['ticker']}. O valor entra na próxima atualização das cotações."
     k = dados[0]
     v = _valor(a[k], k, zero=k == "saldo")
     novo = v if k == "saldo" else antes + v if k == "aporte" else antes - v
@@ -1003,7 +1025,16 @@ def _novo_inv(d, a, hoje):
     taxa = 0 if idx in ("poupanca", "parado") else (calc.num(a.get("taxa")) if a.get("taxa") is not None else (taxa_p if idx == idx_p else 0))
     liq = a.get("liquidez") if a.get("liquidez") in ("diaria", "vencimento") else liq_p
     venc = _data(a.get("vencimento"), hoje, "vencimento").isoformat() if a.get("vencimento") else None
-    valor = _valor(a.get("valor"), zero=True)
+    # 1.99.0: um papel da bolsa: o código e a quantidade (o valor vem da cotação; sem ela ainda, o que a pessoa disse ou zero)
+    ticker = cotacoes.limpar_ticker(a.get("codigo")) if a.get("codigo") else ""
+    qtd = cotacoes.quantidade(a.get("quantidade")) if a.get("quantidade") is not None else 0
+    if a.get("codigo") and not ticker:
+        raise ErroFerramenta("codigo: o código na bolsa, como PETR4 ou MXRF11.")
+    if bool(ticker) != bool(qtd):
+        raise ErroFerramenta("Num papel da bolsa, mande o codigo e a quantidade juntos.")
+    if a.get("valor") is None and not ticker:
+        raise ErroFerramenta("Falta o valor de hoje.")
+    valor = _valor(a.get("valor"), zero=True) if a.get("valor") is not None else 0
     banco_nome = _texto(a.get("banco"), 60)
     b = None
     if banco_nome:
@@ -1022,8 +1053,11 @@ def _novo_inv(d, a, hoje):
     inv = {"id": integracao.uid(), "nome": nome, "banco": b["id"] if b else "", "tipo": tipo, "valor": valor, "data_valor": hoje.isoformat(),
            "indexador": idx, "taxa": taxa, "liquidez": liq, "vencimento": venc, "titular": "terceiros" if dono else "meu", "terceiro": dono,
            "obs": "", "fotos": [], "criado_em": agora, "atualizado_em": agora}
+    if ticker:
+        inv.update(ticker=ticker, qtd=qtd)
     d["investimentos"].append(inv)
     return (f"Cadastrado: {nome}{' · ' + b['nome'] if b else ''} · {TIPOS_INV[tipo][0]} · {calc.rotulo_taxa(inv)} · {_brl(valor)}"
+            + (f" · {qtd:g} de {ticker} (o valor acompanha a cotação, com a chave da brapi posta no app)" if ticker else "")
             + (f" · vence {_dm(venc)}" if venc else "") + (f" · de {dono}" if dono else "") + f". id: {inv['id']}")
 
 

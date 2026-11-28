@@ -1773,6 +1773,10 @@ input[readonly] { opacity: .8; }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 20px no-repeat;
 }
 .cx-grupo.fechado .cx-grupo-h::after { transform: rotate(-90deg); }
+/* 1.99.0: o código na bolsa e a quantidade, lado a lado, no investimento em ações */
+.papel-2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: end; }
+.papel-2 label { display: block; }
+#f-ticker { text-transform: uppercase; }
 
 </style>
 <main id="app" aria-live="polite"></main>
@@ -2338,7 +2342,7 @@ dialog.ss-wrap::backdrop{background:transparent}
 
 const DEMO = !!window.GERENCIA_DEMO;
 const noCelular = () => typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
-const VERSAO = '1.98.0';
+const VERSAO = '1.99.0';
 
 // ordem para sugerir cor a um banco novo
 const CORES_BANCO = ['#62B5FF', '#B99BFF', '#4ED3A6', '#FFA23E', '#FF77A9', '#F2C14E', '#FF8A65', '#3CCBDA', '#FF5A4F', '#8F9BFF', '#8BD45F', '#B5B9C2'];
@@ -2871,6 +2875,8 @@ async function jsonOk(r) {
 const apiServidor = {
   state: () => fetch('api/state', { cache: 'no-store' }).then(jsonOk),
   previsao: () => fetch('api/previsao', { cache: 'no-store' }).then(jsonOk),
+  cotacoes: () => fetch('api/cotacoes', { cache: 'no-store' }).then(jsonOk),
+  cotacoesMudar: c => fetch('api/cotacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then(jsonOk),
   async save(corpo) {
     const r = await fetch('api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
     if (r.status === 409) { const e = new Error('conflito'); e.conflito = true; e.d = await r.json(); throw e; }
@@ -2924,7 +2930,15 @@ function apiDemo() {
   const espera = ms => new Promise(r => setTimeout(r, ms));
   return {
     async state() { d = d || gerarExemplo(); return Object.assign(clone(d), { usuario: 'Ana' }); },
-    async previsao() { return null; },  // a conta é do servidor: na prévia, o cartão fica sem a linha
+    async previsao() { return null; },
+    // as cotações da B3: na prévia, a chave fica na memória da página e nada é buscado
+    async cotacoes() { const t = this._brapi || ''; return { tem: !!t, fim: t ? '••••' + t.slice(-4) : '', atualizado_em: this._brapiEm || '', erro: '', papeis: (d ? d.investimentos : []).filter(i => i.ticker && +i.qtd > 0).length }; },
+    async cotacoesMudar(c) {
+      if (c.apagar) { this._brapi = ''; this._brapiEm = ''; }
+      else if (c.atualizar) this._brapiEm = new Date().toISOString();
+      else { const t = String(c.token || '').trim(); if (t.length < 8 || /\s/.test(t)) throw new Error('Cole a chave da brapi (o token do painel dela).'); this._brapi = t; }
+      return this.cotacoes();
+    },  // a conta é do servidor: na prévia, o cartão fica sem a linha
     async save(c) {
       if (c.rev !== d.rev) { const e = new Error('conflito'); e.conflito = true; e.d = clone(d); throw e; }
       for (const k of ['bancos', 'investimentos', 'ajustes', 'exemplo', 'lancamentos', 'recorrencias', 'categorias', 'beneficios', 'metas']) if (k in c) d[k] = c[k];
@@ -7063,6 +7077,35 @@ function emailDeAdicionar() {
 
 /* Senhas dos PDFs: as faturas com senha (ex.: os dígitos do CPF) abrem sozinhas na leitura por IA. As senhas ficam
    no servidor, fora das exportações; a tela só vê o nome e o fim (••••45). */
+// 1.99.0: Cotações da B3 (a brapi): a chave da casa (só o fim volta para a tela), quando atualizou e o Atualizar agora
+function cardCotacoes() {
+  if (S.cotacoes === undefined) carregarCotacoes();
+  const C = S.cotacoes;
+  const brapi = site('https://brapi.dev', 'brapi');
+  let corpo;
+  if (!C) corpo = `<div class="status manual">Carregando…</div>`;
+  else if (!C.tem) corpo = `<div class="campo" style="margin:0">${tituloLinha('lock', 'Chave da brapi')}
+      <input class="inp" id="brapi-token" type="password" autocomplete="off" placeholder="Cole a chave aqui" aria-label="Chave da brapi" style="margin-top:8px">
+      <span class="ajuda">Grátis, criada no site da ${brapi}.</span></div>
+    <button class="btn out" data-a="cot-salvar" style="margin-top:12px">${ic('check')}Salvar e testar</button>`;
+  else {
+    const quando = C.atualizado_em ? 'atualizado em ' + fData(pData(String(C.atualizado_em).slice(0, 10))) : 'ainda não atualizou';
+    corpo = `<div class="status${C.erro ? ' manual' : ''}" id="cot-status">Chave ${esc(C.fim)} · ${C.papeis ? (C.papeis === 1 ? '1 investimento com código' : C.papeis + ' investimentos com código') + ' · ' + quando : 'nenhum investimento com código ainda'}${C.erro ? '<br>' + esc(C.erro) : ''}</div>
+      <div class="inv-acoes" style="margin-top:12px"><button class="btn out" data-a="cot-atualizar"${C.papeis ? '' : ' disabled'}>${ic('refresh')}Atualizar agora</button>
+        <button class="btn out" data-a="cot-apagar">${ic('trash')}Tirar a chave</button></div>`;
+  }
+  return `<section class="card" id="cotacoes">${maisCab('trend', 'Cotações da B3')}
+    ${maisLead(`Ações e fundos com o código e a quantidade ficam com o valor do dia, pela ${brapi}.`)}
+    ${corpo}</section>`;
+}
+function carregarCotacoes() {
+  if (S.cotacoesPedido) return;
+  S.cotacoesPedido = api.cotacoes().then(r => r, () => null).then(r => { S.cotacoes = r || { tem: false, fim: '', papeis: 0 }; S.cotacoesPedido = null; if (S.ui.maisTela === 'config') render(); });
+}
+function cotacoesAcao(corpo, ok) {
+  return api.cotacoesMudar(corpo).then(r => { S.cotacoes = r; toast(r.erro || ok); if (!DEMO) return api.state().then(d => { S.d = normalizar(d); }); })
+    .catch(e => toast(e.message)).then(() => render());
+}
 function cardSenhas() {
   if (S.senhas === undefined) carregarSenhas();
   const L = S.senhas;
@@ -8523,7 +8566,7 @@ function maisIntegracoes() {
     ...(iaOn() ? [['sensor.gerencia_ia_hoje', 'chamadas de IA hoje, com erros, cota e tokens estimados']] : []),
   ];
   // a ordem da família: os outros apps › CorrerIA › IA › Falar › Uso da IA › (as faturas por e-mail) › Sensores
-  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardMemoria() + cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + `
+  return cardOutrosApps(a) + cardBens(a) + cardCorreria(a) + cardIA() + (iaOn() ? cardMemoria() + cardFalar() + cardUsoIA() + cardEmail() + cardSenhas() : '') + cardCotacoes() + `
     <section class="card" id="sensores">${maisCab('chart-column', 'Sensores no Home Assistant')}
       ${maisLead('Para usar em painéis e automações do Home Assistant.')}
       ${linhaChave('sensores', sens, 'Criar sensores', sens ? 'Ligado.' : 'Desligado: nenhum sensor no Home Assistant.')}
@@ -9097,6 +9140,20 @@ function camposBens(f) {
       <button type="button" class="link" data-a="f-dividir" data-v="1">${ic('layers', 'ic-s')}Separar o valor por categoria</button></div>`;
 }
 
+// 1.99.0: um papel da bolsa (ação, fundo imobiliário, ETF, BDR): com o código e a quantidade, o valor é a quantidade vezes a
+// cotação do dia, que o servidor busca na brapi (a chave fica em Configurações › Integrações › Cotações da B3)
+const limparTicker = v => { let t = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (/^[A-Z]{4}[0-9]{1,2}F$/.test(t)) t = t.slice(0, -1); return /^(?=.*[A-Z])[A-Z0-9]{4,8}$/.test(t) ? t : ''; };
+const qtdPapel = v => { const n = typeof v === 'string' ? parseNum(v) : +v; return n > 0 && n < 1e9 ? Math.round(n * 1e6) / 1e6 : 0; };
+function camposPapel(f, erro) {
+  const c = f.original && f.original.cotacao, t = limparTicker(f.ticker);
+  const dica = t && qtdPapel(f.qtd) ? (c && c.preco && limparTicker(f.original.ticker) === t
+    ? `${esc(t)} a ${brl(c.preco)}: o valor acompanha a cotação.` : 'O valor acompanha a cotação, com a chave posta em Configurações › Integrações › Cotações da B3.')
+    : 'Com o código e a quantidade, o valor se atualiza sozinho pela cotação.';
+  return `<div class="campo papel" id="f-papel"><div class="papel-2">
+      <div><label for="f-ticker">Código na bolsa <span class="opc">(opcional)</span></label><input id="f-ticker" class="inp" data-f="ticker" value="${esc(f.ticker || '')}" placeholder="Ex.: PETR4" autocomplete="off" autocapitalize="characters" maxlength="8"></div>
+      <div><label for="f-qtd">Quantidade</label><input id="f-qtd" class="inp" data-f="qtd" inputmode="decimal" value="${f.qtd ? String(f.qtd).replace('.', ',') : ''}" placeholder="0" autocomplete="off"></div></div>
+    ${erro || ''}<div class="ajuda" id="aj-papel">${dica}</div></div>`;
+}
 function montarFormInv() {
   const f = F;
   const ix = idxDe(f.indexador);
@@ -9137,6 +9194,7 @@ function montarFormInv() {
         <div class="pref${err('valor')}"><span>R$</span><input id="f-valor" data-f="valor" inputmode="numeric" value="${f.valor ? NF2.format(f.valor) : ''}" placeholder="0,00"${f.tipo === 'bens' && f.dividir ? ' readonly aria-readonly="true" title="A soma das categorias"' : ''}></div></div>
     ${msg('valor')}<div class="ajuda" id="aj-valor" style="color:var(--muted);font-size:14.5px;margin-bottom:16px"></div>
     ${campoData('f-data', 'Valor em', f.data_valor, 'data-f="data_valor"', { tipo: 'passado', max: iso(hoje()) })}
+    ${f.tipo === 'acoes' ? camposPapel(f, msg('ticker')) : ''}
     ${f.tipo === 'bens' ? camposBens(f) : ''}
     <div class="campo dobra-c" data-dobra="inv-rend"${oculto}><div class="lbl">Rendimento${ix.nome ? `<span class="fl-val">· ${esc(rendTexto(ix, f.taxa))}</span>` : ''}</div><div class="chips">${IDX.filter(x => !x.oculto || x.id === f.indexador).map(x =>
       `<button class="chip${f.indexador === x.id ? ' on' : ''}" data-a="f-idx" data-v="${x.id}">${ic('percent', 'ic-s')}${x.nome}</button>`).join('')}</div>
@@ -9195,7 +9253,10 @@ function salvarInvestimento(eOutro) {
   f.erros = {};
   if (f.tipo === 'bens' && f.dividir) f.valor = round2(Object.values(f.partes || {}).reduce((a, v) => a + (+v || 0), 0));
   const ix = idxDe(f.indexador);
-  if (!(f.valor > 0)) f.erros.valor = 'Coloque o valor.';
+  const ticker = f.tipo === 'acoes' ? limparTicker(f.ticker) : '', qtd = ticker ? qtdPapel(f.qtd) : 0;
+  if (f.tipo === 'acoes' && String(f.ticker || '').trim() && !ticker) f.erros.ticker = 'O código é como PETR4 ou MXRF11.';
+  else if (ticker && !qtd) f.erros.ticker = 'Coloque a quantidade.';
+  if (!(f.valor > 0) && !(ticker && qtd)) f.erros.valor = 'Coloque o valor.';
   if (ix.taxa && (f.taxa === '' || f.taxa == null || isNaN(f.taxa))) f.erros.taxa = 'Coloque a taxa.';
   if (f.titular === 'terceiros' && !String(f.terceiro || '').trim()) f.erros.terceiro = 'Diga de quem é.';
   if (Object.keys(f.erros).length) { pintarFolha(); toast('Falta preencher ' + Object.keys(f.erros).length + (Object.keys(f.erros).length === 1 ? ' campo' : ' campos')); return; }
@@ -9213,6 +9274,7 @@ function salvarInvestimento(eOutro) {
       return partes.length ? { partes, valor: round2(partes.reduce((a, p) => a + p.valor, 0)), taxa: taxaPartes(partes), categoria_bem: partes.length === 1 ? partes[0].categoria : 'varias' } : {};
     })() : { partes: undefined }),
     titular: f.titular === 'terceiros' ? 'terceiros' : 'meu', terceiro: f.titular === 'terceiros' ? String(f.terceiro).trim() : '',
+    ...(ticker && qtd ? { ticker, qtd, ...(f.original?.cotacao && limparTicker(f.original.ticker) === ticker ? { cotacao: f.original.cotacao } : {}) } : {}),
     obs: (f.obs || '').trim(), fotos: (f.fotos || []).slice(), criado_em: f.original?.criado_em || new Date().toISOString(), atualizado_em: new Date().toISOString(),
   };
   const novosBancos = f.bancosNovos.filter(b => b.id === inv.banco || S.d.investimentos.some(i => i.banco === b.id));
@@ -9697,6 +9759,9 @@ document.addEventListener('click', ev => {
       if (tipo === 'receita' || apo) { LF.cartao = false; LF.vinculo = ''; }
       pintarFolha(); break;
     }
+    case 'cot-salvar': cotacoesAcao({ token: ($('#brapi-token') || {}).value || '' }, 'Chave guardada'); break;
+    case 'cot-atualizar': toast('Buscando as cotações…'); cotacoesAcao({ atualizar: true }, 'Cotações atualizadas'); break;
+    case 'cot-apagar': cotacoesAcao({ apagar: true }, 'Chave tirada'); break;
     case 'lf-set': LF[el.dataset.k] = v; if (el.dataset.k === 'categoria') LF.catAuto = false; pintarFolha(); break;
     case 'lf-pago': LF.pago = !!v; LF.pagoMexido = true; pintarFolha(); break;
     case 'lf-conta': LF.conta = v; if (!contaDe(v)?.cartao) LF.cartao = false; LF.pagoMexido = LF.id ? LF.pagoMexido : false; pintarFolha(); break;

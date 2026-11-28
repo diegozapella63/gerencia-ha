@@ -862,6 +862,28 @@ class TestIntegracoes(TelaMais):
         self.clicar('#folhas [data-a="senha-salvar"]')
         self.janela_fechada()
 
+    def test_1_99_cotacoes_da_b3(self):
+        """1.99.0: o cartão Cotações da B3: a chave da brapi (só o fim volta), o Atualizar agora e o Tirar a chave; vale sem a IA."""
+        papel = dict(INV_CDB, id="p1", tipo="acoes", ticker="BOLA3", qtd=10)
+        self.abrir(base(bancos=BANCOS, investimentos=[INV_CDB, papel], ajustes={"ia": False}), ui={"tab": "mais", "maisTela": "config", "maisAba": "integracoes"})
+        self.pg.wait_for_selector("#cotacoes #brapi-token")
+        self.assertEqual(self.texto("#cotacoes h2"), "Cotações da B3")
+        self.assertEqual(self.pg.get_attribute("#cotacoes .painel-lead a", "href"), "https://brapi.dev")
+        self.clicar('#cotacoes [data-a="cot-salvar"]')
+        self.pg.wait_for_function("document.body.innerText.includes('Cole a chave da brapi')")
+        self.pg.fill("#brapi-token", "chave-de-teste-abcd")
+        self.clicar('#cotacoes [data-a="cot-salvar"]')
+        self.pg.wait_for_selector("#cot-status")
+        self.assertEqual(self.texto("#cot-status"), "Chave ••••abcd · 1 investimento com código · ainda não atualizou")
+        self.assertNotIn("chave-de-teste", self.pg.inner_text("#cotacoes"))
+        caixas = [self.pg.locator(f'#cotacoes [data-a="{a}"]').bounding_box() for a in ("cot-atualizar", "cot-apagar")]
+        self.assertEqual((round(caixas[0]["height"]), round(caixas[0]["width"])), (round(caixas[1]["height"]), round(caixas[1]["width"])))
+        self.clicar('#cotacoes [data-a="cot-atualizar"]')
+        self.pg.wait_for_function("document.querySelector('#cot-status').textContent.includes('atualizado em')")
+        self.clicar('#cotacoes [data-a="cot-apagar"]')
+        self.pg.wait_for_selector("#cotacoes #brapi-token")
+        self.assertFalse(self.pg.evaluate("document.documentElement.scrollWidth > innerWidth"))
+
     def test_senhas_dos_pdfs_comeca_vazio_e_some_sem_ia(self):
         self.abrir_int()
         self.pg.wait_for_selector("#senhas-pdf .nota")
@@ -1621,7 +1643,7 @@ class TestMenuMais(TelaMais):
               ("Configurações", "Integrações, dados, aparência e opções."), ("Sobre", "CorrerIA Code, os apps e o GitHub.")]
     # tela: (título, os quadros que ela tem)
     TELAS = {"bancos": ("Bancos", ["bancos"]), "caixa": ("Caixa", ["fixos", "categorias", "dicas"]),
-             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "memoria-ia", "falar", "uso-ia", "email", "senhas-pdf", "sensores"]),
+             "invest": ("Invest", ["indices", "oportunidades"]), "beneficios": ("Benefícios", ["beneficios", "metas"]), "config": ("Configurações", ["outros-apps", "bens", "correria", "ia", "memoria-ia", "falar", "uso-ia", "email", "senhas-pdf", "cotacoes", "sensores"]),
              "sobre": ("Sobre", ["por-que", "os-apps"])}
 
     def no_menu(self):
